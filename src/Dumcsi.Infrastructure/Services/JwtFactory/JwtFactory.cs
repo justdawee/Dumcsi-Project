@@ -22,7 +22,7 @@ public class JwtFactory(IOptions<JwtFactoryOptions> options) : IJWTFactory
                 new System.Security.Claims.Claim("sub", userId.ToString()),
                 new System.Security.Claims.Claim("username", username),
             }),
-            Expires = DateTime.UtcNow.AddHours(1),
+            Expires = DateTime.UtcNow.Add(option.TokenLifetime),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(Convert.FromBase64String(option.Secret)), 
                 SecurityAlgorithms.HmacSha256Signature

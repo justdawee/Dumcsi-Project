@@ -21,11 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Services\" />
+    <ProjectReference Include="..\Dumcsi.Domain\Dumcsi.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Dumcsi.Domain\Dumcsi.Domain.csproj" />
+    <Folder Include="Helpers\" />
   </ItemGroup>
 
 </Project>
