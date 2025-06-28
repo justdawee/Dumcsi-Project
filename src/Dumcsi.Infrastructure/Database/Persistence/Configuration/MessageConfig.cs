@@ -17,22 +17,22 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .WithMany(user => user.SentMessages) 
             .HasForeignKey(message => message.SenderId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Restrict); // Ha egy usert törölnének, ne törlődjenek az üzenetei. Ez megakadályozza a törlést, amíg vannak üzenetei.
-        
-        builder.HasOne(message => message.ChatRoom)
-            .WithMany(room => room.Messages)
-            .HasForeignKey(message => message.RoomId)
+            .OnDelete(DeleteBehavior.Restrict); // User törlése ne törölje az üzeneteket
+
+        builder.HasOne(message => message.Channel)  // ChatRoom → Channel
+            .WithMany(channel => channel.Messages)
+            .HasForeignKey(message => message.ChannelId)  // RoomId → ChannelId
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade); // Ha egy szoba törlődik, törlődjön vele minden üzenete. Ez a logikus viselkedés.
+            .OnDelete(DeleteBehavior.Cascade); // Channel törlése törölje az üzeneteket
         
         builder.HasMany(message => message.Attachments)
             .WithOne(attachment => attachment.Message)
             .HasForeignKey(attachment => attachment.MessageId)
-            .OnDelete(DeleteBehavior.Cascade); // Ha egy üzenet törlődik, a hozzá tartozó csatolmányok is törlődjenek.
+            .OnDelete(DeleteBehavior.Cascade);
         
         builder.HasMany(message => message.ModerationLogs)
             .WithOne(log => log.Message)
             .HasForeignKey(log => log.MessageId)
-            .OnDelete(DeleteBehavior.Cascade); // Ha egy üzenet törlődik, a log bejegyzései is törlődjenek.
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,0 +1,27 @@
+﻿using NodaTime;
+
+namespace Dumcsi.Domain.Entities;
+
+public class Server
+{
+    public long Id { get; set; }
+    
+    public required string Name { get; set; }
+    
+    public string? Description { get; set; }
+    
+    public string? IconUrl { get; set; }
+    
+    public long OwnerId { get; set; }
+    public required User Owner { get; set; }
+    
+    public Instant CreatedAt { get; set; }
+    public Instant UpdatedAt { get; set; }
+    
+    public bool IsPublic { get; set; } = true;
+    public string? InviteCode { get; set; }
+    public int? MemberLimit { get; set; }
+    
+    public ICollection<ServerMember> Members { get; set; } = new List<ServerMember>();
+    public ICollection<Channel> Channels { get; set; } = new List<Channel>();
+}
