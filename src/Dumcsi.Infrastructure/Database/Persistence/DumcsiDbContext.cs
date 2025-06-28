@@ -1,7 +1,7 @@
 ﻿using Dumcsi.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Dumcsi.Server.Database;
+namespace Dumcsi.Infrastructure.Database.Persistence;
 
 public class DumcsiDbContext(DbContextOptions<DumcsiDbContext> options) : DbContext(options)
 {
