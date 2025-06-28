@@ -17,12 +17,21 @@ public class ModerationLogConfiguration : IEntityTypeConfiguration<ModerationLog
         builder.Property(x => x.Reason)
             .HasMaxLength(500);
         
+        // Message kapcsolat (nullable)
         builder.HasOne(x => x.Message)
             .WithMany(x => x.ModerationLogs)
-            .HasForeignKey(x => x.MessageId);
+            .HasForeignKey(x => x.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        // Server kapcsolat (nullable)
+        builder.HasOne(x => x.Server)
+            .WithMany()
+            .HasForeignKey(x => x.ServerId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         builder.HasOne(x => x.Moderator)
             .WithMany(x => x.ModerationActions)
-            .HasForeignKey(x => x.ModeratorId);
+            .HasForeignKey(x => x.ModeratorId)
+            .OnDelete(DeleteBehavior.Restrict); // Moderator törlése ne törölje a log-okat
     }
 }
