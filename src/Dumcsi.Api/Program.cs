@@ -1,5 +1,5 @@
+using Dumcsi.Infrastructure.Database.Persistence;
 using Dumcsi.Infrastructure.Services.JwtFactory;
-using Dumcsi.Server.Database;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
