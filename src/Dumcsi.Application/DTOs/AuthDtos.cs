@@ -4,6 +4,7 @@ namespace Dumcsi.Application.DTOs;
 
 public class AuthControllerModels
 {
+    //POST /api/auth/register request
     public class RegisterRequestDto
     {
         [Required]
@@ -17,6 +18,7 @@ public class AuthControllerModels
         public string Email { get; set; } = string.Empty;
     }
     
+    //POST /api/auth/login request
     public class LoginRequestDto
     {
         [Required]

@@ -1,6 +1,7 @@
 using Dumcsi.Infrastructure.Database.Persistence;
 using Dumcsi.Infrastructure.Services.JwtFactory;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,7 @@ dbContext.Database.EnsureCreated(); // Ensure the database is created
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
