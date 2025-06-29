@@ -18,7 +18,7 @@ public class Server
     public Instant CreatedAt { get; set; }
     public Instant UpdatedAt { get; set; }
     
-    public bool IsPublic { get; set; } = true;
+    public bool IsPublic { get; set; } = false;
     public string? InviteCode { get; set; }
     public int? MemberLimit { get; set; }
     
