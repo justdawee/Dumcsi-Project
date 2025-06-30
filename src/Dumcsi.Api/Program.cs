@@ -1,11 +1,18 @@
 using Dumcsi.Infrastructure.Database.Persistence;
 using Dumcsi.Infrastructure.Services.JwtFactory;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        var nodaSettings = DateTimeZoneProviders.Tzdb;
+        options.JsonSerializerOptions.ConfigureForNodaTime(nodaSettings);
+    });
 
 builder.Services.AddOpenApi();
 
@@ -22,13 +29,33 @@ builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
-var dbContext = app.Services.GetRequiredService<IDbContextFactory<DumcsiDbContext>>()
-    .CreateDbContext();
+// Database inicializálás védve
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
+{
+    try
+    {
+        var dbContext = app.Services.GetRequiredService<IDbContextFactory<DumcsiDbContext>>()
+            .CreateDbContext();
+        
+        try
+        {
+            dbContext.Database.EnsureDeleted();
+        }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "3D000")  { /* DB doesn't exist */}
+        
+        try
+        {
+            dbContext.Database.EnsureCreated();
+        }
+        catch (Npgsql.PostgresException ex) when (ex.SqlState == "42P04") { /* DB exists */}
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization failed: {ex.Message}");
+    }
+}
 
-dbContext.Database.EnsureDeleted(); // For development purposes, ensure the database is deleted on startup
-
-dbContext.Database.EnsureCreated(); // Ensure the database is created
-
+// OpenAPI csak Development-ben
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
