@@ -11,8 +11,8 @@ using NodaTime.Extensions;
 
 namespace Dumcsi.Api.Controllers;
 
-[Route("api/[controller]")]
 [ApiController]
+[Route("api/[controller]")]
 public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJWTFactory jwtFactory) : ControllerBase
 {
     [HttpPost("register")]

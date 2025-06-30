@@ -10,13 +10,12 @@ using NodaTime.Extensions;
 
 namespace Dumcsi.Api.Controllers;
 
-[Route("api/[controller]")]
+[Authorize]
 [ApiController]
+[Route("api/server")]
 public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
 {
-    // GET /api/server
-    [Authorize]
-    [HttpGet]
+    [HttpGet] // GET /api/server
     public async Task<IActionResult> GetServers(CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -46,10 +45,8 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(servers);
     }
-
-    // POST /api/server
-    [Authorize]
-    [HttpPost]
+    
+    [HttpPost] // POST /api/server
     public async Task<IActionResult> PostServer([FromBody] ServerDtos.CreateServerRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -108,10 +105,8 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(new { ServerId = server.Id, Message = "Server created successfully with default channel" });
     }
-
-    // GET /api/server/{id}
-    [Authorize]
-    [HttpGet("{id}")]
+    
+    [HttpGet("{id}")] // GET /api/server/{id}
     public async Task<IActionResult> GetServerById(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -166,9 +161,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(response);
     }
-
-    // GET /api/server/{id}/members
-    [Authorize]
+    
     [HttpGet("{id}/members")]
     public async Task<IActionResult> GetServerMembers(long id, CancellationToken cancellationToken)
     {
@@ -203,9 +196,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(members);
     }
-
-    // POST /api/server/{id}/join
-    [Authorize]
+    
     [HttpPost("{id}/join")]
     public async Task<IActionResult> JoinServer(long id, [FromBody] ServerDtos.JoinServerRequestDto request, CancellationToken cancellationToken)
     {
@@ -254,9 +245,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(new { Message = "Successfully joined the server", ServerName = server.Name });
     }
-
-    // POST /api/server/{id}/leave
-    [Authorize]
+    
     [HttpPost("{id}/leave")]
     public async Task<IActionResult> LeaveServer(long id, CancellationToken cancellationToken)
     {
@@ -292,9 +281,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(new { Message = "Successfully left the server" });
     }
-
-    // DELETE /api/server/{id}
-    [Authorize]
+    
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteServer(long id, CancellationToken cancellationToken)
     {
@@ -322,9 +309,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
 
         return Ok(new { Message = "Server deleted successfully" });
     }
-
-    // POST /api/server/{id}/invite
-    [Authorize]
+    
     [HttpPost("{id}/invite")]
     public async Task<IActionResult> InviteToServer(long id, CancellationToken cancellationToken)
     {
@@ -358,5 +343,90 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new { InviteCode = inviteCode, Message = "Invite code generated successfully" });
+    }
+    
+    // Szerver csatornái
+    [HttpGet("{id}/channels")] // GET /api/server/{id}/channels
+    public async Task<IActionResult> GetChannels(long id, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var serverExists = await dbContext.Servers.AnyAsync(s => s.Id == id, cancellationToken);
+        if (!serverExists)
+            return NotFound("Server not found");
+
+        var channels = await dbContext.Channels
+            .Where(c => c.ServerId == id)
+            .Select(c => new ChannelDtos.ChannelListItemDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Description = c.Description,
+                Type = c.Type,
+                Position = c.Position,
+                CreatedAt = c.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(channels);
+    }
+    
+    // Új csatorna létrehozás
+    [HttpPost("{id}/channels")] // POST /api/server/{id}/channels
+    public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var serverExists = await dbContext.Servers.AnyAsync(s => s.Id == id, cancellationToken);
+        if (!serverExists)
+            return NotFound("Server not found");
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+            return Unauthorized();
+
+        var isMember = await dbContext.ServerMembers
+            .AnyAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
+
+        if (!isMember)
+            return Forbid("You are not a member of this server");
+
+        var memberRole = await dbContext.ServerMembers
+            .Where(sm => sm.ServerId == id && sm.UserId == userId)
+            .Select(sm => sm.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (memberRole == Role.Member)
+            return Forbid("Only moderators and admins can create channels");
+
+        var channel = new Channel
+        {
+            ServerId = id,
+            Name = request.Name,
+            Description = request.Description,
+            Type = request.Type,
+            Position = 0,
+            CreatedAt = DateTimeOffset.UtcNow.ToInstant(),
+            Server = await dbContext.Servers
+                .FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
+        };
+
+        dbContext.Channels.Add(channel);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return CreatedAtAction(nameof(GetChannels), new { id }, new ChannelDtos.ChannelListItemDto
+        {
+            Id = channel.Id,
+            Name = channel.Name,
+            Description = channel.Description,
+            Type = channel.Type,
+            Position = channel.Position,
+            CreatedAt = channel.CreatedAt
+        });
     }
 }

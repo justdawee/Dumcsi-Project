@@ -13,6 +13,9 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(m => m.Content)
             .IsRequired();
         
+        builder.Property(m => m.EditedAt)
+            .IsRequired(false);
+        
         builder.HasOne(message => message.Sender)
             .WithMany(user => user.SentMessages) 
             .HasForeignKey(message => message.SenderId)

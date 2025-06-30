@@ -16,7 +16,7 @@ public class Channel
     public int Position { get; set; } = 0; // Csatorna sorrendje
     
     public long ServerId { get; set; }
-    public required Server Server { get; set; }
+    public required Server? Server { get; set; }
     
     public Instant CreatedAt { get; set; }
     public Instant UpdatedAt { get; set; }

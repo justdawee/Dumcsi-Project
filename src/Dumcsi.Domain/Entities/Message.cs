@@ -11,14 +11,15 @@ public class Message
     public required Channel Channel { get; set; }  // ChatRoom helyett
 
     public long SenderId { get; set; }
-    public required User Sender { get; set; }
+    public required User? Sender { get; set; }
     
     public required string Content { get; set; }
 
     public ModerationStatus ModerationStatus { get; set; } = ModerationStatus.Visible;
     
     public Instant CreatedAt { get; set; }
-    public Instant UpdatedAt { get; set; }
+    public Instant? EditedAt { get; set; }
+    public bool IsEdited => EditedAt.HasValue;
     
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
     public ICollection<ModerationLog> ModerationLogs { get; set; } = new List<ModerationLog>();
