@@ -2,8 +2,11 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 
 namespace Dumcsi.Tests.Integration;
@@ -349,23 +352,39 @@ public class DiscordApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var content = new StringContent(json, Encoding.UTF8, "application/json");
         return await _client.PatchAsync(url, content);
     }
+    
+    private void CleanupTestDatabase()
+    {
+        try
+        {
+            using var scope = _factory.Services.CreateScope();
+            var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<DumcsiDbContext>>();
+            using var dbContext = dbContextFactory.CreateDbContext();
+            
+            dbContext.Database.EnsureDeleted();
+            dbContext.Database.EnsureCreated();
+            
+            _output.WriteLine("🧹 Test database cleaned up");
+        }
+        catch (Exception ex)
+        {
+            _output.WriteLine($"⚠️ Database cleanup failed: {ex.Message}");
+        }
+    }
 
     public void Dispose()
     {
+        CleanupTestDatabase();
+        
         _client?.Dispose();
         _factory?.Dispose();
     }
 }
 
 // Simple unit tests for edge cases
-public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
+public class AuthControllerTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly HttpClient _client;
-
-    public AuthControllerTests(WebApplicationFactory<Program> factory)
-    {
-        _client = factory.CreateClient();
-    }
+    private readonly HttpClient _client = factory.CreateClient();
 
     [Fact]
     public async Task Register_InvalidEmail_ShouldReturnBadRequest()
