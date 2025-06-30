@@ -1,0 +1,226 @@
+@import 'tailwindcss';
+
+/* Discord-like color theme */
+@theme {
+  /* Discord brand colors */
+  --color-discord-blurple: #5865f2;
+  --color-discord-green: #57f287;
+  --color-discord-yellow: #fee75c;
+  --color-discord-fuchsia: #eb459e;
+  --color-discord-red: #ed4245;
+
+  /* Gray scale for dark theme */
+  --color-gray-50: #ecedee;
+  --color-gray-100: #dcddde;
+  --color-gray-200: #b9bbbe;
+  --color-gray-300: #8e9297;
+  --color-gray-400: #6d6f78;
+  --color-gray-500: #5c5e66;
+  --color-gray-600: #4f545c;
+  --color-gray-700: #40444b;
+  --color-gray-800: #36393f;
+  --color-gray-900: #2f3136;
+  --color-gray-950: #202225;
+}
+
+/* Base styles */
+@layer base {
+  body {
+    background-color: var(--color-gray-900);
+    color: var(--color-gray-100);
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #app {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* Component styles */
+@layer components {
+  .btn-primary {
+    background-color: var(--color-discord-blurple);
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s;
+  }
+
+  .btn-primary:hover {
+    background-color: #4752c4;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background-color: var(--color-gray-600);
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-gray-500);
+  }
+
+  .btn-danger {
+    background-color: var(--color-discord-red);
+    color: white;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s;
+  }
+
+  .btn-danger:hover {
+    background-color: #dc2626;
+  }
+
+  .input-field {
+    background-color: var(--color-gray-700);
+    border: 1px solid var(--color-gray-600);
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: border-color 0.2s;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-discord-blurple);
+  }
+
+  .input-field::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  .card {
+    background-color: var(--color-gray-800);
+    border: 1px solid var(--color-gray-700);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+
+  .sidebar {
+    background-color: var(--color-gray-950);
+    border-right: 1px solid var(--color-gray-700);
+  }
+
+  .channel-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0.5rem;
+    border-radius: 0.375rem;
+    color: var(--color-gray-400);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .channel-item:hover {
+    color: var(--color-gray-100);
+    background-color: var(--color-gray-700);
+  }
+
+  .channel-item.active {
+    background-color: var(--color-gray-700);
+    color: var(--color-gray-100);
+  }
+
+  .server-icon {
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.125rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .server-icon.active {
+    background-color: var(--color-discord-blurple);
+    color: white;
+    border-radius: 0.75rem;
+  }
+
+  .server-icon:not(.active) {
+    background-color: var(--color-gray-700);
+    color: var(--color-gray-300);
+    border-radius: 1rem;
+  }
+
+  .server-icon:not(.active):hover {
+    color: white;
+    background-color: var(--color-discord-blurple);
+    border-radius: 0.75rem;
+  }
+
+  .message-container {
+    padding: 0.25rem 1rem;
+    margin: 0 -1rem;
+    transition: background-color 0.15s;
+  }
+
+  .message-container:hover {
+    background-color: rgba(55, 65, 81, 0.3);
+  }
+
+  .avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    flex-shrink: 0;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gray-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-600);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-500);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-gray-800);
+}
