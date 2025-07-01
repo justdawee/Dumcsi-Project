@@ -1,10 +1,10 @@
 <template>
-  <div class="h-full flex bg-gray-900">
+  <div class="h-full flex bg-gray-900 overflow-hidden">
     <!-- Server Sidebar -->
     <ServerSidebar />
     
     <!-- Main Content Area -->
-    <div class="flex-1 flex">
+    <div class="flex-1 flex overflow-hidden">
       <RouterView />
     </div>
   </div>

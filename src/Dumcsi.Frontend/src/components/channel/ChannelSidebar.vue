@@ -1,14 +1,14 @@
 <template>
-  <div class="w-60 bg-gray-850 flex flex-col">
+  <div class="w-60 bg-gray-850 flex flex-col h-full overflow-hidden">
     <!-- Server Header -->
-    <div class="px-4 py-3 border-b border-gray-700 shadow-xs">
+    <div class="px-4 py-3 border-b border-gray-700 shadow-xs flex-shrink-0">
       <h2 class="font-semibold text-white truncate">
         {{ server?.name || 'Loading...' }}
       </h2>
     </div>
     
     <!-- Channel List -->
-    <div class="flex-1 overflow-y-auto scrollbar-thin">
+    <div class="flex-1 overflow-y-auto scrollbar-thin min-h-0">
       <div v-if="loading" class="flex items-center justify-center py-8">
         <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
       </div>

@@ -1,7 +1,7 @@
 <template>
-  <div class="flex-1 flex flex-col bg-gray-800">
+  <div class="flex-1 flex flex-col bg-gray-800 h-full overflow-hidden">
     <!-- Channel Header -->
-    <div class="px-6 py-3 border-b border-gray-700 flex items-center justify-between shadow-xs">
+   <div class="px-6 py-3 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
       <div class="flex items-center gap-2">
         <Hash class="w-5 h-5 text-gray-400" />
         <h3 class="font-semibold text-white">{{ currentChannel?.name }}</h3>
@@ -22,7 +22,7 @@
     <!-- Messages Area -->
     <div 
       ref="messagesContainer"
-      class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4"
+      class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4 min-h-0"
       @scroll="handleScroll"
     >
       <!-- Loading Messages -->

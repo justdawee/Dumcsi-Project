@@ -15,4 +15,5 @@ onMounted(() => {
     authStore.logout()
   }
 })
+
 </script>
