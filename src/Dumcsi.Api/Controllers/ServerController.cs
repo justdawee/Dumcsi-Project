@@ -314,6 +314,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
     public async Task<IActionResult> InviteToServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        
         if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
         {
             return Unauthorized();
