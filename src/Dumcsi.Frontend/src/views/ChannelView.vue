@@ -31,7 +31,7 @@
       </div>
       
       <!-- Load More Button -->
-      <div v-if="hasMoreMessages && !appStore.loading.messages" class="text-center">
+      <div v-if="hasMoreMessages && !appStore.loading.messages && messages.length > 0" class="text-center">
         <button
           @click="loadMoreMessages"
           class="text-sm text-primary hover:text-primary-hover transition"
@@ -128,10 +128,10 @@ const handleScroll = () => {
 
 const handleSendMessage = async (content) => {
   try {
-    await appStore.sendMessage(currentChannel.value.id, content)
-    await scrollToBottom()
+    await appStore.sendMessage(currentChannel.value.id, { content });
+    await scrollToBottom();
   } catch (error) {
-    console.error('Failed to send message:', error)
+    console.error('Failed to send message:', error);
   }
 }
 
@@ -169,6 +169,13 @@ onMounted(() => {
 })
 
 watch(() => route.params.channelId, (newChannelId) => {
+  if (newChannelId) {
+    loadChannel(parseInt(newChannelId))
+  }
+})
+
+watch(() => route.params.channelId, (newChannelId) => {
+  console.log('ChannelView watcher triggered:', newChannelId); // <-- Add hozzá ezt
   if (newChannelId) {
     loadChannel(parseInt(newChannelId))
   }

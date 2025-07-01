@@ -11,6 +11,7 @@ public class MessageDtos
         public long Id { get; set; }
         public long ChannelId { get; set; }
         public long UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public Instant CreatedAt { get; set; }
         public Instant? EditedAt { get; set; }

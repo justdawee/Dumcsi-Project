@@ -7,12 +7,12 @@
     <div v-if="showHeader" class="flex items-start gap-3 mb-1">
       <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
         <span class="text-sm font-semibold text-primary">
-          {{ getUserInitials(message.senderUsername) }}
+          {{ getUserInitials(message.senderUsername || message.username) }}
         </span>
       </div>
       <div>
         <div class="flex items-baseline gap-2">
-          <span class="font-semibold text-white">{{ message.senderUsername }}</span>
+          <span class="font-semibold text-white">{{ message.senderUsername || message.username }}</span>
           <span class="text-xs text-gray-500">{{ formatTime(message.createdAt) }}</span>
         </div>
         <!-- Message Content for header messages -->
@@ -104,7 +104,11 @@ const isEditing = ref(false)
 
 const showHeader = computed(() => {
   if (!props.previousMessage) return true
-  if (props.previousMessage.senderId !== props.message.senderId) return true
+
+  const prevSenderId = props.previousMessage.senderId || props.previousMessage.userId
+  const currentSenderId = props.message.senderId || props.message.userId
+  
+  if (prevSenderId !== currentSenderId) return true
   
   // Show header if more than 5 minutes between messages
   const prevTime = new Date(props.previousMessage.createdAt)
@@ -114,8 +118,8 @@ const showHeader = computed(() => {
   return diffMinutes > 5
 })
 
-const canEdit = computed(() => props.message.senderId === props.currentUserId)
-const canDelete = computed(() => props.message.senderId === props.currentUserId)
+const canEdit = computed(() => (props.message.senderId || props.message.userId) === props.currentUserId)
+const canDelete = computed(() => (props.message.senderId || props.message.userId) === props.currentUserId)
 
 const getUserInitials = (username) => {
   return username

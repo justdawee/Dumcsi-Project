@@ -15,7 +15,7 @@
       
       <div v-else class="py-2">
         <!-- Text Channels -->
-        <div class="px-2 mb-2">
+        <div class="px-2 mb-4">
           <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase">
             <span>Text Channels</span>
             <button
@@ -35,7 +35,7 @@
               class="channel-item"
               :class="{ 'active': currentChannelId === channel.id }"
             >
-              <Hash class="w-4 h-4 text-gray-400" />
+              <MessageCircle class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
             </RouterLink>
           </div>
@@ -92,7 +92,7 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Hash, Volume2, Plus, User, Settings, Loader2 } from 'lucide-vue-next'
+import { Hash, Volume2, Plus, User, Settings, Loader2, MessageSquare, MessageCircle, AtSign, MessagesSquareIcon, MessagesSquare, ChartArea, MessageCircleHeart, MessageCircleDashed } from 'lucide-vue-next'
 import CreateChannelModal from './CreateChannelModal.vue'
 
 const props = defineProps({

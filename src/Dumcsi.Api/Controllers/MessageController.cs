@@ -18,9 +18,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
 {
     // POST /channels/{channelId}/messages - Új üzenet küldése
     [HttpPost]
-    public async Task<IActionResult> SendMessage(long id, 
-        [FromBody] MessageDtos.CreateMessageRequestDto request, 
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> SendMessage(long id, [FromBody] MessageDtos.CreateMessageRequestDto request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
@@ -72,6 +70,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
                 Id = message.Id,
                 ChannelId = message.ChannelId,
                 UserId = message.SenderId,
+                Username = message.Sender!.Username,
                 Content = message.Content,
                 CreatedAt = message.CreatedAt,
                 EditedAt = message.EditedAt
