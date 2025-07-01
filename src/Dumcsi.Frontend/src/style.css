@@ -5,6 +5,8 @@ layer(base);
 
 @plugin '@tailwindcss/forms';
 
+
+
 @theme {
   --color-discord-100: #424549;
   --color-discord-200: #36393e;

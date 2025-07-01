@@ -128,9 +128,11 @@ const canManageChannels = computed(() =>
 )
 </script>
 
-<style scoped lang="postcss">
+<style scoped>
+@reference "@/style.css";
+
 .bg-gray-850 {
-  background-color: #2b2d31;
+  background-color: --color-discord-800;
 }
 
 .channel-item {

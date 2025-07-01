@@ -56,7 +56,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { Home, Plus } from 'lucide-vue-next'
-import CreateServerModal from '@/components/server/CreateServerModal.vue'
+import CreateServerModal from './CreateServerModal.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
@@ -78,7 +78,9 @@ const getServerInitials = (name) => {
 }
 </script>
 
-<style scoped lang="postcss">
+<style scoped>
+@reference "@/style.css";
+
 .server-icon {
   @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
          bg-gray-700 text-gray-400 transition-all duration-200

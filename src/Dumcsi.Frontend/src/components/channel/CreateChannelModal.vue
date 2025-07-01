@@ -135,7 +135,9 @@ const handleCreateChannel = async () => {
 }
 </script>
 
-<style scoped lang="postcss">
+<style scoped>
+@reference "@/style.css";
+
 .channel-type-option {
   @apply flex items-center justify-center gap-2 p-3 bg-gray-700 border-2 border-gray-600 
          rounded-lg cursor-pointer transition-all hover:border-gray-500;

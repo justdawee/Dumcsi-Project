@@ -25,6 +25,22 @@ interface Member {
   name: string;
 }
 
+export interface SendMessagePayload {
+  content: string;
+}
+
+export interface CreateServerPayload {
+  name: string;
+}
+
+export interface CreateChannelPayload {
+  name: string;
+}
+
+export interface JoinServerPayload {
+  inviteCode: string;
+}
+
 export const useAppStore = defineStore('app', () => {
   // State
   const servers = ref<Server[]>([])
@@ -89,16 +105,11 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  const fetchMessages = async (channelId: string, before: string | null = null): Promise<void> => {
+  const fetchMessages = async (channelId: string) => {
     loading.value.messages = true
     try {
-      const params = before ? { before, limit: 50 } : { limit: 50 }
-      const response = await messageService.getMessages(channelId, params)
-      if (before) {
-        messages.value = [...response.data, ...messages.value]
-      } else {
-        messages.value = response.data
-      }
+      const response = await messageService.getMessages(channelId)
+      messages.value = response.data
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch messages'
     } finally {
@@ -106,23 +117,15 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  interface SendMessagePayload {
-    content: string;
-  }
-
   const sendMessage = async (channelId: string, content: SendMessagePayload): Promise<Message> => {
     try {
-      const response = await messageService.sendMessage(channelId, content)
+      const response = await messageService.sendMessage(channelId, content.content)
       messages.value.push(response.data)
       return response.data
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to send message'
       throw err
     }
-  }
-
-  interface CreateServerPayload {
-    name: string;
   }
 
   const createServer = async (serverData: CreateServerPayload): Promise<Server> => {
@@ -136,10 +139,6 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  interface CreateChannelPayload {
-    name: string;
-  }
-
   const createChannel = async (serverId: string, channelData: CreateChannelPayload): Promise<Channel> => {
     try {
       const response = await serverService.createChannel(serverId, channelData)
@@ -151,13 +150,9 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  interface JoinServerPayload {
-    inviteCode: string;
-  }
-
   const joinServer = async (serverId: string, payload: JoinServerPayload): Promise<Server> => {
     try {
-      const response = await serverService.joinServer(serverId, payload)
+      const response = await serverService.joinServer(serverId, payload.inviteCode)
       await fetchServers() // Refresh server list
       return response.data
     } catch (err: any) {
