@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios';
 import api from './api';
-import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, JoinServerResponse } from './types';
+import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, InviteResponse, JoinServerResponse } from './types';
 
 const serverService = {
   /**
@@ -56,16 +56,8 @@ const serverService = {
   /**
    * POST /api/server/{id}/invite
    */
-  generateInvite(id: string | number): Promise<AxiosResponse<{ inviteCode: string; message: string }>> {
-    return api.post<{ InviteCode: string; Message: string }>(`/server/${id}/invite`).then(response => {
-      return {
-        ...response,
-        data: {
-          inviteCode: response.data.InviteCode,
-          message: response.data.Message,
-        },
-      };
-    });
+  generateInvite(id: string | number): Promise<AxiosResponse<InviteResponse>> {
+    return api.post<InviteResponse>(`/server/${id}/invite`);
   },
 
   /**

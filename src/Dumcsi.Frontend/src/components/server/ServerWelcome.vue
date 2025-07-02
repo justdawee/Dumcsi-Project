@@ -32,66 +32,64 @@
           :disabled="generatingInvite"
           class="btn-primary inline-flex items-center gap-2"
         >
-          <UserPlus class="w-5 h-5" />
+          <UserPlus v-if="!generatingInvite" class="w-5 h-5" />
+          <Loader2 v-else class="w-5 h-5 animate-spin" />
           Generate Invite Link
         </button>
-        
-        <div v-if="inviteCode" class="mt-4 p-4 bg-gray-700 rounded-lg">
-          <p class="text-sm text-gray-400 mb-2">Share this invite code:</p>
-          <div class="flex items-center gap-2">
-            <code class="flex-1 px-3 py-2 bg-gray-800 rounded-sm text-primary font-mono">
-              {{ inviteCode }}
-            </code>
-            <button
-              @click="copyInviteCode"
-              class="px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded-sm transition"
-            >
-              <Copy class="w-4 h-4" />
-            </button>
-          </div>
-          <p v-if="copied" class="text-xs text-green-400 mt-2">Copied!</p>
-        </div>
+      </div>
+      <div v-else>
+        <Loader2 class="w-8 h-8 text-gray-500 animate-spin" />
       </div>
     </div>
   </div>
+  <!-- Itt hívjuk meg az új modális komponenst -->
+  <InviteModal
+    v-model="isInviteModalOpen"
+    :server="server"
+    :invite-code="generatedInviteCode"
+  />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
-import { MessageSquare, Hash, UserPlus, Copy } from 'lucide-vue-next'
-import serverService from '@/services/serverService'
+import { MessageSquare, Hash, UserPlus, Copy, Loader2 } from 'lucide-vue-next';
+import serverService from '@/services/serverService';
+import type { ServerDetail } from '@/services/types';
+import InviteModal from '@/components/modals/InviteModal.vue';
 
-const props = defineProps({
-  server: Object
-})
+const props = defineProps<{
+  server: ServerDetail | null;
+}>();
 
-const inviteCode = ref('')
-const generatingInvite = ref(false)
-const copied = ref(false)
+const generatedInviteCode = ref('');
+const generatingInvite = ref(false);
+const isInviteModalOpen = ref(false);
 
-const canInvite = computed(() => props.server?.currentUserRole > 0)
+const canInvite = computed(() => (props.server?.currentUserRole ?? 0) > 0); // Role.Member = 0
 
 const handleGenerateInvite = async () => {
-  generatingInvite.value = true
-  try {
-    const response = await serverService.generateInvite(props.server.id)
-    inviteCode.value = response.data.inviteCode
-  } catch (error) {
-    console.error('Failed to generate invite:', error)
-  } finally {
-    generatingInvite.value = false
-  }
-}
+  if (!props.server) return;
 
-const copyInviteCode = async () => {
+  generatingInvite.value = true;
   try {
-    await navigator.clipboard.writeText(inviteCode.value)
-    copied.value = true
-    setTimeout(() => {
-      copied.value = false
-    }, 2000)
+    const response = await serverService.generateInvite(props.server.id);
+    generatedInviteCode.value = response.data.inviteCode;
+    isInviteModalOpen.value = true;
   } catch (error) {
-    console.error('Failed to copy:', error)
+    console.error('Failed to generate invite:', error);
+  } finally {
+    generatingInvite.value = false;
   }
-}
+};
 </script>
+
+<style scoped>
+@reference "@/style.css";
+
+.btn-primary {
+  @apply px-4 py-2 bg-primary hover:bg-primary-hover text-white 
+           font-medium rounded-lg transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary/50
+           disabled:opacity-50 disabled:cursor-not-allowed;
+}
+</style>

@@ -109,6 +109,11 @@ export interface JoinServerPayload {
   inviteCode: string;
 }
 
+export interface InviteResponse {
+  inviteCode: string;
+  message: string;
+}
+
 export interface JoinServerResponse {
   message: string;
   serverName: string;
