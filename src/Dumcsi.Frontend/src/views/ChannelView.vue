@@ -1,7 +1,6 @@
 <template>
   <div class="flex-1 flex flex-col bg-gray-800 h-full overflow-hidden">
-    <!-- Channel Header -->
-   <div class="px-6 py-3 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
+    <div class="px-6 py-3 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
       <div class="flex items-center gap-2">
         <Hash class="w-5 h-5 text-gray-400" />
         <h3 class="font-semibold text-white">{{ currentChannel?.name }}</h3>
@@ -10,54 +9,66 @@
         </span>
       </div>
       <div class="flex items-center gap-2">
-        <button class="p-2 hover:bg-gray-700 rounded-sm transition">
-          <Search class="w-5 h-5 text-gray-400" />
-        </button>
-        <button class="p-2 hover:bg-gray-700 rounded-sm transition">
+        <button @click="toggleMemberList" class="p-2 hover:bg-gray-700 rounded-sm transition">
           <Users class="w-5 h-5 text-gray-400" />
         </button>
+        <div class="relative">
+          <input
+            type="text"
+            placeholder="Search..."
+            class="bg-gray-900 rounded-md px-3 py-1.5 text-sm w-48 focus:w-64 transition-all"
+          />
+          <Search class="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2" />
+        </div>
       </div>
     </div>
-    
-    <!-- Messages Area -->
-    <div 
-      ref="messagesContainer"
-      class="flex-1 overflow-y-auto scrollbar-thin p-4"
-      @scroll="handleScroll"
-    >
-      <!-- Loading Messages -->
-      <div v-if="appStore.loading.messages" class="flex justify-center py-4">
-        <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+
+    <div class="flex-1 flex overflow-hidden">
+      <div
+        ref="messagesContainer"
+        class="flex-1 overflow-y-auto scrollbar-thin p-4"
+        @scroll="handleScroll"
+      >
+        <div v-if="appStore.loading.messages" class="flex justify-center py-4">
+          <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+        </div>
+
+        <div v-if="showLoadMoreButton && !appStore.loading.messages" class="text-center">
+          <button
+            @click="loadMoreMessages"
+            class="text-sm text-primary hover:text-primary-hover transition"
+          >
+            Load more messages
+          </button>
+        </div>
+
+        <MessageItem
+          v-for="(message, index) in messages"
+          :key="message.id"
+          :message="message"
+          :previous-message="messages[index - 1]"
+          :current-user-id="authStore.user?.id"
+          @edit="handleEditMessage"
+          @delete="handleDeleteMessage"
+        />
+
+        <div v-if="!appStore.loading.messages && messages.length === 0" class="text-center py-8">
+          <p class="text-gray-400">No messages yet. Start the conversation!</p>
+        </div>
       </div>
-      
-      <!-- Load More Button -->
-      <div v-if="showLoadMoreButton && !appStore.loading.messages" class="text-center">
-        <button
-          @click="loadMoreMessages"
-          class="text-sm text-primary hover:text-primary-hover transition"
-        >
-          Load more messages
-        </button>
-      </div>
-      
-      <!-- Messages -->
-      <MessageItem
-        v-for="(message, index) in messages"
-        :key="message.id"
-        :message="message"
-        :previous-message="messages[index - 1]"
-        :current-user-id="authStore.user?.id"
-        @edit="handleEditMessage"
-        @delete="handleDeleteMessage"
-      />
-      
-      <!-- Empty State -->
-      <div v-if="!appStore.loading.messages && messages.length === 0" class="text-center py-8">
-        <p class="text-gray-400">No messages yet. Start the conversation!</p>
+
+      <div v-if="isMemberListOpen" class="w-60 bg-gray-800 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
+        <h3 class="font-semibold text-white mb-4">Members - {{ members.length }}</h3>
+        
+        <ul class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
+          <li v-for="member in members" :key="member.id" class="flex items-center gap-3">
+            <img :src="member.avatar" alt="Avatar" class="w-8 h-8 rounded-full bg-gray-700">
+            <span class="text-gray-300 font-medium text-sm">{{ member.name }}</span>
+          </li>
+        </ul>
       </div>
     </div>
-    
-    <!-- Message Input -->
+
     <div class="px-4 pb-4">
       <MessageInput
         :channel-name="currentChannel?.name"
@@ -84,9 +95,48 @@ const appStore = useAppStore()
 const messagesContainer = ref(null)
 const hasMoreMessages = ref(true)
 const showLoadMoreButton = ref(false);
+const isMemberListOpen = ref(false);
 
 const currentChannel = computed(() => appStore.currentChannel)
 const messages = computed(() => appStore.messages)
+
+const members = ref([
+  { id: 1, name: 'Kovács Béla', avatar: 'https://i.pravatar.cc/40?u=1' },
+  { id: 2, name: 'Nagy Anna', avatar: 'https://i.pravatar.cc/40?u=2' },
+  { id: 3, name: 'Szabó Gergő', avatar: 'https://i.pravatar.cc/40?u=3' },
+  { id: 4, name: 'Tóth Zsófia', avatar: 'https://i.pravatar.cc/40?u=4' },
+  { id: 5, name: 'Kiss István', avatar: 'https://i.pravatar.cc/40?u=5' },
+  { id: 6, name: 'Horváth Gábor', avatar: 'https://i.pravatar.cc/40?u=6' },
+  { id: 7, name: 'Varga Judit', avatar: 'https://i.pravatar.cc/40?u=7' },
+  { id: 8, name: 'Molnár Péter', avatar: 'https://i.pravatar.cc/40?u=8' },
+  { id: 9, name: 'Németh Zsuzsanna', avatar: 'https://i.pravatar.cc/40?u=9' },
+  { id: 10, name: 'Farkas László', avatar: 'https://i.pravatar.cc/40?u=10' },
+  { id: 11, name: 'Papp Mária', avatar: 'https://i.pravatar.cc/40?u=11' },
+  { id: 12, name: 'Balogh Tamás', avatar: 'https://i.pravatar.cc/40?u=12' },
+  { id: 13, name: 'Juhász Éva', avatar: 'https://i.pravatar.cc/40?u=13' },
+  { id: 14, name: 'Takács Zoltán', avatar: 'https://i.pravatar.cc/40?u=14' },
+  { id: 15, name: 'Mészáros András', avatar: 'https://i.pravatar.cc/40?u=15' },
+  { id: 16, name: 'Lakatos Dávid', avatar: 'https://i.pravatar.cc/40?u=16' },
+  { id: 17, name: 'Simon Katalin', avatar: 'https://i.pravatar.cc/40?u=17' },
+  { id: 18, name: 'Fekete Bence', avatar: 'https://i.pravatar.cc/40?u=18' },
+  { id: 19, name: 'Oláh Eszter', avatar: 'https://i.pravatar.cc/40?u=19' },
+  { id: 20, name: 'Vörös Attila', avatar: 'https://i.pravatar.cc/40?u=20' },
+  { id: 21, name: 'Fehér Réka', avatar: 'https://i.pravatar.cc/40?u=21' },
+  { id: 22, name: 'Szalai József', avatar: 'https://i.pravatar.cc/40?u=22' },
+  { id: 23, name: 'Sipos Ágnes', avatar: 'https://i.pravatar.cc/40?u=23' },
+  { id: 24, name: 'Magyar Dániel', avatar: 'https://i.pravatar.cc/40?u=24' },
+  { id: 25, name: 'Gál Petra', avatar: 'https://i.pravatar.cc/40?u=25' },
+  { id: 26, name: 'Bíró János', avatar: 'https://i.pravatar.cc/40?u=26' },
+  { id: 27, name: 'Vass Erzsébet', avatar: 'https://i.pravatar.cc/40?u=27' },
+  { id: 28, name: 'Fazekas Márton', avatar: 'https://i.pravatar.cc/40?u=28' },
+  { id: 29, name: 'Bognár Noémi', avatar: 'https://i.pravatar.cc/40?u=29' },
+  { id: 30, name: 'Jakab Kristóf', avatar: 'https://i.pravatar.cc/40?u=30' },
+  { id: 31, name: 'Pintér Orsolya', avatar: 'https://i.pravatar.cc/40?u=31' },
+  { id: 32, name: 'Kerekes Ádám', avatar: 'https://i.pravatar.cc/40?u=32' },
+  { id: 33, name: 'Somogyi Balázs', avatar: 'https://i.pravatar.cc/40?u=33' },
+  { id: 34, name: 'Antal Tímea', avatar: 'https://i.pravatar.cc/40?u=34' },
+  { id: 35, name: 'Hegedűs Nikolett', avatar: 'https://i.pravatar.cc/40?u=35' },
+]);
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -172,6 +222,10 @@ const checkOverflowAndSetButtonVisibility = async () => {
   }
 };
 
+const toggleMemberList = () => {
+  isMemberListOpen.value = !isMemberListOpen.value;
+};
+
 onMounted(() => {
   if (route.params.channelId) {
     loadChannel(parseInt(route.params.channelId))
@@ -190,3 +244,13 @@ watch(() => route.params.channelId, (newChannelId) => {
   }
 })
 </script>
+
+<style scoped>
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+</style>
