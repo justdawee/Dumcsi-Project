@@ -1,5 +1,5 @@
 <template>
-  <!-- Fő modal ablak konténer -->
+  <!-- Fő modális ablak konténer -->
   <Transition name="modal-fade">
     <div
       v-if="modelValue"
@@ -78,10 +78,14 @@ const props = defineProps<{
   channel: ChannelListItem | null;
 }>();
 
-const emit = defineEmits(['close', 'channel-updated', 'channel-deleted']);
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'channel-updated', updatedChannel: ChannelListItem): void;
+  (e: 'channel-deleted', channelId: number): void;
+}>();
 
 // --- State ---
-const form = reactive<UpdateChannelPayload>({ name: '', description: '' });
+const form = reactive<Partial<UpdateChannelPayload>>({ name: '', description: '' });
 const isLoading = ref(false);
 const isDeleting = ref(false);
 const error = ref('');
@@ -92,7 +96,6 @@ const closeModal = () => {
   emit('close');
 };
 
-// Űrlap feltöltése, amikor a prop megváltozik
 watch(() => props.channel, (newChannel) => {
   if (newChannel) {
     form.name = newChannel.name;
@@ -100,19 +103,21 @@ watch(() => props.channel, (newChannel) => {
   }
 }, { immediate: true });
 
-// Csatorna adatainak frissítése
 const handleUpdateChannel = async () => {
   if (!props.channel) return;
   isLoading.value = true;
   error.value = '';
   try {
-    // A backend a `position`-t is várja, de a leírás alapján azt most nem módosítjuk.
     await channelService.updateChannel(props.channel.id, {
       name: form.name,
       description: form.description,
-      // position: props.channel.position // Ha a pozíciót is kezelni kellene
+      position: props.channel.position,
     });
-    emit('channel-updated');
+    emit('channel-updated', {
+      ...props.channel,
+      name: form.name,
+      description: form.description,
+    });
     closeModal();
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Failed to update channel.';
@@ -121,19 +126,17 @@ const handleUpdateChannel = async () => {
   }
 };
 
-// Csatorna törlése
 const handleDeleteChannel = async () => {
   if (!props.channel) return;
   isDeleting.value = true;
   error.value = '';
   try {
     await channelService.deleteChannel(props.channel.id);
-    emit('channel-deleted');
+    emit('channel-deleted', props.channel.id);
     isConfirmDeleteOpen.value = false;
     closeModal();
   } catch (err: any) {
     console.error('Failed to delete channel:', err);
-    // Hiba esetén a megerősítő ablakot bezárjuk, és a fő ablakban jelezzük a hibát.
     isConfirmDeleteOpen.value = false;
     error.value = err.response?.data?.message || 'Failed to delete channel.';
   } finally {

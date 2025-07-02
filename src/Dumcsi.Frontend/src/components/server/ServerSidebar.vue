@@ -49,7 +49,6 @@
         </RouterLink>
       </div>
 
-      <!-- JAVÍTÁS: Az "Add Server" gomb most már a lista végén, a görgethető területen belül van -->
       <div 
         class="relative group"
         @mouseenter="showTooltip($event, 'Add a Server')"
@@ -95,7 +94,6 @@ import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue'; 
 import type { ServerListItem } from '@/services/types';
 
-// JAVÍTÁS: A MenuItem típus lokális definiálása a hiba elkerülésére
 interface MenuItem {
   label: string;
   icon: Component;
