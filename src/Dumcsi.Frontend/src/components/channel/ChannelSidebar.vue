@@ -69,9 +69,12 @@
     <!-- User Panel -->
     <div class="px-2 py-2 bg-gray-900 border-t border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
-        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-          <User class="w-4 h-4 text-white" />
-        </div>
+        <!-- User Avatar -->
+        <UserAvatar
+          :avatar-url="authStore.user?.profilePictureUrl"
+          :username="authStore.user?.username || ''"
+          :size="32"
+        />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">
             {{ authStore.user?.username }}
@@ -102,6 +105,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Hash, Volume2, Plus, User, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next'
 import CreateChannelModal from './CreateChannelModal.vue'
 import ContextMenu from '@/components/ui/ContextMenu.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const props = defineProps({
   server: Object,
@@ -109,7 +113,7 @@ const props = defineProps({
 })
 
 const route = useRoute()
-const authStore = useAuthStore()
+const authStore = useAuthStore();
 
 const showCreateChannel = ref(false)
 

@@ -45,11 +45,11 @@
         </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
-            <img 
-              :src="member.profilePictureUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${member.username}`" 
-              alt="Avatar" 
-              class="w-8 h-8 rounded-full bg-gray-700 object-cover"
-            >
+            <UserAvatar
+              :avatar-url="member.profilePictureUrl"
+              :username="member.username"
+              :size="32"
+            />
             <span class="text-gray-300 font-medium text-sm truncate">{{ member.username }}</span>
           </li>
         </ul>
@@ -75,6 +75,7 @@ import { useAppStore } from '@/stores/app';
 import { Hash, Users, Loader2 } from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 import messageService from '@/services/messageService';
 import type { UpdateMessagePayload } from '@/services/types';
 

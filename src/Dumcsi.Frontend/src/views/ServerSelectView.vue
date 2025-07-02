@@ -8,9 +8,11 @@
           @click="showUserMenu = !showUserMenu"
           class="relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition"
         >
-          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <User class="w-5 h-5 text-white" />
-          </div>
+          <UserAvatar
+          :avatar-url="authStore.user?.profilePictureUrl"
+          :username="authStore.user?.username || ''"
+          :size="32"
+          />
           <span class="text-white font-medium">{{ authStore.user?.username }}</span>
           <ChevronDown class="w-4 h-4 text-gray-400" />
         </button>
@@ -115,11 +117,14 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { useRouter } from 'vue-router';
 import { User, ChevronDown, LogOut, Loader2, Server, Plus, Edit } from 'lucide-vue-next'
 import CreateServerModal from '@/components/server/CreateServerModal.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
+const router = useRouter();
 
 const showUserMenu = ref(false)
 const showCreateModal = ref(false)
@@ -130,7 +135,7 @@ const handleLogout = async () => {
 
 const editUser = () => {
   // Navigate to user settings page
-  appStore.router.push('/settings/profile')
+  router.push({ name: 'UserSettings' });
 }
 
 const getServerInitials = (name) => {
