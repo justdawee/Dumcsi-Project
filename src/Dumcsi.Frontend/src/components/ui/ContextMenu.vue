@@ -25,9 +25,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { Component } from 'vue';
+import { useContextMenuManager } from '@/composables/useContextMenuManager';
 
 // --- Interface és Props ---
-// Ez az interfész definiálja, milyen adatokat vár egy menüpont
 export interface MenuItem {
   label: string;
   icon: Component;
@@ -39,18 +39,23 @@ defineProps<{
   items: MenuItem[];
 }>();
 
-// --- State a pozícióhoz és láthatósághoz ---
+// --- State ---
 const visible = ref(false);
 const x = ref(0);
 const y = ref(0);
 const contextMenu = ref<HTMLElement | null>(null);
 
+// --- Manager ---
+const { setActiveMenu, clearActiveMenu } = useContextMenuManager();
+
 // --- Metódusok ---
 const open = (event: MouseEvent) => {
+  setActiveMenu(close);
+
   visible.value = true;
   
-  // Pozícionálás, hogy ne lógjon ki a képernyőről (opcionális, de ajánlott)
-  const menuWidth = 180; // A menü becsült szélessége
+  // Pozícionálás
+  const menuWidth = 180;
   if (event.clientX + menuWidth > window.innerWidth) {
     x.value = event.clientX - menuWidth;
   } else {
@@ -60,7 +65,10 @@ const open = (event: MouseEvent) => {
 };
 
 const close = () => {
-  visible.value = false;
+  if (visible.value) {
+    visible.value = false;
+    clearActiveMenu();
+  }
 };
 
 const handleClick = (item: MenuItem) => {
@@ -68,7 +76,6 @@ const handleClick = (item: MenuItem) => {
   close();
 };
 
-// A menün kívülre kattintva bezárjuk azt
 const handleClickOutside = (event: MouseEvent) => {
   if (contextMenu.value && !contextMenu.value.contains(event.target as Node)) {
     close();
@@ -83,7 +90,6 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true);
 });
 
-// Az 'open' metódust elérhetővé tesszük a szülő komponens számára
 defineExpose({
   open,
 });
