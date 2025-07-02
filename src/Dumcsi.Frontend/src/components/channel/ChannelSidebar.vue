@@ -80,7 +80,9 @@
             {{ server?.currentUserRole ? roleNames[server.currentUserRole] : 'Member' }}
           </p>
         </div>
-        <Settings class="w-4 h-4 text-gray-400 hover:text-gray-200 cursor-pointer" />
+        <RouterLink to="/settings/profile" title="Felhasználói beállítások">
+          <Settings class="w-4 h-4 text-gray-400 hover:text-gray-200 cursor-pointer" />
+        </RouterLink>
       </div>
     </div>
     

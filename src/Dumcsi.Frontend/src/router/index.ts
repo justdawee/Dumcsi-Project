@@ -46,6 +46,11 @@ const routes = [
             component: () => import('@/views/ChannelView.vue')
           }
         ]
+      },
+      {
+        path: 'settings/profile', // Új útvonal
+        name: 'UserSettings',
+        component: () => import('@/views/settings/ProfileSettingsView.vue')
       }
     ]
   }

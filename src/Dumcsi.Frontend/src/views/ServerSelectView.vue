@@ -27,6 +27,13 @@
             <LogOut class="w-4 h-4" />
             Logout
           </button>
+          <button
+            @click="editUser"
+            class="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 hover:text-white transition flex items-center gap-2"
+          >
+            <Edit class="w-4 h-4" />
+            Edit Profile
+          </button>
         </div>
       </div>
     </div>
@@ -108,7 +115,7 @@
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
-import { User, ChevronDown, LogOut, Loader2, Server, Plus } from 'lucide-vue-next'
+import { User, ChevronDown, LogOut, Loader2, Server, Plus, Edit } from 'lucide-vue-next'
 import CreateServerModal from '@/components/server/CreateServerModal.vue'
 
 const authStore = useAuthStore()
@@ -119,6 +126,11 @@ const showCreateModal = ref(false)
 
 const handleLogout = async () => {
   await authStore.logout()
+}
+
+const editUser = () => {
+  // Navigate to user settings page
+  appStore.router.push('/settings/profile')
 }
 
 const getServerInitials = (name) => {
