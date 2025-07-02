@@ -112,8 +112,20 @@
             </div>
          </form>
       </div>
+      <!-- Logout szekció -->
+      <div class="mt-8 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-2xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-medium text-white">Logout</p>
+            <p class="text-sm text-gray-400">You will be logged out of your account.</p>
+          </div>
+          <button @click="isLoggingOutModalOpen = true" class="btn-warning flex-shrink-0">
+            Logout
+          </button>
+        </div>
+      </div>
       <!-- Danger Zone szekció -->
-      <div class="mt-8 p-4 bg-red-900/20 border border-red-500/30 rounded-2xl">
+      <div class="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-2xl">
         <div class="flex items-center justify-between">
           <div>
             <p class="font-medium text-white">Delete your account</p>
@@ -127,7 +139,17 @@
 
     </div>
   </div>
-  <!-- A megerősítő modális ablak hívása -->
+  <!-- Fiók kijelentkezés megerősítése -->
+  <ConfirmModal
+    v-model="isLoggingOutModalOpen"
+    title="Logout"
+    message="Are you sure you want to log out?"
+    confirm-text="Log Out"
+    :is-loading="isLoggingOut"
+    @confirm="handleLogout"
+    intent="warning"
+  />
+  <!-- Fiók törlés megerősítése -->
   <ConfirmModal
     v-model="isDeleteModalOpen"
     title="Delete Account"
@@ -174,6 +196,10 @@ const passwordForm = reactive<UpdatePasswordPayload>({
 // --- State a fióktörléshez ---
 const isDeleteModalOpen = ref(false);
 const isDeleting = ref(false);
+
+// --- State a kijelentkezéshez ---
+const isLoggingOutModalOpen = ref(false);
+const isLoggingOut = ref(false);
 
 
 // --- Adatok betöltése ---
@@ -284,6 +310,19 @@ const handleDeleteAccount = async () => {
     profileErrors.general = 'Failed to delete account. Please try again later.';
   } finally {
     isDeleting.value = false;
+  }
+};
+
+const handleLogout = async () => {
+  isLoggingOut.value = true;
+  try {
+    await authStore.logout();
+  } catch (error) {
+    console.error('Failed to logout:', error);
+    isLoggingOutModalOpen.value = false;
+    profileErrors.general = 'Failed to logout. Please try again later.';
+  } finally {
+    isLoggingOut.value = false;
   }
 };
 </script>
