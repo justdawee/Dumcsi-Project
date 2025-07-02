@@ -93,4 +93,5 @@ public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         
         return Ok(token);
     }
+    
 }
