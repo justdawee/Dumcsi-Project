@@ -34,6 +34,7 @@
               :key="channel.id"
               :to="`/servers/${server.id}/channels/${channel.id}`"
               class="channel-item group" :class="{ 'active': currentChannelId === channel.id }"
+              @contextmenu.prevent="openChannelMenu($event, channel)"
             >
               <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
@@ -88,6 +89,17 @@
         </RouterLink>
       </div>
     </div>
+    <!-- Context Menu -->
+    <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
+    <ConfirmModal
+      v-model="isConfirmDeleteOpen"
+      title="Delete Channel"
+      :message="`Are you sure you want to delete the channel #${deletingChannel?.name}? This is permanent.`"
+      confirm-text="Delete Channel"
+      :is-loading="isDeleting"
+      @confirm="confirmDeleteChannel"
+      intent="danger"
+    />
     <!-- Modális ablakok -->
     <CreateChannelModal
       v-if="showCreateChannel"
@@ -110,10 +122,14 @@ import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
-import { Hash, Volume2, Plus, Settings, Loader2 } from 'lucide-vue-next';
+import { Hash, Volume2, Plus, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next';
+import type { Component } from 'vue';
 import CreateChannelModal from './CreateChannelModal.vue';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import ContextMenu from '@/components/ui/ContextMenu.vue';
+import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import channelService from '@/services/channelService';
 import type { ServerDetail, ChannelListItem, Role } from '@/services/types';
 
 // --- Props & Store ---
@@ -132,6 +148,13 @@ const showCreateChannel = ref(false);
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelListItem | null>(null);
 
+interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
+const channelContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const channelMenuItems = ref<MenuItem[]>([]);
+const isConfirmDeleteOpen = ref(false);
+const isDeleting = ref(false);
+const deletingChannel = ref<ChannelListItem | null>(null);
+
 const roleNames: Record<Role, string> = { 0: 'Member', 1: 'Moderator', 2: 'Admin' };
 
 // --- Computed ---
@@ -145,6 +168,34 @@ const openEditModal = (channel: ChannelListItem) => {
   editingChannel.value = channel;
   isEditModalOpen.value = true;
 };
+
+const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
+  channelMenuItems.value = [
+    { label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel) },
+    { label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel) },
+  ];
+  channelContextMenu.value?.open(event);
+};
+
+const promptDeleteChannel = (channel: ChannelListItem) => {
+  deletingChannel.value = channel;
+  isConfirmDeleteOpen.value = true;
+};
+
+const confirmDeleteChannel = async () => {
+    if (!deletingChannel.value) return;
+    isDeleting.value = true;
+    try {
+        await channelService.deleteChannel(deletingChannel.value.id);
+        handleChannelDeleted(deletingChannel.value.id);
+    } catch (error) {
+        console.error("Failed to delete channel:", error);
+    } finally {
+        isDeleting.value = false;
+        isConfirmDeleteOpen.value = false;
+        deletingChannel.value = null;
+    }
+}
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
   if (props.server) {
