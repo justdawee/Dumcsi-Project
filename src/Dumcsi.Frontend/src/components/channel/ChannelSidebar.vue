@@ -32,12 +32,12 @@
               v-for="channel in textChannels"
               :key="channel.id"
               :to="`/servers/${server.id}/channels/${channel.id}`"
-              class="channel-item"
-              :class="{ 'active': currentChannelId === channel.id }"
+              class="channel-item group"  :class="{ 'active': currentChannelId === channel.id }"
               @contextmenu.prevent="openChannelMenu($event, channel)"
             >
               <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
+              
               <button @click.prevent="editChannel(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition">
                 <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
               </button>
@@ -46,7 +46,7 @@
           <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
         </div>
         
-        <!-- Voice Channels (if any) -->
+        <!-- Voice Channels -->
         <div v-if="voiceChannels.length > 0" class="px-2 mb-2">
           <div class="px-2 py-1 text-xs font-semibold text-gray-400 uppercase">
             Voice Channels
