@@ -116,6 +116,7 @@ public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFacto
         // Csatorna frissítése logika itt
 
         channel.Name = request.Name;
+        channel.Description = request.Description;
         channel.Position = request.Position;
         channel.UpdatedAt = DateTimeOffset.UtcNow.ToInstant();
         dbContext.Channels.Update(channel);
