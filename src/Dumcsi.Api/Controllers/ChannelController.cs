@@ -15,7 +15,6 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/channels/{id}")]
 public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
 {
-    // Csatorna részletei + üzenetek
     [HttpGet]  // GET /api/channels/{id}
     public async Task<IActionResult> GetChannel(long id, CancellationToken cancellationToken)
     {

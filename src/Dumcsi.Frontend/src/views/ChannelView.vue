@@ -22,7 +22,7 @@
     <!-- Messages Area -->
     <div 
       ref="messagesContainer"
-      class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4 min-h-0"
+      class="flex-1 overflow-y-auto scrollbar-thin p-4"
       @scroll="handleScroll"
     >
       <!-- Loading Messages -->
@@ -31,7 +31,7 @@
       </div>
       
       <!-- Load More Button -->
-      <div v-if="hasMoreMessages && !appStore.loading.messages && messages.length > 0" class="text-center">
+      <div v-if="showLoadMoreButton && !appStore.loading.messages" class="text-center">
         <button
           @click="loadMoreMessages"
           class="text-sm text-primary hover:text-primary-hover transition"
@@ -83,6 +83,7 @@ const appStore = useAppStore()
 
 const messagesContainer = ref(null)
 const hasMoreMessages = ref(true)
+const showLoadMoreButton = ref(false);
 
 const currentChannel = computed(() => appStore.currentChannel)
 const messages = computed(() => appStore.messages)
@@ -95,29 +96,30 @@ const scrollToBottom = async () => {
 }
 
 const loadChannel = async (channelId) => {
-  hasMoreMessages.value = true
-  await appStore.fetchChannel(channelId)
-  await scrollToBottom()
-}
+  hasMoreMessages.value = true;
+  await appStore.fetchChannel(channelId);
+  await scrollToBottom();
+  await checkOverflowAndSetButtonVisibility();
+};
 
 const loadMoreMessages = async () => {
-  if (messages.value.length === 0) return
+  if (messages.value.length === 0) return;
   
-  const oldestMessage = messages.value[0]
-  const oldScrollHeight = messagesContainer.value.scrollHeight
+  const oldestMessage = messages.value[0];
+  const oldScrollHeight = messagesContainer.value.scrollHeight;
   
-  await appStore.fetchMessages(currentChannel.value.id, oldestMessage.id)
+  await appStore.fetchMessages(currentChannel.value.id, oldestMessage.id);
   
-  // Maintain scroll position
-  await nextTick()
-  const newScrollHeight = messagesContainer.value.scrollHeight
-  messagesContainer.value.scrollTop = newScrollHeight - oldScrollHeight
+  await nextTick();
+  const newScrollHeight = messagesContainer.value.scrollHeight;
+  messagesContainer.value.scrollTop = newScrollHeight - oldScrollHeight;
   
-  // Check if we got fewer messages than expected
   if (appStore.messages.length < messages.value.length + 50) {
-    hasMoreMessages.value = false
+    hasMoreMessages.value = false;
   }
-}
+  
+  await checkOverflowAndSetButtonVisibility();
+};
 
 const handleScroll = () => {
   // Auto-load more when scrolling near top
@@ -162,6 +164,14 @@ const handleDeleteMessage = async (messageId) => {
   }
 }
 
+const checkOverflowAndSetButtonVisibility = async () => {
+  await nextTick();
+  if (messagesContainer.value) {
+    const isOverflowing = messagesContainer.value.scrollHeight > messagesContainer.value.clientHeight;
+    showLoadMoreButton.value = hasMoreMessages.value && isOverflowing;
+  }
+};
+
 onMounted(() => {
   if (route.params.channelId) {
     loadChannel(parseInt(route.params.channelId))
@@ -175,7 +185,6 @@ watch(() => route.params.channelId, (newChannelId) => {
 })
 
 watch(() => route.params.channelId, (newChannelId) => {
-  console.log('ChannelView watcher triggered:', newChannelId); // <-- Add hozzá ezt
   if (newChannelId) {
     loadChannel(parseInt(newChannelId))
   }

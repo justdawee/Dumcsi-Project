@@ -15,7 +15,7 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJWTFactory jwtFactory) : ControllerBase
 {
-    [HttpPost("register")]
+    [HttpPost("register")] // POST /api/auth/register
     public async Task<IActionResult> Register([FromBody] AuthControllerModels.RegisterRequestDto request, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -57,7 +57,7 @@ public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         return Ok();
     }
     
-    [HttpPost("login")]
+    [HttpPost("login")] // POST /api/auth/login
     public async Task<IActionResult> Login([FromBody] AuthControllerModels.LoginRequestDto request, CancellationToken cancellationToken)
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -92,12 +92,5 @@ public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         var token = jwtFactory.CreateToken(user.Id, user.Username);
         
         return Ok(token);
-    }
-
-    [Authorize]
-    [HttpGet("teszt")]
-    public Task<IActionResult> Test()
-    {
-        return Task.FromResult<IActionResult>(Ok());
     }
 }

@@ -162,7 +162,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(response);
     }
     
-    [HttpGet("{id}/members")]
+    [HttpGet("{id}/members")] // GET /api/server/{id}/members
     public async Task<IActionResult> GetServerMembers(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -197,7 +197,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(members);
     }
     
-    [HttpPost("{id}/join")]
+    [HttpPost("{id}/join")] // POST /api/server/{id}/join
     public async Task<IActionResult> JoinServer(long id, [FromBody] ServerDtos.JoinServerRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -246,7 +246,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { Message = "Successfully joined the server", ServerName = server.Name });
     }
     
-    [HttpPost("{id}/leave")]
+    [HttpPost("{id}/leave")] // POST /api/server/{id}/leave
     public async Task<IActionResult> LeaveServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -282,7 +282,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { Message = "Successfully left the server" });
     }
     
-    [HttpDelete("{id}")]
+    [HttpDelete("{id}")] // DELETE /api/server/{id}
     public async Task<IActionResult> DeleteServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -310,7 +310,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { Message = "Server deleted successfully" });
     }
     
-    [HttpPost("{id}/invite")]
+    [HttpPost("{id}/invite")] // POST /api/server/{id}/invite
     public async Task<IActionResult> InviteToServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -346,7 +346,6 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { InviteCode = inviteCode, Message = "Invite code generated successfully" });
     }
     
-    // Szerver csatornái
     [HttpGet("{id}/channels")] // GET /api/server/{id}/channels
     public async Task<IActionResult> GetChannels(long id, CancellationToken cancellationToken)
     {
@@ -372,7 +371,6 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(channels);
     }
     
-    // Új csatorna létrehozás
     [HttpPost("{id}/channels")] // POST /api/server/{id}/channels
     public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request, CancellationToken cancellationToken)
     {

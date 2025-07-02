@@ -79,10 +79,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
 
     // GET /channels/{channelId}/messages - Üzenetek listázása lapozással
     [HttpGet]
-    public async Task<IActionResult> GetMessages(long id,
-        CancellationToken cancellationToken,
-        [FromQuery] long? before = null,
-        [FromQuery] int limit = 50)
+    public async Task<IActionResult> GetMessages(long id, CancellationToken cancellationToken, [FromQuery] long? before = null, [FromQuery] int limit = 50)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
@@ -146,8 +143,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
 
     // GET /channels/{channelId}/messages/{messageId} - Specifikus üzenet lekérése
     [HttpGet("{messageId}")]
-    public async Task<IActionResult> GetMessage(long id, long messageId, 
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMessage(long id, long messageId, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
@@ -192,9 +188,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
 
     // PATCH /channels/{channelId}/messages/{messageId} - Üzenet szerkesztése
     [HttpPatch("{messageId}")]
-    public async Task<IActionResult> EditMessage(long id, long messageId,
-        [FromBody] MessageDtos.UpdateMessageRequestDto request,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> EditMessage(long id, long messageId, [FromBody] MessageDtos.UpdateMessageRequestDto request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
@@ -245,8 +239,7 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
 
     // DELETE /channels/{channelId}/messages/{messageId} - Üzenet törlése
     [HttpDelete("{messageId}")]
-    public async Task<IActionResult> DeleteMessage(long id, long messageId,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteMessage(long id, long messageId, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))

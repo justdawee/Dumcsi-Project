@@ -1,11 +1,11 @@
 <template>
   <div 
-    class="group hover:bg-gray-750/50 px-4 py-1 rounded-sm transition-colors"
+    class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
     :class="{ 'mt-4': showHeader }"
   >
     <!-- Message Header (Avatar + Username + Time) -->
     <div v-if="showHeader" class="flex items-start gap-3 mb-1">
-      <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+      <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 shrink-0">
         <span class="text-sm font-semibold text-primary">
           {{ getUserInitials(message.senderUsername || message.username) }}
         </span>
