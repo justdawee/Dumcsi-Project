@@ -71,7 +71,8 @@
 
     <div class="px-4 pb-4">
       <MessageInput
-        :channel-name="currentChannel?.name"
+        v-if="appStore.currentChannel"
+        :channel-name="appStore.currentChannel.name"
         @send="handleSendMessage"
       />
     </div>
