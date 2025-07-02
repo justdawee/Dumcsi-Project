@@ -5,8 +5,8 @@
       <div class="flex items-center gap-2 min-w-0">
         <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
         <h3 class="font-semibold text-white truncate">{{ currentChannel?.name }}</h3>
-        <span v-if="currentChannel?.description" class="text-sm text-gray-400 ml-2 truncate hidden sm:block">
-          {{ currentChannel.description }}
+        <span v-if="channelDescription" class="text-sm text-gray-400 ml-2 truncate hidden sm:block">
+          {{ channelDescription }}
         </span>
       </div>
       <div class="flex items-center gap-2">
@@ -85,11 +85,13 @@ const appStore = useAppStore();
 
 const messagesContainer = ref<HTMLElement | null>(null);
 const hasMoreMessages = ref(true);
-const isMemberListOpen = ref(true); // Alapértelmezetten legyen nyitva
+const isMemberListOpen = ref(true);
 
 const currentChannel = computed(() => appStore.currentChannel);
 const messages = computed(() => appStore.messages);
 const members = computed(() => appStore.members);
+
+const channelDescription = computed(() => appStore.currentChannel?.description);
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -113,7 +115,6 @@ const loadMoreMessages = async () => {
   const initialMessageCount = messages.value.length;
   await appStore.fetchMessages(currentChannel.value.id, oldestMessageId);
   
-  // Ellenőrizzük, hogy érkezett-e új üzenet
   if (messages.value.length === initialMessageCount) {
     hasMoreMessages.value = false;
   }
@@ -148,7 +149,7 @@ const handleEditMessage = async ({ messageId, content }: { messageId: number; co
     const message = messages.value.find(m => m.id === messageId);
     if (message) {
       message.content = content.content;
-      message.editedAt = new Date().toISOString(); // Szimuláljuk a frissítést a UI-on
+      message.editedAt = new Date().toISOString();
     }
   } catch (error) {
     console.error('Failed to edit message:', error);

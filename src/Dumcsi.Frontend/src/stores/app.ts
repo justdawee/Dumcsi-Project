@@ -76,11 +76,8 @@ export const useAppStore = defineStore('app', () => {
     loading.value.channel = true;
     error.value = null;
     try {
-      // A channelService-t használjuk, nem a serverService-t
       const response = await channelService.getChannel(channelId);
       currentChannel.value = response.data;
-      // A ChannelDetail DTO már tartalmazza az első 50 üzenetet,
-      // így azokat közvetlenül beállíthatjuk.
       messages.value = response.data.messages.reverse(); // A legfrissebb legyen alul
       return response.data;
     } catch (err: any) {
@@ -96,7 +93,6 @@ export const useAppStore = defineStore('app', () => {
     error.value = null;
     try {
       const response = await messageService.getMessages(channelId, { before, limit: 50 });
-      // Új üzenetek hozzáadása a meglévőkhöz (lapozás)
       messages.value = [...response.data.reverse(), ...messages.value];
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch messages';
@@ -180,6 +176,13 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const updateCurrentChannelDetails = (payload: { name: string; description?: string }) => {
+    if (currentChannel.value) {
+      currentChannel.value.name = payload.name;
+      currentChannel.value.description = payload.description;
+    }
+  };
+
   const reset = () => {
     servers.value = [];
     currentServer.value = null;
@@ -209,6 +212,7 @@ export const useAppStore = defineStore('app', () => {
     sendMessage,
     createServer,
     createChannel,
+    updateCurrentChannelDetails,
     joinServer,
     leaveServer,
     reset,

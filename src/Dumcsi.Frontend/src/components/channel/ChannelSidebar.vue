@@ -146,18 +146,24 @@ const openEditModal = (channel: ChannelListItem) => {
   isEditModalOpen.value = true;
 };
 
-const handleChannelUpdate = () => {
+const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
   if (props.server) {
     appStore.fetchServer(props.server.id);
-    
-    if (editingChannel.value && editingChannel.value.id === currentChannelId.value) {
-        const channelExists = props.server.channels.some(c => c.id === currentChannelId.value);
-        if (!channelExists) {
-            router.push({ name: 'Server', params: { serverId: props.server.id }});
-        }
+
+    if (updatedData && updatedData.id === currentChannelId.value) {
+        appStore.updateCurrentChannelDetails(updatedData);
     }
   }
 };
+
+const handleChannelDeleted = (deletedChannelId: number) => {
+    if (props.server) {
+        appStore.fetchServer(props.server.id);
+        if (deletedChannelId === currentChannelId.value) {
+            router.push({ name: 'Server', params: { serverId: props.server.id }});
+        }
+    }
+}
 </script>
 
 <style scoped>

@@ -1,5 +1,4 @@
 <template>
-  <!-- Fő modális ablak konténer -->
   <Transition name="modal-fade">
     <div
       v-if="modelValue"
@@ -80,7 +79,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'channel-updated', updatedChannel: ChannelListItem): void;
+  (e: 'channel-updated', updatedChannelData: { id: number, name: string, description?: string }): void;
   (e: 'channel-deleted', channelId: number): void;
 }>();
 
@@ -114,7 +113,7 @@ const handleUpdateChannel = async () => {
       position: props.channel.position,
     });
     emit('channel-updated', {
-      ...props.channel,
+      id: props.channel.id,
       name: form.name,
       description: form.description,
     });
