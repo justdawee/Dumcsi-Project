@@ -154,6 +154,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
             {
                 Id = c.Id,
                 Name = c.Name,
+                Description = c.Description,
                 Type = c.Type,
                 Position = c.Position
             }).ToList()
