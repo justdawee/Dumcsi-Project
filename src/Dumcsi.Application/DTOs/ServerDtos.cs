@@ -74,4 +74,15 @@ public class ServerDtos
         public string InviteCode { get; set; } = string.Empty;
         
     }
+    
+    // PUT /api/server/{id}
+    public class UpdateServerRequestDto
+    {
+        [Required, MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+        [MaxLength(500)]
+        public string? Description { get; set; }
+        public bool IsPublic { get; set; } = false;
+        public string? IconUrl { get; set; } // Optional icon URL
+    }
 }

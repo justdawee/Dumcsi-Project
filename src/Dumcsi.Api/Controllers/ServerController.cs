@@ -431,4 +431,43 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
             CreatedAt = channel.CreatedAt
         });
     }
+    
+    [HttpPut("{id}")] // PUT /api/server/{id}
+    public async Task<IActionResult> UpdateServer(long id, [FromBody] ServerDtos.UpdateServerRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        {
+            return Unauthorized();
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var server = await dbContext.Servers.FindAsync(id, cancellationToken);
+        if (server == null)
+        {
+            return NotFound("Server not found");
+        }
+
+        if (server.OwnerId != userId)
+        {
+            return Forbid("Only the server owner can update the server");
+        }
+
+        server.Name = request.Name;
+        server.Description = request.Description;
+        server.IconUrl = request.IconUrl;
+        server.IsPublic = request.IsPublic;
+        server.UpdatedAt = DateTimeOffset.UtcNow.ToInstant();
+
+        dbContext.Servers.Update(server);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { Message = "Server updated successfully" });
+    }
 }
