@@ -34,11 +34,16 @@
               :to="`/servers/${server.id}/channels/${channel.id}`"
               class="channel-item"
               :class="{ 'active': currentChannelId === channel.id }"
+              @contextmenu.prevent="openChannelMenu($event, channel)"
             >
-              <MessageCircle class="w-4 h-4 text-gray-400" />
+              <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
+              <button @click.prevent="editChannel(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition">
+                <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
+              </button>
             </RouterLink>
           </div>
+          <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
         </div>
         
         <!-- Voice Channels (if any) -->
@@ -92,8 +97,9 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { Hash, Volume2, Plus, User, Settings, Loader2, MessageSquare, MessageCircle, AtSign, MessagesSquareIcon, MessagesSquare, ChartArea, MessageCircleHeart, MessageCircleDashed } from 'lucide-vue-next'
+import { Hash, Volume2, Plus, User, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next'
 import CreateChannelModal from './CreateChannelModal.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue';
 
 const props = defineProps({
   server: Object,
@@ -104,6 +110,9 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const showCreateChannel = ref(false)
+
+const channelContextMenu = ref(null);
+const channelMenuItems = ref([]);
 
 const roleNames = {
   0: 'Member',
@@ -126,6 +135,28 @@ const voiceChannels = computed(() =>
 const canManageChannels = computed(() => 
   props.server?.currentUserRole > 0
 )
+
+const openChannelMenu = (event, channel) => {
+  channelMenuItems.value = [
+    { label: 'Edit Channel', icon: Edit, action: () => editChannel(channel) },
+    { label: 'Delete Channel', icon: Trash2, danger: true, action: () => deleteChannel(channel.id) },
+  ];
+  channelContextMenu.value.open(event);
+};
+
+const editChannel = (channel) => {
+  console.log('Editing channel:', channel.id);
+  // Itt nyithatsz meg egy modalt vagy navigálhatsz egy szerkesztő oldalra
+};
+
+const deleteChannel = async (channelId) => {
+  if (confirm('Biztosan törlöd ezt a csatornát?')) {
+    // API hívás a törléshez
+    // await serverService.deleteChannel(channelId);
+    // appStore.fetchServer(props.server.id); // Frissítés
+    console.log('Deleting channel:', channelId);
+  }
+};
 </script>
 
 <style scoped>
