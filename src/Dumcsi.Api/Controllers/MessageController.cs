@@ -33,6 +33,12 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
         
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         
+        var user = await dbContext.Users.FindAsync(userId, cancellationToken);
+        if (user == null)
+        {
+            return Unauthorized();
+        }
+        
         var channel = await dbContext.Channels
             .Include(c => c.Server)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
