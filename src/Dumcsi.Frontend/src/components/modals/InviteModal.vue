@@ -7,15 +7,11 @@
     >
       <div class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
         <header class="flex items-center space-x-4 mb-4">
-          <img
-            :src="server?.iconUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${server?.name || 'default'}`"
-            alt="Server Icon"
-            class="h-16 w-16 rounded-xl object-cover bg-gray-700"
+          <ServerAvatar
+          :avatar-url="server?.iconUrl"
+          :servername="server?.name"
+          :size="64"
           />
-          <div>
-            <p class="text-xs text-gray-400">You are inviting people to</p>
-            <h3 class="text-xl font-bold text-white">{{ server?.name }}</h3>
-          </div>
         </header>
 
         <p v-if="server?.description" class="text-sm text-gray-400 mb-6 border-l-2 border-primary/50 pl-3">
@@ -70,6 +66,7 @@
 import { ref } from 'vue';
 import { Copy } from 'lucide-vue-next';
 import type { ServerDetail } from '@/services/types';
+import ServerAvatar from '@/components/common/ServerAvatar.vue';
 
 const props = defineProps<{
   modelValue: boolean;

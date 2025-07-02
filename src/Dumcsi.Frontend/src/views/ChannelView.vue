@@ -13,7 +13,7 @@
         <button @click="toggleMemberList" class="p-2 hover:bg-gray-700 rounded-md transition" title="Toggle Member List">
           <Users class="w-5 h-5 text-gray-400" />
         </button>
-        <!-- A keresés funkció egy későbbi fejlesztés lehet -->
+        <!-- TODO: Keresés az üzenetek között funkció -->
       </div>
     </div>
 

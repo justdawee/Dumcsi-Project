@@ -1,5 +1,4 @@
 <template>
-  <!-- A 'v-if' eldönti, hogy a profilképet vagy a fallback avatart mutassuk -->
   <img
     v-if="showImage"
     :src="props.avatarUrl!"
@@ -7,12 +6,11 @@
     alt="User Avatar"
     @error="handleImageError"
   />
-  <!-- Fallback avatar dinamikus, de konzisztens színekkel -->
   <div
     v-else
     :class="['rounded-full flex items-center justify-center shrink-0', colorClasses.bg, sizeClass]"
   >
-    <span :class="['font-semibold', colorClasses.text, textSizeClass]">{{ initials }}</span>
+  <span :class="['font-semibold', colorClasses.text, textSizeClass]">{{ initials }}</span>
   </div>
 </template>
 

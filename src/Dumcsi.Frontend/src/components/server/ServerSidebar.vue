@@ -5,34 +5,31 @@
       to="/servers"
       class="server-icon group"
       :class="{ 'active': isHome }"
+      @mouseenter="showTooltip($event, 'Home')"
+      @mouseleave="hideTooltip"
     >
       <Home class="w-6 h-6" />
-      <span class="server-tooltip">Home</span>
     </RouterLink>
-    
+
     <div class="w-8 h-[2px] bg-gray-700 rounded-full" />
     
     <!-- Server List -->
     <div class="space-y-2">
       <RouterLink
-        v-for="server in appStore.servers"
-        :key="server.id"
-        :to="`/servers/${server.id}`"
-        class="server-icon group"
-        :class="{ 'active': currentServerId === server.id }"
-        @contextmenu.prevent="openServerMenu($event, server)"
-      >
-        <img
-          v-if="server.iconUrl"
-          :src="server.iconUrl"
-          :alt="server.name"
-          class="w-full h-full object-cover"
-        />
-        <span v-else class="text-lg font-semibold">
-          {{ getServerInitials(server.name) }}
-        </span>
-        <span class="server-tooltip">{{ server.name }}</span>
-      </RouterLink>
+      v-for="server in appStore.servers"
+      :key="server.id"
+      :to="`/servers/${server.id}`"
+      class="server-icon group mx-auto"
+      :class="{ 'active': currentServerId === server.id }"
+      @contextmenu.prevent="openServerMenu($event, server)"
+      @mouseenter="showTooltip($event, server.name)"
+      @mouseleave="hideTooltip"
+    >
+      <ServerAvatar
+        :icon-url="server.iconUrl"
+        :server-name="server.name"
+      />
+    </RouterLink>
     </div>
     <ContextMenu ref="serverContextMenu" :items="serverMenuItems" />
     
@@ -50,55 +47,84 @@
       v-if="showCreateModal"
       @close="showCreateModal = false"
     />
+    <!-- Tooltip -->
+     <Teleport to="body">
+      <div
+        v-if="tooltipVisible"
+        :class="['fixed left-[84px] -translate-y-1/2 px-3 py-2 bg-gray-700 text-white text-sm rounded-lg whitespace-nowrap z-50 transition-opacity', tooltipVisible ? 'opacity-100' : 'opacity-0']"
+        :style="{ top: `${tooltipTop}px` }"
+      >
+        {{ tooltipText }}
+      </div>
+    </Teleport>
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next'
-import CreateServerModal from './CreateServerModal.vue'
-import ContextMenu from '@/components/ui/ContextMenu.vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useAppStore } from '@/stores/app';
+import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next';
+import type { Component } from 'vue';
+import CreateServerModal from './CreateServerModal.vue';
+import ContextMenu from '@/components/ui/ContextMenu.vue';
+import ServerAvatar from '@/components/common/ServerAvatar.vue'; 
+import type { ServerListItem } from '@/services/types';
 
-const route = useRoute()
-const appStore = useAppStore()
+interface MenuItem {
+  label: string;
+  icon: Component;
+  action: () => void;
+  danger?: boolean;
+}
 
-const serverContextMenu = ref(null);
-const serverMenuItems = ref([]);
+const route = useRoute();
+const router = useRouter();
+const appStore = useAppStore();
 
-const showCreateModal = ref(false)
+const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const serverMenuItems = ref<MenuItem[]>([]);
+const showCreateModal = ref(false);
 
-const isHome = computed(() => route.name === 'ServerSelect')
+const tooltipText = ref('');
+const tooltipTop = ref(0);
+const tooltipVisible = ref(false);
+
+const isHome = computed(() => route.name === 'ServerSelect');
 const currentServerId = computed(() => 
-  route.params.serverId ? parseInt(route.params.serverId) : null
-)
+  route.params.serverId ? parseInt(route.params.serverId as string) : null
+);
 
-const openServerMenu = (event, server) => {
+const showTooltip = (e: MouseEvent, text: string) => {
+  const target = e.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  tooltipTop.value = rect.top + rect.height / 2; // Vertikálisan középre igazítjuk
+  tooltipText.value = text;
+  tooltipVisible.value = true;
+};
+
+const hideTooltip = () => {
+  tooltipVisible.value = false;
+};
+
+const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   serverMenuItems.value = [
     { label: 'Invite', icon: UserPlus, action: () => console.log('Invite to', server.name) },
     { label: 'Create Channel', icon: PlusCircle, action: () => console.log('Create channel in', server.name) },
     { label: 'Modify Server', icon: Edit, action: () => console.log('Modify', server.name) },
     { label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server.id) },
   ];
-  serverContextMenu.value.open(event);
+  serverContextMenu.value?.open(event);
 };
 
-const handleLeaveServer = async (serverId) => {
+const handleLeaveServer = async (serverId: number) => {
   if (confirm('Are you sure you want to leave this server?')) {
     await appStore.leaveServer(serverId);
-    route.path = '/servers';
+    if (currentServerId.value === serverId) {
+        router.push({ name: 'ServerSelect' });
+    }
   }
 };
-
-const getServerInitials = (name) => {
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 </script>
 
 <style scoped>
@@ -118,10 +144,6 @@ const getServerInitials = (name) => {
 .server-tooltip {
   @apply absolute left-full ml-4 px-3 py-2 bg-gray-950 text-white text-sm
          rounded-lg opacity-0 pointer-events-none transition-opacity
-         whitespace-nowrap z-50;
-}
-
-.group:hover .server-tooltip {
-  @apply opacity-100;
+         whitespace-nowrap z-50 group-hover:opacity-100;
 }
 </style>

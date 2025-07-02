@@ -64,6 +64,8 @@ layer(base);
 .form-error { @apply mt-1 text-xs text-red-400; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.2s ease-in-out; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 
 @utility scrollbar-thin {
   scrollbar-width: thin;

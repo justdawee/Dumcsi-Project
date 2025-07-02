@@ -22,6 +22,7 @@
               v-if="canManageChannels"
               @click="showCreateChannel = true"
               class="hover:text-gray-200 transition"
+              title="Create Channel"
             >
               <Plus class="w-4 h-4" />
             </button>
@@ -32,18 +33,17 @@
               v-for="channel in textChannels"
               :key="channel.id"
               :to="`/servers/${server.id}/channels/${channel.id}`"
-              class="channel-item group"  :class="{ 'active': currentChannelId === channel.id }"
-              @contextmenu.prevent="openChannelMenu($event, channel)"
+              class="channel-item group" :class="{ 'active': currentChannelId === channel.id }"
             >
               <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
               
-              <button @click.prevent="editChannel(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition">
+              <!-- A gomb most már az editChannel metódust hívja, ami megnyitja a modális ablakot -->
+              <button v-if="canManageChannels" @click.prevent="openEditModal(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition" title="Edit Channel">
                 <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
               </button>
             </RouterLink>
           </div>
-          <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
         </div>
         
         <!-- Voice Channels -->
@@ -88,79 +88,74 @@
         </RouterLink>
       </div>
     </div>
-    
-    <!-- Create Channel Modal -->
+    <!-- Modális ablakok -->
     <CreateChannelModal
       v-if="showCreateChannel"
       :serverId="server?.id"
       @close="showCreateChannel = false"
+      @channel-created="handleChannelUpdate"
+    />
+    <EditChannelModal
+      v-model="isEditModalOpen"
+      :channel="editingChannel"
+      @close="isEditModalOpen = false"
+      @channel-updated="handleChannelUpdate"
+      @channel-deleted="handleChannelUpdate"
     />
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { Hash, Volume2, Plus, User, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next'
-import CreateChannelModal from './CreateChannelModal.vue'
-import ContextMenu from '@/components/ui/ContextMenu.vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
+import { useAppStore } from '@/stores/app';
+import { Hash, Volume2, Plus, Settings, Loader2 } from 'lucide-vue-next';
+import CreateChannelModal from './CreateChannelModal.vue';
+import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import type { ServerDetail, ChannelListItem, Role } from '@/services/types';
 
-const props = defineProps({
-  server: Object,
-  loading: Boolean
-})
+// --- Props & Store ---
+const props = defineProps<{
+  server: ServerDetail | null;
+  loading: boolean;
+}>();
 
-const route = useRoute()
+const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
+const appStore = useAppStore();
 
-const showCreateChannel = ref(false)
+// --- State ---
+const showCreateChannel = ref(false);
+const isEditModalOpen = ref(false);
+const editingChannel = ref<ChannelListItem | null>(null);
 
-const channelContextMenu = ref(null);
-const channelMenuItems = ref([]);
+const roleNames: Record<Role, string> = { 0: 'Member', 1: 'Moderator', 2: 'Admin' };
 
-const roleNames = {
-  0: 'Member',
-  1: 'Moderator',
-  2: 'Admin'
-}
+// --- Computed ---
+const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
+const textChannels = computed(() => props.server?.channels?.filter(c => c.type === 0) || []);
+const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type === 1) || []);
+const canManageChannels = computed(() => (props.server?.currentUserRole ?? 0) > 0);
 
-const currentChannelId = computed(() => 
-  route.params.channelId ? parseInt(route.params.channelId) : null
-)
-
-const textChannels = computed(() => 
-  props.server?.channels?.filter(c => c.type === 0) || []
-)
-
-const voiceChannels = computed(() => 
-  props.server?.channels?.filter(c => c.type === 1) || []
-)
-
-const canManageChannels = computed(() => 
-  props.server?.currentUserRole > 0
-)
-
-const openChannelMenu = (event, channel) => {
-  channelMenuItems.value = [
-    { label: 'Edit Channel', icon: Edit, action: () => editChannel(channel) },
-    { label: 'Delete Channel', icon: Trash2, danger: true, action: () => deleteChannel(channel.id) },
-  ];
-  channelContextMenu.value.open(event);
+// --- Methods ---
+const openEditModal = (channel: ChannelListItem) => {
+  editingChannel.value = channel;
+  isEditModalOpen.value = true;
 };
 
-const editChannel = (channel) => {
-  console.log('Editing channel:', channel.id);
-  // Itt nyithatsz meg egy modalt vagy navigálhatsz egy szerkesztő oldalra
-};
-
-const deleteChannel = async (channelId) => {
-  if (confirm('Biztosan törlöd ezt a csatornát?')) {
-    // API hívás a törléshez
-    // await serverService.deleteChannel(channelId);
-    // appStore.fetchServer(props.server.id); // Frissítés
-    console.log('Deleting channel:', channelId);
+const handleChannelUpdate = () => {
+  if (props.server) {
+    appStore.fetchServer(props.server.id);
+    
+    if (editingChannel.value && editingChannel.value.id === currentChannelId.value) {
+        const channelExists = props.server.channels.some(c => c.id === currentChannelId.value);
+        if (!channelExists) {
+            router.push({ name: 'Server', params: { serverId: props.server.id }});
+        }
+    }
   }
 };
 </script>
