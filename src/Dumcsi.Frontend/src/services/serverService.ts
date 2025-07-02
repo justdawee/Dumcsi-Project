@@ -1,58 +1,85 @@
-import api from './api'
+import type { AxiosResponse } from 'axios';
+import api from './api';
+import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, JoinServerResponse } from './types';
 
-export default {
-  // Server operations
-  getServers() {
-    return api.get('/server')
+const serverService = {
+  /**
+   * GET /api/server
+   */
+  getServers(): Promise<AxiosResponse<ServerListItem[]>> {
+    return api.get<ServerListItem[]>('/server');
   },
-  
-  createServer(serverData: { name: string }) {
-    return api.post('/server', serverData)
+
+  /**
+   * POST /api/server
+   */
+  createServer(payload: CreateServerPayload): Promise<AxiosResponse<{ serverId: number; message: string }>> {
+    return api.post('/server', payload);
   },
-  
-  getServer(id: string) {
-    return api.get(`/server/${id}`)
+
+  /**
+   * GET /api/server/{id}
+   */
+  getServer(id: string | number): Promise<AxiosResponse<ServerDetail>> {
+    return api.get<ServerDetail>(`/server/${id}`);
   },
-  
-  deleteServer(id: string) {
-    return api.delete(`/server/${id}`)
+
+  /**
+   * DELETE /api/server/{id}
+   */
+  deleteServer(id: string | number): Promise<AxiosResponse<{ message: string }>> {
+    return api.delete(`/server/${id}`);
   },
-  
-  // Members
-  getServerMembers(id: string) {
-    return api.get(`/server/${id}/members`)
+
+  /**
+   * GET /api/server/{id}/members
+   */
+  getServerMembers(id: string | number): Promise<AxiosResponse<ServerMember[]>> {
+    return api.get<ServerMember[]>(`/server/${id}/members`);
   },
-  
-  joinServer(id: string, inviteCode: string) {
-    return api.post(`/server/${id}/join`, { inviteCode })
+
+  /**
+   * POST /api/server/{id}/join
+   */
+  joinServer(inviteCode: string): Promise<AxiosResponse<JoinServerResponse>> {
+    const payload: JoinServerPayload = { inviteCode };
+    return api.post<JoinServerResponse>('/server/join', payload);
   },
-  
-  leaveServer(id: string) {
-    return api.post(`/server/${id}/leave`)
+
+  /**
+   * POST /api/server/{id}/leave
+   */
+  leaveServer(id: string | number): Promise<AxiosResponse<{ message: string }>> {
+    return api.post(`/server/${id}/leave`);
   },
-  
-  generateInvite(id: string) {
-    return api.post(`/server/${id}/invite`)
+
+  /**
+   * POST /api/server/{id}/invite
+   */
+  generateInvite(id: string | number): Promise<AxiosResponse<{ inviteCode: string; message: string }>> {
+    return api.post<{ InviteCode: string; Message: string }>(`/server/${id}/invite`).then(response => {
+      return {
+        ...response,
+        data: {
+          inviteCode: response.data.InviteCode,
+          message: response.data.Message,
+        },
+      };
+    });
   },
-  
-  // Channels
-  getServerChannels(id: string) {
-    return api.get(`/server/${id}/channels`)
+
+  /**
+   * GET /api/server/{id}/channels
+   */
+  getServerChannels(id: string | number): Promise<AxiosResponse<ChannelListItem[]>> {
+    return api.get<ChannelListItem[]>(`/server/${id}/channels`);
   },
-  
-  createChannel(serverId: string, channelData: { name: string }) {
-    return api.post(`/server/${serverId}/channels`, channelData)
+
+  /**
+   * POST /api/server/{id}/channels
+   */
+  createChannel(serverId: string | number, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelListItem>> {
+    return api.post<ChannelListItem>(`/server/${serverId}/channels`, payload);
   },
-  
-  getChannel(id: string) {
-    return api.get(`/channels/${id}`)
-  },
-  
-  updateChannel(id: string, data: { name: string }) {
-    return api.patch(`/channels/${id}`, data)
-  },
-  
-  deleteChannel(id: string) {
-    return api.delete(`/channels/${id}`)
-  }
-}
+};
+export default serverService;

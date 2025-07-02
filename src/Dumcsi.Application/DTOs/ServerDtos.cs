@@ -68,8 +68,9 @@ public class ServerDtos
     }
     
     // POST /api/server/{id}/join request
-    public class JoinServerRequestDto
+    public class JoinServerByCodeRequestDto
     {
         public string InviteCode { get; set; } = string.Empty;
+        
     }
 }

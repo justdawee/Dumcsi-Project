@@ -1,23 +1,39 @@
-import api from './api'
+import type { AxiosResponse } from 'axios';
+import api from './api';
+import type { MessageListItem, CreateMessagePayload, UpdateMessagePayload } from './types';
 
-export default {
-  sendMessage(channelId: string, content: string) {
-    return api.post(`/channels/${channelId}/messages`, { content })
-  },
-  
-  getMessages(channelId: string, params: any = {}) {
-    return api.get(`/channels/${channelId}/messages`, { params })
-  },
-  
-  getMessage(channelId: string, messageId: string) {
-    return api.get(`/channels/${channelId}/messages/${messageId}`)
-  },
-  
-  editMessage(channelId: string, messageId: string, content: string) {
-    return api.patch(`/channels/${channelId}/messages/${messageId}`, { content })
-  },
-  
-  deleteMessage(channelId: string, messageId: string) {
-    return api.delete(`/channels/${channelId}/messages/${messageId}`)
-  }
+interface GetMessagesParams {
+    before?: number; // Üzenet ID, ami előttieket kérjük
+    limit?: number;  // Max 100
 }
+
+const messageService = {
+  /**
+   * GET /api/channels/{channelId}/messages
+   */
+  getMessages(channelId: string | number, params?: GetMessagesParams): Promise<AxiosResponse<MessageListItem[]>> {
+    return api.get<MessageListItem[]>(`/channels/${channelId}/messages`, { params });
+  },
+
+  /**
+   * POST /api/channels/{channelId}/messages
+   */
+  sendMessage(channelId: string | number, payload: CreateMessagePayload): Promise<AxiosResponse<MessageListItem>> {
+    return api.post<MessageListItem>(`/channels/${channelId}/messages`, payload);
+  },
+
+  /**
+   * PATCH /api/channels/{channelId}/messages/{messageId}
+   */
+  editMessage(channelId: string | number, messageId: string | number, payload: UpdateMessagePayload): Promise<AxiosResponse<void>> {
+    return api.patch<void>(`/channels/${channelId}/messages/${messageId}`, payload);
+  },
+
+  /**
+   * DELETE /api/channels/{channelId}/messages/{messageId}
+   */
+  deleteMessage(channelId: string | number, messageId: string | number): Promise<AxiosResponse<void>> {
+    return api.delete<void>(`/channels/${channelId}/messages/${messageId}`);
+  },
+};
+export default messageService;

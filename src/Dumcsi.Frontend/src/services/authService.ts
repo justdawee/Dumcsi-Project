@@ -1,11 +1,20 @@
-import api from './api'
+import type { AxiosResponse } from 'axios';
+import api from './api';
+import type { LoginPayload, RegisterPayload } from './types';
 
-export default {
-  login(credentials: any) {
-    return api.post('/auth/login', credentials)
+const authService = {
+  /**
+   * POST /api/auth/register
+   */
+  register(payload: RegisterPayload): Promise<AxiosResponse<void>> {
+    return api.post('/auth/register', payload);
   },
-  
-  register(userData: any) {
-    return api.post('/auth/register', userData)
-  }
-}
+
+  /**
+   * POST /api/auth/login
+   */
+  login(payload: LoginPayload): Promise<AxiosResponse<{ token: string }>> {
+    return api.post<{ token: string }>('/auth/login', payload);
+  },
+};
+export default authService;
