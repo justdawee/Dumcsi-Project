@@ -23,18 +23,18 @@
           class="absolute right-6 top-16 w-48 bg-gray-900 rounded-lg shadow-lg border border-gray-700 py-2 z-50"
         >
           <button
-            @click="handleLogout"
-            class="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 hover:text-white transition flex items-center gap-2"
-          >
-            <LogOut class="w-4 h-4" />
-            Logout
-          </button>
-          <button
             @click="editUser"
             class="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 hover:text-white transition flex items-center gap-2"
           >
             <Edit class="w-4 h-4" />
             Edit Profile
+          </button>
+          <button
+            @click="handleLogout"
+            class="w-full px-4 py-2 text-left text-red-300 hover:bg-red-800/10 hover:text-red-400 transition flex items-center gap-2"
+          >
+            <LogOut class="w-4 h-4" />
+            Logout
           </button>
         </div>
       </div>
