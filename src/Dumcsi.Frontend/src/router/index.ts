@@ -1,28 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   {
     path: '/auth',
     redirect: '/auth/login',
     children: [
-      {
-        path: 'login',
-        name: 'Login',
-        component: () => import('@/views/auth/LoginView.vue'),
-        meta: { requiresGuest: true }
-      },
-      {
-        path: 'register',
-        name: 'Register',
-        component: () => import('@/views/auth/RegisterView.vue'),
-        meta: { requiresGuest: true }
-      }
+      // ... (ez a rész változatlan)
     ]
   },
   {
     path: '/',
-    name: 'App',
+    // name: 'App',  // <-- EZT A SORT TÖRÖLD KI
     component: () => import('@/views/AppView.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -48,7 +37,7 @@ const routes = [
         ]
       },
       {
-        path: 'settings/profile', // Új útvonal
+        path: 'settings/profile',
         name: 'UserSettings',
         component: () => import('@/views/settings/ProfileSettingsView.vue')
       }
