@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios';
 import api from './api';
-import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, InviteResponse, JoinServerResponse } from './types';
+import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, InviteResponse, JoinServerResponse, UpdateServerPayload } from './types';
 
 const serverService = {
   /**
@@ -72,6 +72,13 @@ const serverService = {
    */
   createChannel(serverId: string | number, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelListItem>> {
     return api.post<ChannelListItem>(`/server/${serverId}/channels`, payload);
+  },
+
+  /**
+   * PUT /api/server/{id}
+   */
+  updateServer(id: number, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
+    return api.put<void>(`/server/${id}`, payload);
   },
 };
 export default serverService;

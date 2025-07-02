@@ -63,13 +63,26 @@
         </button>
       </div>
     </div>
-    
+    <!-- ContextMenu és a hozzá tartozó modális ablakok -->
     <ContextMenu ref="serverContextMenu" :items="serverMenuItems" />
     
-    <!-- Modals & Tooltip -->
     <CreateServerModal
       v-if="showCreateModal"
       @close="showCreateModal = false"
+    />
+    
+    <InviteModal
+      v-model="isInviteModalOpen"
+      :server="selectedServer"
+      :invite-code="generatedInviteCode"
+    />
+
+    <EditServerModal
+      v-if="isEditServerModalOpen"
+      v-model="isEditServerModalOpen"
+      :server="selectedServer"
+      @close="isEditServerModalOpen = false"
+      @server-updated="appStore.fetchServers()"
     />
     <Teleport to="body">
       <div
@@ -91,32 +104,91 @@ import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next'
 import type { Component } from 'vue';
 import CreateServerModal from './CreateServerModal.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
-import ServerAvatar from '@/components/common/ServerAvatar.vue'; 
+import ServerAvatar from '@/components/common/ServerAvatar.vue';
+import InviteModal from '@/components/modals/InviteModal.vue';
+import EditServerModal from '@/components/modals/EditServerModal.vue';
+import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import serverService from '@/services/serverService';
 import type { ServerListItem } from '@/services/types';
 
-interface MenuItem {
-  label: string;
-  icon: Component;
-  action: () => void;
-  danger?: boolean;
-}
-
+// --- State ---
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
 
+interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const serverMenuItems = ref<MenuItem[]>([]);
+const selectedServer = ref<ServerListItem | null>(null);
+
 const showCreateModal = ref(false);
+const isInviteModalOpen = ref(false);
+const generatedInviteCode = ref('');
+const isEditServerModalOpen = ref(false);
+const isLeaveConfirmOpen = ref(false);
+const isLeaving = ref(false);
 
 const tooltipText = ref('');
 const tooltipTop = ref(0);
 const tooltipVisible = ref(false);
 
+// --- Computed ---
 const isHome = computed(() => route.name === 'ServerSelect');
-const currentServerId = computed(() => 
-  route.params.serverId ? parseInt(route.params.serverId as string) : null
-);
+const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
+
+// --- Methods ---
+const handleInvite = async (server: ServerListItem) => {
+    try {
+        const response = await serverService.generateInvite(server.id);
+        selectedServer.value = server;
+        generatedInviteCode.value = response.data.inviteCode;
+        isInviteModalOpen.value = true;
+    } catch (error) {
+        console.error("Failed to generate invite:", error);
+    }
+};
+
+const handleCreateChannel = (server: ServerListItem) => {
+    // A ChannelSidebar-ban lévő '+' gomb nyitja meg a modális ablakot.
+    // A kontextusmenüből való hívás egyelőre csak egy jelzés.
+    // A logikát egy globális eseménykezelővel (pl. Pinia action) lehetne központosítani.
+    console.log("Create channel in", server.name);
+    alert("Please use the '+' button in the channel list to create a new channel.");
+};
+
+const handleEditServer = (server: ServerListItem) => {
+    selectedServer.value = server;
+    isEditServerModalOpen.value = true;
+};
+
+const handleLeaveServer = (server: ServerListItem) => {
+    selectedServer.value = server;
+    isLeaveConfirmOpen.value = true;
+};
+
+const confirmLeaveServer = async () => {
+    if (!selectedServer.value) return;
+    isLeaving.value = true;
+    try {
+        await appStore.leaveServer(selectedServer.value.id);
+        if (currentServerId.value === selectedServer.value.id) {
+            router.push({ name: 'ServerSelect' });
+        }
+    } finally {
+        isLeaving.value = false;
+        isLeaveConfirmOpen.value = false;
+    }
+};
+
+const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
+  serverMenuItems.value = [
+    { label: 'Invite', icon: UserPlus, action: () => handleInvite(server) },
+    { label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server) },
+    { label: 'Modify Server', icon: Edit, action: () => handleEditServer(server) },
+    { label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server) },
+  ];
+  serverContextMenu.value?.open(event);
+};
 
 const showTooltip = (e: MouseEvent, text: string) => {
   const target = e.currentTarget as HTMLElement;
@@ -128,25 +200,6 @@ const showTooltip = (e: MouseEvent, text: string) => {
 
 const hideTooltip = () => {
   tooltipVisible.value = false;
-};
-
-const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
-  serverMenuItems.value = [
-    { label: 'Invite', icon: UserPlus, action: () => console.log('Invite to', server.name) },
-    { label: 'Create Channel', icon: PlusCircle, action: () => console.log('Create channel in', server.name) },
-    { label: 'Modify Server', icon: Edit, action: () => console.log('Modify', server.name) },
-    { label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server.id) },
-  ];
-  serverContextMenu.value?.open(event);
-};
-
-const handleLeaveServer = async (serverId: number) => {
-  if (confirm('Are you sure you want to leave this server?')) {
-    await appStore.leaveServer(serverId);
-    if (currentServerId.value === serverId) {
-        router.push({ name: 'ServerSelect' });
-    }
-  }
 };
 </script>
 

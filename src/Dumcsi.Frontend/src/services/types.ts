@@ -138,3 +138,10 @@ export interface CreateMessagePayload {
 export interface UpdateMessagePayload {
     content: string;
 }
+
+export interface UpdateServerPayload {
+  name: string;
+  description?: string | null;
+  iconUrl?: string | null;
+  isPublic: boolean;
+}
