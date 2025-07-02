@@ -20,6 +20,7 @@
         :to="`/servers/${server.id}`"
         class="server-icon group"
         :class="{ 'active': currentServerId === server.id }"
+        @contextmenu.prevent="openServerMenu($event, server)"
       >
         <img
           v-if="server.iconUrl"
@@ -33,6 +34,7 @@
         <span class="server-tooltip">{{ server.name }}</span>
       </RouterLink>
     </div>
+    <ContextMenu ref="serverContextMenu" :items="serverMenuItems" />
     
     <!-- Add Server Button -->
     <button
@@ -55,11 +57,15 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { Home, Plus } from 'lucide-vue-next'
+import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next'
 import CreateServerModal from './CreateServerModal.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
+
+const serverContextMenu = ref(null);
+const serverMenuItems = ref([]);
 
 const showCreateModal = ref(false)
 
@@ -67,6 +73,23 @@ const isHome = computed(() => route.name === 'ServerSelect')
 const currentServerId = computed(() => 
   route.params.serverId ? parseInt(route.params.serverId) : null
 )
+
+const openServerMenu = (event, server) => {
+  serverMenuItems.value = [
+    { label: 'Invite', icon: UserPlus, action: () => console.log('Invite to', server.name) },
+    { label: 'Create Channel', icon: PlusCircle, action: () => console.log('Create channel in', server.name) },
+    { label: 'Modify Server', icon: Edit, action: () => console.log('Modify', server.name) },
+    { label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server.id) },
+  ];
+  serverContextMenu.value.open(event);
+};
+
+const handleLeaveServer = async (serverId) => {
+  if (confirm('Are you sure you want to leave this server?')) {
+    await appStore.leaveServer(serverId);
+    route.path = '/servers';
+  }
+};
 
 const getServerInitials = (name) => {
   return name
