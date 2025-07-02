@@ -1,17 +1,17 @@
 <template>
   <div class="flex-1 flex items-center justify-center p-8">
-    <div class="text-center max-w-md">
+    <div v-if="server" class="text-center max-w-md">
       <div class="w-32 h-32 mx-auto mb-6 bg-gray-700 rounded-full flex items-center justify-center">
         <MessageSquare class="w-16 h-16 text-gray-500" />
       </div>
       <h1 class="text-3xl font-bold text-white mb-3">
-        Welcome to {{ server?.name }}!
+        Welcome to {{ server.name }}!
       </h1>
       <p class="text-gray-400 mb-6">
-        {{ server?.description || 'Select a channel from the sidebar to start chatting.' }}
+        {{ server.description || 'Select a channel from the sidebar to start chatting.' }}
       </p>
       
-      <div v-if="server?.channels?.length > 0" class="space-y-2">
+      <div v-if="server.channels?.length > 0" class="space-y-2">
         <p class="text-sm text-gray-500 mb-3">Quick jump to:</p>
         <div class="flex flex-wrap gap-2 justify-center">
           <RouterLink
@@ -26,23 +26,33 @@
         </div>
       </div>
       
-      <div v-if="canInvite" class="mt-8">
-        <button
-          @click="handleGenerateInvite"
-          :disabled="generatingInvite"
-          class="btn-primary inline-flex items-center gap-2"
+      <!-- JAVÍTOTT RÉSZ: A gomb most már mindig látszik, de a tooltip és a disabled állapot kezeli a jogosultságot -->
+      <div class="mt-8">
+        <!-- A 'div' wrapper azért kell, hogy a tooltip akkor is működjön, ha a gomb le van tiltva -->
+        <div 
+          class="relative inline-block" 
+          :title="!canInvite ? 'You do not have permission to create invites.' : ''"
         >
-          <UserPlus v-if="!generatingInvite" class="w-5 h-5" />
-          <Loader2 v-else class="w-5 h-5 animate-spin" />
-          Generate Invite Link
-        </button>
-      </div>
-      <div v-else>
-        <Loader2 class="w-8 h-8 text-gray-500 animate-spin" />
+          <button
+            @click="handleGenerateInvite"
+            :disabled="generatingInvite || !canInvite"
+            class="btn-primary inline-flex items-center gap-2"
+          >
+            <UserPlus v-if="!generatingInvite" class="w-5 h-5" />
+            <Loader2 v-else class="w-5 h-5 animate-spin" />
+            Generate Invite Link
+          </button>
+        </div>
       </div>
     </div>
+    
+    <!-- A töltésjelző csak akkor jelenik meg, ha a szerver adatai még egyáltalán nem töltődtek be -->
+    <div v-else>
+        <Loader2 class="w-8 h-8 text-gray-500 animate-spin" />
+    </div>
   </div>
-  <!-- Itt hívjuk meg az új modális komponenst -->
+
+  <!-- A modális ablak hívása változatlan -->
   <InviteModal
     v-model="isInviteModalOpen"
     :server="server"
@@ -51,10 +61,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { MessageSquare, Hash, UserPlus, Copy, Loader2 } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { MessageSquare, Hash, UserPlus, Loader2 } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import type { ServerDetail } from '@/services/types';
+import { Role } from '@/services/types'; // Importáljuk a Role enumot
 import InviteModal from '@/components/modals/InviteModal.vue';
 
 const props = defineProps<{
@@ -65,10 +76,13 @@ const generatedInviteCode = ref('');
 const generatingInvite = ref(false);
 const isInviteModalOpen = ref(false);
 
-const canInvite = computed(() => (props.server?.currentUserRole ?? 0) > 0); // Role.Member = 0
+// A jogosultság ellenőrzése most már a központi Role enumot használja a jobb olvashatóságért
+const canInvite = computed(() => (props.server?.currentUserRole ?? Role.Member) > Role.Member);
 
 const handleGenerateInvite = async () => {
-  if (!props.server) return;
+  // A 'canInvite' a gomb letiltásával már eleve megakadályozza a felesleges hívást,
+  // de egy extra ellenőrzés sosem árt.
+  if (!props.server || !canInvite.value) return;
 
   generatingInvite.value = true;
   try {

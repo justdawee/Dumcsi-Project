@@ -55,7 +55,7 @@
           class="btn-primary flex items-center gap-2"
         >
           <Plus class="w-5 h-5" />
-          Create Server
+          Add Server
         </button>
       </div>
       

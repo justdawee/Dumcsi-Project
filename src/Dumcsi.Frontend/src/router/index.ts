@@ -1,17 +1,24 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { createRouter, createWebHistory } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
-const routes = [
+const routes = [  {
+    path: '/auth/login',
+    name: 'Login',
+    component: () => import('@/views/auth/LoginView.vue'),
+    meta: { requiresGuest: true }
+  },
+  {
+    path: '/auth/register',
+    name: 'Register',
+    component: () => import('@/views/auth/RegisterView.vue'),
+    meta: { requiresGuest: true }
+  },
   {
     path: '/auth',
-    redirect: '/auth/login',
-    children: [
-      // ... (ez a rész változatlan)
-    ]
+    redirect: { name: 'Login' }
   },
   {
     path: '/',
-    // name: 'App',  // <-- EZT A SORT TÖRÖLD KI
     component: () => import('@/views/AppView.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -43,28 +50,25 @@ const routes = [
       }
     ]
   }
-]
+];
 
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
+});
 
-// Navigation guards
 router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore()
+  const authStore = useAuthStore();
   
-  // Check if route requires authentication
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
+    next({ name: 'Login', query: { redirect: to.fullPath } });
   } 
-  // Check if route requires guest (not authenticated)
   else if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    next({ name: 'ServerSelect' })
+    next({ name: 'ServerSelect' });
   } 
   else {
-    next()
+    next();
   }
-})
+});
 
-export default router
+export default router;

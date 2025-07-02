@@ -5,21 +5,22 @@
   >
     <!-- Message Header (Avatar + Username + Time) -->
     <div v-if="showHeader" class="flex items-start gap-3 mb-1">
-      <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 shrink-0">
-        <span class="text-sm font-semibold text-primary">
-          {{ getUserInitials(message.senderUsername || message.username) }}
-        </span>
-      </div>
+      <UserAvatar
+        :username="message.senderUsername"
+        :avatar-url="message.senderAvatarUrl" 
+        :size="40"
+      />
+      
       <div>
         <div class="flex items-baseline gap-2">
-          <span class="font-semibold text-white">{{ message.senderUsername || message.username }}</span>
+          <span class="font-semibold text-white">{{ message.senderUsername }}</span>
           <span class="text-xs text-gray-500">{{ formatTime(message.createdAt) }}</span>
         </div>
         <!-- Message Content for header messages -->
         <div class="message-content">
           <p v-if="!isEditing" class="text-gray-100 break-words">
             {{ message.content }}
-            <span v-if="message.isEdited" class="text-xs text-gray-500 ml-1">(edited)</span>
+            <span v-if="message.editedAt" class="text-xs text-gray-500 ml-1">(edited)</span>
           </p>
           <MessageEdit
             v-else
@@ -41,7 +42,7 @@
       <div class="flex-1 message-content">
         <p v-if="!isEditing" class="text-gray-100 break-words">
           {{ message.content }}
-          <span v-if="message.isEdited" class="text-xs text-gray-500 ml-1">(edited)</span>
+          <span v-if="message.editedAt" class="text-xs text-gray-500 ml-1">(edited)</span>
         </p>
         <MessageEdit
           v-else
@@ -78,107 +79,79 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { Edit3, Trash2 } from 'lucide-vue-next'
-import MessageEdit from './MessageEdit.vue'
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { Edit3, Trash2 } from 'lucide-vue-next';
+import MessageEdit from './MessageEdit.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import type { MessageListItem } from '@/services/types';
 
-const props = defineProps({
-  message: {
-    type: Object,
-    required: true
-  },
-  previousMessage: {
-    type: Object,
-    default: null
-  },
-  currentUserId: {
-    type: Number,
-    required: true
-  }
-})
+// --- Props & Emits ---
+const props = defineProps<{
+  message: MessageListItem & { senderAvatarUrl?: string };
+  previousMessage: MessageListItem | null;
+  currentUserId: number | undefined;
+}>();
 
-const emit = defineEmits(['edit', 'delete'])
+const emit = defineEmits<{
+  (e: 'edit', payload: { messageId: number; content: { content: string } }): void;
+  (e: 'delete', messageId: number): void;
+}>();
 
-const isEditing = ref(false)
+// --- State ---
+const isEditing = ref(false);
 
+// --- Computed Properties ---
 const showHeader = computed(() => {
-  if (!props.previousMessage) return true
-
-  const prevSenderId = props.previousMessage.senderId || props.previousMessage.userId
-  const currentSenderId = props.message.senderId || props.message.userId
-  
-  if (prevSenderId !== currentSenderId) return true
+  if (!props.previousMessage) return true;
+  if (props.previousMessage.senderId !== props.message.senderId) return true;
   
   // Show header if more than 5 minutes between messages
-  const prevTime = new Date(props.previousMessage.createdAt)
-  const currTime = new Date(props.message.createdAt)
-  const diffMinutes = (currTime - prevTime) / (1000 * 60)
+  const prevTime = new Date(props.previousMessage.createdAt);
+  const currTime = new Date(props.message.createdAt);
+  const diffMinutes = (currTime.getTime() - prevTime.getTime()) / (1000 * 60);
   
-  return diffMinutes > 5
-})
+  return diffMinutes > 5;
+});
 
-const canEdit = computed(() => (props.message.senderId || props.message.userId) === props.currentUserId)
-const canDelete = computed(() => (props.message.senderId || props.message.userId) === props.currentUserId)
+const canEdit = computed(() => props.message.senderId === props.currentUserId);
+const canDelete = computed(() => props.message.senderId === props.currentUserId);
 
-const getUserInitials = (username) => {
-  return username
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
+// --- Methods ---
 
-const formatTime = (dateString) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const isToday = date.toDateString() === now.toDateString()
-  const isYesterday = new Date(now - 86400000).toDateString() === date.toDateString()
+const formatTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
   
-  const time = date.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
-  })
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
   
-  if (isToday) return `Today at ${time}`
-  if (isYesterday) return `Yesterday at ${time}`
+  if (isToday) return `Today at ${time}`;
+  if (isYesterday) return `Yesterday at ${time}`;
   
   return date.toLocaleDateString('en-US', { 
     month: 'short', 
     day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  }) + ` at ${time}`
-}
+  }) + ` at ${time}`;
+};
 
-const formatTimeShort = (dateString) => {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: false 
-  })
-}
+const formatTimeShort = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
+};
 
-const handleSave = (content) => {
-  emit('edit', { messageId: props.message.id, content })
-  isEditing.value = false
-}
+const handleSave = (newContent: string) => {
+  emit('edit', { messageId: props.message.id, content: { content: newContent } });
+  isEditing.value = false;
+};
 
 const handleDelete = () => {
+  // A confirm() használata nem ajánlott. Érdemes egy szebb,
+  // modális ablakot készíteni a törlés megerősítéséhez.
   if (confirm('Are you sure you want to delete this message?')) {
-    emit('delete', props.message.id)
+    emit('delete', props.message.id);
   }
-}
+};
 </script>
-
-<style scoped>
-.bg-gray-750\/50 {
-  background-color: rgba(55, 57, 63, 0.5);
-}
-
-.message-content {
-  position: relative;
-}
-</style>

@@ -233,7 +233,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { InviteCode = inviteCode, Message = "Invite code generated successfully" });
     }
     
-    [HttpPost("{id}/join")] // POST /api/server/{id}/join
+    [HttpPost("join")] 
     public async Task<IActionResult> JoinServerByCode([FromBody] ServerDtos.JoinServerByCodeRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -252,7 +252,8 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         {
             return BadRequest("Invalid invite code.");
         }
-        
+    
+        // A logika többi része változatlan és helyes.
         var existingMembership = await dbContext.ServerMembers
             .AnyAsync(sm => sm.ServerId == server.Id && sm.UserId == userId, cancellationToken);
 
@@ -282,7 +283,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         
         return Ok(new { Message = "Successfully joined the server.", ServerName = server.Name, ServerId = server.Id });
     }
-
+    
     [HttpPost("{id}/leave")] // POST /api/server/{id}/leave
     public async Task<IActionResult> LeaveServer(long id, CancellationToken cancellationToken)
     {
