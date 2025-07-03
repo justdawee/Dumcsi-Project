@@ -234,7 +234,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         return Ok(new { InviteCode = inviteCode, Message = "Invite code generated successfully" });
     }
     
-    [HttpPost("join")] 
+    [HttpPost("join")] // POST /api/server/join
     public async Task<IActionResult> JoinServerByCode([FromBody] ServerDtos.JoinServerByCodeRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -469,5 +469,73 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new { Message = "Server updated successfully" });
+    }
+    
+    [HttpGet("public")] // GET /api/server/public
+    public async Task<IActionResult> GetPublicServers(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var servers = await dbContext.Servers
+            .Where(s => s.IsPublic)
+            .Select(s => new ServerDtos.ServerListItemDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Description = s.Description ?? string.Empty,
+                IconUrl = s.IconUrl,
+                MemberCount = s.Members.Count,
+                OwnerId = s.OwnerId,
+                IsPublic = s.IsPublic,
+                CreatedAt = s.CreatedAt
+            })
+            .OrderByDescending(s => s.MemberCount) // Legnépszerűbbek elöl
+            .ToListAsync(cancellationToken);
+
+        return Ok(servers);
+    }
+    
+    [HttpPost("{id}/join")] // POST /api/server/{id}/join
+    public async Task<IActionResult> JoinPublicServer(long id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        {
+            return Unauthorized();
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var server = await dbContext.Servers.FindAsync(id, cancellationToken);
+
+        if (server == null || !server.IsPublic)
+        {
+            return NotFound("Public server not found.");
+        }
+
+        var isAlreadyMember = await dbContext.ServerMembers
+            .AnyAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
+
+        if (isAlreadyMember)
+        {
+            return BadRequest("You are already a member of this server.");
+        }
+
+        var user = await dbContext.Users.FindAsync(userId, cancellationToken);
+
+        var serverMember = new ServerMember
+        {
+            UserId = userId,
+            ServerId = server.Id,
+            User = user!,
+            Server = server,
+            Role = Role.Member,
+            JoinedAt = DateTimeOffset.UtcNow.ToInstant()
+        };
+
+        dbContext.ServerMembers.Add(serverMember);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { Message = "Successfully joined the server.", ServerId = server.Id });
     }
 }
