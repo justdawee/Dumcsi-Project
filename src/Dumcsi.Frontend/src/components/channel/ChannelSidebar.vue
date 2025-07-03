@@ -114,7 +114,7 @@ import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
-import { Hash, Volume2, Plus, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next';
+import { Hash, Volume2, Plus, Settings, Loader2, Edit, Trash2, PlusCircle } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -162,6 +162,7 @@ const openEditModal = (channel: ChannelListItem) => {
 const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
   channelMenuItems.value = [
     { label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel) },
+    { label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server.id) },
     { label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel) },
   ];
   channelContextMenu.value?.open(event);
