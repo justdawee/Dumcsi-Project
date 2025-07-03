@@ -62,6 +62,18 @@
           <Plus class="w-6 h-6" />
         </button>
       </div>
+      <!-- Public Server List -->
+      <div class="relative group"
+        @mouseenter="showTooltip($event, 'Explore Servers')"
+        @mouseleave="hideTooltip"
+      >
+        <button
+          @click="isExploreModalOpen = true"
+          class="server-icon bg-gray-700 hover:bg-accent text-gray-400 hover:text-white mx-auto"
+        >
+          <Compass class="w-6 h-6" />
+        </button>
+      </div>
     </div>
     <!-- ContextMenu és a hozzá tartozó modális ablakok -->
     <ContextMenu ref="serverContextMenu" :items="serverMenuItems" />
@@ -69,6 +81,11 @@
     <CreateServerModal
       v-if="showCreateModal"
       @close="showCreateModal = false"
+    />
+
+    <ExploreServersModal 
+      v-if="isExploreModalOpen" 
+      v-model="isExploreModalOpen" 
     />
     
     <InviteModal
@@ -110,12 +127,13 @@
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
-import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next';
+import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
 import EditServerModal from '@/components/modals/EditServerModal.vue';
+import ExploreServersModal from '@/components/modals/ExploreServersModal.vue';
 import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import serverService from '@/services/serverService';
@@ -135,6 +153,7 @@ const showCreateModal = ref(false);
 const isInviteModalOpen = ref(false);
 const generatedInviteCode = ref('');
 const isEditServerModalOpen = ref(false);
+const isExploreModalOpen = ref(false);
 const isLeaveConfirmOpen = ref(false);
 const isLeaving = ref(false);
 

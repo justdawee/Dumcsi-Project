@@ -162,6 +162,17 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const joinPublicServer = async (serverId: number): Promise<{ serverId: number } | undefined> => {
+    try {
+      const response = await serverService.joinPublicServer(serverId);
+      await fetchServers(); // Frissítjük a felhasználó saját szervereinek listáját
+      return { serverId: response.data.serverId };
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to join server';
+      throw err;
+    }
+  };
+
   const leaveServer = async (serverId: string | number): Promise<void> => {
     try {
       await serverService.leaveServer(serverId);
@@ -230,6 +241,7 @@ export const useAppStore = defineStore('app', () => {
     openCreateChannelModal,
     closeCreateChannelModal,
     joinServer,
+    joinPublicServer,
     leaveServer,
     reset,
   };

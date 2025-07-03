@@ -80,5 +80,19 @@ const serverService = {
   updateServer(id: number, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
     return api.put<void>(`/server/${id}`, payload);
   },
+
+  /**
+   * GET /api/server/public
+   */
+  getPublicServers(): Promise<AxiosResponse<ServerListItem[]>> {
+    return api.get<ServerListItem[]>('/server/public');
+  },
+
+  /**
+   * POST /api/server/{id}/join
+   */
+  joinPublicServer(serverId: number): Promise<AxiosResponse<{ serverId: number; message: string }>> {
+    return api.post(`/server/${serverId}/join`);
+  },
 };
 export default serverService;
