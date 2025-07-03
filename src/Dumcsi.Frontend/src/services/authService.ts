@@ -13,8 +13,8 @@ const authService = {
   /**
    * POST /api/auth/login
    */
-  login(payload: LoginPayload): Promise<AxiosResponse<{ token: string }>> {
-    return api.post<{ token: string }>('/auth/login', payload);
+  login(payload: LoginPayload): Promise<AxiosResponse<string>> {
+    return api.post<string>('/auth/login', payload);
   },
 };
 export default authService;

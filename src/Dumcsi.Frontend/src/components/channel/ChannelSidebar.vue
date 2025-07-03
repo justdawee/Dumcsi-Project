@@ -1,6 +1,6 @@
 <template>
   <div class="w-60 bg-gray-850 flex flex-col h-full overflow-hidden">
-    <div class="px-4 py-3 border-b border-gray-700 shadow-xs flex-shrink-0">
+    <div class="px-4 h-14 border-b border-gray-700 shadow-xs flex-shrink-0 flex items-center">
       <h2 class="font-semibold text-white truncate">
         {{ server?.name || 'Loading...' }}
       </h2>

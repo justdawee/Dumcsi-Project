@@ -15,12 +15,12 @@
         <div class="flex items-baseline gap-2">
           <span class="font-semibold text-white">{{ message.senderUsername }}</span>
           <span class="text-xs text-gray-500">{{ formatTime(message.createdAt) }}</span>
+          <span v-if="message.editedAt" class="text-xs text-gray-500">(edited)</span>
         </div>
         <!-- Message Content for header messages -->
         <div class="message-content">
           <p v-if="!isEditing" class="text-gray-100 break-words">
             {{ message.content }}
-            <span v-if="message.editedAt" class="text-xs text-gray-500 ml-1">(edited)</span>
           </p>
           <MessageEdit
             v-else
@@ -37,12 +37,12 @@
       <div class="w-10 shrink-0 text-right">
         <span class="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition">
           {{ formatTimeShort(message.createdAt) }}
+          <span v-if="message.editedAt" class="text-xs text-gray-500">(edited)</span>
         </span>
       </div>
       <div class="flex-1 message-content">
         <p v-if="!isEditing" class="text-gray-100 break-words">
           {{ message.content }}
-          <span v-if="message.editedAt" class="text-xs text-gray-500 ml-1">(edited)</span>
         </p>
         <MessageEdit
           v-else
@@ -155,3 +155,11 @@ const handleDelete = () => {
   }
 };
 </script>
+
+<style scoped>
+@refrence '@/style.css';
+
+.message-content {
+  @apply whitespace-pre-wrap break-words;
+}
+</style>

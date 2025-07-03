@@ -1,7 +1,7 @@
 <template>
   <div class="flex-1 flex flex-col bg-gray-800 h-full overflow-hidden">
     <!-- Fejléc (Header) -->
-    <div class="px-6 py-3 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
+    <div class="px-6 h-14 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
         <h3 class="font-semibold text-white truncate">{{ currentChannel?.name }}</h3>
@@ -13,8 +13,7 @@
         <button @click="toggleMemberList" class="p-2 hover:bg-gray-700 rounded-md transition" title="Toggle Member List">
           <Users class="w-5 h-5 text-gray-400" />
         </button>
-        <!-- TODO: Keresés az üzenetek között funkció -->
-      </div>
+        </div>
     </div>
 
     <div class="flex-1 flex overflow-hidden">

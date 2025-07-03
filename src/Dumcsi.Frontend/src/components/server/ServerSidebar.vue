@@ -57,7 +57,7 @@
       >
         <button
           @click="showCreateModal = true"
-          class="server-icon bg-gray-700 hover:bg-accent text-gray-400 hover:text-white mx-auto"
+          class="add-icon"
         >
           <Plus class="w-6 h-6" />
         </button>
@@ -218,6 +218,13 @@ const hideTooltip = () => {
 @reference "@/style.css";
 
 .server-icon {
+  @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
+         bg-gray-700 text-gray-400 transition-all duration-200
+         hover:rounded-[16px] hover:bg-primary hover:text-white
+         cursor-pointer overflow-hidden;
+}
+
+.add-icon {
   @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
          bg-gray-700 text-gray-400 transition-all duration-200
          hover:rounded-[16px] hover:bg-primary hover:text-white

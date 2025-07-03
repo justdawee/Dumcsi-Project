@@ -34,33 +34,35 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const login = async (credentials: any) => {
-    loading.value = true
-    error.value = null
-    
-    try {
-      const response = await authService.login(credentials)
-      const tokenValue = response.data.token
-      setToken(tokenValue)
-      
-      // Parse user info from JWT
-      const payload = parseJwt(tokenValue)
-      user.value = {
-        id: parseInt(payload.sub),
-        username: payload.username,
-        profilePictureUrl: payload.profilePictureUrl
-      }
-      
-      // Redirect to app
-      const redirect = router.currentRoute.value.query.redirect
-      const redirectPath = Array.isArray(redirect) ? redirect[0] : redirect
-      await router.push(redirectPath || '/servers')
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'Invalid username or password'
-      throw err
-    } finally {
-      loading.value = false
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await authService.login(credentials)
+    const token = response.data 
+    setToken(token)
+
+    // Parse user info from JWT
+    const payload = parseJwt(token)
+    if (payload) { // Biztonsági ellenőrzés
+        user.value = {
+          id: parseInt(payload.sub),
+          username: payload.username,
+          profilePictureUrl: payload.profilePictureUrl || ''
+        }
     }
+
+    // Redirect to app
+    const redirect = router.currentRoute.value.query.redirect
+    const redirectPath = Array.isArray(redirect) ? redirect[0] : redirect
+    await router.push(redirectPath || '/servers')
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Invalid username or password'
+    throw err
+  } finally {
+    loading.value = false
   }
+}
 
   const register = async (userData: any) => {
     loading.value = true
@@ -68,6 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       await authService.register(userData)
+      // Auto-login after successful registration
       await login({
         usernameOrEmail: userData.username,
         password: userData.password
@@ -92,8 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (payload) {
       user.value = {
         id: parseInt(payload.sub),
-        username: payload.username,
-        profilePictureUrl: payload.profilePictureUrl
+        username: payload.username
       }
     }
   }
