@@ -17,7 +17,7 @@
             <span>Text Channels</span>
             <button
               v-if="canManageChannels"
-              @click="appStore.openCreateChannelModal(server.id)"
+              @click="appStore.openCreateChannelModal(server!.id)"
               class="hover:text-gray-200 transition"
               title="Create Channel"
             >
@@ -29,7 +29,7 @@
             <RouterLink
               v-for="channel in textChannels"
               :key="channel.id"
-              :to="`/servers/${server.id}/channels/${channel.id}`"
+              :to="`/servers/${server!.id}/channels/${channel.id}`"
               class="channel-item group" :class="{ 'active': currentChannelId === channel.id }"
               @contextmenu.prevent="openChannelMenu($event, channel)"
             >
@@ -47,7 +47,7 @@
             <span>Voice Channels</span>
             <button
               v-if="canManageChannels"
-              @click="appStore.openCreateChannelModal(server.id)"
+              @click="appStore.openCreateChannelModal(server!.id)"
               class="hover:text-gray-200 transition"
               title="Create Channel"
             >
@@ -107,7 +107,7 @@
       :channel="editingChannel"
       @close="isEditModalOpen = false"
       @channel-updated="handleChannelUpdate"
-      @channel-deleted="handleChannelUpdate"
+      @channel-deleted="handleChannelDeleted"
     />
   </div>
 </template>

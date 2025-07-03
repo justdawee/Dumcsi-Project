@@ -5,7 +5,7 @@ import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token'))
-  const user = ref<{ id: number, username: string } | null>(null)
+  const user = ref<{ id: number, username: string, profilePictureUrl: string } | null>(null)
   const loading = ref(false)
   const error = ref(null)
 
@@ -39,14 +39,15 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       const response = await authService.login(credentials)
-      const token = response.data
-      setToken(token)
+      const tokenValue = response.data.token
+      setToken(tokenValue)
       
       // Parse user info from JWT
-      const payload = parseJwt(token)
+      const payload = parseJwt(tokenValue)
       user.value = {
         id: parseInt(payload.sub),
-        username: payload.username
+        username: payload.username,
+        profilePictureUrl: payload.profilePictureUrl
       }
       
       // Redirect to app
@@ -67,7 +68,6 @@ export const useAuthStore = defineStore('auth', () => {
     
     try {
       await authService.register(userData)
-      // Auto-login after successful registration
       await login({
         usernameOrEmail: userData.username,
         password: userData.password
@@ -92,7 +92,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (payload) {
       user.value = {
         id: parseInt(payload.sub),
-        username: payload.username
+        username: payload.username,
+        profilePictureUrl: payload.profilePictureUrl
       }
     }
   }
