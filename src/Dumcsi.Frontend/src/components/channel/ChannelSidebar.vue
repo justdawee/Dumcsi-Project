@@ -1,20 +1,17 @@
 <template>
   <div class="w-60 bg-gray-850 flex flex-col h-full overflow-hidden">
-    <!-- Server Header -->
     <div class="px-4 py-3 border-b border-gray-700 shadow-xs flex-shrink-0">
       <h2 class="font-semibold text-white truncate">
         {{ server?.name || 'Loading...' }}
       </h2>
     </div>
     
-    <!-- Channel List -->
     <div class="flex-1 overflow-y-auto scrollbar-thin min-h-0">
       <div v-if="loading" class="flex items-center justify-center py-8">
         <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
       </div>
       
       <div v-else class="py-2">
-        <!-- Text Channels -->
         <div class="px-2 mb-4">
           <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase">
             <span>Text Channels</span>
@@ -38,37 +35,45 @@
             >
               <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
-              <button v-if="canManageChannels" @click.prevent="openEditModal(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition" title="Edit Channel">
+              <button v-if="canManageChannels" @click.prevent.stop="openEditModal(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition" title="Edit Channel">
                 <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
               </button>
             </RouterLink>
           </div>
         </div>
         
-        <!-- Voice Channels -->
         <div v-if="voiceChannels.length > 0" class="px-2 mb-2">
-          <div class="px-2 py-1 text-xs font-semibold text-gray-400 uppercase">
-            Voice Channels
+          <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-400 uppercase">
+            <span>Voice Channels</span>
+            <button
+              v-if="canManageChannels"
+              @click="appStore.openCreateChannelModal(server.id)"
+              class="hover:text-gray-200 transition"
+              title="Create Channel"
+            >
+              <Plus class="w-4 h-4" />
+            </button>
           </div>
           <div class="space-y-0.5">
-            <button
+            <div
               v-for="channel in voiceChannels"
               :key="channel.id"
-              class="channel-item w-full text-left"
-              disabled
+              class="channel-item group voice-channel"
+              @contextmenu.prevent="openChannelMenu($event, channel)"
             >
               <Volume2 class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
-            </button>
+              <button v-if="canManageChannels" @click.prevent.stop="openEditModal(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition" title="Edit Channel">
+                <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- User Panel -->
     <div class="px-2 py-2 bg-gray-900 border-t border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
-        <!-- User Avatar -->
         <UserAvatar
           :avatar-url="authStore.user?.profilePictureUrl"
           :username="authStore.user?.username || ''"
@@ -87,7 +92,6 @@
         </RouterLink>
       </div>
     </div>
-    <!-- Context Menu -->
     <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
     <ConfirmModal
       v-model="isConfirmDeleteOpen"
@@ -98,7 +102,6 @@
       @confirm="confirmDeleteChannel"
       intent="danger"
     />
-    <!-- Modális ablakok -->
     <EditChannelModal
       v-model="isEditModalOpen"
       :channel="editingChannel"
@@ -160,9 +163,11 @@ const openEditModal = (channel: ChannelListItem) => {
 };
 
 const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
+  if (!canManageChannels.value) return; // Ne nyíljon meg a menü, ha nincs jogosultság
+
   channelMenuItems.value = [
     { label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel) },
-    { label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server.id) },
+    { label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server!.id) },
     { label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel) },
   ];
   channelContextMenu.value?.open(event);
@@ -224,7 +229,11 @@ const handleChannelDeleted = (deletedChannelId: number) => {
   @apply bg-gray-700 text-white;
 }
 
-.channel-item:disabled {
-  @apply opacity-50 cursor-not-allowed hover:bg-transparent hover:text-gray-400;
+.channel-item.voice-channel {
+  @apply opacity-50 cursor-pointer;
+}
+
+.channel-item.voice-channel:hover {
+  @apply opacity-100;
 }
 </style>
