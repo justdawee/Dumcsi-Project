@@ -25,6 +25,8 @@ export const useAppStore = defineStore('app', () => {
   const currentChannel = ref<ChannelDetail | null>(null);
   const messages = ref<MessageListItem[]>([]);
   const members = ref<ServerMember[]>([]);
+  const isCreateChannelModalOpen = ref(false);
+  const createChannelForServerId = ref<number | null>(null);
 
   const loading = ref({
     servers: false,
@@ -183,6 +185,16 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const openCreateChannelModal = (serverId: number) => {
+    createChannelForServerId.value = serverId;
+    isCreateChannelModalOpen.value = true;
+  };
+
+  const closeCreateChannelModal = () => {
+    isCreateChannelModalOpen.value = false;
+    createChannelForServerId.value = null;
+  };
+
   const reset = () => {
     servers.value = [];
     currentServer.value = null;
@@ -213,6 +225,10 @@ export const useAppStore = defineStore('app', () => {
     createServer,
     createChannel,
     updateCurrentChannelDetails,
+    isCreateChannelModalOpen,
+    createChannelForServerId,
+    openCreateChannelModal,
+    closeCreateChannelModal,
     joinServer,
     leaveServer,
     reset,

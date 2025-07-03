@@ -49,15 +49,15 @@
         </RouterLink>
       </div>
 
+      <!-- Add Server Button -->
       <div 
         class="relative group"
         @mouseenter="showTooltip($event, 'Add a Server')"
         @mouseleave="hideTooltip"
       >
-        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-white rounded-r-lg transition-all duration-200 origin-center h-2 scale-y-0 group-hover:h-5 group-hover:scale-y-100"></div>
         <button
           @click="showCreateModal = true"
-          class="server-icon bg-gray-700 hover:bg-accent text-gray-400 hover:text-white"
+          class="server-icon bg-gray-700 hover:bg-accent text-gray-400 hover:text-white mx-auto"
         >
           <Plus class="w-6 h-6" />
         </button>
@@ -65,7 +65,7 @@
     </div>
     <!-- ContextMenu és a hozzá tartozó modális ablakok -->
     <ContextMenu ref="serverContextMenu" :items="serverMenuItems" />
-    
+
     <CreateServerModal
       v-if="showCreateModal"
       @close="showCreateModal = false"
@@ -83,6 +83,16 @@
       :server="selectedServer"
       @close="isEditServerModalOpen = false"
       @server-updated="appStore.fetchServers()"
+    />
+
+    <ConfirmModal
+      v-model="isLeaveConfirmOpen"
+      title="Leave Server"
+      :message="`Are you sure you want to leave ${selectedServer?.name}?`"
+      confirm-text="Leave Server"
+      :is-loading="isLeaving"
+      @confirm="confirmLeaveServer"
+      intent="danger"
     />
     <Teleport to="body">
       <div
@@ -102,11 +112,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import CreateServerModal from './CreateServerModal.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
 import EditServerModal from '@/components/modals/EditServerModal.vue';
+import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import serverService from '@/services/serverService';
 import type { ServerListItem } from '@/services/types';
@@ -149,11 +159,12 @@ const handleInvite = async (server: ServerListItem) => {
 };
 
 const handleCreateChannel = (server: ServerListItem) => {
-    // A ChannelSidebar-ban lévő '+' gomb nyitja meg a modális ablakot.
-    // A kontextusmenüből való hívás egyelőre csak egy jelzés.
-    // A logikát egy globális eseménykezelővel (pl. Pinia action) lehetne központosítani.
-    console.log("Create channel in", server.name);
-    alert("Please use the '+' button in the channel list to create a new channel.");
+    // Ha nem az aktív szerverre kattintottunk, először navigáljunk oda
+    if (currentServerId.value !== server.id) {
+        router.push({ name: 'Server', params: { serverId: server.id } });
+    }
+    // Majd nyissuk meg a modális ablakot
+    appStore.openCreateChannelModal(server.id);
 };
 
 const handleEditServer = (server: ServerListItem) => {

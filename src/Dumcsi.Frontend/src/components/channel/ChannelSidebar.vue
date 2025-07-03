@@ -20,7 +20,7 @@
             <span>Text Channels</span>
             <button
               v-if="canManageChannels"
-              @click="showCreateChannel = true"
+              @click="appStore.openCreateChannelModal(server.id)"
               class="hover:text-gray-200 transition"
               title="Create Channel"
             >
@@ -38,8 +38,6 @@
             >
               <Hash class="w-4 h-4 text-gray-400" />
               <span class="truncate">{{ channel.name }}</span>
-              
-              <!-- A gomb most már az editChannel metódust hívja, ami megnyitja a modális ablakot -->
               <button v-if="canManageChannels" @click.prevent="openEditModal(channel)" class="ml-auto opacity-0 group-hover:opacity-100 transition" title="Edit Channel">
                 <Settings class="w-4 h-4 text-gray-300 hover:text-white" />
               </button>
@@ -101,12 +99,6 @@
       intent="danger"
     />
     <!-- Modális ablakok -->
-    <CreateChannelModal
-      v-if="showCreateChannel"
-      :serverId="server?.id"
-      @close="showCreateChannel = false"
-      @channel-created="handleChannelUpdate"
-    />
     <EditChannelModal
       v-model="isEditModalOpen"
       :channel="editingChannel"
@@ -124,7 +116,6 @@ import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { Hash, Volume2, Plus, Settings, Loader2, Edit, Trash2 } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import CreateChannelModal from './CreateChannelModal.vue';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
@@ -144,7 +135,6 @@ const authStore = useAuthStore();
 const appStore = useAppStore();
 
 // --- State ---
-const showCreateChannel = ref(false);
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelListItem | null>(null);
 
