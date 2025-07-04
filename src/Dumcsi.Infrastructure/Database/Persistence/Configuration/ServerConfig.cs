@@ -18,9 +18,6 @@ public class ServerConfiguration : IEntityTypeConfiguration<Domain.Entities.Serv
         
         builder.Property(x => x.IconUrl)
             .HasMaxLength(256);
-            
-        builder.Property(x => x.InviteCode)
-            .HasMaxLength(20);
         
         builder.HasOne(x => x.Owner)
             .WithMany(x => x.OwnedServers)

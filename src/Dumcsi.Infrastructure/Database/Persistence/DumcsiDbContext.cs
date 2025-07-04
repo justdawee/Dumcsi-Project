@@ -16,6 +16,7 @@ public class DumcsiDbContext(DbContextOptions<DumcsiDbContext> options) : DbCont
     public DbSet<Attachment> Attachments { get; set; }
     public DbSet<ModerationLog> ModerationLogs { get; set; }
     public DbSet<Role> Roles { get; set; }
+    public DbSet<Invite> Invites { get; set; }
     
     // DB sets for authentication
     public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }

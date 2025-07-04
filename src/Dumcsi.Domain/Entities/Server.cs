@@ -19,7 +19,6 @@ public class Server
     public Instant UpdatedAt { get; set; }
     
     public bool IsPublic { get; set; } = false;
-    public string? InviteCode { get; set; }
     public int? MemberLimit { get; set; }
     
     public ICollection<ServerMember> Members { get; set; } = new List<ServerMember>();
