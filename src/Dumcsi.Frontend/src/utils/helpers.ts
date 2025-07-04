@@ -1,5 +1,5 @@
 // Format date functions
-export const formatDate = (dateString: string) => {
+export const formatDate = (dateString: string) => { // TODO: string should be a Date object
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
@@ -15,7 +15,7 @@ export const formatDate = (dateString: string) => {
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined // TODO: calculate the year options outside the toLocaleDateString call
     })
   }
 }
@@ -53,7 +53,7 @@ export const getUserInitials = (name: string) => {
 }
 
 // Validate email
-export const isValidEmail = (email: string) => {
+export const isValidEmail = (email: string) => { // TODO: better email regex
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
