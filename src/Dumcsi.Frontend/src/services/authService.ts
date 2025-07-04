@@ -2,19 +2,29 @@ import type { AxiosResponse } from 'axios';
 import api from './api';
 import type { LoginPayload, RegisterPayload } from './types';
 
+export type AuthToken = string;
+
 const authService = {
+
   /**
-   * POST /api/auth/register
+   * Registers a new user.
+   * @param payload - The registration details.
+   * @returns A promise that resolves to the Axios response.
    */
-  register(payload: RegisterPayload): Promise<AxiosResponse<void>> { // TODO: headers and error handling
+
+  register(payload: RegisterPayload): Promise<AxiosResponse<void>> {
     return api.post('/auth/register', payload);
   },
 
   /**
-   * POST /api/auth/login
+   * Logs in a user.
+   * @param payload - The login credentials.
+   * @returns A promise that resolves to the Axios response containing the authentication token.
    */
-  login(payload: LoginPayload): Promise<AxiosResponse<string>> {
-    return api.post<string>('/auth/login', payload); // TODO: response type should be a token, but currently it's a string
+  
+  login(payload: LoginPayload): Promise<AxiosResponse<AuthToken>> {
+    return api.post<AuthToken>('/auth/login', payload);
   },
 };
+
 export default authService;
