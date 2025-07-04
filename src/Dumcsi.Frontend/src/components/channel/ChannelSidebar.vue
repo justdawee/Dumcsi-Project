@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
@@ -138,10 +138,6 @@ const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const { addToast } = useToast();
-
-watchEffect(() => {
-  console.log('ChannelSidebar sees username:', authStore.user?.username)
-})
 
 // --- State ---
 const isEditModalOpen = ref(false);

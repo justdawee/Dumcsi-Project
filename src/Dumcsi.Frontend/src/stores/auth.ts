@@ -2,16 +2,16 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { jwtDecode } from 'jwt-decode';
 import authService from '@/services/authService';
+import userService from '@/services/userService'; // Add this import
 import router from '@/router';
 import { RouteNames } from '@/router';
 import type { LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
 
-// Define the shape of the JWT payload for type safety
 interface JwtPayload {
   sub: string;
   username: string;
   profilePictureUrl?: string;
-  exp: number; // Expiration time (in seconds)
+  exp: number;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -20,10 +20,8 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  //A computed property that is true only if there is a valid, non-expired token.
   const isAuthenticated = computed(() => !!token.value && !!user.value);
 
-  // Function to set the token and update localStorage.
   const setToken = (newToken: string | null) => {
     token.value = newToken;
     if (newToken) {
@@ -33,8 +31,19 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  // Function to check the validity of the token and update user state.
-  const checkAuth = () => {
+  // New method to fetch fresh user data
+  const fetchUserProfile = async () => {
+    try {
+      const response = await userService.getProfile();
+      user.value = response.data;
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      throw error;
+    }
+  };
+
+  const checkAuth = async () => { // Make this async
     if (!token.value) {
       user.value = null;
       return;
@@ -45,19 +54,25 @@ export const useAuthStore = defineStore('auth', () => {
       const isExpired = Date.now() >= payload.exp * 1000;
 
       if (isExpired) {
-        // If the token has expired, log the user out.
         logout();
       } else {
-        // If the token is valid, ensure the user object is populated.
+        // Set basic user info from token
         user.value = {
           id: parseInt(payload.sub, 10),
-          username: payload.username,
-          email: '', // Email is not in the token, should be fetched from an API if needed
+          username: payload.username, // Temporary, will be overwritten
+          email: '',
           profilePictureUrl: payload.profilePictureUrl || undefined,
         };
+        
+        // Fetch fresh user data from the API
+        try {
+          await fetchUserProfile();
+        } catch (error) {
+          // If fetching fails, we still have basic data from the token
+          console.error('Failed to fetch fresh user data:', error);
+        }
       }
     } catch (e) {
-      // If the token is malformed, it's invalid. Log the user out.
       console.error("Invalid token found, logging out.", e);
       logout();
     }
@@ -69,7 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.login(credentials);
       setToken(response.data);
-      checkAuth(); // Populate user state immediately after login
+      await checkAuth(); // This will now fetch fresh user data
 
       const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
       await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
@@ -86,7 +101,6 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       await authService.register(userData);
-      // After successful registration, redirect to the login page with a success message.
       await router.push({ name: RouteNames.LOGIN, query: { registered: 'true' } });
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Registration failed';
@@ -97,24 +111,21 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
-    // To properly reset state, we can call the $reset method if not using setup store syntax,
-    // or manually reset each ref.
     setToken(null);
     user.value = null;
-    // Redirect to login page
     if (router.currentRoute.value.name !== RouteNames.LOGIN) {
        await router.push({ name: RouteNames.LOGIN });
     }
   };
 
+  // Update user data and ensure reactivity
   const updateUserData = (updates: Partial<UserProfile>) => {
     if (user.value) {
-      // Create a new object to ensure reactivity
       user.value = { ...user.value, ...updates };
     }
   };
 
-  // Perform an initial authentication check when the store is initialized.
+  // Initialize - note this is now async
   checkAuth();
 
   return {
@@ -127,6 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     checkAuth,
+    fetchUserProfile,
     updateUserData,
   };
 });

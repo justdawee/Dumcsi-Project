@@ -164,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { UserCircle, Loader2 } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -172,10 +172,10 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import userService from '@/services/userService';
 import type { UpdateProfilePayload, UpdatePasswordPayload } from '@/services/types';
 
-// --- Általános beállítások ---
+// --- General Settings ---
 const authStore = useAuthStore();
 
-// --- Profilfrissítés State ---
+// --- Profile Update State ---
 const isProfileLoading = ref(false);
 const profileSuccessMessage = ref('');
 const profileErrors = reactive<Record<string, string>>({});
@@ -184,7 +184,7 @@ const profileForm = reactive<UpdateProfilePayload>({
   email: ''
 });
 
-// --- Jelszófrissítés State ---
+// --- Password Update State ---
 const isPasswordLoading = ref(false);
 const passwordSuccessMessage = ref('');
 const passwordErrors = reactive<Record<string, string>>({});
@@ -193,38 +193,50 @@ const passwordForm = reactive<UpdatePasswordPayload>({
   newPassword: ''
 });
 
-// --- State a fióktörléshez ---
+// --- State for account deletion ---
 const isDeleteModalOpen = ref(false);
 const isDeleting = ref(false);
 
-// --- State a kijelentkezéshez ---
+// --- State for logging out ---
 const isLoggingOutModalOpen = ref(false);
 const isLoggingOut = ref(false);
 
+// --- Watch for auth store user changes ---
+watch(
+  () => authStore.user,
+  (newUser) => {
+    if (newUser) {
+      profileForm.username = newUser.username;
+      profileForm.email = newUser.email || '';
+    }
+  },
+  { immediate: true, deep: true } // immediate: true ensures it runs on mount too
+);
 
-// --- Adatok betöltése ---
+
+// --- Load user data ---
 onMounted(async () => {
-  if (authStore.user) {
-    profileForm.username = authStore.user.username;
-  }
-  try {
-    const response = await userService.getProfile();
-    profileForm.username = response.data.username;
-    profileForm.email = response.data.email;
-    
-    authStore.updateUserData({
-      username: response.data.username,
-      email: response.data.email,
-      profilePictureUrl: response.data.profilePictureUrl
-    });
-
-  } catch (error) {
-    console.error('Failed to fetch user profile:', error);
-    profileErrors.general = "Could not load profile data. Please refresh the page.";
+  // Ha nincs még user adat, vagy hiányzik az email, fetch-eljük
+  if (!authStore.user?.email) {
+    try {
+      const response = await userService.getProfile();
+      
+      // Update auth store with complete user data
+      authStore.updateUserData({
+        username: response.data.username,
+        email: response.data.email,
+        profilePictureUrl: response.data.profilePictureUrl
+      });
+      
+      // The watch will automatically update profileForm
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      profileErrors.general = "Could not load profile data. Please refresh the page.";
+    }
   }
 });
 
-// --- Profilfrissítés Logika ---
+// --- Profile Update Logic ---
 const validateProfile = (): boolean => {
   Object.keys(profileErrors).forEach(key => delete profileErrors[key]);
   let isValid = true;
@@ -266,7 +278,7 @@ const handleUpdateProfile = async () => {
   }
 };
 
-// --- Jelszófrissítés Logika ---
+// --- Password Update Logic ---
 const validatePassword = (): boolean => {
     Object.keys(passwordErrors).forEach(key => delete passwordErrors[key]);
     let isValid = true;
@@ -303,7 +315,7 @@ const handleUpdatePassword = async () => {
     }
 };
 
-// --- Fióktörlés logika ---
+// --- Account Deletion Logic ---
 const handleDeleteAccount = async () => {
   isDeleting.value = true;
   try {
