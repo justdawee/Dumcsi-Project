@@ -28,4 +28,10 @@ public class AuthControllerModels
         [MaxLength(20)]
         public string Password { get; set; } = string.Empty;
     }
+    
+    public class RefreshTokenRequestDto
+    {
+        [Required]
+        public string RefreshToken { get; set; } = string.Empty;
+    }
 }

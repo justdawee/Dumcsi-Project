@@ -89,9 +89,75 @@ public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
             return Unauthorized("Invalid username or password.");
         }
 
-        var token = jwtFactory.CreateToken(user.Id, user.Username, user.SecurityStamp);
+        // 1. Generáljuk az Access Tokent
+        var accessToken = jwtFactory.CreateToken(user.Id, user.Username, user.SecurityStamp);
+
+        // 2. Generálunk egy új Refresh Tokent
+        var refreshToken = new UserRefreshToken
+        {
+            User = user,
+            Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)), // Biztonságos, véletlenszerű token
+            ExpiresAt = NodaTime.SystemClock.Instance.GetCurrentInstant().Plus(NodaTime.Duration.FromDays(7)), // Legyen érvényes 7 napig
+            CreatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+        };
+
+        dbContext.UserRefreshTokens.Add(refreshToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // 3. Visszaadjuk mindkét tokent
+        return Ok(new
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken.Token
+        });
+    }
+    
+    [HttpPost("refresh")]
+    public async Task<IActionResult> RefreshToken([FromBody] AuthControllerModels.RefreshTokenRequestDto request, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // 1. Megkeressük a refresh tokent az adatbázisban, a hozzá tartozó felhasználóval együtt.
+        var savedRefreshToken = await dbContext.UserRefreshTokens
+            .Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
+
+        // 2. Validáljuk a tokent
+        if (savedRefreshToken == null)
+        {
+            return Unauthorized("Invalid refresh token.");
+        }
+
+        if (savedRefreshToken.ExpiresAt < NodaTime.SystemClock.Instance.GetCurrentInstant())
+        {
+            return Unauthorized("Refresh token has expired.");
+        }
+
+        var user = savedRefreshToken.User;
+
+        // 3. Generálunk egy új Access Tokent
+        var newAccessToken = jwtFactory.CreateToken(user.Id, user.Username, user.SecurityStamp);
         
-        return Ok(token);
+        // 4. Generálunk egy új Refresh Tokent, és eltávolítjuk a régit
+        var newRefreshToken = new UserRefreshToken
+        {
+            User = user,
+            Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+            ExpiresAt = NodaTime.SystemClock.Instance.GetCurrentInstant().Plus(NodaTime.Duration.FromDays(7)),
+            CreatedAt = NodaTime.SystemClock.Instance.GetCurrentInstant()
+        };
+    
+        dbContext.UserRefreshTokens.Remove(savedRefreshToken); // Régi törlése
+        dbContext.UserRefreshTokens.Add(newRefreshToken);     // Új hozzáadása
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // 5. Visszaadjuk az új tokeneket
+        return Ok(new
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken.Token
+        });
     }
     
 }
