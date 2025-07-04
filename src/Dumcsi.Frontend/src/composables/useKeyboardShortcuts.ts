@@ -1,4 +1,5 @@
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref, watch, isRef, type Ref } from 'vue';
+import { readonly } from 'vue';
 
 interface Shortcut {
   key: string;
@@ -6,36 +7,109 @@ interface Shortcut {
   shift?: boolean;
   alt?: boolean;
   handler: (event: KeyboardEvent) => void;
+  captureInput?: boolean;
 }
 
-export function useKeyboardShortcuts(shortcuts: Shortcut[]) {
+// Type for the target of the keyboard shortcuts.
+// It can be a Ref to an HTMLElement, an HTMLElement directly, or the Window object.
+type ShortcutTarget = Ref<HTMLElement | null> | HTMLElement | Window;
+
+export function useKeyboardShortcuts(shortcuts: Shortcut[], target: ShortcutTarget = window) {
+  const isListening = ref(false);
+
   const handleKeyDown = (event: KeyboardEvent) => {
-    const { key, ctrlKey, metaKey, shiftKey, altKey } = event
-    
-    shortcuts.forEach(shortcut => {
-      const matchesKey = shortcut.key.toLowerCase() === key.toLowerCase()
-      const matchesCtrl = shortcut.ctrl ? (ctrlKey || metaKey) : !ctrlKey && !metaKey
-      const matchesShift = shortcut.shift ? shiftKey : !shiftKey
-      const matchesAlt = shortcut.alt ? altKey : !altKey
+    // If the event handler is not active, do nothing.
+    if (!isListening.value) return;
+
+    const eventTarget = event.target as HTMLElement;
+
+    // Helper function to check if the modifier matches the expected value.
+    const matchesModifier = (actual: boolean, expected?: boolean) => {
+      return expected === undefined || expected === actual;
+    };
+
+    // Search for a matching shortcut
+    const matchedShortcut = shortcuts.find(shortcut =>
+      shortcut.key.toLowerCase() === event.key.toLowerCase() &&
+      matchesModifier(event.ctrlKey || event.metaKey, shortcut.ctrl) &&
+      matchesModifier(event.shiftKey, shortcut.shift) &&
+      matchesModifier(event.altKey, shortcut.alt)
+    );
+
+    if (matchedShortcut) {
+      // By default, we prevent the command from running if the user is typing.
+      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(eventTarget.tagName) || eventTarget.isContentEditable;
       
-      if (matchesKey && matchesCtrl && matchesShift && matchesAlt) {
-        event.preventDefault()
-        shortcut.handler(event)
+      if (isTyping && !matchedShortcut.captureInput) {
+        return; // Do not run the handler if the user is typing and the command is not "captureInput".
       }
-    })
+
+      event.preventDefault();
+      matchedShortcut.handler(event);
+    }
+  };
+
+  const getElement = (): HTMLElement | Window | null => {
+  const el = isRef(target) ? target.value : target;
+  return el ?? null;
+};
+
+
+  const start = () => {
+    const el = getElement();
+    if (el && !isListening.value) {
+      el.addEventListener('keydown', handleKeyDown as EventListener);
+      isListening.value = true;
+    }
+  };
+
+  const stop = () => {
+    const el = getElement();
+    if (el && isListening.value) {
+      el.removeEventListener('keydown', handleKeyDown as EventListener);
+      isListening.value = false;
+    }
+  };
+
+  if (isRef(target)) {
+    watch(target, (newTarget, oldTarget) => {
+      if (newTarget !== oldTarget && oldTarget != null) {
+        stop();
+        start();
+      }
+    });
   }
-  
-  onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown)
-  })
-  
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown) // TODO: globally scoped event listener, consider using a more scoped approach if needed
-  })
+
+  onMounted(start);
+  onUnmounted(stop);
+
+  return {
+    start,
+    stop,
+    isListening: readonly(isListening),
+  };
 }
 
-// Example usage:
-// useKeyboardShortcuts([
-//   { key: 'k', ctrl: true, handler: () => console.log('Ctrl+K pressed') },
-//   { key: 'Enter', shift: true, handler: () => console.log('Shift+Enter pressed') }
-// ])
+// Usage example:
+//**
+//   const { start, stop, isListening } = useKeyboardShortcuts([
+//     {
+//       key: 'Enter',
+//       ctrl: true,
+//       handler: (event) => {
+//         console.log('Ctrl + Enter pressed');
+//       },
+//     },
+//     {
+//       key: 'Escape',
+//       handler: (event) => {
+//         console.log('Escape pressed');
+//       },
+//     },
+//   ], document.getElementById('myElement'));
+//
+//   start(); // Start listening for shortcuts
+//   stop(); // Stop listening for shortcuts
+//   isListening.value; // Check if shortcuts are currently being listened to
+//   Note: Ensure that the target element is focusable and can receive keyboard events.
+// */
