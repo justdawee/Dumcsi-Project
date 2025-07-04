@@ -1,107 +1,114 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import authService from '@/services/authService'
-import router from '@/router'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import { jwtDecode } from 'jwt-decode';
+import authService from '@/services/authService';
+import router from '@/router';
+import { RouteNames } from '@/router';
+import type { LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
 
-export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('token')) // TODO: for better security, consider using a more secure storage method
-  const user = ref<{ id: number, username: string, profilePictureUrl: string } | null>(null)
-  const loading = ref(false)
-  const error = ref(null)
-
-  const isAuthenticated = computed(() => !!token.value)
-
-  const setToken = (newToken: string | null) => {
-    token.value = newToken
-    if (newToken) {
-      localStorage.setItem('token', newToken)
-    } else {
-      localStorage.removeItem('token')
-    }
-  }
-
-  // TODO: Consider using a library like jwt-decode for better JWT parsing
-  const parseJwt = (token: string) => {
-    try {
-      const base64Url = token.split('.')[1]
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => 
-        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-      ).join(''))
-      return JSON.parse(jsonPayload)
-    } catch (e) {
-      return null
-    }
-  }
-
-  // TODO: Consider adding token expiration handling
-  const login = async (credentials: any) => {
-  loading.value = true
-  error.value = null
-
-  try {
-    const response = await authService.login(credentials)
-    const token = response.data // TODO: Ensure the response contains the token directly or adjust accordingly
-    setToken(token)
-
-    // Parse user info from JWT
-    const payload = parseJwt(token)
-    if (payload) {
-        user.value = {
-          id: parseInt(payload.sub), // TODO: use radix 10 for better clarity
-          username: payload.username,
-          profilePictureUrl: payload.profilePictureUrl || ''
-        }
-    }
-
-    // Redirect to app
-    const redirect = router.currentRoute.value.query.redirect
-    const redirectPath = Array.isArray(redirect) ? redirect[0] : redirect // TODO: refactor to handle array case
-    await router.push(redirectPath || '/servers')
-  } catch (err: any) {
-    error.value = err.response?.data?.message || 'Invalid username or password'
-    throw err
-  } finally {
-    loading.value = false
-  }
+// Define the shape of the JWT payload for type safety
+interface JwtPayload {
+  sub: string;
+  username: string;
+  profilePictureUrl?: string;
+  exp: number; // Expiration time (in seconds)
 }
 
-  // TODO: type userData more specifically we want usernameOrEmail and password
-  const register = async (userData: any) => {
-    loading.value = true
-    error.value = null
-    
+export const useAuthStore = defineStore('auth', () => {
+  const token = ref<string | null>(localStorage.getItem('token'));
+  const user = ref<UserProfile | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+
+  //A computed property that is true only if there is a valid, non-expired token.
+  const isAuthenticated = computed(() => !!token.value && !!user.value);
+
+  // Function to set the token and update localStorage.
+  const setToken = (newToken: string | null) => {
+    token.value = newToken;
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+    } else {
+      localStorage.removeItem('token');
+    }
+  };
+
+  // Function to check the validity of the token and update user state.
+  const checkAuth = () => {
+    if (!token.value) {
+      user.value = null;
+      return;
+    }
+
     try {
-      await authService.register(userData)
-      // TODO: remove auto login, just redirect to login page
-      await login({
-        usernameOrEmail: userData.username,
-        password: userData.password
-      })
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'Registration failed'
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+      const payload = jwtDecode<JwtPayload>(token.value);
+      const isExpired = Date.now() >= payload.exp * 1000;
 
-  const logout = async () => {
-    setToken(null)
-    user.value = null
-    await router.push('/auth/login')
-  }
-
-  // Initialize user from token if exists
-  if (token.value) {
-    const payload = parseJwt(token.value)
-    if (payload) {
-      user.value = {
-        id: parseInt(payload.sub), // TODO: use radix 10 for better clarity
-        username: payload.username
+      if (isExpired) {
+        // If the token has expired, log the user out.
+        logout();
+      } else {
+        // If the token is valid, ensure the user object is populated.
+        user.value = {
+          id: parseInt(payload.sub, 10),
+          username: payload.username,
+          email: '', // Email is not in the token, should be fetched from an API if needed
+          profilePictureUrl: payload.profilePictureUrl || undefined,
+        };
       }
+    } catch (e) {
+      // If the token is malformed, it's invalid. Log the user out.
+      console.error("Invalid token found, logging out.", e);
+      logout();
     }
-  }
+  };
+  
+  const login = async (credentials: LoginPayload) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await authService.login(credentials);
+      setToken(response.data);
+      checkAuth(); // Populate user state immediately after login
+
+      const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Invalid username or password';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const register = async (userData: RegisterPayload) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      await authService.register(userData);
+      // After successful registration, redirect to the login page with a success message.
+      await router.push({ name: RouteNames.LOGIN, query: { registered: 'true' } });
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Registration failed';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const logout = async () => {
+    // To properly reset state, we can call the $reset method if not using setup store syntax,
+    // or manually reset each ref.
+    setToken(null);
+    user.value = null;
+    // Redirect to login page
+    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
+       await router.push({ name: RouteNames.LOGIN });
+    }
+  };
+
+  // Perform an initial authentication check when the store is initialized.
+  checkAuth();
 
   return {
     token,
@@ -111,6 +118,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     register,
-    logout
-  }
-})
+    logout,
+    checkAuth,
+  };
+});
