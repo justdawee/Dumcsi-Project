@@ -1,6 +1,5 @@
 <template>
   <div class="flex-1 flex flex-col bg-gray-800 h-full overflow-hidden">
-    <!-- Fejléc (Header) -->
     <div class="px-6 h-14 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
@@ -10,37 +9,42 @@
         </span>
       </div>
       <div class="flex items-center gap-2">
-        <button @click="toggleMemberList" class="p-2 hover:bg-gray-700 rounded-md transition" title="Toggle Member List">
+        <button @click="isMemberListOpen = !isMemberListOpen" class="p-2 hover:bg-gray-700 rounded-md transition" title="Toggle Member List">
           <Users class="w-5 h-5 text-gray-400" />
         </button>
-        </div>
+      </div>
     </div>
 
     <div class="flex-1 flex overflow-hidden">
-      <!-- Üzenetek konténere -->
       <div
         ref="messagesContainer"
         class="flex-1 overflow-y-auto scrollbar-thin p-4"
-        @scroll="handleScroll"
+        @scroll="debouncedScrollHandler"
       >
-        <!-- Töltésjelzők és üzenetek -->
+        <div v-if="appStore.loading.messages" class="flex justify-center py-4">
+          <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+        </div>
+        
+        <div v-if="!messages.length && !appStore.loading.channel" class="text-center text-gray-500 pt-8">
+          <p class="font-semibold">Welcome to #{{ currentChannel?.name }}!</p>
+          <p class="text-sm">Be the first to send a message.</p>
+        </div>
+        
         <MessageItem
           v-for="(message, index) in messages"
           :key="message.id"
           :message="message"
-          :previous-message="messages[index - 1]"
+          :previous-message="messages[index - 1] || null"
           :current-user-id="authStore.user?.id"
           @edit="handleEditMessage"
           @delete="handleDeleteMessage"
         />
       </div>
 
-      <!-- Taglista (Member List) -->
       <div v-if="isMemberListOpen" class="w-60 bg-gray-800 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
         <h3 class="font-semibold text-white mb-4">Members - {{ members.length }}</h3>
-        
         <div v-if="appStore.loading.members" class="flex justify-center items-center h-full">
-            <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+          <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
         </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
@@ -55,7 +59,6 @@
       </div>
     </div>
 
-    <!-- Üzenetküldő input -->
     <div class="px-4 pb-4 pt-2 border-t border-gray-700/50">
       <MessageInput
         v-if="appStore.currentChannel"
@@ -71,120 +74,111 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
+import { useToast } from '@/composables/useToast';
+import { debounce } from '@/utils/helpers'; // Assuming you have this helper
 import { Hash, Users, Loader2 } from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import messageService from '@/services/messageService';
-import type { UpdateMessagePayload } from '@/services/types';
+import type { UpdateMessagePayload, EntityId } from '@/services/types';
 
 const route = useRoute();
 const authStore = useAuthStore();
 const appStore = useAppStore();
+const { addToast } = useToast();
 
 const messagesContainer = ref<HTMLElement | null>(null);
-const hasMoreMessages = ref(true);
 const isMemberListOpen = ref(true);
 
+// State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);
 const messages = computed(() => appStore.messages);
 const members = computed(() => appStore.members);
-
 const channelDescription = computed(() => appStore.currentChannel?.description);
 
-const scrollToBottom = async () => {
+// --- Core Logic ---
+
+const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
   await nextTick();
   if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    messagesContainer.value.scrollTo({
+      top: messagesContainer.value.scrollHeight,
+      behavior,
+    });
   }
 };
 
-const loadChannel = async (channelId: number) => {
-  hasMoreMessages.value = true;
+const loadChannel = async (channelId: EntityId) => {
   await appStore.fetchChannel(channelId);
   await scrollToBottom();
 };
 
 const loadMoreMessages = async () => {
-  if (!currentChannel.value || messages.value.length === 0 || !hasMoreMessages.value) return;
-  
+  if (!currentChannel.value || appStore.loading.messages || messages.value.length === 0) return;
+
   const oldestMessageId = messages.value[0].id;
   const oldScrollHeight = messagesContainer.value?.scrollHeight ?? 0;
-  
-  const initialMessageCount = messages.value.length;
-  await appStore.fetchMessages(currentChannel.value.id, oldestMessageId);
-  
-  if (messages.value.length === initialMessageCount) {
-    hasMoreMessages.value = false;
-  }
 
+  await appStore.fetchMoreMessages(currentChannel.value.id, oldestMessageId);
+
+  // Restore scroll position after loading older messages
   await nextTick();
   if (messagesContainer.value) {
-    const newScrollHeight = messagesContainer.value.scrollHeight;
-    messagesContainer.value.scrollTop = newScrollHeight - oldScrollHeight;
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight - oldScrollHeight;
   }
 };
 
-const handleScroll = () => {
-  if (messagesContainer.value && messagesContainer.value.scrollTop < 100 && hasMoreMessages.value && !appStore.loading.messages) {
+// --- Event Handlers ---
+
+const debouncedScrollHandler = debounce(() => {
+  if (messagesContainer.value && messagesContainer.value.scrollTop < 100) {
     loadMoreMessages();
   }
-};
+}, 200);
 
 const handleSendMessage = async (content: string) => {
   if (!currentChannel.value) return;
   try {
     await appStore.sendMessage(currentChannel.value.id, { content });
-    await scrollToBottom();
-  } catch (error) {
-    console.error('Failed to send message:', error);
+    await scrollToBottom('smooth');
+  } catch {
+    addToast({ type: 'danger', message: 'Failed to send message.' });
   }
 };
 
-const handleEditMessage = async ({ messageId, content }: { messageId: number; content: UpdateMessagePayload }) => {
-  if (!currentChannel.value) return;
-  try {
-    await messageService.editMessage(currentChannel.value.id, messageId, content);
-    const message = messages.value.find(m => m.id === messageId);
-    if (message) {
-      message.content = content.content;
-      message.editedAt = new Date().toISOString();
-    }
-  } catch (error) {
-    console.error('Failed to edit message:', error);
-  }
+const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessagePayload }) => {
+  appStore.editMessage(payload.messageId, payload.content)
+    .catch(() => addToast({ type: 'danger', message: 'Failed to edit message.' }));
 };
 
-const handleDeleteMessage = async (messageId: number) => {
-  if (!currentChannel.value) return;
-  try {
-    await messageService.deleteMessage(currentChannel.value.id, messageId);
-    const messageIndex = messages.value.findIndex(m => m.id === messageId);
-    if (messageIndex !== -1) {
-      messages.value.splice(messageIndex, 1);
-    }
-  } catch (error) {
-    console.error('Failed to delete message:', error);
-  }
+const handleDeleteMessage = (messageId: EntityId) => {
+  appStore.deleteMessage(messageId)
+    .catch(() => addToast({ type: 'danger', message: 'Failed to delete message.' }));
 };
 
-const toggleMemberList = () => {
-  isMemberListOpen.value = !isMemberListOpen.value;
-};
+// --- Lifecycle & Watchers ---
 
 onMounted(() => {
   const channelId = parseInt(route.params.channelId as string, 10);
-  if (channelId) {
-    loadChannel(channelId);
-  }
+  if (channelId) loadChannel(channelId);
 });
 
 watch(() => route.params.channelId, (newChannelId) => {
-  if (newChannelId) {
-    loadChannel(parseInt(newChannelId as string, 10));
+  if (newChannelId && typeof newChannelId === 'string') {
+    loadChannel(parseInt(newChannelId, 10));
   }
 });
 </script>
+
+<style scoped>
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+</style>
 
 <style scoped>
 @keyframes slideIn {

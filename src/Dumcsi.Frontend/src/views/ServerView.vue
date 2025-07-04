@@ -38,7 +38,6 @@ const loadServer = async (serverId: number) => {
     await appStore.fetchServer(serverId);
   } catch (error) {
     console.error('Failed to load server:', error);
-    // Itt lehetne navigálni egy hiba oldalra vagy hibaüzenetet mutatni
   }
 };
 
