@@ -89,7 +89,7 @@ public class AuthController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
             return Unauthorized("Invalid username or password.");
         }
 
-        var token = jwtFactory.CreateToken(user.Id, user.Username);
+        var token = jwtFactory.CreateToken(user.Id, user.Username, user.SecurityStamp);
         
         return Ok(token);
     }

@@ -7,7 +7,7 @@ namespace Dumcsi.Infrastructure.Services.JwtFactory;
 
 public class JwtFactory(IOptions<JwtFactoryOptions> options) : IJWTFactory
 {
-    public string CreateToken(long userId, string username)
+    public string CreateToken(long userId, string username, string securityStamp)
     {
         var option = options.Value;
         
@@ -21,6 +21,7 @@ public class JwtFactory(IOptions<JwtFactoryOptions> options) : IJWTFactory
             {
                 new System.Security.Claims.Claim("sub", userId.ToString()),
                 new System.Security.Claims.Claim("username", username),
+                new System.Security.Claims.Claim("security_stamp", securityStamp)
             }),
             Expires = DateTime.UtcNow.Add(option.TokenLifetime),
             SigningCredentials = new SigningCredentials(

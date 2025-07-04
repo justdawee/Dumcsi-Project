@@ -13,6 +13,8 @@ public class User
     public string? ProfilePictureUrl { get; set; }
     public required Instant CreatedAt { get; set; }
     
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString();
+    
     public ICollection<Server> OwnedServers { get; set; } = new List<Server>();
     public ICollection<ServerMember> ServerMemberships { get; set; } = new List<ServerMember>();
     public ICollection<Message> SentMessages { get; set; } = new List<Message>();
