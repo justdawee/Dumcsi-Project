@@ -1,26 +1,21 @@
 // --- Enums ---
-export enum Role {
-  Member = 0,
-  Moderator = 1,
-  Admin = 2,
-}
+export enum Role { Member = 0, Moderator = 1, Admin = 2 }
+export enum ChannelType { Text = 0, Voice = 1 }
+export enum ModerationStatus { Visible = 0, UserDeleted = 1, ModeratedRemoved = 2 }
 
-export enum ChannelType {
-  Text = 0,
-  Voice = 1,
-}
+// --- Type Aliases for Clarity ---
 
-export enum ModerationStatus {
-  Visible = 0,
-  UserDeleted = 1,
-  ModeratedRemoved = 2,
-}
+/** A string representation of a date in ISO 8601 format (e.g., "2023-10-27T10:00:00Z"). */
+export type ISODateString = string;
+
+export type EntityId = number;
+
 
 // --- DTOs / Interfaces ---
 
 // User & Auth
 export interface UserProfile {
-  id: number;
+  id: EntityId;
   username: string;
   email: string;
   profilePictureUrl?: string;
@@ -28,40 +23,40 @@ export interface UserProfile {
 
 // Server
 export interface ServerListItem {
-  id: number;
+  id: EntityId;
   name: string;
   description: string;
   iconUrl?: string;
   memberCount: number;
-  ownerId: number;
-  isOwner: boolean; // TODO: role-based access control should be handled on the server side, this is just for UI convenience
+  ownerId: EntityId;
+  isOwner: boolean;
   memberLimit: number;
   isPublic: boolean;
-  createdAt: string; // TODO: consider using a Date object instead of string for better type safety
+  createdAt: ISODateString;
 }
 
 export interface ServerDetail extends ServerListItem {
-  ownerUsername: string; // TODO: duplicated data, consider fetching this from the server when needed
+  ownerUsername: string;
   currentUserRole: Role;
   channels: ChannelListItem[];
 }
 
 export interface ServerMember {
-  userId: number;
+  userId: EntityId;
   username: string;
   profilePictureUrl?: string;
   role: Role;
-  joinedAt: string;
+  joinedAt: ISODateString;
 }
 
 // Channel
 export interface ChannelListItem {
-  id: number;
+  id: EntityId;
   name: string;
   description?: string;
   type: ChannelType;
   position: number;
-  createdAt: string;
+  createdAt: ISODateString;
 }
 
 export interface ChannelDetail extends ChannelListItem {
@@ -70,24 +65,25 @@ export interface ChannelDetail extends ChannelListItem {
 
 // Message
 export interface MessageListItem {
-  id: number;
+  id: EntityId;
   content: string;
-  senderId: number;
+  senderId: EntityId;
   senderUsername: string;
   moderationStatus: ModerationStatus;
-  createdAt: string;
-  editedAt?: string;
+  createdAt: ISODateString;
+  editedAt?: ISODateString;
 }
 
-// Payloads
+// --- Payloads ---
 export interface LoginPayload {
   usernameOrEmail: string;
   password: string
 }
 
-// TODO: password is sent twice, security concern, consider hashing on client side or using a more secure method
-export interface RegisterPayload extends LoginPayload {
+export interface RegisterPayload {
+  username: string;
   email: string;
+  password: string;
 }
 
 export interface UpdateProfilePayload {
@@ -106,10 +102,18 @@ export interface CreateServerPayload {
   isPublic: boolean;
 }
 
+export interface UpdateServerPayload {
+  name: string;
+  description?: string;
+  iconUrl?: string;
+  isPublic: boolean;
+}
+
 export interface JoinServerPayload {
   inviteCode: string;
 }
 
+// --- API Responses ---
 export interface InviteResponse {
   inviteCode: string;
   message: string;
@@ -118,9 +122,10 @@ export interface InviteResponse {
 export interface JoinServerResponse {
   message: string;
   serverName: string;
-  serverId: number;
+  serverId: EntityId;
 }
 
+// --- Other Payloads ---
 export interface CreateChannelPayload {
   name: string;
   description?: string;
@@ -138,11 +143,4 @@ export interface CreateMessagePayload {
 
 export interface UpdateMessagePayload {
     content: string;
-}
-
-export interface UpdateServerPayload {
-  name: string;
-  description?: string | null; // TODO: consider using an empty string instead of null for better consistency
-  iconUrl?: string | null;
-  isPublic: boolean;
 }
