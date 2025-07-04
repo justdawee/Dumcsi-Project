@@ -42,6 +42,7 @@ public class MessageDtos
         public Instant CreatedAt { get; set; }
         public Instant? EditedAt { get; set; }
         public bool IsEdited => EditedAt.HasValue;
+        public List<ReactionDto> Reactions { get; set; } = [];
     }
     
     public class MessageDetailDto
@@ -54,5 +55,12 @@ public class MessageDtos
         public Instant CreatedAt { get; set; }
         public Instant? EditedAt { get; set; }
         public bool IsEdited => EditedAt.HasValue;
+    }
+    
+    public class ReactionDto
+    {
+        public string EmojiId { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public bool Me { get; set; } // A jelenlegi felhasználó reagált-e ezzel
     }
 }

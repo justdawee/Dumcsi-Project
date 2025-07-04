@@ -1,0 +1,24 @@
+﻿using Dumcsi.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+public class ReactionConfiguration : IEntityTypeConfiguration<Reaction>
+{
+    public void Configure(EntityTypeBuilder<Reaction> builder)
+    {
+        // Összetett elsődleges kulcs
+        builder.HasKey(r => new { r.MessageId, r.UserId, r.EmojiId });
+
+        builder.Property(r => r.EmojiId).HasMaxLength(100);
+
+        builder.HasOne(r => r.Message)
+            .WithMany() // Egy üzenetnek több reakciója lehet
+            .HasForeignKey(r => r.MessageId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}

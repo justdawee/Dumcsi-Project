@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using NodaTime.Extensions;
 
 namespace Dumcsi.Api.Controllers;
 
@@ -128,19 +127,34 @@ public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFacto
         var messages = await query
             .OrderByDescending(m => m.Id)
             .Take(limit)
-            .Select(m => new MessageDtos.MessageListItemDto
+            .Select(m => new
             {
-                Id = m.Id,
-                Content = m.Content,
-                SenderId = m.SenderId,
-                SenderUsername = m.Sender!.Username,
-                CreatedAt = m.CreatedAt,
-                EditedAt = m.EditedAt
+                Message = m,
+                Reactions = dbContext.Reactions
+                    .Where(r => r.MessageId == m.Id)
+                    .GroupBy(r => r.EmojiId)
+                    .Select(g => new MessageDtos.ReactionDto
+                    {
+                        EmojiId = g.Key,
+                        Count = g.Count(),
+                        Me = g.Any(r => r.UserId == userId)
+                    }).ToList()
             })
             .ToListAsync(cancellationToken);
 
-        messages.Reverse();
-        return Ok(messages);
+        var messageDtos = messages.Select(x => new MessageDtos.MessageListItemDto
+        {
+            Id = x.Message.Id,
+            Content = x.Message.Content,
+            SenderId = x.Message.SenderId,
+            SenderUsername = x.Message.Sender!.Username,
+            CreatedAt = x.Message.CreatedAt,
+            EditedAt = x.Message.EditedAt,
+            Reactions = x.Reactions
+        }).ToList();
+
+        messageDtos.Reverse();
+        return Ok(messageDtos);
     }
 
     // GET /channels/{channelId}/messages/{messageId} - Specifikus üzenet lekérése
