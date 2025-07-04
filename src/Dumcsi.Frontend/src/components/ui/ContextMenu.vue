@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import type { Component } from 'vue';
 import { useContextMenuManager } from '@/composables/useContextMenuManager';
 
@@ -44,31 +44,33 @@ const visible = ref(false);
 const x = ref(0);
 const y = ref(0);
 const contextMenu = ref<HTMLElement | null>(null);
+const menuId = ref<number | null>(null);
 
 // --- Manager ---
-const { setActiveMenu, clearActiveMenu } = useContextMenuManager();
+const { openMenu, closeMenu } = useContextMenuManager();
 
-// --- Metódusok ---
+// --- Methods ---
 const open = (event: MouseEvent) => {
-  setActiveMenu(close);
+  const closeLogic = () => {
+    visible.value = false;
+    document.removeEventListener('click', handleClickOutside, true);
+  };
 
+  menuId.value = openMenu(closeLogic);
   visible.value = true;
-  
-  // Pozícionálás
-  const menuWidth = 180;
-  if (event.clientX + menuWidth > window.innerWidth) {
-    x.value = event.clientX - menuWidth;
-  } else {
-    x.value = event.clientX;
-  }
+
+  // positioning the context menu
+  x.value = event.clientX;
   y.value = event.clientY;
+
+  document.addEventListener('click', handleClickOutside, true);
 };
 
 const close = () => {
-  if (visible.value) {
-    visible.value = false;
-    clearActiveMenu();
-  }
+    if (menuId.value !== null) {
+        closeMenu(menuId.value);
+        menuId.value = null;
+    }
 };
 
 const handleClick = (item: MenuItem) => {
@@ -82,10 +84,7 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 };
 
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside, true);
-});
-
+// --- Event Listeners ---
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside, true);
 });

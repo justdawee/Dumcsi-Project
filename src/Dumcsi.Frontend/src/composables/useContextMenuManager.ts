@@ -1,21 +1,36 @@
-import { ref } from 'vue';
+import { ref, readonly } from 'vue';
 
-const activeCloseCallback = ref<(() => void) | null>(null);
+let menuIdCounter = 0;
+
+interface ActiveMenu {
+  id: number;
+  close: () => void;
+}
+
+const activeMenus = ref<ActiveMenu[]>([]);
 
 export function useContextMenuManager() {
-  const setActiveMenu = (closeCallback: () => void) => {
-    if (activeCloseCallback.value) { // TODO: check if the previous callback is still valid
-      activeCloseCallback.value();
-    }
-    activeCloseCallback.value = closeCallback; // TODO: singleton anti-pattern, consider using a more flexible approach
+  const openMenu = (closeCallback: () => void): number => {
+    activeMenus.value.forEach(menu => menu.close());
+    activeMenus.value = [];
+
+    const menuId = menuIdCounter++;
+    activeMenus.value.push({ id: menuId, close: closeCallback });
+
+    return menuId;
   };
 
-  const clearActiveMenu = () => {
-    activeCloseCallback.value = null; // TODO: race condition, ensure that this is called only when the menu is actually closed
+  const closeMenu = (menuId: number) => {
+    const index = activeMenus.value.findIndex(menu => menu.id === menuId);
+    if (index !== -1) {
+      activeMenus.value[index].close();
+      activeMenus.value.splice(index, 1);
+    }
   };
 
   return {
-    setActiveMenu,
-    clearActiveMenu,
+    openMenu,
+    closeMenu,
+    activeMenus: readonly(activeMenus),
   };
 }
