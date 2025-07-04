@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dumcsi.Domain\Dumcsi.Domain.csproj" />
+    <ProjectReference Include="..\Dumcsi.Application\Dumcsi.Application.csproj" />
   </ItemGroup>
 
 </Project>
