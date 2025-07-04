@@ -13,7 +13,7 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const authStore = useAuthStore()
+    const authStore = useAuthStore() // TODO: testability, should we use a global store or pass authStore as a parameter?
     if (authStore.token) {
       config.headers.Authorization = `Bearer ${authStore.token}`
     }
@@ -30,9 +30,9 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       const authStore = useAuthStore()
-      await authStore.logout() 
+      await authStore.logout()  // TODO: async logout interceptor, refactor to handle async actions properly
     }
-    return Promise.reject(error)
+    return Promise.reject(error) // TODO: rejecting all errors equally, should we handle different error types differently?
   }
 )
 

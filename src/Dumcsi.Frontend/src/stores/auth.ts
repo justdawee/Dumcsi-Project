@@ -4,7 +4,7 @@ import authService from '@/services/authService'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('token'))
+  const token = ref(localStorage.getItem('token')) // TODO: for better security, consider using a more secure storage method
   const user = ref<{ id: number, username: string, profilePictureUrl: string } | null>(null)
   const loading = ref(false)
   const error = ref(null)
@@ -20,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // TODO: Consider using a library like jwt-decode for better JWT parsing
   const parseJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1]
@@ -33,20 +34,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // TODO: Consider adding token expiration handling
   const login = async (credentials: any) => {
   loading.value = true
   error.value = null
 
   try {
     const response = await authService.login(credentials)
-    const token = response.data 
+    const token = response.data // TODO: Ensure the response contains the token directly or adjust accordingly
     setToken(token)
 
     // Parse user info from JWT
     const payload = parseJwt(token)
-    if (payload) { // Biztonsági ellenőrzés
+    if (payload) {
         user.value = {
-          id: parseInt(payload.sub),
+          id: parseInt(payload.sub), // TODO: use radix 10 for better clarity
           username: payload.username,
           profilePictureUrl: payload.profilePictureUrl || ''
         }
@@ -54,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Redirect to app
     const redirect = router.currentRoute.value.query.redirect
-    const redirectPath = Array.isArray(redirect) ? redirect[0] : redirect
+    const redirectPath = Array.isArray(redirect) ? redirect[0] : redirect // TODO: refactor to handle array case
     await router.push(redirectPath || '/servers')
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Invalid username or password'
@@ -64,13 +66,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 }
 
+  // TODO: type userData more specifically we want usernameOrEmail and password
   const register = async (userData: any) => {
     loading.value = true
     error.value = null
     
     try {
       await authService.register(userData)
-      // Auto-login after successful registration
+      // TODO: remove auto login, just redirect to login page
       await login({
         usernameOrEmail: userData.username,
         password: userData.password
@@ -94,7 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     const payload = parseJwt(token.value)
     if (payload) {
       user.value = {
-        id: parseInt(payload.sub),
+        id: parseInt(payload.sub), // TODO: use radix 10 for better clarity
         username: payload.username
       }
     }

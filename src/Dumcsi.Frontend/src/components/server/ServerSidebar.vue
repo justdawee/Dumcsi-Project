@@ -102,10 +102,10 @@
       @server-updated="appStore.fetchServers()"
     />
 
-    <ConfirmModal
+   <ConfirmModal
       v-model="isLeaveConfirmOpen"
-      title="Leave Server"
-      :message="`Are you sure you want to leave ${selectedServer?.name}?`"
+      :title="`Leave '${selectedServer?.name}'`"
+      :message="`Are you sure you want to leave ${selectedServer?.name}? You won't be able to rejoin this server unless you are re-invited.`"
       confirm-text="Leave Server"
       :is-loading="isLeaving"
       @confirm="confirmLeaveServer"
@@ -136,6 +136,7 @@ import EditServerModal from '@/components/modals/EditServerModal.vue';
 import ExploreServersModal from '@/components/modals/ExploreServersModal.vue';
 import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import type { ServerListItem } from '@/services/types';
 
@@ -143,6 +144,7 @@ import type { ServerListItem } from '@/services/types';
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
+const { addToast } = useToast();
 
 interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
@@ -173,7 +175,10 @@ const handleInvite = async (server: ServerListItem) => {
         generatedInviteCode.value = response.data.inviteCode;
         isInviteModalOpen.value = true;
     } catch (error) {
-        console.error("Failed to generate invite:", error);
+        addToast({ 
+          message: 'Failed to generate invite code.',
+          type: 'danger'
+        });
     }
 };
 
@@ -197,17 +202,33 @@ const handleLeaveServer = (server: ServerListItem) => {
 };
 
 const confirmLeaveServer = async () => {
-    if (!selectedServer.value) return;
-    isLeaving.value = true;
-    try {
-        await appStore.leaveServer(selectedServer.value.id);
-        if (currentServerId.value === selectedServer.value.id) {
-            router.push({ name: 'ServerSelect' });
-        }
-    } finally {
-        isLeaving.value = false;
-        isLeaveConfirmOpen.value = false;
+  if (!selectedServer.value) return;
+
+  isLeaving.value = true;
+  const serverToLeave = selectedServer.value;
+
+  try {
+    await appStore.leaveServer(serverToLeave.id);
+    addToast({ 
+      message: `You have successfully left ${serverToLeave.name}.`,
+      type: 'success',
+      title: 'Server Left'
+    });
+    if (currentServerId.value === serverToLeave.id) {
+      router.push({ name: 'ServerSelect' });
     }
+    appStore.fetchServers(); // Frissítjük a szerverlistát
+  } catch (error: any) {
+    addToast({
+      message: 'Server owner cannot leave the server.',
+      type: 'danger',
+      title: 'Leave Failed'
+    });
+  } finally {
+    isLeaving.value = false;
+    isLeaveConfirmOpen.value = false;
+    selectedServer.value = null; // A kiválasztott szerver resetelése
+  }
 };
 
 const openServerMenu = (event: MouseEvent, server: ServerListItem) => {

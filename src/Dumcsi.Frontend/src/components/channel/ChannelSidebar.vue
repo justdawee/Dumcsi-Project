@@ -117,6 +117,7 @@ import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
+import { useToast } from '@/composables/useToast';
 import { Hash, Volume2, Plus, Settings, Loader2, Edit, Trash2, PlusCircle } from 'lucide-vue-next';
 import type { Component } from 'vue';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
@@ -136,6 +137,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
+const { addToast } = useToast();
 
 // --- State ---
 const isEditModalOpen = ref(false);
@@ -185,7 +187,10 @@ const confirmDeleteChannel = async () => {
         await channelService.deleteChannel(deletingChannel.value.id);
         handleChannelDeleted(deletingChannel.value.id);
     } catch (error) {
-        console.error("Failed to delete channel:", error);
+        addToast({ 
+          message: 'Failed to delete channel. Please try again later.',
+          type: 'danger' 
+        });
     } finally {
         isDeleting.value = false;
         isConfirmDeleteOpen.value = false;

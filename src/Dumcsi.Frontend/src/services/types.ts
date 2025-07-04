@@ -34,14 +34,14 @@ export interface ServerListItem {
   iconUrl?: string;
   memberCount: number;
   ownerId: number;
-  isOwner: boolean;
+  isOwner: boolean; // TODO: role-based access control should be handled on the server side, this is just for UI convenience
   memberLimit: number;
   isPublic: boolean;
-  createdAt: string;
+  createdAt: string; // TODO: consider using a Date object instead of string for better type safety
 }
 
 export interface ServerDetail extends ServerListItem {
-  ownerUsername: string;
+  ownerUsername: string; // TODO: duplicated data, consider fetching this from the server when needed
   currentUserRole: Role;
   channels: ChannelListItem[];
 }
@@ -85,6 +85,7 @@ export interface LoginPayload {
   password: string
 }
 
+// TODO: password is sent twice, security concern, consider hashing on client side or using a more secure method
 export interface RegisterPayload extends LoginPayload {
   email: string;
 }
@@ -141,7 +142,7 @@ export interface UpdateMessagePayload {
 
 export interface UpdateServerPayload {
   name: string;
-  description?: string | null;
+  description?: string | null; // TODO: consider using an empty string instead of null for better consistency
   iconUrl?: string | null;
   isPublic: boolean;
 }

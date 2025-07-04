@@ -19,7 +19,6 @@ import messageService from '@/services/messageService';
 
 export const useAppStore = defineStore('app', () => {
   // --- State ---
-  // A state most már a központi, részletes típusokat használja.
   const servers = ref<ServerListItem[]>([]);
   const currentServer = ref<ServerDetail | null>(null);
   const currentChannel = ref<ChannelDetail | null>(null);
@@ -43,14 +42,13 @@ export const useAppStore = defineStore('app', () => {
   );
 
   // --- Actions ---
-
   const fetchServers = async () => {
     loading.value.servers = true;
     error.value = null;
     try {
       const response = await serverService.getServers();
       servers.value = response.data;
-    } catch (err: any) {
+    } catch (err: any) { // TODO: use a more specific error type if available
       error.value = err.response?.data?.message || 'Failed to fetch servers';
     } finally {
       loading.value.servers = false;
@@ -64,7 +62,7 @@ export const useAppStore = defineStore('app', () => {
       const response = await serverService.getServer(serverId);
       currentServer.value = response.data;
       // Szerver betöltésekor a tagokat is lekérjük
-      await fetchServerMembers(serverId);
+      await fetchServerMembers(serverId); // TODO: performance consideration, this could be optimized
       return response.data;
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch server details';
@@ -80,7 +78,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       const response = await channelService.getChannel(channelId);
       currentChannel.value = response.data;
-      messages.value = response.data.messages.reverse(); // A legfrissebb legyen alul
+      messages.value = response.data.messages.reverse(); // TODO: consider pagination for messages
       return response.data;
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch channel';
@@ -95,7 +93,7 @@ export const useAppStore = defineStore('app', () => {
     error.value = null;
     try {
       const response = await messageService.getMessages(channelId, { before, limit: 50 });
-      messages.value = [...response.data.reverse(), ...messages.value];
+      messages.value = [...response.data.reverse(), ...messages.value]; // TODO: consider pagination for messages
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to fetch messages';
     } finally {
@@ -119,7 +117,7 @@ export const useAppStore = defineStore('app', () => {
   const sendMessage = async (channelId: string | number, payload: CreateMessagePayload): Promise<MessageListItem | undefined> => {
     try {
       const response = await messageService.sendMessage(channelId, payload);
-      messages.value.push(response.data);
+      messages.value.push(response.data); // TODO: consider pagination for messages
       return response.data;
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to send message';
@@ -130,7 +128,7 @@ export const useAppStore = defineStore('app', () => {
   const createServer = async (serverData: CreateServerPayload): Promise<{ serverId: number; message: string } | undefined> => {
     try {
       const response = await serverService.createServer(serverData);
-      await fetchServers(); // Szerverlista frissítése
+      await fetchServers(); // TODO: consider whether we need to refetch servers or just update the local state
       return response.data; // Visszaadjuk a szerver ID-t és az üzenetet
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to create server';
@@ -142,7 +140,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       const response = await serverService.createChannel(serverId, channelData);
       if (currentServer.value && currentServer.value.id === serverId) {
-        currentServer.value.channels.push(response.data); // UI azonnali frissítése
+        currentServer.value.channels.push(response.data); // TODO: direct mutation of currentServer might not be the best practice, consider using a more reactive approach
       }
       return response.data;
     } catch (err: any) {
@@ -154,7 +152,7 @@ export const useAppStore = defineStore('app', () => {
   const joinServer = async (inviteCode: string): Promise<{ serverId: number } | undefined> => {
     try {
       const response = await serverService.joinServer(inviteCode);
-      await fetchServers(); 
+      await fetchServers(); // TODO: consider whether we need to refetch servers or just update the local state
       return { serverId: response.data.serverId };
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to join server';
@@ -176,19 +174,20 @@ export const useAppStore = defineStore('app', () => {
   const leaveServer = async (serverId: string | number): Promise<void> => {
     try {
       await serverService.leaveServer(serverId);
-      if (currentServer.value?.id === serverId) {
+      if (currentServer.value?.id === serverId) { // TODO: nulling out currentServer and currentChannel might not be the best practice, consider using a more reactive approach
           currentServer.value = null;
           currentChannel.value = null;
           messages.value = [];
           members.value = [];
       }
-      await fetchServers(); // Szerverlista frissítése
+      await fetchServers(); // TODO: performance consideration, this could be optimized
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to leave server';
       throw err;
     }
   };
 
+  // TODO: mutating currentChannel directly might not be the best practice, consider using a more reactive approach
   const updateCurrentChannelDetails = (payload: { name: string; description?: string }) => {
     if (currentChannel.value) {
       currentChannel.value.name = payload.name;

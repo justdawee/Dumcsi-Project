@@ -71,6 +71,7 @@
 import { ref, onMounted, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import type { ServerListItem } from '@/services/types';
 import { Loader2 } from 'lucide-vue-next';
@@ -82,6 +83,7 @@ const emit = defineEmits(['update:modelValue']);
 // --- State ---
 const router = useRouter();
 const appStore = useAppStore();
+const { addToast } = useToast();
 const servers = ref<ServerListItem[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -98,13 +100,14 @@ const closeModal = () => {
 
 const fetchPublicServers = async () => {
   loading.value = true;
-  error.value = null;
   try {
     const response = await serverService.getPublicServers();
     servers.value = response.data;
   } catch (err: any) {
-    console.error("Failed to fetch public servers:", err);
-    error.value = err.message || 'Unknown error';
+    addToast({
+      type: 'danger',
+      message: 'Failed to fetch public servers.'
+    });
   } finally {
     loading.value = false;
   }
@@ -125,9 +128,15 @@ const joinServer = async (server: ServerListItem) => {
       closeModal();
     }
   } catch (err) {
-    console.error("Failed to join server:", err);
-    // Hiba kezelése, pl. toast üzenettel
+    addToast({
+      type: 'danger',
+      message: 'Failed to join server.'
+    });
   } finally {
+    addToast({
+      type: 'success',
+      message: `Successfully joined ${server.name}.`
+    });
     joiningState[server.id] = false;
   }
 };

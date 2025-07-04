@@ -16,7 +16,13 @@
               <p class="text-sm text-gray-400 whitespace-pre-line">
                 {{ message }}
               </p>
-            </div>
+              
+              <div v-if="$slots.content || contentDetails" class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-h-40 overflow-y-auto scrollbar-thin">
+                  <slot name="content">
+                      <p v-if="contentDetails" class="text-sm text-gray-300 italic whitespace-pre-wrap break-words">"{{ contentDetails }}"</p>
+                  </slot>
+              </div>
+              </div>
           </div>
         </div>
         
@@ -57,6 +63,7 @@ const props = withDefaults(defineProps<{
   cancelText?: string;
   isLoading?: boolean;
   intent?: 'danger' | 'success' | 'warning' | 'info';
+  contentDetails?: string | null;
 }>(), {
   title: 'Are you sure?',
   message: 'This action cannot be undone.',
@@ -64,6 +71,7 @@ const props = withDefaults(defineProps<{
   cancelText: 'Cancel',
   isLoading: false,
   intent: 'danger',
+  contentDetails: null,
 });
 
 defineEmits(['update:modelValue', 'confirm']);

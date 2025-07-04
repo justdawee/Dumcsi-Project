@@ -69,7 +69,10 @@ import { ref, reactive, watch } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import channelService from '@/services/channelService';
+import { useToast } from '@/composables/useToast';
 import type { ChannelListItem, UpdateChannelPayload } from '@/services/types';
+
+const { addToast } = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -105,7 +108,10 @@ watch(() => props.channel, (newChannel) => {
 const handleUpdateChannel = async () => {
   if (!props.channel) return;
   isLoading.value = true;
-  error.value = '';
+  addToast({
+      type: 'success',
+      message: 'Channel updated successfully.',
+    });
   try {
     await channelService.updateChannel(props.channel.id, {
       name: form.name,
@@ -119,7 +125,10 @@ const handleUpdateChannel = async () => {
     });
     closeModal();
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Failed to update channel.';
+    addToast({
+      type: 'danger',
+      message: 'Failed to update channel.',
+    });
   } finally {
     isLoading.value = false;
   }
@@ -128,16 +137,21 @@ const handleUpdateChannel = async () => {
 const handleDeleteChannel = async () => {
   if (!props.channel) return;
   isDeleting.value = true;
-  error.value = '';
+  addToast({
+      type: 'success',
+      message: 'Channel deleted successfully.',
+    });
   try {
     await channelService.deleteChannel(props.channel.id);
     emit('channel-deleted', props.channel.id);
     isConfirmDeleteOpen.value = false;
     closeModal();
   } catch (err: any) {
-    console.error('Failed to delete channel:', err);
+    addToast({
+      type: 'danger',
+      message: 'Failed to delete channel.',
+    });
     isConfirmDeleteOpen.value = false;
-    error.value = err.response?.data?.message || 'Failed to delete channel.';
   } finally {
     isDeleting.value = false;
   }

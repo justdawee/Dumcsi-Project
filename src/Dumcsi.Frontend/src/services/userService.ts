@@ -2,6 +2,8 @@ import type { AxiosResponse } from 'axios';
 import api from './api';
 import type { UserProfile, UpdateProfilePayload, UpdatePasswordPayload } from './types';
 
+//TODO: add error handling and response types
+
 const userService = {
   /**
    * GET /api/user/me

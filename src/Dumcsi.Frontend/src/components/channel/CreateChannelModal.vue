@@ -128,7 +128,10 @@ const handleCreateChannel = async () => {
       router.push(`/servers/${props.serverId}/channels/${response.id}`)
     }
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to create channel'
+    addToast({ 
+          message: 'Failed to create channel. Please try again later.',
+          type: 'danger' 
+        });
   } finally {
     loading.value = false
   }

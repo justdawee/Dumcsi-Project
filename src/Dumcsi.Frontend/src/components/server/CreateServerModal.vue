@@ -126,12 +126,14 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
+import { useToast } from '@/composables/useToast';
 import { Loader2 } from 'lucide-vue-next';
 import type { CreateServerPayload } from '@/services/types';
 
 const emit = defineEmits(['close']);
 const router = useRouter();
 const appStore = useAppStore();
+const { addToast } = useToast();
 
 const activeTab = ref<'create' | 'join'>('create');
 const loading = ref(false);
@@ -154,8 +156,15 @@ const handleCreateServer = async () => {
       router.push({ name: 'Server', params: { serverId: response.serverId } });
     }
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Failed to create server';
+    addToast({
+      type: 'danger',
+      message: 'Failed to create server. Please try again later.'
+    });
   } finally {
+    addToast({
+      type: 'success',
+      message: `Successfully created ${createForm.value.name}.`
+    });
     loading.value = false;
   }
 };
@@ -166,7 +175,7 @@ const joinForm = ref({
 
 const handleJoinServer = async () => {
   if (!joinForm.value.inviteCode.trim()) {
-    error.value = 'Please enter an invite code.';
+    error.value = 'Please enter a valid invite code.';
     return;
   }
 
@@ -180,7 +189,11 @@ const handleJoinServer = async () => {
       router.push({ name: 'Server', params: { serverId: result.serverId } });
     }
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Failed to join server. Please check the code and try again.';
+    addToast({
+      type: 'danger',
+      title: 'Invite Code',
+      message: 'The invite code is invalid or has expired.'
+    });
   } finally {
     loading.value = false;
   }

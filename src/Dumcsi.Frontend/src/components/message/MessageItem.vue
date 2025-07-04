@@ -77,6 +77,15 @@
       </button>
     </div>
   </div>
+  <ConfirmModal
+    v-model="isDeleteModalOpen"
+    title="Delete Message"
+    message="Are you sure you want to delete this message? This action cannot be undone."
+    :content-details="message.content"
+    confirm-text="Delete Message"
+    @confirm="confirmDelete"
+    intent="danger"
+  />
 </template>
 
 <script setup lang="ts">
@@ -84,6 +93,7 @@ import { ref, computed } from 'vue';
 import { Edit3, Trash2 } from 'lucide-vue-next';
 import MessageEdit from './MessageEdit.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type { MessageListItem } from '@/services/types';
 
 // --- Props & Emits ---
@@ -100,13 +110,13 @@ const emit = defineEmits<{
 
 // --- State ---
 const isEditing = ref(false);
+const isDeleteModalOpen = ref(false);
 
 // --- Computed Properties ---
 const showHeader = computed(() => {
   if (!props.previousMessage) return true;
   if (props.previousMessage.senderId !== props.message.senderId) return true;
   
-  // Show header if more than 5 minutes between messages
   const prevTime = new Date(props.previousMessage.createdAt);
   const currTime = new Date(props.message.createdAt);
   const diffMinutes = (currTime.getTime() - prevTime.getTime()) / (1000 * 60);
@@ -148,11 +158,12 @@ const handleSave = (newContent: string) => {
 };
 
 const handleDelete = () => {
-  // A confirm() használata nem ajánlott. Érdemes egy szebb,
-  // modális ablakot készíteni a törlés megerősítéséhez.
-  if (confirm('Are you sure you want to delete this message?')) {
-    emit('delete', props.message.id);
-  }
+  isDeleteModalOpen.value = true;
+};
+
+const confirmDelete = () => {
+  emit('delete', props.message.id);
+  isDeleteModalOpen.value = false; // Modális ablak bezárása
 };
 </script>
 

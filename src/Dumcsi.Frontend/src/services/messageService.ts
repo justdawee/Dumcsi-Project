@@ -3,8 +3,8 @@ import api from './api';
 import type { MessageListItem, CreateMessagePayload, UpdateMessagePayload } from './types';
 
 interface GetMessagesParams {
-    before?: number; // Üzenet ID, ami előttieket kérjük
-    limit?: number;  // Max 100
+    before?: number;
+    limit?: number;
 }
 
 const messageService = {
@@ -25,6 +25,7 @@ const messageService = {
   /**
    * PATCH /api/channels/{channelId}/messages/{messageId}
    */
+  // TODO: use consistent types, need to return
   editMessage(channelId: string | number, messageId: string | number, payload: UpdateMessagePayload): Promise<AxiosResponse<void>> {
     return api.patch<void>(`/channels/${channelId}/messages/${messageId}`, payload);
   },

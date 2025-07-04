@@ -41,7 +41,7 @@ const serverService = {
   /**
    * POST /api/server/{id}/join
    */
-  joinServer(inviteCode: string): Promise<AxiosResponse<JoinServerResponse>> {
+  joinServer(inviteCode: string): Promise<AxiosResponse<JoinServerResponse>> { // TODO: hardcoded inviteCode, consider using a more secure method
     const payload: JoinServerPayload = { inviteCode };
     return api.post<JoinServerResponse>('/server/join', payload);
   },
@@ -77,6 +77,7 @@ const serverService = {
   /**
    * PUT /api/server/{id}
    */
+  // TODO: updateserver takes a number, but others take string, also no confirmation returned
   updateServer(id: number, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
     return api.put<void>(`/server/${id}`, payload);
   },
@@ -91,6 +92,7 @@ const serverService = {
   /**
    * POST /api/server/{id}/join
    */
+  // TODO: another join method, we should probably unify these
   joinPublicServer(serverId: number): Promise<AxiosResponse<{ serverId: number; message: string }>> {
     return api.post(`/server/${serverId}/join`);
   },

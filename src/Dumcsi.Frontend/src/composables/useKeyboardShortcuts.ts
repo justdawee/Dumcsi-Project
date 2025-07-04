@@ -30,7 +30,7 @@ export function useKeyboardShortcuts(shortcuts: Shortcut[]) {
   })
   
   onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
+    window.removeEventListener('keydown', handleKeyDown) // TODO: globally scoped event listener, consider using a more scoped approach if needed
   })
 }
 

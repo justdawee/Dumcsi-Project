@@ -58,7 +58,10 @@
 import { ref, reactive, watch } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
+import { useToast } from '@/composables/useToast';
 import type { ServerListItem, UpdateServerPayload } from '@/services/types';
+
+const { addToast } = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -95,13 +98,19 @@ watch(() => props.server, (newServer) => {
 const handleUpdateServer = async () => {
   if (!props.server) return;
   isLoading.value = true;
-  error.value = '';
+  addToast({
+    type: 'success',
+    message: 'Successfully updated server settings.',
+  });
   try {
     await serverService.updateServer(props.server.id, form);
     emit('server-updated');
     closeModal();
   } catch (err: any) {
-    error.value = err.response?.data?.message || 'Failed to update server.';
+    addToast({
+      type: 'danger',
+      message: 'Failed to update server settings.',
+    })
   } finally {
     isLoading.value = false;
   }
