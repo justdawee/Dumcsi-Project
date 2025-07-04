@@ -1,99 +1,134 @@
 import type { AxiosResponse } from 'axios';
 import api from './api';
-import type { ServerListItem, CreateServerPayload, ServerDetail, ServerMember, ChannelListItem, CreateChannelPayload, JoinServerPayload, InviteResponse, JoinServerResponse, UpdateServerPayload } from './types';
+import type { 
+  ServerListItem, 
+  CreateServerPayload, 
+  ServerDetail, 
+  ServerMember, 
+  ChannelListItem, 
+  CreateChannelPayload, 
+  JoinServerPayload, 
+  InviteResponse, 
+  JoinServerResponse, 
+  UpdateServerPayload 
+} from './types';
+
+type EntityId = number;
 
 const serverService = {
   /**
-   * GET /api/server
+   * @description Fetches the list of servers the current user is a member of.
    */
+
   getServers(): Promise<AxiosResponse<ServerListItem[]>> {
     return api.get<ServerListItem[]>('/server');
   },
 
   /**
-   * POST /api/server
+   * @description Creates a new server.
    */
+
   createServer(payload: CreateServerPayload): Promise<AxiosResponse<{ serverId: number; message: string }>> {
     return api.post('/server', payload);
   },
 
   /**
-   * GET /api/server/{id}
+   * @description Fetches detailed information for a single server.
+   * @param id The unique identifier of the server.
    */
-  getServer(id: string | number): Promise<AxiosResponse<ServerDetail>> {
+
+  getServer(id: EntityId): Promise<AxiosResponse<ServerDetail>> {
     return api.get<ServerDetail>(`/server/${id}`);
   },
 
   /**
-   * DELETE /api/server/{id}
+   * @description Deletes a server. Only the owner can perform this action.
+   * @param id The unique identifier of the server.
    */
-  deleteServer(id: string | number): Promise<AxiosResponse<{ message: string }>> {
+
+  deleteServer(id: EntityId): Promise<AxiosResponse<{ message: string }>> {
     return api.delete(`/server/${id}`);
   },
 
   /**
-   * GET /api/server/{id}/members
+   * @description Fetches the list of members for a given server.
+   * @param id The unique identifier of the server.
    */
-  getServerMembers(id: string | number): Promise<AxiosResponse<ServerMember[]>> {
+  getServerMembers(id: EntityId): Promise<AxiosResponse<ServerMember[]>> {
     return api.get<ServerMember[]>(`/server/${id}/members`);
   },
 
   /**
-   * POST /api/server/{id}/join
+   * @description Joins a server using an invite code.
+   * @param inviteCode The server's invite code.
    */
-  joinServer(inviteCode: string): Promise<AxiosResponse<JoinServerResponse>> { // TODO: hardcoded inviteCode, consider using a more secure method
+  
+  joinServer(inviteCode: string): Promise<AxiosResponse<JoinServerResponse>> {
     const payload: JoinServerPayload = { inviteCode };
     return api.post<JoinServerResponse>('/server/join', payload);
   },
 
   /**
-   * POST /api/server/{id}/leave
+   * @description Leaves a server.
+   * @param id The unique identifier of the server.
    */
-  leaveServer(id: string | number): Promise<AxiosResponse<{ message: string }>> {
+
+  leaveServer(id: EntityId): Promise<AxiosResponse<{ message: string }>> {
     return api.post(`/server/${id}/leave`);
   },
 
   /**
-   * POST /api/server/{id}/invite
+   * @description Generates a new invite code for a server.
+   * @param id The unique identifier of the server.
    */
-  generateInvite(id: string | number): Promise<AxiosResponse<InviteResponse>> {
+
+  generateInvite(id: EntityId): Promise<AxiosResponse<InviteResponse>> {
     return api.post<InviteResponse>(`/server/${id}/invite`);
   },
 
   /**
-   * GET /api/server/{id}/channels
+   * @description Fetches the list of channels for a given server.
+   * @param id The unique identifier of the server.
    */
-  getServerChannels(id: string | number): Promise<AxiosResponse<ChannelListItem[]>> {
+
+  getServerChannels(id: EntityId): Promise<AxiosResponse<ChannelListItem[]>> {
     return api.get<ChannelListItem[]>(`/server/${id}/channels`);
   },
 
   /**
-   * POST /api/server/{id}/channels
+   * @description Creates a new channel within a server.
+   * @param serverId The ID of the server where the channel will be created.
+   * @param payload The data for the new channel.
    */
-  createChannel(serverId: string | number, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelListItem>> {
+
+  createChannel(serverId: EntityId, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelListItem>> {
     return api.post<ChannelListItem>(`/server/${serverId}/channels`, payload);
   },
 
   /**
-   * PUT /api/server/{id}
+   * @description Updates a server's settings.
+   * @param id The unique identifier of the server.
+   * @param payload The new settings for the server.
    */
-  // TODO: updateserver takes a number, but others take string, also no confirmation returned
-  updateServer(id: number, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
+
+  updateServer(id: EntityId, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
     return api.put<void>(`/server/${id}`, payload);
   },
 
   /**
-   * GET /api/server/public
+   * @description Fetches a list of all public servers available to join.
    */
+
   getPublicServers(): Promise<AxiosResponse<ServerListItem[]>> {
     return api.get<ServerListItem[]>('/server/public');
   },
 
   /**
-   * POST /api/server/{id}/join
+   * @description Joins a public server directly by its ID.
+   * @param serverId The unique identifier of the public server to join.
    */
-  // TODO: another join method, we should probably unify these
-  joinPublicServer(serverId: number): Promise<AxiosResponse<{ serverId: number; message: string }>> {
+
+  joinPublicServer(serverId: EntityId): Promise<AxiosResponse<{ serverId: number; message: string }>> {
     return api.post(`/server/${serverId}/join`);
   },
 };
