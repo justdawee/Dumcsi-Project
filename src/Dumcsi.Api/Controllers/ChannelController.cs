@@ -15,36 +15,66 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/channels/{id}")]
 public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
 {
+    private async Task<(bool, bool)> CheckMembershipAndPermission(long channelId, long userId, Permission requiredPermission, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var member = await dbContext.ServerMembers
+            .AsNoTracking()
+            .Include(m => m.Roles)
+            .Where(m => m.User.Id == userId && m.Server.Channels.Any(c => c.Id == channelId))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (member == null)
+        {
+            // A felhasználó nem tagja a szervernek, amelyhez a csatorna tartozik.
+            return (false, false);
+        }
+
+        var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
+
+        // Az adminisztrátor mindent felülbírál.
+        if (permissions.HasFlag(Permission.Administrator))
+        {
+            return (true, true);
+        }
+
+        // Ellenőrizzük, hogy a felhasználó rendelkezik-e a szükséges jogosultsággal.
+        return (true, permissions.HasFlag(requiredPermission));
+    }
+
     [HttpGet]  // GET /api/channels/{id}
     public async Task<IActionResult> GetChannel(long id, CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        
+        var (isMember, hasPermission) = await CheckMembershipAndPermission(id, userId, Permission.ViewChannels, cancellationToken);
+
+        if (!isMember)
         {
-            return Unauthorized();
+            return Forbid("You are not a member of this server.");
+        }
+        if (!hasPermission)
+        {
+            return Forbid("You do not have permission to view this channel.");
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-    
+
         var channel = await dbContext.Channels
-            .Include(c => c.Server)
-            .Include(c => c.Messages.Where(m => m.ModerationStatus == ModerationStatus.Visible))
+            .AsNoTracking()
+            .Include(c => c.Messages
+                .Where(m => m.ModerationStatus == ModerationStatus.Visible)
+                .OrderByDescending(m => m.CreatedAt)
+                .Take(50)) // Legutóbbi 50 üzenet
             .ThenInclude(m => m.Sender)
             .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
         if (channel == null)
         {
-            return NotFound("Channel not found");
+            return NotFound("Channel not found.");
         }
         
-        var isMember = await dbContext.ServerMembers
-            .AnyAsync(sm => sm.ServerId == channel.ServerId && sm.UserId == userId, cancellationToken);
-
-        if (!isMember)
-        {
-            return Forbid("You are not a member of this server");
-        }
-
         var response = new ChannelDtos.ChannelDetailDto
         {
             Id = channel.Id,
@@ -54,8 +84,7 @@ public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFacto
             Position = channel.Position,
             CreatedAt = channel.CreatedAt,
             Messages = channel.Messages
-                .OrderBy(m => m.CreatedAt)
-                .Take(50) 
+                .OrderBy(m => m.CreatedAt) // Visszafordítjuk a sorrendet időrendbe
                 .Select(m => new MessageDtos.MessageListItemDto
                 {
                     Id = m.Id,
@@ -78,48 +107,33 @@ public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFacto
         {
             return BadRequest(ModelState);
         }
+
+        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var channel = await dbContext.Channels
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
-
-        if (channel == null)
-        {
-            return NotFound("Channel not found");
-        }
-
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
-        {
-            return Unauthorized();
-        }
-
-        var isMember = await dbContext.ServerMembers
-            .AnyAsync(sm => sm.ServerId == channel.ServerId && sm.UserId == userId, cancellationToken);
+        var (isMember, hasPermission) = await CheckMembershipAndPermission(id, userId, Permission.ManageChannels, cancellationToken);
 
         if (!isMember)
         {
-            return Forbid("You are not a member of this server");
+            return Forbid("You are not a member of this server.");
+        }
+        if (!hasPermission)
+        {
+            return Forbid("You do not have permission to manage this channel.");
         }
         
-        var memberRole = await dbContext.ServerMembers
-            .Where(sm => sm.ServerId == channel.ServerId && sm.UserId == userId)
-            .Select(sm => sm.Role)
-            .FirstOrDefaultAsync(cancellationToken);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        if (memberRole == Role.Member)
+        var channel = await dbContext.Channels.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (channel == null)
         {
-            return Forbid("Only moderators and admins can update channels");
+            return NotFound("Channel not found.");
         }
-
-        // Csatorna frissítése logika itt
 
         channel.Name = request.Name;
         channel.Description = request.Description;
         channel.Position = request.Position;
         channel.UpdatedAt = DateTimeOffset.UtcNow.ToInstant();
-        dbContext.Channels.Update(channel);
+        
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return NoContent();
@@ -128,36 +142,25 @@ public class ChannelController(IDbContextFactory<DumcsiDbContext> dbContextFacto
     [HttpDelete] // DELETE /api/channels/{id}
     public async Task<IActionResult> DeleteChannel(long id, CancellationToken cancellationToken)
     {
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var channel = await dbContext.Channels
-            .FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
-
-        if (channel == null)
-        {
-            return NotFound("Channel not found");
-        }
-
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
-            return Unauthorized();
-
-        var isMember = await dbContext.ServerMembers
-            .AnyAsync(sm => sm.ServerId == channel.ServerId && sm.UserId == userId, cancellationToken);
-
+        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        
+        var (isMember, hasPermission) = await CheckMembershipAndPermission(id, userId, Permission.ManageChannels, cancellationToken);
+        
         if (!isMember)
         {
-            return Forbid("You are not a member of this server");
+            return Forbid("You are not a member of this server.");
+        }
+        if (!hasPermission)
+        {
+            return Forbid("You do not have permission to delete this channel.");
         }
         
-        var memberRole = await dbContext.ServerMembers
-            .Where(sm => sm.ServerId == channel.ServerId && sm.UserId == userId)
-            .Select(sm => sm.Role)
-            .FirstOrDefaultAsync(cancellationToken);
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        if (memberRole == Role.Member)
+        var channel = await dbContext.Channels.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (channel == null)
         {
-            return Forbid("Only moderators and admins can delete channels");
+            return NotFound("Channel not found.");
         }
 
         dbContext.Channels.Remove(channel);

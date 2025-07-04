@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using NodaTime;
 
@@ -6,7 +7,6 @@ namespace Dumcsi.Application.DTOs;
 
 public class ServerDtos
 {
-    // GET /api/server response
     public class ServerListItemDto
     {
         public long Id { get; set; }
@@ -21,7 +21,6 @@ public class ServerDtos
         public Instant CreatedAt { get; set; }
     }
     
-    // POST /api/server request
     public class CreateServerRequestDto
     {
         [Required]
@@ -30,7 +29,6 @@ public class ServerDtos
         public bool IsPublic { get; set; } = false;
     }
     
-    // GET /api/server/{id} response
     public class ServerDetailDto
     {
         public long Id { get; set; }
@@ -42,13 +40,14 @@ public class ServerDtos
         public int MemberCount { get; set; }
         public bool IsOwner { get; set; }
         public bool IsPublic { get; set; }
-        public Role CurrentUserRole { get; set; }  // ← Fontos!
+        
+        public Permission CurrentUserPermissions { get; set; }
+        
         public Instant CreatedAt { get; set; }
         
         public List<ChannelDto> Channels { get; set; } = new();
     }
     
-    // GET /api/server/{id}/channels response
     public class ChannelDto
     {
         public long Id { get; set; }
@@ -58,24 +57,23 @@ public class ServerDtos
         public int Position { get; set; }
     }
     
-    // GET /api/server/{id}/members response
     public class ServerMemberDto
     {
         public long UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string? ProfilePictureUrl { get; set; }
-        public Role Role { get; set; }
+        
+        public List<RoleDto> Roles { get; set; } = new();
+        
         public Instant JoinedAt { get; set; }
     }
     
-    // POST /api/server/{id}/join request
-    public class JoinServerByCodeRequestDto
+    public class JoinServerRequestDto
     {
         public string InviteCode { get; set; } = string.Empty;
         
     }
     
-    // PUT /api/server/{id}
     public class UpdateServerRequestDto
     {
         [Required, MaxLength(100)]
@@ -84,5 +82,14 @@ public class ServerDtos
         public string? Description { get; set; }
         public bool IsPublic { get; set; } = false;
         public string? IconUrl { get; set; } // Optional icon URL
+    }
+    
+    public class RoleDto
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public int Position { get; set; }
+        public Permission Permissions { get; set; }
     }
 }

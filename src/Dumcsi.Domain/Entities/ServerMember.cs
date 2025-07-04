@@ -1,5 +1,4 @@
-﻿using Dumcsi.Domain.Enums;
-using NodaTime;
+﻿using NodaTime;
 
 namespace Dumcsi.Domain.Entities;
 
@@ -10,8 +9,8 @@ public class ServerMember
 
     public long ServerId { get; set; }
     public required Server Server { get; set; }
-
-    public Role Role { get; set; } = Role.Member;
+    
+    public ICollection<Role> Roles { get; set; } = new List<Role>();
     
     public Instant JoinedAt { get; set; }
 

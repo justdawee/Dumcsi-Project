@@ -50,18 +50,15 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
     public async Task<IActionResult> PostServer([FromBody] ServerDtos.CreateServerRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var user = await dbContext.Users.FindAsync(userId, cancellationToken);
-        if (user == null)
-        {
-            return Unauthorized();
-        }
+        var user = await dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
+        if (user == null) return Unauthorized();
 
         var server = new Server
         {
@@ -74,43 +71,62 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
             UpdatedAt = DateTimeOffset.UtcNow.ToInstant()
         };
 
-        dbContext.Servers.Add(server);
-        await dbContext.SaveChangesAsync(cancellationToken); // ← Fontos: Save-elni kell, hogy legyen server.Id
-
-        var serverMember = new ServerMember
+        // 1. Alapértelmezett "@everyone" szerepkör létrehozása
+        var everyoneRole = new Role
         {
-            UserId = userId,
-            ServerId = server.Id,
-            User = user,
+            Name = "@everyone",
             Server = server,
-            Role = Role.Admin,
-            JoinedAt = DateTimeOffset.UtcNow.ToInstant()
+            Permissions = Permission.ViewChannels | Permission.ReadMessageHistory | Permission.SendMessages | Permission.AddReactions | Permission.Connect | Permission.Speak,
+            Position = 0,
+            CreatedAt = DateTimeOffset.UtcNow.ToInstant()
+        };
+        
+        // 2. "Admin" szerepkör létrehozása a tulajdonosnak
+        var adminRole = new Role
+        {
+            Name = "Admin",
+            Server = server,
+            Permissions = Permission.Administrator, // Adminisztrátor minden jogot megkap
+            Position = 1,
+            CreatedAt = DateTimeOffset.UtcNow.ToInstant()
         };
 
+        // 3. Szerver tagság létrehozása a tulajdonosnak
+        var serverMember = new ServerMember
+        {
+            User = user,
+            Server = server,
+            JoinedAt = DateTimeOffset.UtcNow.ToInstant()
+        };
+        
+        // Admin és @everyone szerepkörök hozzárendelése a tulajdonoshoz
+        serverMember.Roles.Add(everyoneRole);
+        serverMember.Roles.Add(adminRole);
+
+        // Alapértelmezett "general" csatorna
         var defaultChannel = new Channel
         {
             Name = "general",
-            Description = "Default channel",
-            Type = ChannelType.Text,
-            Position = 0,
-            ServerId = server.Id,
             Server = server,
             CreatedAt = DateTimeOffset.UtcNow.ToInstant(),
             UpdatedAt = DateTimeOffset.UtcNow.ToInstant()
         };
 
+        dbContext.Servers.Add(server);
+        dbContext.Roles.AddRange(everyoneRole, adminRole);
         dbContext.ServerMembers.Add(serverMember);
         dbContext.Channels.Add(defaultChannel);
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { ServerId = server.Id, Message = "Server created successfully with default channel" });
+        return Ok(new { ServerId = server.Id, Message = "Server created successfully" });
     }
 
     [HttpGet("{id}")] // GET /api/server/{id}
     public async Task<IActionResult> GetServerById(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
@@ -118,24 +134,24 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers
+            .AsNoTracking()
             .Include(s => s.Owner)
-            .Include(s => s.Members.Where(m => m.UserId == userId)) // Csak a current user membership
             .Include(s => s.Channels.OrderBy(c => c.Position))
+            // A jelenlegi felhasználó tagságát és szerepköreit is betöltjük
+            .Include(s => s.Members.Where(m => m.UserId == userId))
+                .ThenInclude(m => m.Roles)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
-        if (server == null)
-        {
-            return NotFound("Server not found");
-        }
+        if (server == null) return NotFound("Server not found");
 
         var currentUserMembership = server.Members.FirstOrDefault();
-        if (currentUserMembership == null)
-        {
-            return Forbid("You are not a member of this server");
-        }
+        if (currentUserMembership == null) return Forbid("You are not a member of this server");
 
-        var memberCount = await dbContext.ServerMembers
-            .CountAsync(sm => sm.ServerId == id, cancellationToken);
+        // Jogosultságok összesítése: a felhasználó összes szerepkörének jogosultságát "össze-vagyoljuk"
+        var currentUserPermissions = currentUserMembership.Roles
+            .Aggregate(Permission.None, (current, role) => current | role.Permissions);
+
+        var memberCount = await dbContext.ServerMembers.CountAsync(sm => sm.ServerId == id, cancellationToken);
 
         var response = new ServerDtos.ServerDetailDto
         {
@@ -148,7 +164,7 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
             MemberCount = memberCount,
             IsOwner = server.OwnerId == userId,
             IsPublic = server.IsPublic,
-            CurrentUserRole = currentUserMembership.Role,
+            CurrentUserPermissions = currentUserPermissions, // Itt már az összesített jogosultságokat adjuk vissza
             CreatedAt = server.CreatedAt,
             Channels = server.Channels.Select(c => new ServerDtos.ChannelDto
             {
@@ -171,30 +187,38 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
         {
             return Unauthorized();
         }
-
+    
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
+    
         var isMember = await dbContext.ServerMembers
             .AnyAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
-
-        if (!isMember)
-        {
-            return Forbid("You are not a member of this server");
-        }
-
+    
+        if (!isMember) return Forbid("You are not a member of this server");
+    
         var members = await dbContext.ServerMembers
+            .AsNoTracking()
             .Where(sm => sm.ServerId == id)
+            .Include(sm => sm.User)
+            .Include(sm => sm.Roles) // Betöltjük a tagok szerepköreit
+            .OrderBy(m => m.JoinedAt)
             .Select(sm => new ServerDtos.ServerMemberDto
             {
                 UserId = sm.UserId,
                 Username = sm.User.Username,
                 ProfilePictureUrl = sm.User.ProfilePictureUrl,
-                Role = sm.Role,
-                JoinedAt = sm.JoinedAt
+                JoinedAt = sm.JoinedAt,
+                // A szerepköröket átalakítjuk RoleDto-vá
+                Roles = sm.Roles.Select(r => new ServerDtos.RoleDto
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    Color = r.Color,
+                    Position = r.Position,
+                    Permissions = r.Permissions
+                }).OrderByDescending(r => r.Position).ToList() // Legmagasabb szerepkör elöl
             })
-            .OrderBy(m => m.JoinedAt)
             .ToListAsync(cancellationToken);
-
+    
         return Ok(members);
     }
     
@@ -202,87 +226,91 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
     public async Task<IActionResult> InviteToServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var membership = await dbContext.ServerMembers
-            .Include(sm => sm.Server)
-            .FirstOrDefaultAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
-
-        if (membership == null)
+        // Jogosultság ellenőrzése: Csak az hozhat létre meghívót, akinek van 'CreateInvite' joga.
+        var hasPermission = await HasPermissionAsync(dbContext, userId, id, Permission.CreateInvite, cancellationToken);
+        if (!hasPermission)
         {
-            return Forbid("You are not a member of this server");
+            return Forbid("You don't have permission to create invites.");
         }
 
-        if (membership.Role == Role.Member)
+        var server = await dbContext.Servers.FindAsync([id], cancellationToken);
+        if (server == null)
         {
-            return Forbid("Only moderators and admins can create invites");
+            return NotFound("Server not found.");
         }
 
-        var inviteCode = Guid.NewGuid().ToString("N")[..8].ToUpper(); // 8 karakter
+        // Ha még nincs meghívó kód, generálunk egyet.
+        // Megjegyzés: Egy fejlettebb rendszerben ez egy külön 'Invite' entitás lenne lejárattal, max használattal stb.
+        if (string.IsNullOrEmpty(server.InviteCode))
+        {
+            server.InviteCode = Guid.NewGuid().ToString("N")[..8]; // Generál egy 8 karakteres kódot
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
-        membership.Server.InviteCode = inviteCode;
-        membership.Server.UpdatedAt = DateTimeOffset.UtcNow.ToInstant();
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return Ok(new { InviteCode = inviteCode, Message = "Invite code generated successfully" });
+        return Ok(new { InviteCode = server.InviteCode });
     }
     
     [HttpPost("join")] // POST /api/server/join
-    public async Task<IActionResult> JoinServerByCode([FromBody] ServerDtos.JoinServerByCodeRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> JoinServerByCode([FromBody] ServerDtos.JoinServerRequestDto request, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        
+
         var server = await dbContext.Servers
-            .AsNoTracking()
             .FirstOrDefaultAsync(s => s.InviteCode == request.InviteCode, cancellationToken);
 
         if (server == null)
         {
-            return BadRequest("Invalid invite code.");
+            return NotFound("Invalid invite code.");
         }
-    
-        // A logika többi része változatlan és helyes.
-        var existingMembership = await dbContext.ServerMembers
+
+        var isAlreadyMember = await dbContext.ServerMembers
             .AnyAsync(sm => sm.ServerId == server.Id && sm.UserId == userId, cancellationToken);
 
-        if (existingMembership)
+        if (isAlreadyMember)
         {
             return BadRequest("You are already a member of this server.");
         }
 
         var user = await dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
-        if (user == null)
+        if (user == null) return Unauthorized();
+
+        // Keressük meg a szerverhez tartozó "@everyone" szerepkört.
+        var everyoneRole = await dbContext.Roles
+            .FirstOrDefaultAsync(r => r.ServerId == server.Id && r.Name == "@everyone", cancellationToken);
+
+        if (everyoneRole == null)
         {
-            return Unauthorized();
+            // Ez egy belső hiba, minden szervernek lennie kellene ilyen szerepkörnek.
+            return StatusCode(500, "Server configuration error: default role not found.");
         }
 
-        var serverMember = new ServerMember
+        var newMember = new ServerMember
         {
-            UserId = userId,
-            ServerId = server.Id,
             User = user,
-            Server = (await dbContext.Servers.FindAsync([server.Id], cancellationToken))!,
-            Role = Role.Member,
+            Server = server,
             JoinedAt = DateTimeOffset.UtcNow.ToInstant()
         };
+    
+        // Hozzárendeljük az új taghoz az "@everyone" szerepkört.
+        newMember.Roles.Add(everyoneRole);
 
-        dbContext.ServerMembers.Add(serverMember);
+        dbContext.ServerMembers.Add(newMember);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        return Ok(new { Message = "Successfully joined the server.", ServerName = server.Name, ServerId = server.Id });
+
+        return Ok(new { ServerId = server.Id, Message = "Successfully joined server." });
     }
     
     [HttpPost("{id}/leave")] // POST /api/server/{id}/leave
@@ -377,51 +405,33 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
     [HttpPost("{id}/channels")] // POST /api/server/{id}/channels
     public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        // A jogosultság ellenőrző logikát egy külön helper metódusba szervezzük
+        var hasPermission = await HasPermissionAsync(dbContext, userId, id, Permission.ManageChannels, cancellationToken);
+        if (!hasPermission)
         {
-            return BadRequest(ModelState);
+            return Forbid("You don't have permission to create channels.");
         }
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var serverExists = await dbContext.Servers.AnyAsync(s => s.Id == id, cancellationToken);
-        if (!serverExists)
-            return NotFound("Server not found");
-
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
-            return Unauthorized();
-
-        var isMember = await dbContext.ServerMembers
-            .AnyAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
-
-        if (!isMember)
-            return Forbid("You are not a member of this server");
-
-        var memberRole = await dbContext.ServerMembers
-            .Where(sm => sm.ServerId == id && sm.UserId == userId)
-            .Select(sm => sm.Role)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (memberRole == Role.Member)
-            return Forbid("Only moderators and admins can create channels");
+        var server = await dbContext.Servers.FindAsync(new object[] { id }, cancellationToken);
+        if (server == null) return NotFound("Server not found");
 
         var channel = new Channel
         {
-            ServerId = id,
+            Server = server,
             Name = request.Name,
             Description = request.Description,
             Type = request.Type,
-            Position = 0,
             CreatedAt = DateTimeOffset.UtcNow.ToInstant(),
-            Server = await dbContext.Servers
-                .FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
+            UpdatedAt = DateTimeOffset.UtcNow.ToInstant()
         };
 
         dbContext.Channels.Add(channel);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return CreatedAtAction(nameof(GetChannels), new { id }, new ChannelDtos.ChannelListItemDto
+        var channelDto = new ChannelDtos.ChannelListItemDto
         {
             Id = channel.Id,
             Name = channel.Name,
@@ -429,7 +439,9 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
             Type = channel.Type,
             Position = channel.Position,
             CreatedAt = channel.CreatedAt
-        });
+        };
+        
+        return CreatedAtAction(nameof(GetChannels), new { id = server.Id }, channelDto);
     }
     
     [HttpPut("{id}")] // PUT /api/server/{id}
@@ -499,43 +511,78 @@ public class ServerController(IDbContextFactory<DumcsiDbContext> dbContextFactor
     public async Task<IActionResult> JoinPublicServer(long id, CancellationToken cancellationToken)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized();
         }
 
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var server = await dbContext.Servers.FindAsync(id, cancellationToken);
+        var server = await dbContext.Servers.FindAsync(new object[] { id }, cancellationToken);
 
-        if (server == null || !server.IsPublic)
+        if (server == null)
         {
-            return NotFound("Public server not found.");
+            return NotFound("Server not found.");
+        }
+
+        if (!server.IsPublic)
+        {
+            return Forbid("This server is not public. You need an invite to join.");
         }
 
         var isAlreadyMember = await dbContext.ServerMembers
-            .AnyAsync(sm => sm.ServerId == id && sm.UserId == userId, cancellationToken);
+            .AnyAsync(sm => sm.ServerId == server.Id && sm.UserId == userId, cancellationToken);
 
         if (isAlreadyMember)
         {
             return BadRequest("You are already a member of this server.");
         }
 
-        var user = await dbContext.Users.FindAsync(userId, cancellationToken);
+        var user = await dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
+        if (user == null) return Unauthorized();
 
-        var serverMember = new ServerMember
+        // Itt is megkeressük és hozzárendeljük az "@everyone" szerepkört.
+        var everyoneRole = await dbContext.Roles
+            .FirstOrDefaultAsync(r => r.ServerId == server.Id && r.Name == "@everyone", cancellationToken);
+
+        if (everyoneRole == null)
         {
-            UserId = userId,
-            ServerId = server.Id,
-            User = user!,
+            return StatusCode(500, "Server configuration error: default role not found.");
+        }
+
+        var newMember = new ServerMember
+        {
+            User = user,
             Server = server,
-            Role = Role.Member,
             JoinedAt = DateTimeOffset.UtcNow.ToInstant()
         };
+    
+        newMember.Roles.Add(everyoneRole);
 
-        dbContext.ServerMembers.Add(serverMember);
+        dbContext.ServerMembers.Add(newMember);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { Message = "Successfully joined the server.", ServerId = server.Id });
+        return Ok(new { ServerId = server.Id, Message = "Successfully joined server." });
+    }
+    
+    // Helpers:
+    private async Task<bool> HasPermissionAsync(DumcsiDbContext dbContext, long userId, long serverId, Permission requiredPermission, CancellationToken cancellationToken)
+    {
+        var member = await dbContext.ServerMembers
+            .AsNoTracking()
+            .Include(m => m.Roles)
+            .FirstOrDefaultAsync(m => m.UserId == userId && m.ServerId == serverId, cancellationToken);
+
+        if (member == null) return false;
+
+        var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
+
+        // Az adminisztrátor mindent felülbírál
+        if (permissions.HasFlag(Permission.Administrator))
+        {
+            return true;
+        }
+
+        return permissions.HasFlag(requiredPermission);
     }
 }
