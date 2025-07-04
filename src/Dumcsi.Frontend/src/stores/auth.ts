@@ -107,6 +107,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  const updateUserData = (updates: Partial<UserProfile>) => {
+    if (user.value) {
+      // Create a new object to ensure reactivity
+      user.value = { ...user.value, ...updates };
+    }
+  };
+
   // Perform an initial authentication check when the store is initialized.
   checkAuth();
 
@@ -120,5 +127,6 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     checkAuth,
+    updateUserData,
   };
 });

@@ -114,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useRouter } from 'vue-router';
@@ -132,6 +132,10 @@ const showCreateModal = ref(false)
 const handleLogout = async () => {
   await authStore.logout()
 }
+
+watchEffect(() => {
+  console.log('ServerSelectView sees username:', authStore.user?.username)
+})
 
 const editUser = () => {
   // Navigate to user settings page

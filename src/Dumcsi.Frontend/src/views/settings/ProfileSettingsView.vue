@@ -212,10 +212,11 @@ onMounted(async () => {
     profileForm.username = response.data.username;
     profileForm.email = response.data.email;
     
-    if (authStore.user) {
-      authStore.user.username = response.data.username;
-      authStore.user.profilePictureUrl = response.data.profilePictureUrl;
-    }
+    authStore.updateUserData({
+      username: response.data.username,
+      email: response.data.email,
+      profilePictureUrl: response.data.profilePictureUrl
+    });
 
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
@@ -245,13 +246,17 @@ const handleUpdateProfile = async () => {
   isProfileLoading.value = true;
   try {
     await userService.updateProfile(profileForm);
-    if (authStore.user) {
-        authStore.user.username = profileForm.username;
-    }
+    
+    // Use the new updateUserData method instead of direct mutation
+    authStore.updateUserData({
+      username: profileForm.username,
+      email: profileForm.email
+    });
+    
     profileSuccessMessage.value = 'Profile updated successfully!';
     setTimeout(() => profileSuccessMessage.value = '', 3000);
   } catch (error: any) {
-    if (error.response?.status === 409) { // Conflict
+    if (error.response?.status === 409) {
       profileErrors.general = 'This username or email is already taken.';
     } else {
       profileErrors.general = 'An unexpected error occurred.';
