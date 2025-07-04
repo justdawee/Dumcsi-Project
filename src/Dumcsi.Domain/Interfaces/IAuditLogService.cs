@@ -1,6 +1,6 @@
 ﻿using Dumcsi.Domain.Enums;
 
-namespace Dumcsi.Application.Interfaces;
+namespace Dumcsi.Domain.Interfaces;
 
 public interface IAuditLogService
 {

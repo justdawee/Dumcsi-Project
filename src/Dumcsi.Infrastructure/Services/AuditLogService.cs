@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using Dumcsi.Application.Interfaces;
+using Dumcsi.Domain.Interfaces;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using Dumcsi.Infrastructure.Database.Persistence;

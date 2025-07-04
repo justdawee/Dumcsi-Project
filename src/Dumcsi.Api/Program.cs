@@ -1,6 +1,6 @@
 using Dumcsi.Infrastructure.Database.Persistence;
 using Dumcsi.Infrastructure.Services.JwtFactory;
-using Dumcsi.Application.Interfaces;
+using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -32,6 +32,7 @@ builder.Services
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
