@@ -25,6 +25,7 @@
     "@vitejs/plugin-vue": "^6.0.0",
     "@vue/devtools": "^6.6.4",
     "@vue/tsconfig": "^0.7.0",
+    "jwt-decode": "^4.0.0",
     "typescript": "~5.8.3",
     "vite": "^7.0.0",
     "vite-plugin-vue-devtools": "^7.7.7",
