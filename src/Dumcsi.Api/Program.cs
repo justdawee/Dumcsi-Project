@@ -32,7 +32,6 @@ builder.Services
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
