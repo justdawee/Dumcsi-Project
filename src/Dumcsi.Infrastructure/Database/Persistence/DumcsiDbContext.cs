@@ -14,7 +14,7 @@ public class DumcsiDbContext(DbContextOptions<DumcsiDbContext> options) : DbCont
     public DbSet<ServerMember> ServerMembers { get; set; } 
     public DbSet<Message> Messages { get; set; }
     public DbSet<Attachment> Attachments { get; set; }
-    public DbSet<ModerationLog> ModerationLogs { get; set; }
+    public DbSet<AuditLogEntry> AuditLogEntries { get; set; }
     public DbSet<Role> Roles { get; set; }
     public DbSet<Invite> Invites { get; set; }
     
