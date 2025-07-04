@@ -2,39 +2,58 @@ import type { AxiosResponse } from 'axios';
 import api from './api';
 import type { MessageListItem, CreateMessagePayload, UpdateMessagePayload } from './types';
 
+type EntityId = number;
+
 interface GetMessagesParams {
-    before?: number;
-    limit?: number;
+  before?: EntityId;
+  limit?: number;
 }
 
 const messageService = {
   /**
-   * GET /api/channels/{channelId}/messages
+   * @description Fetches a list of messages for a given channel, with optional pagination.
+   * @param channelId The ID of the channel from which to fetch messages.
+   * @param params Optional parameters for pagination (e.g., `before`, `limit`).
+   * @returns A promise that resolves with an array of message list items.
    */
-  getMessages(channelId: string | number, params?: GetMessagesParams): Promise<AxiosResponse<MessageListItem[]>> {
+
+  getMessages(channelId: EntityId, params?: GetMessagesParams): Promise<AxiosResponse<MessageListItem[]>> {
     return api.get<MessageListItem[]>(`/channels/${channelId}/messages`, { params });
   },
 
   /**
-   * POST /api/channels/{channelId}/messages
+   * @description Sends a new message to a channel.
+   * @param channelId The ID of the channel where the message will be sent.
+   * @param payload The content of the new message.
+   * @returns A promise that resolves with the newly created message item.
    */
-  sendMessage(channelId: string | number, payload: CreateMessagePayload): Promise<AxiosResponse<MessageListItem>> {
+
+  sendMessage(channelId: EntityId, payload: CreateMessagePayload): Promise<AxiosResponse<MessageListItem>> {
     return api.post<MessageListItem>(`/channels/${channelId}/messages`, payload);
   },
 
   /**
-   * PATCH /api/channels/{channelId}/messages/{messageId}
+   * @description Edits an existing message.
+   * @param channelId The ID of the channel containing the message.
+   * @param messageId The ID of the message to edit.
+   * @param payload The updated message content.
+   * @returns A promise that resolves with no content on success (HTTP 204).
    */
-  // TODO: use consistent types, need to return
-  editMessage(channelId: string | number, messageId: string | number, payload: UpdateMessagePayload): Promise<AxiosResponse<void>> {
+
+  editMessage(channelId: EntityId, messageId: EntityId, payload: UpdateMessagePayload): Promise<AxiosResponse<void>> {
     return api.patch<void>(`/channels/${channelId}/messages/${messageId}`, payload);
   },
 
   /**
-   * DELETE /api/channels/{channelId}/messages/{messageId}
+   * @description Deletes a message.
+   * @param channelId The ID of the channel containing the message.
+   * @param messageId The ID of the message to delete.
+   * @returns A promise that resolves with no content on success (HTTP 204).
    */
-  deleteMessage(channelId: string | number, messageId: string | number): Promise<AxiosResponse<void>> {
+
+  deleteMessage(channelId: EntityId, messageId: EntityId): Promise<AxiosResponse<void>> {
     return api.delete<void>(`/channels/${channelId}/messages/${messageId}`);
   },
 };
+
 export default messageService;
