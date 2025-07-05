@@ -6,40 +6,40 @@ namespace Dumcsi.Application.DTOs;
 
 public class ChannelDtos
 {
-    
-    // GET /api/server/{serverId}/channel response
     public class ChannelListItemDto
     {
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
         public ChannelType Type { get; set; }
         public int Position { get; set; }
-        public Instant CreatedAt { get; set; }
     }
 
-    // POST /api/server/{serverId}/channel request
     public class CreateChannelRequestDto
     {
         [Required]
-        [RegularExpression("^[a-z0-9-]{3,100}$")]
+        [StringLength(100, MinimumLength = 1, ErrorMessage = "Channel name must be between 1 and 100 characters.")]
+        [RegularExpression("^[a-z0-9-]{1,100}$", ErrorMessage = "Channel name can only contain lowercase letters, numbers, and hyphens.")]
         public string Name { get; set; } = string.Empty;
+        
+        [StringLength(1024)]
         public string? Description { get; set; }
         public ChannelType Type { get; set; } = ChannelType.Text;
     }
 
-    // GET /api/server/{serverId}/channel/{id} response
     public class ChannelDetailDto : ChannelListItemDto
     {
-        public List<MessageDtos.MessageListItemDto> Messages { get; set; } = new();
+        public string? Description { get; set; }
+        public Instant CreatedAt { get; set; }
     }
     
-    // PUT /api/server/{serverId}/channel/{id} request
     public class UpdateChannelRequestDto
     {
-        [Required]
-        public string Name { get; set; } = string.Empty;
+        [StringLength(100, MinimumLength = 1)]
+        [RegularExpression("^[a-z0-9-]{1,100}$")]
+        public string? Name { get; set; }
+
+        [StringLength(1024)]
         public string? Description { get; set; }
-        public int Position { get; set; } = 0;
+        public int? Position { get; set; }
     }
 }

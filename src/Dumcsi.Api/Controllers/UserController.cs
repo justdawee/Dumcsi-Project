@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using System.Security.Cryptography;
 using Dumcsi.Application.DTOs;
+using Dumcsi.Application.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
@@ -44,7 +45,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
             Id = user.Id,
             Username = user.Username,
             Email = user.Email,
-            ProfilePictureUrl = user.ProfilePictureUrl
+            Avatar = user.Avatar
         };
 
         return Ok(userProfile);
@@ -118,7 +119,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
         {
             return NotFound("User not found.");
         }
-
+        
         // Verify current password
         var salt = user.PasswordHash[..16];
         var hash = KeyDerivation.Pbkdf2(
@@ -157,5 +158,6 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new { Message = "Password changed successfully." });
+        
     }
 }

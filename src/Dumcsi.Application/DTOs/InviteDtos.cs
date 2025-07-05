@@ -5,7 +5,6 @@ public class InviteDtos
     public class CreateInviteRequestDto
     {
         public int? ExpiresInHours { get; set; }
-        
         public int MaxUses { get; set; } = 0;
         public bool IsTemporary { get; set; } = false;
     }
@@ -19,8 +18,9 @@ public class InviteDtos
         {
             public long Id { get; set; }
             public string Name { get; set; } = string.Empty;
-            public string? IconUrl { get; set; }
+            public string? Icon { get; set; } 
             public int MemberCount { get; set; }
+            public string? Description { get; set; }
         }
     }
 }

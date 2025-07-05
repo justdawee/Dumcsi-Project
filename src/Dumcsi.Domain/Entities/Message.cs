@@ -20,6 +20,8 @@ public class Message
     public Instant Timestamp { get; set; }
 
     public Instant? EditedTimestamp { get; set; }
+    
+    public bool IsEdited => EditedTimestamp.HasValue;
 
     public bool? Tts { get; set; }
 

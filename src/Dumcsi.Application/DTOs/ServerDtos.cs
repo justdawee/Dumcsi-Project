@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using NodaTime;
 
@@ -11,13 +10,12 @@ public class ServerDtos
     {
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string? IconUrl { get; set; }
+        public string? Description { get; set; }
+        public string? Icon { get; set; }
         public int MemberCount { get; set; }
         public long OwnerId { get; set; }
         public bool IsOwner { get; set; }
-        public int MemberLimit { get; set; }
-        public bool IsPublic { get; set; }
+        public bool Public { get; set; }
         public Instant CreatedAt { get; set; }
     }
     
@@ -26,8 +24,9 @@ public class ServerDtos
         [Required]
         [StringLength(100, MinimumLength = 3)]
         public string Name { get; set; } = string.Empty;
+        [MaxLength(500)]
         public string? Description { get; set; }
-        public bool IsPublic { get; set; } = false;
+        public bool Public { get; set; } = false;
     }
     
     public class ServerDetailDto
@@ -35,55 +34,39 @@ public class ServerDtos
         public long Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string? IconUrl { get; set; }
+        public string? Icon { get; set; }
         public long OwnerId { get; set; }
         public string OwnerUsername { get; set; } = string.Empty;
         public int MemberCount { get; set; }
         public bool IsOwner { get; set; }
-        public bool IsPublic { get; set; }
-        
+        public bool Public { get; set; }
         public Permission CurrentUserPermissions { get; set; }
-        
         public Instant CreatedAt { get; set; }
-        
-        public List<ChannelDto> Channels { get; set; } = new();
-    }
-    
-    public class ChannelDto
-    {
-        public long Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public ChannelType Type { get; set; }
-        public int Position { get; set; }
+        public List<ChannelDtos.ChannelListItemDto> Channels { get; set; } = new();
+        public List<RoleDto> Roles { get; set; } = new();
     }
     
     public class ServerMemberDto
     {
         public long UserId { get; set; }
         public string Username { get; set; } = string.Empty;
-        public string? ProfilePictureUrl { get; set; }
-        
+        public string? ServerNickname { get; set; }
+        public string? Avatar { get; set; }
         public List<RoleDto> Roles { get; set; } = new();
-        
         public Instant JoinedAt { get; set; }
+        public bool Deafened { get; set; }
+        public bool Muted { get; set; }
     }
-    
-    public class JoinServerRequestDto
-    {
-        public string InviteCode { get; set; } = string.Empty;
-        
-    }
-    
+
     public class UpdateServerRequestDto
     {
         [Required, MaxLength(100)]
-        [StringLength(100, MinimumLength = 3)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(500)]
         public string? Description { get; set; }
-        public bool IsPublic { get; set; } = false;
-        public string? IconUrl { get; set; } // Optional icon URL
+        public bool Public { get; set; } = false;
+        [Url]
+        public string? Icon { get; set; }
     }
     
     public class RoleDto
@@ -93,5 +76,7 @@ public class ServerDtos
         public string Color { get; set; } = string.Empty;
         public int Position { get; set; }
         public Permission Permissions { get; set; }
+        public bool IsHoisted { get; set; }
+        public bool IsMentionable { get; set; }
     }
 }

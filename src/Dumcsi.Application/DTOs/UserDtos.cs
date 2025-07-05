@@ -8,8 +8,11 @@ public class UserDtos
     {
         public long Id { get; set; }
         public string Username { get; set; } = string.Empty;
+        public string? GlobalNickname { get; set; }
         public string Email { get; set; } = string.Empty;
-        public string? ProfilePictureUrl { get; set; }
+        public string? Avatar { get; set; }
+        public string? Locale { get; set; }
+        public bool? Verified { get; set; }
     }
 
     public class UpdateUserProfileDto
@@ -21,6 +24,12 @@ public class UserDtos
         [Required]
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
+
+        [StringLength(100)]
+        public string? GlobalNickname { get; set; }
+
+        [Url]
+        public string? Avatar { get; set; }
     }
 
     public class ChangePasswordDto
