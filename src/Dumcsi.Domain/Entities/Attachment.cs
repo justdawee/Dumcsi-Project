@@ -6,18 +6,21 @@ public class Attachment
 {
     public long Id { get; set; }
 
-    public long MessageId { get; set; }
-
-    public required Message Message { get; set; }
+    public required string FileName { get; set; } 
     
-    public required string FileUrl { get; set; }
+    public required string FileUrl { get; set; } // URL vagy fájlnév, jövőben lehet saját fájltárolás is
     
-    public required string FileName { get; set; }
+    public int FileSize { get; set; } // Fájlméret bájtban
     
-    public required string FileType { get; set; } // MIME type
-
-    public int FileSizeInBytes { get; set; }
+    public string? ContentType { get; set; } // MIME típus, pl. "image/png", "application/pdf"
     
-    public Instant CreatedAt { get; set; }
+    public string? Title { get; set; } // Fájl címe, ha van
     
+    public int? height { get; set; } // Kép magassága, ha kép típusú fájl
+    
+    public int? width { get; set; } // Kép szélessége, ha kép típusú fájl
+    
+    public string? Waveform { get; set; }
+    
+    public float? duration { get; set; } // Hangfájl hossza másodpercben, ha hang típusú fájl
 }

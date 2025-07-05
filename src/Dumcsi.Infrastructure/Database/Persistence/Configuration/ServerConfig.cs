@@ -8,20 +8,23 @@ public class ServerConfiguration : IEntityTypeConfiguration<Domain.Entities.Serv
     public void Configure(EntityTypeBuilder<Domain.Entities.Server> builder)
     {
         builder.HasKey(x => x.Id);
-        
+
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(100);
-        
+
         builder.Property(x => x.Description)
             .HasMaxLength(500);
-        
-        builder.Property(x => x.IconUrl)
+
+        builder.Property(x => x.Icon)
             .HasMaxLength(256);
-        
+
+        builder.Property(x => x.Public)
+            .IsRequired();
+
         builder.HasOne(x => x.Owner)
-            .WithMany(x => x.OwnedServers)
+            .WithMany()
             .HasForeignKey(x => x.OwnerId)
-            .OnDelete(DeleteBehavior.Restrict); // Owner törlése ne törölje a servert
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

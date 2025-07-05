@@ -8,14 +8,11 @@ public class Role
     public long Id { get; set; }
 
     public required string Name { get; set; }
-
-    // A szerepkörhöz tartozó jogosultságok bitfield-ként tárolva.
+    
     public Permission Permissions { get; set; } = Permission.None;
-
-    // A szerepkör színe, pl. HEX formátumban (#RRGGBB).
-    public string Color { get; set; } = "#ffffff"; // Alapértelmezett szín fehér
-
-    // A szerepkör pozíciója a hierarchiában. A magasabb számúak feljebb jelennek meg.
+    
+    public string Color { get; set; } = "#ffffff";
+    
     public int Position { get; set; }
 
     // Megjelenjen-e a szerepkör külön a taglistában.
@@ -28,7 +25,6 @@ public class Role
     public required Server Server { get; set; }
     
     public Instant CreatedAt { get; set; }
-
-    // Kapcsolat a ServerMember entitáshoz (many-to-many)
+    
     public ICollection<ServerMember> Members { get; set; } = new List<ServerMember>();
 }

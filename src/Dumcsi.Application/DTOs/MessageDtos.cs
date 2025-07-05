@@ -38,7 +38,6 @@ public class MessageDtos
         public string Content { get; set; } = string.Empty;
         public long SenderId { get; set; }
         public string SenderUsername { get; set; } = string.Empty;
-        public ModerationStatus ModerationStatus { get; set; }
         public Instant CreatedAt { get; set; }
         public Instant? EditedAt { get; set; }
         public bool IsEdited => EditedAt.HasValue;

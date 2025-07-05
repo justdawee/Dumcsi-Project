@@ -12,7 +12,7 @@ public class ReactionConfiguration : IEntityTypeConfiguration<Reaction>
         builder.Property(r => r.EmojiId).HasMaxLength(100);
 
         builder.HasOne(r => r.Message)
-            .WithMany() // Egy üzenetnek több reakciója lehet
+            .WithMany(m => m.Reactions)
             .HasForeignKey(r => r.MessageId)
             .OnDelete(DeleteBehavior.Cascade);
 

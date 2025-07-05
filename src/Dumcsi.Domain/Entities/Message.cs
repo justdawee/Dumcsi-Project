@@ -7,20 +7,27 @@ public class Message
 {
     public long Id { get; set; }
 
-    public long ChannelId { get; set; }  // RoomId helyett
-    public required Channel Channel { get; set; }  // ChatRoom helyett
+    public long ChannelId { get; set; }
+
+    public required Channel Channel { get; set; }
+
+    public required User? Author { get; set; }
 
     public long SenderId { get; set; }
-    public required User? Sender { get; set; }
-    
+
     public required string Content { get; set; }
 
-    public ModerationStatus ModerationStatus { get; set; } = ModerationStatus.Visible;
-    
-    public Instant CreatedAt { get; set; }
-    public Instant? EditedAt { get; set; }
-    public bool IsEdited => EditedAt.HasValue;
+    public Instant Timestamp { get; set; }
+
+    public Instant? EditedTimestamp { get; set; }
+
+    public bool? Tts { get; set; }
+
+    public ICollection<User> MentionUsers { get; set; } = new List<User>();
+
+    public ICollection<Role> MentionRoles { get; set; } = new List<Role>();
     
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
-    public ICollection<ModerationLog> ModerationLogs { get; set; } = new List<ModerationLog>();
+    
+    public ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
 }

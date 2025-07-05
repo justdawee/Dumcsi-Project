@@ -9,21 +9,22 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
     public void Configure(EntityTypeBuilder<Attachment> builder)
     {
         builder.HasKey(x => x.Id);
-        
-        builder.Property(x => x.FileUrl)
-            .IsRequired()
-            .HasMaxLength(256); // URL méretkorlát
-        
+
         builder.Property(x => x.FileName)
             .IsRequired()
-            .HasMaxLength(256); // Fájlnév méretkorlát
-        
-        builder.Property(x => x.FileType)
+            .HasMaxLength(256);
+
+        builder.Property(x => x.FileUrl)
             .IsRequired()
-            .HasMaxLength(50); // Fájltípus méretkorlát
-        
-        builder.HasOne(x => x.Message)
-            .WithMany(x => x.Attachments)
-            .HasForeignKey(x => x.MessageId);
+            .HasMaxLength(2048);
+
+        builder.Property(x => x.ContentType)
+            .HasMaxLength(128);
+
+        builder.Property(x => x.Title)
+            .HasMaxLength(256);
+
+        builder.Property(x => x.Waveform)
+            .HasColumnType("text");
     }
 }
