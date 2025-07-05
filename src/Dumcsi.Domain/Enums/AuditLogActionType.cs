@@ -3,7 +3,11 @@
 public enum AuditLogActionType
 {
     // Szerver műveletek
+    ServerCreated,
     ServerUpdated,
+    ServerDeleted,
+    ServerMemberJoined,
+    ServerMemberLeft,
 
     // Szerepkör műveletek
     RoleCreated,
@@ -22,5 +26,15 @@ public enum AuditLogActionType
 
     // Meghívó műveletek
     InviteCreated,
-    InviteDeleted
+    InviteDeleted,
+    
+    // Üzenet műveletek
+    MessageDeleted,
+    MessageEdited,
+    
+    // Emoji műveletek
+    EmojiCreated,
+    EmojiUpdated,
+    EmojiDeleted,
+    
 }
