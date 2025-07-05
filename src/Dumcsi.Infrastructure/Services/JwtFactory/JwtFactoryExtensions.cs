@@ -72,7 +72,7 @@ public static class JwtFactoryExtensions
                     await using var dbContext = await dbContextFactory.CreateDbContextAsync();
                     
                     // Kiolvassuk a szükséges claim-eket a validált tokenből.
-                    var userIdClaim = context.Principal?.FindFirstValue("sub");
+                    var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
                     var tokenStamp = context.Principal?.FindFirstValue("security_stamp");
 
                     if (string.IsNullOrEmpty(userIdClaim) || string.IsNullOrEmpty(tokenStamp) || !long.TryParse(userIdClaim, out var userId))
