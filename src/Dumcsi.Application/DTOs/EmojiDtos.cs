@@ -22,4 +22,12 @@ public class EmojiDtos
         [Url]
         public string ImageUrl { get; set; } = string.Empty; // Változhat, jövőben saját fájltárolás
     }
+    
+    // Frissítés DTO
+    public class UpdateEmojiRequestDto
+    {
+        [Required]
+        [RegularExpression("^[a-zA-Z0-9_]{2,50}$")] // Név validáció
+        public string Name { get; set; } = string.Empty;
+    }
 }
