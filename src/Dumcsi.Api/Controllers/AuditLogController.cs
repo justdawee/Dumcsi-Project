@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using Dumcsi.Api.Common;
+using Dumcsi.Api.Helpers;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Enums;
 using Dumcsi.Infrastructure.Database.Persistence;
@@ -11,30 +12,20 @@ namespace Dumcsi.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/server/{serverId}/audit-logs")]
-public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
+public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFactory) 
+    : BaseApiController(dbContextFactory)
 {
-    private async Task<bool> HasPermissionAsync(long serverId, Permission requiredPermission)
-    {
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
-        var member = await dbContext.ServerMembers.AsNoTracking().Include(m => m.Roles).FirstOrDefaultAsync(m => m.UserId == userId && m.ServerId == serverId);
-        if (member == null) return false;
-        var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
-        if (permissions.HasFlag(Permission.Administrator)) return true;
-        return permissions.HasFlag(requiredPermission);
-    }
-
     [HttpGet]
     public async Task<IActionResult> GetAuditLogs(long serverId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        if (!await HasPermissionAsync(serverId, Permission.ViewAuditLog))
+        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewAuditLog))
         {
-            return Forbid("You do not have permission to view the audit log.");
+            return ForbidResponse("You do not have permission to view the audit log.");
         }
 
         if (pageSize > 100) pageSize = 100;
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var logs = await dbContext.AuditLogEntries
             .AsNoTracking()
@@ -56,6 +47,6 @@ public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFact
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(logs);
+        return OkResponse(logs);
     }
 }

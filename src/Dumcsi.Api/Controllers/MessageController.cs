@@ -1,7 +1,8 @@
-﻿using System.Security.Claims;
+﻿using Dumcsi.Api.Helpers;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
+using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,243 +13,187 @@ namespace Dumcsi.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/channels/{id}/messages")]
-public class MessageController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
+[Route("api/channels/{channelId}/messages")]
+public class MessageController(
+    IDbContextFactory<DumcsiDbContext> dbContextFactory,
+    IAuditLogService auditLogService)
+    : BaseApiController(dbContextFactory)
 {
-    private async Task<(bool IsMember, bool HasPermission, long ServerId)> CheckPermissionsForChannel(long channelId, long userId, Permission requiredPermission, CancellationToken cancellationToken)
-    {
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        // Lekérdezzük a tagságot, a szerepköröket és a szerver ID-t egyetlen lekérdezéssel.
-        var memberInfo = await dbContext.ServerMembers
-            .AsNoTracking()
-            .Where(m => m.UserId == userId && m.Server.Channels.Any(c => c.Id == channelId))
-            .Select(m => new 
-            {
-                m.ServerId,
-                Roles = m.Roles.Select(r => r.Permissions).ToList()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (memberInfo == null)
-        {
-            // Nem tagja a szervernek.
-            return (false, false, 0);
-        }
-
-        // Összesítjük a jogosultságokat.
-        var permissions = memberInfo.Roles.Aggregate(Permission.None, (current, rolePermissions) => current | rolePermissions);
-
-        // Adminisztrátor mindenre jogosult.
-        if (permissions.HasFlag(Permission.Administrator))
-        {
-            return (true, true, memberInfo.ServerId);
-        }
-
-        // Ellenőrizzük a konkrét jogosultságot.
-        return (true, permissions.HasFlag(requiredPermission), memberInfo.ServerId);
-    }
-    
-    // POST /channels/{channelId}/messages - Új üzenet küldése
     [HttpPost]
     public async Task<IActionResult> SendMessage(long channelId, [FromBody] MessageDtos.CreateMessageRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
 
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.SendMessages);
+        if (!isMember) return ForbidResponse("You are not a member of this server.");
+        if (!hasPermission) return ForbidResponse("You do not have permission to send messages in this channel.");
 
-        var (isMember, hasPermission, _) = await CheckPermissionsForChannel(channelId, userId, Permission.SendMessages, cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        
+        var channel = await dbContext.Channels.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId, cancellationToken);
+        var author = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
 
-        if (!isMember) return Forbid("You are not a member of this server.");
-        if (!hasPermission) return Forbid("You do not have permission to send messages in this channel.");
-        
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        
-        var channel = await dbContext.Channels.FindAsync([channelId], cancellationToken);
-        var sender = await dbContext.Users.FindAsync([userId], cancellationToken);
-        
-        if (channel == null || sender == null)
+        if (channel == null || author == null)
         {
-            return NotFound("Channel or user not found.");
+            return NotFoundResponse("Channel or user not found.");
         }
 
         var message = new Message
         {
-            ChannelId = channelId,
-            SenderId = userId,
-            Content = request.Content,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            ModerationStatus = ModerationStatus.Visible,
             Channel = channel,
-            Sender = sender
+            Author = author,
+            Content = request.Content,
+            Timestamp = SystemClock.Instance.GetCurrentInstant(),
+            Tts = request.Tts
         };
 
         dbContext.Messages.Add(message);
         await dbContext.SaveChangesAsync(cancellationToken);
-
-        return CreatedAtAction(nameof(GetMessage), new { channelId, messageId = message.Id }, 
-            new MessageDtos.MessageDto
-            {
-                Id = message.Id,
-                ChannelId = message.ChannelId,
-                UserId = message.SenderId,
-                Username = sender.Username, // Itt már használhatjuk a betöltött 'sender' objektumot.
-                Content = message.Content,
-                CreatedAt = message.CreatedAt,
-                EditedAt = message.EditedAt
-            });
+        
+        var messageDto = MapMessageToDto(message);
+        
+        return OkResponse(messageDto, "Message sent successfully.");
     }
 
-    // GET /channels/{channelId}/messages - Üzenetek listázása lapozással
     [HttpGet]
-    public async Task<IActionResult> GetMessages(long channelId, CancellationToken cancellationToken, [FromQuery] long? before = null, [FromQuery] int limit = 50)
+    public async Task<IActionResult> GetMessages(long channelId, [FromQuery] long? before = null, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        
-        var (isMember, hasPermission, _) = await CheckPermissionsForChannel(channelId, userId, Permission.ReadMessageHistory, cancellationToken);
-        
-        if (!isMember) return Forbid("You are not a member of this server.");
-        if (!hasPermission) return Forbid("You do not have permission to read the message history in this channel.");
+        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
+        if (!isMember) return ForbidResponse("You are not a member of this server.");
+        if (!hasPermission) return ForbidResponse("You do not have permission to read the message history in this channel.");
 
         if (limit is < 1 or > 100) limit = 50;
 
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
         
         IQueryable<Message> query = dbContext.Messages
             .AsNoTracking()
-            .Where(m => m.ChannelId == channelId && m.ModerationStatus == ModerationStatus.Visible)
-            .Include(m => m.Sender);
+            .Where(m => m.ChannelId == channelId)
+            .Include(m => m.Author)
+            .Include(m => m.Attachments)
+            .Include(m => m.Reactions)
+            .OrderByDescending(m => m.Id);
 
         if (before.HasValue)
         {
             query = query.Where(m => m.Id < before.Value);
         }
 
-        var messages = await query
-            .OrderByDescending(m => m.Id)
-            .Take(limit)
-            .Select(m => new
-            {
-                Message = m,
-                Reactions = dbContext.Reactions
-                    .Where(r => r.MessageId == m.Id)
-                    .GroupBy(r => r.EmojiId)
-                    .Select(g => new MessageDtos.ReactionDto
-                    {
-                        EmojiId = g.Key,
-                        Count = g.Count(),
-                        Me = g.Any(r => r.UserId == userId)
-                    }).ToList()
-            })
-            .ToListAsync(cancellationToken);
+        var messages = await query.Take(limit).ToListAsync(cancellationToken);
+        var messageDtos = messages.Select(MapMessageToDto).Reverse().ToList();
 
-        var messageDtos = messages.Select(x => new MessageDtos.MessageListItemDto
-        {
-            Id = x.Message.Id,
-            Content = x.Message.Content,
-            SenderId = x.Message.SenderId,
-            SenderUsername = x.Message.Sender!.Username,
-            CreatedAt = x.Message.CreatedAt,
-            EditedAt = x.Message.EditedAt,
-            Reactions = x.Reactions
-        }).ToList();
-
-        messageDtos.Reverse();
-        return Ok(messageDtos);
+        return OkResponse(messageDtos);
     }
-
-    // GET /channels/{channelId}/messages/{messageId} - Specifikus üzenet lekérése
-    [HttpGet("{messageId}")]
-    public async Task<IActionResult> GetMessage(long channelId, long messageId, CancellationToken cancellationToken)
-    {
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        var (isMember, hasPermission, _) = await CheckPermissionsForChannel(channelId, userId, Permission.ReadMessageHistory, cancellationToken);
-        
-        if (!isMember) return Forbid("You are not a member of this server.");
-        if (!hasPermission) return Forbid("You do not have permission to view messages in this channel.");
-        
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var message = await dbContext.Messages
-            .AsNoTracking()
-            .Include(m => m.Sender)
-            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
-            
-        if (message == null) return NotFound("Message not found.");
-
-        return Ok(new MessageDtos.MessageDetailDto
-        {
-            Id = message.Id,
-            ChannelId = message.ChannelId,
-            UserId = message.SenderId,
-            Username = message.Sender!.Username,
-            Content = message.Content,
-            CreatedAt = message.CreatedAt,
-            EditedAt = message.EditedAt
-        });
-    }
-
-    // PATCH /channels/{channelId}/messages/{messageId} - Üzenet szerkesztése
+    
     [HttpPatch("{messageId}")]
     public async Task<IActionResult> EditMessage(long channelId, long messageId, [FromBody] MessageDtos.UpdateMessageRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-    
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-    
-        var message = await dbContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
-        if (message == null) return NotFound("Message not found.");
-    
-        // Üzenetet csak a saját szerzője szerkeszthet. Ez a logika marad.
-        if (message.SenderId != userId)
+        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        
+        var message = await dbContext.Messages
+            .Include(m => m.Channel).Include(message => message.Author!)
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
+            
+        if (message == null) return NotFoundResponse("Message not found.");
+        
+        if (message.Author!.Id != CurrentUserId)
         {
-            return Forbid("You can only edit your own messages.");
+            return ForbidResponse("You can only edit your own messages.");
         }
-    
+        
+        var oldContent = message.Content;
         message.Content = request.Content;
-        message.EditedAt = SystemClock.Instance.GetCurrentInstant();
-    
+        message.EditedTimestamp = SystemClock.Instance.GetCurrentInstant();
+        
         await dbContext.SaveChangesAsync(cancellationToken);
-    
-        return NoContent();
+        
+        await auditLogService.LogAsync(
+            message.Channel.ServerId,
+            CurrentUserId,
+            AuditLogActionType.MessageEdited,
+            message.Id,
+            AuditLogTargetType.User, // A cél a User, aki az üzenetet írta
+            new { OldContent = oldContent, NewContent = message.Content }
+        );
+
+        return OkResponse("Message updated successfully.");
     }
 
-    // DELETE /channels/{channelId}/messages/{messageId} - Üzenet törlése
     [HttpDelete("{messageId}")]
     public async Task<IActionResult> DeleteMessage(long channelId, long messageId, CancellationToken cancellationToken)
     {
-        var userId = long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var message = await dbContext.Messages
+            .Include(m => m.Channel)
+            .Include(m => m.Author)
+            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
+            
+        if (message == null) return NotFoundResponse("Message not found.");
+
+        var (isMember, hasManageMessagesPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ManageMessages);
         
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        
-        var message = await dbContext.Messages.FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
-        if (message == null) return NotFound("Message not found.");
-
-        // Ellenőrizzük, hogy a felhasználónak van-e joga mások üzenetét törölni.
-        var (isMember, hasManageMessagesPermission, _) = await CheckPermissionsForChannel(channelId, userId, Permission.ManageMessages, cancellationToken);
-
-        if (!isMember)
+        if (!isMember) return ForbidResponse();
+        if (message.Author!.Id != CurrentUserId && !hasManageMessagesPermission)
         {
-            return Forbid("You are not a member of this server.");
-        }
-
-        // A törlést engedélyezzük, ha:
-        // 1. A felhasználó a saját üzenetét törli.
-        // 2. A felhasználónak van 'ManageMessages' jogosultsága.
-        if (message.SenderId != userId && !hasManageMessagesPermission)
-        {
-            return Forbid("You can only delete your own messages or you need permissions.");
+            return ForbidResponse("You can only delete your own messages or you need permission.");
         }
         
-        // A "soft delete" logika változatlan marad, ami jó gyakorlat.
-        message.ModerationStatus = message.SenderId == userId 
-            ? ModerationStatus.UserDeleted 
-            : ModerationStatus.ModeratedRemoved;
-
+        var deletedContent = message.Content; // Naplózáshoz elmentjük
+        dbContext.Messages.Remove(message);
         await dbContext.SaveChangesAsync(cancellationToken);
+        
+        await auditLogService.LogAsync(
+            message.Channel.ServerId,
+            CurrentUserId,
+            AuditLogActionType.MessageDeleted,
+            messageId,
+            AuditLogTargetType.User,
+            new { DeletedContent = deletedContent, Author = message.Author!.Username }
+        );
 
-        return NoContent();
+        return OkResponse("Message deleted successfully.");
+    }
+    
+    // --- Segédmetódus ---
+    private MessageDtos.MessageDto MapMessageToDto(Message message)
+    {
+        return new MessageDtos.MessageDto
+        {
+            Id = message.Id,
+            ChannelId = message.ChannelId,
+            Author = new UserDtos.UserProfileDto
+            {
+                Id = message.Author!.Id,
+                Username = message.Author.Username,
+                GlobalNickname = message.Author.GlobalNickname,
+                Avatar = message.Author.Avatar
+            },
+            Content = message.Content,
+            Timestamp = message.Timestamp,
+            EditedTimestamp = message.EditedTimestamp,
+            Tts = message.Tts ?? false,
+            Attachments = message.Attachments.Select(a => new MessageDtos.AttachmentDto
+            {
+                Id = a.Id,
+                FileName = a.FileName,
+                FileUrl = a.FileUrl,
+                FileSize = a.FileSize,
+                ContentType = a.ContentType,
+                Height = a.height,
+                Width = a.width,
+                Duration = a.duration,
+                Waveform = a.Waveform
+            }).ToList(),
+            Reactions = message.Reactions.GroupBy(r => r.EmojiId)
+                .Select(g => new MessageDtos.ReactionDto
+                {
+                    EmojiId = g.Key,
+                    Count = g.Count(),
+                    Me = g.Any(r => r.UserId == CurrentUserId) 
+                }).ToList()
+        };
     }
 }

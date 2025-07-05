@@ -1,7 +1,6 @@
-﻿using System.Security.Claims;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
+using Dumcsi.Api.Common;
 using Dumcsi.Application.DTOs;
-using Dumcsi.Application.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
@@ -13,31 +12,21 @@ namespace Dumcsi.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/user")]
-public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory) : ControllerBase
+public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory) 
+    : BaseApiController(dbContextFactory)
 {
-    private long GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userIdClaim == null || !long.TryParse(userIdClaim, out var userId))
-        {
-            throw new InvalidOperationException("User ID not found in token.");
-        }
-        return userId;
-    }
-    
-    [HttpGet("me")] // GET /api/user/me
+    [HttpGet("me")]
     public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var user = await dbContext.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == CurrentUserId, cancellationToken);
 
         if (user == null)
         {
-            return NotFound("User not found.");
+            return NotFoundResponse("User not found.");
         }
 
         var userProfile = new UserDtos.UserProfileDto
@@ -45,82 +34,80 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
             Id = user.Id,
             Username = user.Username,
             Email = user.Email,
-            Avatar = user.Avatar
+            Avatar = user.Avatar,
+            GlobalNickname = user.GlobalNickname,
+            Locale = user.Locale,
+            Verified = user.Verified
         };
 
-        return Ok(userProfile);
+        return OkResponse(userProfile);
     }
 
-    [HttpPut("me")] // PUT /api/user/me
+    [HttpPut("me")]
     public async Task<IActionResult> UpdateMyProfile([FromBody] UserDtos.UpdateUserProfileDto request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return BadRequestResponse("Invalid request data."); // <-- Szabványos válasz
         }
+        
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var userId = GetCurrentUserId();
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var user = await dbContext.Users.FindAsync([userId], cancellationToken: cancellationToken);
-
+        var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null)
         {
-            return NotFound("User not found.");
+            return NotFoundResponse("User not found.");
         }
 
-        // Check if the new username or email is already taken by another user
-        if (await dbContext.Users.AnyAsync(u => u.Id != userId && (u.Username == request.Username || u.Email == request.Email), cancellationToken))
+        if (await dbContext.Users.AnyAsync(u => u.Id != CurrentUserId && (u.Username == request.Username || u.Email == request.Email), cancellationToken))
         {
-            return Conflict("Username or email is already taken.");
+            return Conflict(ApiResponse.Fail("Username or email is already taken."));
         }
 
         user.Username = request.Username;
         user.Email = request.Email;
+        user.GlobalNickname = request.GlobalNickname;
+        user.Avatar = request.Avatar;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return OkResponse("Profile updated successfully.");
     }
-    
-    [HttpDelete("me")] // DELETE /api/user/me
+
+    [HttpDelete("me")]
     public async Task<IActionResult> DeleteMyAccount(CancellationToken cancellationToken)
     {
-        var userId = GetCurrentUserId();
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var user = await dbContext.Users.FindAsync([userId], cancellationToken: cancellationToken);
-
+        var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null)
         {
-            return NotFound("User not found.");
+            return NotFoundResponse("User not found.");
         }
 
         dbContext.Users.Remove(user);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return NoContent();
+        return OkResponse("Account deleted successfully.");
     }
 
-    [HttpPost("me/change-password")] // POST /api/user/me/change-password
+    [HttpPost("me/change-password")]
     public async Task<IActionResult> ChangeMyPassword([FromBody] UserDtos.ChangePasswordDto request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
-        }
-
-        var userId = GetCurrentUserId();
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        var user = await dbContext.Users.FindAsync([userId], cancellationToken: cancellationToken);
-
-        if (user == null)
-        {
-            return NotFound("User not found.");
+            return BadRequestResponse("Invalid request data.");
         }
         
-        // Verify current password
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
+        if (user == null)
+        {
+            return NotFoundResponse("User not found.");
+        }
+
+        // Jelenlegi jelszó ellenőrzése
         var salt = user.PasswordHash[..16];
         var hash = KeyDerivation.Pbkdf2(
             password: request.CurrentPassword,
@@ -136,10 +123,10 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
 
         if (!currentPasswordHash.SequenceEqual(user.PasswordHash))
         {
-            return BadRequest("Invalid current password.");
+            return BadRequestResponse("Invalid current password.");
         }
 
-        // Hash new password
+        // Új jelszó hashelése
         var newSalt = RandomNumberGenerator.GetBytes(16);
         var newHash = KeyDerivation.Pbkdf2(
             password: request.NewPassword,
@@ -154,10 +141,10 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
         newHash.CopyTo(newPasswordHash, 16);
 
         user.PasswordHash = newPasswordHash;
+        user.SecurityStamp = Guid.NewGuid().ToString();
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new { Message = "Password changed successfully." });
-        
+        return OkResponse("Password changed successfully.");
     }
 }

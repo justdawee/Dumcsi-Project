@@ -1,4 +1,5 @@
-﻿using Dumcsi.Application.DTOs;
+﻿using Dumcsi.Api.Common;
+using Dumcsi.Application.DTOs;
 using Dumcsi.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,8 +15,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.RegisterUserAsync(request, cancellationToken);
         
         return result.IsSuccess 
-            ? Ok() 
-            : Conflict(new { message = result.Error });
+            ? Ok(ApiResponse.Success("Registration successful."))
+            : Conflict(ApiResponse.Fail(result.Error ?? "An unknown error occurred."));
     }
     
     [HttpPost("login")]
@@ -24,8 +25,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.LoginUserAsync(request, cancellationToken);
         
         return result.IsSuccess 
-            ? Ok(result.Value) 
-            : Unauthorized(new { message = result.Error });
+            ? Ok(ApiResponse<TokenResponseDto>.Success(result.Value!))
+            : Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid credentials."));
     }
     
     [HttpPost("refresh")]
@@ -34,7 +35,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.RefreshTokenAsync(request, cancellationToken);
         
         return result.IsSuccess 
-            ? Ok(result.Value) 
-            : Unauthorized(new { message = result.Error });
+            ? Ok(ApiResponse<TokenResponseDto>.Success(result.Value!))
+            : Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid refresh token."));
     }
 }
