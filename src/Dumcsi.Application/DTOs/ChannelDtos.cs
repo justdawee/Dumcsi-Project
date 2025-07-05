@@ -22,6 +22,7 @@ public class ChannelDtos
     public class CreateChannelRequestDto
     {
         [Required]
+        [RegularExpression("^[a-z0-9-]{3,100}$")]
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public ChannelType Type { get; set; } = ChannelType.Text;

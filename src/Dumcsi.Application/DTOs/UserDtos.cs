@@ -30,6 +30,7 @@ public class UserDtos
 
         [Required]
         [MinLength(6, ErrorMessage = "The new password must be at least 6 characters long.")]
+        [MaxLength(100)]
         public string NewPassword { get; set; } = string.Empty;
     }
 }

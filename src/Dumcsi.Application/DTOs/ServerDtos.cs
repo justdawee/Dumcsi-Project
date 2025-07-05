@@ -24,6 +24,7 @@ public class ServerDtos
     public class CreateServerRequestDto
     {
         [Required]
+        [StringLength(100, MinimumLength = 3)]
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public bool IsPublic { get; set; } = false;
@@ -77,6 +78,7 @@ public class ServerDtos
     public class UpdateServerRequestDto
     {
         [Required, MaxLength(100)]
+        [StringLength(100, MinimumLength = 3)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(500)]
         public string? Description { get; set; }
