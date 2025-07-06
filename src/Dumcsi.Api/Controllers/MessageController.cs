@@ -1,4 +1,5 @@
 ﻿using Dumcsi.Api.Helpers;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -6,6 +7,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -16,7 +18,8 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/channels/{channelId}/messages")]
 public class MessageController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
-    IAuditLogService auditLogService)
+    IAuditLogService auditLogService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpPost]
@@ -51,6 +54,11 @@ public class MessageController(
         await dbContext.SaveChangesAsync(cancellationToken);
         
         var messageDto = MapMessageToDto(message);
+        
+        // Üzenet szétküldése a SignalR Hub-on keresztül
+        await chatHubContext.Clients
+            .Group(channelId.ToString())
+            .SendAsync("ReceiveMessage", messageDto, cancellationToken);
         
         return OkResponse(messageDto, "Message sent successfully.");
     }
@@ -152,32 +160,42 @@ public class MessageController(
         if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        
+    
+        // Azért kell az Author is, hogy a MapMessageToDto működjön
         var message = await dbContext.Messages
-            .Include(m => m.Channel).Include(message => message.Author!)
+            .Include(m => m.Channel)
+            .Include(m => m.Author!)
+            .Include(m => m.Attachments)
+            .Include(m => m.Reactions)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
-            
-        if (message == null) return NotFoundResponse("Message not found.");
         
+        if (message == null) return NotFoundResponse("Message not found.");
+    
         if (message.Author!.Id != CurrentUserId)
         {
             return ForbidResponse("You can only edit your own messages.");
         }
-        
+    
         var oldContent = message.Content;
         message.Content = request.Content;
         message.EditedTimestamp = SystemClock.Instance.GetCurrentInstant();
-        
+    
         await dbContext.SaveChangesAsync(cancellationToken);
-        
+    
         await auditLogService.LogAsync(
             message.Channel.ServerId,
             CurrentUserId,
-            AuditLogActionType.MessageEdited,
+            AuditLogActionType.ChannelUpdated, // Vagy egy új MessageEdited típus
             message.Id,
-            AuditLogTargetType.User, // A cél a User, aki az üzenetet írta
+            AuditLogTargetType.User,
             new { OldContent = oldContent, NewContent = message.Content }
         );
+        
+        // Üzenet frissítése a SignalR Hub-on keresztül
+        var updatedMessageDto = MapMessageToDto(message); // A frissített adatokat küldjük ki
+        await chatHubContext.Clients
+            .Group(channelId.ToString())
+            .SendAsync("MessageUpdated", updatedMessageDto, cancellationToken);
 
         return OkResponse("Message updated successfully.");
     }
@@ -191,34 +209,42 @@ public class MessageController(
             .Include(m => m.Channel)
             .Include(m => m.Author)
             .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
-            
+        
         if (message == null) return NotFoundResponse("Message not found.");
 
         var (isMember, hasManageMessagesPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ManageMessages);
-        
+    
         if (!isMember) return ForbidResponse();
         if (message.Author!.Id != CurrentUserId && !hasManageMessagesPermission)
         {
             return ForbidResponse("You can only delete your own messages or you need permission.");
         }
-        
-        var deletedContent = message.Content; // Naplózáshoz elmentjük
+    
+        var deletedContent = message.Content;
+        var serverId = message.Channel.ServerId; // Mentsük el a törlés előtt
+        var authorUsername = message.Author!.Username;
+
         dbContext.Messages.Remove(message);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
+    
         await auditLogService.LogAsync(
-            message.Channel.ServerId,
+            serverId,
             CurrentUserId,
-            AuditLogActionType.MessageDeleted,
+            AuditLogActionType.ChannelUpdated, // Vagy egy új MessageDeleted típus
             messageId,
             AuditLogTargetType.User,
-            new { DeletedContent = deletedContent, Author = message.Author!.Username }
+            new { DeletedContent = deletedContent, Author = authorUsername }
         );
+    
+        // Üzenet törlése a SignalR Hub-on keresztül
+        await chatHubContext.Clients
+            .Group(channelId.ToString())
+            .SendAsync("MessageDeleted", new { ChannelId = channelId, MessageId = messageId }, cancellationToken);
 
         return OkResponse("Message deleted successfully.");
     }
     
-    // --- Segédmetódus ---
+    // --- Mapper ---
     private MessageDtos.MessageDto MapMessageToDto(Message message)
     {
         return new MessageDtos.MessageDto
