@@ -85,6 +85,67 @@ public class MessageController(
         return OkResponse(messageDtos);
     }
     
+    [HttpGet("{messageId}/context")]
+    public async Task<IActionResult> GetMessageContext(long channelId, long messageId, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
+    {
+        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
+        if (!isMember) return ForbidResponse("You are not a member of this server.");
+        if (!hasPermission) return ForbidResponse("You do not have permission to read the message history in this channel.");
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        // 1. Lekérdezzük az X üzenetet a fókuszban lévő üzenet ELŐTT
+        var messagesBefore = await dbContext.Messages
+            .AsNoTracking()
+            .Where(m => m.ChannelId == channelId && m.Id < messageId)
+            .OrderByDescending(m => m.Id)
+            .Take(limit / 2)
+            .ToListAsync(cancellationToken);
+
+        // 2. Lekérdezzük a fókuszban lévő üzenetet
+        var targetMessage = await dbContext.Messages
+            .AsNoTracking()
+            .Include(m => m.Author)
+            .Include(m => m.Attachments)
+            .Include(m => m.Reactions)
+            .FirstOrDefaultAsync(m => m.Id == messageId, cancellationToken);
+            
+        if (targetMessage == null)
+        {
+            return NotFoundResponse("The target message does not exist.");
+        }
+
+        // 3. Lekérdezzük az Y üzenetet a fókuszban lévő üzenet UTÁN
+        var messagesAfter = await dbContext.Messages
+            .AsNoTracking()
+            .Where(m => m.ChannelId == channelId && m.Id > messageId)
+            .OrderBy(m => m.Id)
+            .Take(limit / 2)
+            .ToListAsync(cancellationToken);
+
+        // 4. Összefűzzük és sorba rendezzük a listákat
+        var allMessages = messagesBefore.OrderBy(m => m.Id) // A "before" listát visszafordítjuk
+            .Concat(new[] { targetMessage })
+            .Concat(messagesAfter)
+            .ToList();
+
+        // Minden üzenethez betöltjük a szükséges adatokat
+        // (Ezt egy optimalizáltabb lekérdezéssel is meg lehetne oldani, de így a legolvashatóbb)
+        var messageIds = allMessages.Select(m => m.Id).ToList();
+        var fullMessages = await dbContext.Messages
+            .AsNoTracking()
+            .Where(m => messageIds.Contains(m.Id))
+            .Include(m => m.Author)
+            .Include(m => m.Attachments)
+            .Include(m => m.Reactions)
+            .OrderBy(m => m.Id)
+            .ToListAsync(cancellationToken);
+            
+        var messageDtos = fullMessages.Select(MapMessageToDto).ToList();
+
+        return OkResponse(messageDtos);
+    }
+    
     [HttpPatch("{messageId}")]
     public async Task<IActionResult> EditMessage(long channelId, long messageId, [FromBody] MessageDtos.UpdateMessageRequestDto request, CancellationToken cancellationToken)
     {
