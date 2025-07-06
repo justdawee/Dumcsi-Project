@@ -1,3 +1,4 @@
+using Dumcsi.Api.Hubs;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Dumcsi.Infrastructure.Services.JwtFactory;
 using Dumcsi.Domain.Interfaces;
@@ -8,19 +9,22 @@ using NodaTime.Serialization.SystemTextJson;
 using Scalar.AspNetCore;
 using Dumcsi.Application.Interfaces;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args); // Web alkalmazás létrehozása
 
-builder.Services.AddCors();
+builder.Services.AddCors(); // CORS engedélyezése
 
-builder.Services.AddControllers()
+builder.Services.AddControllers() // Kontroller alapú API engedélyezése
     .AddJsonOptions(options =>
     {
         var nodaSettings = DateTimeZoneProviders.Tzdb;
         options.JsonSerializerOptions.ConfigureForNodaTime(nodaSettings);
     });
 
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(); // OpenAPI dokumentáció engedélyezése
 
+builder.Services.AddSignalR(); // SignalR engedélyezése
+
+// Entity Framework Core DbContext regisztrálása
 builder.Services
     .AddPooledDbContextFactory<DumcsiDbContext>(options => options
         .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
@@ -30,13 +34,13 @@ builder.Services
         )
     );
 
-builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddJwtAuthentication(builder.Configuration); // JWT alapú hitelesítés engedélyezése
 
-builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>(); // Audit log szolgáltatás regisztrálása
 
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthService, AuthService>(); // Hitelesítési szolgáltatás regisztrálása
 
-var app = builder.Build();
+var app = builder.Build(); // Alkalmazás létrehozása
 
 // Database inicializálás védve
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
@@ -71,13 +75,16 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseCors(builder => builder
+// CORS beállítások alkalmazása
+app.UseCors(corsPolicyBuilder => corsPolicyBuilder
     .AllowAnyOrigin()
     .AllowAnyMethod()
     .AllowAnyHeader());
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection(); // HTTPS engedélyezése
 
-app.MapControllers();
+app.MapHub<ChatHub>("/chathub"); // SignalR hub regisztrálása
 
-app.Run();
+app.MapControllers(); // Kontroller alapú API végpontok regisztrálása
+
+app.Run(); // Alkalmazás futtatása
