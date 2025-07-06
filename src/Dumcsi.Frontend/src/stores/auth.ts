@@ -1,18 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { jwtDecode } from 'jwt-decode';
-import authService from '@/services/authService';
-import userService from '@/services/userService'; // Add this import
 import router from '@/router';
+import authService from '@/services/authService';
+import userService from '@/services/userService';
+import { jwtDecode } from 'jwt-decode';
 import { RouteNames } from '@/router';
-import type { LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
-
-interface JwtPayload {
-  sub: string;
-  username: string;
-  profilePictureUrl?: string;
-  exp: number;
-}
+import { initializeSignalR, stopSignalR } from '@/services/signalrService';
+import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'));
@@ -31,7 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  // New method to fetch fresh user data
+  // Method to fetch fresh user data
   const fetchUserProfile = async () => {
     try {
       const response = await userService.getProfile();
@@ -82,15 +76,18 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await authService.login(credentials);
-      setToken(response.data);
-      await checkAuth(); // This will now fetch fresh user data
+      const tokenData = await authService.login(credentials);
+      setToken(tokenData.accessToken);
+      
+      // Sikeres bejelentkezés után indítjuk a SignalR kapcsolatot
+      initializeSignalR(); 
+
+      await checkAuth();
 
       const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
+      await router.push(redirectPath || { name: 'ServerSelect' });
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'Invalid username or password';
-      throw err;
+      error.value = err.message || 'Helytelen felhasználónév vagy jelszó.';
     } finally {
       loading.value = false;
     }
@@ -111,10 +108,14 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
+    // Kijelentkezéskor leállítjuk a SignalR kapcsolatot
+    stopSignalR(); 
+
     setToken(null);
     user.value = null;
-    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
-       await router.push({ name: RouteNames.LOGIN });
+    useAppStore().reset(); // App store resetelése, hogy ne maradjanak ott régi adatok
+    if (router.currentRoute.value.name !== 'Login') {
+       await router.push({ name: 'Login' });
     }
   };
 

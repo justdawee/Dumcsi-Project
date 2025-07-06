@@ -13,7 +13,7 @@
       
       <div>
         <div class="flex items-baseline gap-2">
-          <span class="font-semibold text-white">{{ message.senderUsername }}</span>
+          <span class="font-semibold text-white">{{ getDisplayName(sender) }}</span>
           <span class="text-xs text-gray-500">{{ formatTime(message.createdAt) }}</span>
           <span v-if="message.editedAt" class="text-xs text-gray-500">(edited)</span>
         </div>

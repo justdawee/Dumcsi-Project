@@ -6,17 +6,34 @@ import type {
   ServerDetail,
   ChannelDetail,
   MessageListItem,
+  MessageDto,
   ServerMember,
   CreateServerPayload,
   CreateChannelPayload,
   CreateMessagePayload,
   UpdateMessagePayload,
-  EntityId, // Assuming this is defined in types.ts as `export type EntityId = number;`
+  EntityId,
+  UserDto,
+  ServerDto,
+  ChannelDto,
+  RoleDto,
+  EmojiDto,
+  MessageDeletedPayload,
+  UserServerPayload,
+  ChannelDeletedPayload,
+  EmojiDeletedPayload,
+  MemberRolesUpdatedPayload,
+  ReactionPayload,
+  VoiceChannelPayload,
+  WebRTCSignalPayload,
+  ScreenSharePayload
 } from '@/services/types';
 
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
+import router from '@/router';
+import { useToast } from '@/composables/useToast';
 
 export const useAppStore = defineStore('app', () => {
   // --- State ---
@@ -25,6 +42,11 @@ export const useAppStore = defineStore('app', () => {
   const currentChannel = ref<ChannelDetail | null>(null);
   const messages = ref<MessageListItem[]>([]);
   const members = ref<ServerMember[]>([]);
+  const onlineUsers = ref<Set<EntityId>>(new Set());
+  const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map()); // channelId -> Set of userIds
+  const voiceChannelUsers = ref<Map<EntityId, UserDto[]>>(new Map()); // channelId -> users
+  const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map()); // channelId -> Set of userIds sharing screen
+  
   const isCreateChannelModalOpen = ref(false);
   const createChannelForServerId = ref<EntityId | null>(null);
 
@@ -36,20 +58,16 @@ export const useAppStore = defineStore('app', () => {
     members: false,
   });
 
-  // A single ref for the latest error message
   const error = ref<string | null>(null);
 
   // --- Getters ---
   const currentServerChannels = computed(() => currentServer.value?.channels || []);
+  const isUserOnline = (userId: EntityId) => onlineUsers.value.has(userId);
+  const getTypingUsersInChannel = (channelId: EntityId) => Array.from(typingUsers.value.get(channelId) || []);
+  const getVoiceChannelUsers = (channelId: EntityId) => voiceChannelUsers.value.get(channelId) || [];
+  const getScreenSharesInChannel = (channelId: EntityId) => Array.from(screenShares.value.get(channelId) || []);
 
   // --- Private Helpers ---
-  
-  /**
-   * @description A generic helper to handle API calls, loading states, and errors.
-   * @param loadingKey The key for the loading state object.
-   * @param apiCall The async function to execute.
-   */
-
   const handleApiCall = async <T>(loadingKey: keyof typeof loading.value, apiCall: () => Promise<T>): Promise<T | null> => {
     loading.value[loadingKey] = true;
     error.value = null;
@@ -65,165 +83,476 @@ export const useAppStore = defineStore('app', () => {
     }
   };
   
-  /**
-   * @description Resets the state related to the current server and channel.
-   */
-
-  const resetCurrentSelection = () => {
+  const resetCurrentData = () => {
     currentServer.value = null;
     currentChannel.value = null;
     messages.value = [];
     members.value = [];
-  }
+  };
 
-  // --- Actions ---
-
+  // --- Server Actions ---
   const fetchServers = async () => {
-    const response = await handleApiCall('servers', () => serverService.getServers());
-    if (response) {
+    const result = await handleApiCall('servers', async () => {
+      const response = await serverService.getServers();
       servers.value = response.data;
-    }
+      return response.data;
+    });
+    return result;
   };
 
   const fetchServer = async (serverId: EntityId) => {
-    // When fetching a new server, clear previous selection first
-    resetCurrentSelection();
-    
-    const response = await handleApiCall('server', () => serverService.getServer(serverId));
-    if (response) {
-      currentServer.value = response.data;
-      await fetchServerMembers(serverId);
-    }
+    const result = await handleApiCall('server', async () => {
+      const [serverResponse, membersResponse] = await Promise.all([
+        serverService.getServer(serverId),
+        serverService.getServerMembers(serverId)
+      ]);
+      
+      currentServer.value = serverResponse.data;
+      members.value = membersResponse.data;
+      return serverResponse.data;
+    });
+    return result;
   };
 
-  const fetchChannel = async (channelId: EntityId) => {
-    const response = await handleApiCall('channel', () => channelService.getChannel(channelId));
-    if (response) {
-      currentChannel.value = response.data;
-      messages.value = response.data.messages.reverse();
-    } else {
-      currentChannel.value = null;
-    }
+  const createServer = async (payload: CreateServerPayload) => {
+    const response = await serverService.createServer(payload);
+    await fetchServers();
+    return response.data;
   };
 
-  const fetchMoreMessages = async (channelId: EntityId, before: EntityId) => {
-    const response = await handleApiCall('messages', () => messageService.getMessages(channelId, { before, limit: 50 }));
-    if (response && response.data.length > 0) {
-      messages.value.unshift(...response.data.reverse());
-    }
+  const updateServer = async (serverId: EntityId, payload: UpdateServerPayload) => {
+    await serverService.updateServer(serverId, payload);
+    await fetchServer(serverId);
   };
 
-  const fetchServerMembers = async (serverId: EntityId) => {
-    const response = await handleApiCall('members', () => serverService.getServerMembers(serverId));
-    if (response) {
-      members.value = response.data;
-    }
+  const deleteServer = async (serverId: EntityId) => {
+    await serverService.deleteServer(serverId);
+    await fetchServers();
+    resetCurrentData();
+    router.push({ name: 'ServerSelect' });
   };
 
-  const sendMessage = async (channelId: EntityId, payload: CreateMessagePayload) => {
-    try {
-      const response = await messageService.sendMessage(channelId, payload);
-      messages.value.push(response.data);
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message?: string }>;
-      error.value = axiosError.response?.data?.message || 'Failed to send message';
-      throw err;
-    }
-  };
-
-  const createServer = async (serverData: CreateServerPayload) => {
-    const response = await handleApiCall('servers', () => serverService.createServer(serverData));
-    if (response) {
-      const newServerDetails = await serverService.getServer(response.data.serverId);
-      if (newServerDetails.data) {
-        servers.value.push(newServerDetails.data);
-      }
-      return response.data;
-    }
-  };
-
-  const createChannel = async (serverId: EntityId, channelData: CreateChannelPayload) => {
-    const response = await handleApiCall('channel', () => serverService.createChannel(serverId, channelData));
-    if (response && currentServer.value && currentServer.value.id === serverId) {
-      currentServer.value.channels = [...currentServer.value.channels, response.data];
-    }
-    return response?.data;
-  };
-
-  const editMessage = async (messageId: EntityId, payload: UpdateMessagePayload) => {
-  try {
-    await messageService.editMessage(currentChannel.value!.id, messageId, payload);
-    
-    // Find the message in the local state and update it.
-    const message = messages.value.find(m => m.id === messageId);
-    if (message) {
-      message.content = payload.content;
-      message.editedAt = new Date().toISOString(); // Simulate immediate update
-    }
-  } catch (err) {
-    console.error("Failed to edit message:", err);
-    throw err;
-  }
-};
-
-const deleteMessage = async (messageId: EntityId) => {
-  try {
-    await messageService.deleteMessage(currentChannel.value!.id, messageId);
-
-    // Optimistically remove the message from the local state.
-    const index = messages.value.findIndex(m => m.id === messageId);
-    if (index !== -1) {
-      messages.value.splice(index, 1);
-    }
-  } catch (err) {
-    console.error("Failed to delete message:", err);
-    throw err;
-  }
-};
-  
-  const handleServerMembershipChange = async (apiCall: () => Promise<AxiosResponse<{serverId: number}>>) => {
-      const response = await handleApiCall('servers', apiCall);
-      if (response) {
-          const newServerDetails = await serverService.getServer(response.data.serverId);
-          if (newServerDetails.data && !servers.value.some(s => s.id === newServerDetails.data.id)) {
-              servers.value.push(newServerDetails.data);
-          }
-          return { serverId: response.data.serverId };
-      }
-  }
-
-  const joinServer = (inviteCode: string) => {
-      return handleServerMembershipChange(() => serverService.joinServer(inviteCode));
-  };
-  
-  const joinPublicServer = (serverId: EntityId) => {
-      return handleServerMembershipChange(() => serverService.joinPublicServer(serverId));
+  const joinServer = async (inviteCode: string) => {
+    const response = await serverService.joinServer(inviteCode);
+    await fetchServers();
+    return response.data;
   };
 
   const leaveServer = async (serverId: EntityId) => {
-    await handleApiCall('servers', () => serverService.leaveServer(serverId));
+    await serverService.leaveServer(serverId);
+    await fetchServers();
     if (currentServer.value?.id === serverId) {
-      resetCurrentSelection();
+      resetCurrentData();
+      router.push({ name: 'ServerSelect' });
     }
-    // Optimistically remove the server from the list.
-    servers.value = servers.value.filter(s => s.id !== serverId);
   };
 
-  const updateCurrentChannelDetails = (payload: { id: EntityId; name: string; description?: string }) => {
+  // --- Channel Actions ---
+  const fetchChannel = async (channelId: EntityId) => {
+    const result = await handleApiCall('channel', async () => {
+      const response = await channelService.getChannel(channelId);
+      currentChannel.value = response.data;
+      return response.data;
+    });
+    return result;
+  };
+
+  const createChannel = async (serverId: EntityId, payload: CreateChannelPayload) => {
+    const response = await serverService.createChannel(serverId, payload);
+    await fetchServer(serverId);
+    return response.data;
+  };
+
+  const updateChannel = async (channelId: EntityId, payload: UpdateChannelPayload) => {
+    await channelService.updateChannel(channelId, payload);
     if (currentServer.value) {
-      const channelIndex = currentServer.value.channels.findIndex(c => c.id === payload.id);
-      if (channelIndex !== -1) {
-        const updatedChannel = { ...currentServer.value.channels[channelIndex], ...payload };
-        // Replace the item in the array to trigger reactivity correctly.
-        currentServer.value.channels.splice(channelIndex, 1, updatedChannel);
+      await fetchServer(currentServer.value.id);
+    }
+  };
+
+  const deleteChannel = async (channelId: EntityId) => {
+    await channelService.deleteChannel(channelId);
+    if (currentChannel.value?.id === channelId) {
+      currentChannel.value = null;
+      messages.value = [];
+    }
+    if (currentServer.value) {
+      await fetchServer(currentServer.value.id);
+    }
+  };
+
+  // --- Message Actions ---
+  const fetchMessages = async (channelId: EntityId, before?: EntityId, limit: number = 50) => {
+    const result = await handleApiCall('messages', async () => {
+      const response = await messageService.getMessages(channelId, { before, limit });
+      if (!before) {
+        messages.value = response.data;
+      } else {
+        messages.value.unshift(...response.data);
+      }
+      return response.data;
+    });
+    return result;
+  };
+
+  const sendMessage = async (channelId: EntityId, payload: CreateMessagePayload) => {
+    const response = await messageService.sendMessage(channelId, payload);
+    messages.value.push(response.data);
+    return response.data;
+  };
+
+  const updateMessage = async (channelId: EntityId, messageId: EntityId, payload: UpdateMessagePayload) => {
+    await messageService.editMessage(channelId, messageId, payload);
+    const messageIndex = messages.value.findIndex(m => m.id === messageId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = { ...messages.value[messageIndex], ...payload, editedAt: new Date().toISOString() };
+    }
+  };
+
+  const deleteMessage = async (channelId: EntityId, messageId: EntityId) => {
+    await messageService.deleteMessage(channelId, messageId);
+    messages.value = messages.value.filter(m => m.id !== messageId);
+  };
+
+  // --- SignalR Event Handlers ---
+  
+  // Message Events
+  const handleReceiveMessage = (message: MessageDto) => {
+    if (currentChannel.value?.id === message.channelId) {
+      // Check if message already exists (to prevent duplicates)
+      const exists = messages.value.some(m => m.id === message.id);
+      if (!exists) {
+        messages.value.push(message);
       }
     }
-    if (currentChannel.value && currentChannel.value.id === payload.id) {
-        currentChannel.value.name = payload.name;
-        currentChannel.value.description = payload.description;
+  };
+
+  const handleMessageUpdated = (updatedMessage: MessageDto) => {
+    const index = messages.value.findIndex(m => m.id === updatedMessage.id);
+    if (index !== -1) {
+      messages.value[index] = updatedMessage;
     }
   };
 
+  const handleMessageDeleted = (payload: MessageDeletedPayload) => {
+    messages.value = messages.value.filter(m => m.id !== payload.messageId);
+  };
+
+  // Reaction Events
+  const handleReactionAdded = (payload: ReactionPayload) => {
+    const message = messages.value.find(m => m.id === payload.messageId);
+    if (message) {
+      // Update reactions (implementation depends on reaction structure)
+      // This is a simplified example
+      if (!message.reactions) message.reactions = [];
+      const reaction = message.reactions.find(r => 
+        (r.emojiId === payload.emojiId && !payload.emoji) || 
+        (r.emoji === payload.emoji && !payload.emojiId)
+      );
+      if (reaction) {
+        reaction.count++;
+        reaction.hasReacted = true;
+      } else {
+        message.reactions.push({
+          emojiId: payload.emojiId,
+          emoji: payload.emoji,
+          count: 1,
+          users: [],
+          hasReacted: true
+        });
+      }
+    }
+  };
+
+  const handleReactionRemoved = (payload: ReactionPayload) => {
+    const message = messages.value.find(m => m.id === payload.messageId);
+    if (message && message.reactions) {
+      const reaction = message.reactions.find(r => 
+        (r.emojiId === payload.emojiId && !payload.emoji) || 
+        (r.emoji === payload.emoji && !payload.emojiId)
+      );
+      if (reaction) {
+        reaction.count--;
+        if (reaction.count <= 0) {
+          message.reactions = message.reactions.filter(r => r !== reaction);
+        }
+      }
+    }
+  };
+
+  // User Events
+  const handleUserOnline = (userId: EntityId) => {
+    onlineUsers.value.add(userId);
+    // Update member status if in members list
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      member.isOnline = true;
+    }
+  };
+
+  const handleUserOffline = (userId: EntityId) => {
+    onlineUsers.value.delete(userId);
+    // Update member status if in members list
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      member.isOnline = false;
+    }
+  };
+
+  const handleUserUpdated = (user: UserDto) => {
+    // Update user in members list
+    const member = members.value.find(m => m.userId === user.id);
+    if (member) {
+      member.username = user.username;
+      member.globalNickname = user.globalNickname;
+      member.avatarUrl = user.avatarUrl;
+    }
+    
+    // Update user in messages
+    messages.value.forEach(message => {
+      if (message.senderId === user.id) {
+        message.senderUsername = user.username;
+        message.senderGlobalNickname = user.globalNickname;
+        message.senderAvatarUrl = user.avatarUrl;
+      }
+    });
+    
+    // Update in servers list if they're the owner
+    servers.value.forEach(server => {
+      if (server.ownerId === user.id) {
+        // Update owner info if available
+      }
+    });
+  };
+
+  // Server Events
+  const handleServerUpdated = (updatedServer: ServerDto) => {
+    // Update in servers list
+    const index = servers.value.findIndex(s => s.id === updatedServer.id);
+    if (index !== -1) {
+      servers.value[index] = { ...servers.value[index], ...updatedServer };
+    }
+    
+    // Update current server if it's the one being viewed
+    if (currentServer.value?.id === updatedServer.id) {
+      currentServer.value = { ...currentServer.value, ...updatedServer };
+    }
+  };
+
+  const handleServerDeleted = (serverId: EntityId) => {
+    servers.value = servers.value.filter(s => s.id !== serverId);
+    
+    if (currentServer.value?.id === serverId) {
+      const { addToast } = useToast();
+      addToast({
+        type: 'warning',
+        message: 'The server you were viewing has been deleted',
+        duration: 5000
+      });
+      resetCurrentData();
+      router.push({ name: 'ServerSelect' });
+    }
+  };
+
+  const handleUserJoinedServer = (payload: UserServerPayload) => {
+    if (currentServer.value?.id === payload.serverId) {
+      // Increment member count
+      currentServer.value.memberCount++;
+      
+      // Add to members list if we have user data
+      if (payload.user) {
+        members.value.push({
+          userId: payload.user.id,
+          username: payload.user.username,
+          globalNickname: payload.user.globalNickname,
+          avatarUrl: payload.user.avatarUrl,
+          role: 0, // Default to Member role
+          joinedAt: new Date().toISOString(),
+          isOnline: payload.user.isOnline
+        });
+      }
+    }
+    
+    // Update server in list
+    const server = servers.value.find(s => s.id === payload.serverId);
+    if (server) {
+      server.memberCount++;
+    }
+  };
+
+  const handleUserLeftServer = (payload: UserServerPayload) => {
+    if (currentServer.value?.id === payload.serverId) {
+      // Decrement member count
+      currentServer.value.memberCount--;
+      
+      // Remove from members list
+      members.value = members.value.filter(m => m.userId !== payload.userId);
+    }
+    
+    // Update server in list
+    const server = servers.value.find(s => s.id === payload.serverId);
+    if (server) {
+      server.memberCount--;
+    }
+  };
+
+  // Channel Events
+  const handleChannelCreated = (channel: ChannelDto) => {
+    if (currentServer.value?.id === channel.serverId) {
+      currentServer.value.channels.push({
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        type: channel.type,
+        position: channel.position,
+        createdAt: new Date().toISOString()
+      });
+    }
+  };
+
+  const handleChannelUpdated = (channel: ChannelDto) => {
+    if (currentServer.value?.id === channel.serverId) {
+      const index = currentServer.value.channels.findIndex(c => c.id === channel.id);
+      if (index !== -1) {
+        currentServer.value.channels[index] = {
+          ...currentServer.value.channels[index],
+          ...channel
+        };
+      }
+    }
+    
+    // Update current channel if it's the one being viewed
+    if (currentChannel.value?.id === channel.id) {
+      currentChannel.value = { ...currentChannel.value, ...channel };
+    }
+  };
+
+  const handleChannelDeleted = (payload: ChannelDeletedPayload) => {
+    if (currentServer.value?.id === payload.serverId) {
+      currentServer.value.channels = currentServer.value.channels.filter(c => c.id !== payload.channelId);
+    }
+    
+    if (currentChannel.value?.id === payload.channelId) {
+      const { addToast } = useToast();
+      addToast({
+        type: 'warning',
+        message: 'The channel you were viewing has been deleted',
+        duration: 3000
+      });
+      currentChannel.value = null;
+      messages.value = [];
+      router.push({ name: 'Server', params: { serverId: payload.serverId } });
+    }
+  };
+
+  // Role Events
+  const handleRoleCreated = (role: RoleDto) => {
+    if (currentServer.value?.id === role.serverId && currentServer.value.roles) {
+      currentServer.value.roles.push(role);
+    }
+  };
+
+  const handleRoleUpdated = (role: RoleDto) => {
+    if (currentServer.value?.id === role.serverId && currentServer.value.roles) {
+      const index = currentServer.value.roles.findIndex(r => r.id === role.id);
+      if (index !== -1) {
+        currentServer.value.roles[index] = role;
+      }
+    }
+  };
+
+  const handleRoleDeleted = (roleId: EntityId) => {
+    if (currentServer.value?.roles) {
+      currentServer.value.roles = currentServer.value.roles.filter(r => r.id !== roleId);
+    }
+  };
+
+  const handleMemberRolesUpdated = (payload: MemberRolesUpdatedPayload) => {
+    if (currentServer.value?.id === payload.serverId) {
+      const member = members.value.find(m => m.userId === payload.userId);
+      if (member) {
+        member.roles = payload.roleIds;
+      }
+    }
+  };
+
+  // Emoji Events
+  const handleEmojiCreated = (emoji: EmojiDto) => {
+    if (currentServer.value?.id === emoji.serverId && currentServer.value.emojis) {
+      currentServer.value.emojis.push(emoji);
+    }
+  };
+
+  const handleEmojiDeleted = (payload: EmojiDeletedPayload) => {
+    if (currentServer.value?.id === payload.serverId && currentServer.value.emojis) {
+      currentServer.value.emojis = currentServer.value.emojis.filter(e => e.id !== payload.emojiId);
+    }
+  };
+
+  // Voice/Video Events
+  const handleUserJoinedVoice = (payload: VoiceChannelPayload) => {
+    if (!voiceChannelUsers.value.has(payload.channelId)) {
+      voiceChannelUsers.value.set(payload.channelId, []);
+    }
+    
+    const users = voiceChannelUsers.value.get(payload.channelId)!;
+    if (payload.user && !users.find(u => u.id === payload.user!.id)) {
+      users.push(payload.user);
+    }
+  };
+
+  const handleUserLeftVoice = (payload: VoiceChannelPayload) => {
+    const users = voiceChannelUsers.value.get(payload.channelId);
+    if (users) {
+      const filtered = users.filter(u => u.id !== payload.userId);
+      if (filtered.length > 0) {
+        voiceChannelUsers.value.set(payload.channelId, filtered);
+      } else {
+        voiceChannelUsers.value.delete(payload.channelId);
+      }
+    }
+  };
+
+  const handleAllUsersInChannel = (users: UserDto[]) => {
+    // This would be called when joining a voice channel to get all current users
+    // Implementation depends on how the backend sends this data
+  };
+
+  // WebRTC Events
+  const handleReceiveOffer = (payload: WebRTCSignalPayload) => {
+    // Handle WebRTC offer - implementation depends on WebRTC setup
+    console.log('Received WebRTC offer from user:', payload.fromUserId);
+  };
+
+  const handleReceiveAnswer = (payload: WebRTCSignalPayload) => {
+    // Handle WebRTC answer - implementation depends on WebRTC setup
+    console.log('Received WebRTC answer from user:', payload.fromUserId);
+  };
+
+  const handleReceiveIceCandidate = (payload: WebRTCSignalPayload) => {
+    // Handle ICE candidate - implementation depends on WebRTC setup
+    console.log('Received ICE candidate from user:', payload.fromUserId);
+  };
+
+  // Screen Share Events
+  const handleUserStartedScreenShare = (payload: ScreenSharePayload) => {
+    if (!screenShares.value.has(payload.channelId)) {
+      screenShares.value.set(payload.channelId, new Set());
+    }
+    screenShares.value.get(payload.channelId)!.add(payload.userId);
+  };
+
+  const handleUserStoppedScreenShare = (payload: ScreenSharePayload) => {
+    const shares = screenShares.value.get(payload.channelId);
+    if (shares) {
+      shares.delete(payload.userId);
+      if (shares.size === 0) {
+        screenShares.value.delete(payload.channelId);
+      }
+    }
+  };
+
+  // Modal Actions
   const openCreateChannelModal = (serverId: EntityId) => {
     createChannelForServerId.value = serverId;
     isCreateChannelModalOpen.value = true;
@@ -234,41 +563,79 @@ const deleteMessage = async (messageId: EntityId) => {
     createChannelForServerId.value = null;
   };
 
-  const reset = () => {
-    servers.value = [];
-    resetCurrentSelection();
-    error.value = null;
-    // Reset loading states
-    Object.keys(loading.value).forEach(key => (loading.value[key as keyof typeof loading.value] = false));
-  };
-
   return {
-    servers,
-    currentServer,
-    currentChannel,
-    messages,
-    members,
-    loading: readonly(loading), // Expose as readonly to prevent direct mutation
+    // State
+    servers: readonly(servers),
+    currentServer: readonly(currentServer),
+    currentChannel: readonly(currentChannel),
+    messages: readonly(messages),
+    members: readonly(members),
+    loading: readonly(loading),
     error: readonly(error),
-    currentServerChannels,
-    isCreateChannelModalOpen,
-    createChannelForServerId,
+    isCreateChannelModalOpen: readonly(isCreateChannelModalOpen),
+    createChannelForServerId: readonly(createChannelForServerId),
     
+    // Getters
+    currentServerChannels,
+    isUserOnline,
+    getTypingUsersInChannel,
+    getVoiceChannelUsers,
+    getScreenSharesInChannel,
+    
+    // Server Actions
     fetchServers,
     fetchServer,
-    fetchChannel,
-    fetchMoreMessages,
-    sendMessage,
     createServer,
+    updateServer,
+    deleteServer,
+    joinServer,
+    leaveServer,
+    
+    // Channel Actions
+    fetchChannel,
     createChannel,
-    editMessage,
+    updateChannel,
+    deleteChannel,
+    
+    // Message Actions
+    fetchMessages,
+    sendMessage,
+    updateMessage,
     deleteMessage,
-    updateCurrentChannelDetails,
+    
+    // SignalR Event Handlers
+    handleReceiveMessage,
+    handleMessageUpdated,
+    handleMessageDeleted,
+    handleReactionAdded,
+    handleReactionRemoved,
+    handleUserOnline,
+    handleUserOffline,
+    handleUserUpdated,
+    handleServerUpdated,
+    handleServerDeleted,
+    handleUserJoinedServer,
+    handleUserLeftServer,
+    handleChannelCreated,
+    handleChannelUpdated,
+    handleChannelDeleted,
+    handleRoleCreated,
+    handleRoleUpdated,
+    handleRoleDeleted,
+    handleMemberRolesUpdated,
+    handleEmojiCreated,
+    handleEmojiDeleted,
+    handleUserJoinedVoice,
+    handleUserLeftVoice,
+    handleAllUsersInChannel,
+    handleReceiveOffer,
+    handleReceiveAnswer,
+    handleReceiveIceCandidate,
+    handleUserStartedScreenShare,
+    handleUserStoppedScreenShare,
+    
+    // Modal Actions
     openCreateChannelModal,
     closeCreateChannelModal,
-    joinServer,
-    joinPublicServer,
-    leaveServer,
-    reset,
   };
 });

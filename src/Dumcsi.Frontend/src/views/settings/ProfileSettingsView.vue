@@ -1,345 +1,508 @@
 <template>
-  <!-- Main container -->
-  <div class="flex-1 p-4 sm:p-8 bg-gray-900 text-white overflow-y-auto">
-    <div class="max-w-4xl mx-auto">
-      
-      <!-- Page Header -->
-      <header class="mb-8 flex items-center space-x-4">
-        <div class="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-primary/20 rounded-xl">
-            <UserCircle class="w-7 h-7 text-primary" />
+  <div class="max-w-2xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-white mb-6">Profile Settings</h1>
+
+    <!-- Profile Form -->
+    <form @submit.prevent="handleUpdateProfile" class="space-y-6">
+      <!-- Avatar Section -->
+      <div class="bg-gray-800 rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-white mb-4">Avatar</h2>
+        <div class="flex items-center space-x-4">
+          <div class="relative group">
+            <img
+              :src="previewAvatar || getAvatarUrl(profileForm)"
+              :alt="getDisplayName(profileForm)"
+              class="w-20 h-20 rounded-full object-cover"
+            />
+            <div
+              class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              @click="$refs.avatarInput.click()"
+            >
+              <Camera class="w-6 h-6 text-white" />
+            </div>
+            <!-- Upload progress indicator -->
+            <div
+              v-if="avatarUploading"
+              class="absolute inset-0 rounded-full"
+            >
+              <svg class="w-20 h-20 transform -rotate-90">
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="currentColor"
+                  stroke-width="8"
+                  fill="none"
+                  class="text-gray-700"
+                />
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="36"
+                  stroke="currentColor"
+                  stroke-width="8"
+                  fill="none"
+                  :stroke-dasharray="`${2 * Math.PI * 36}`"
+                  :stroke-dashoffset="`${2 * Math.PI * 36 * (1 - uploadProgress / 100)}`"
+                  class="text-primary transition-all duration-300"
+                />
+              </svg>
+            </div>
+          </div>
+          <div class="flex-1">
+            <input
+              ref="avatarInput"
+              type="file"
+              @change="handleAvatarUpload"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              class="hidden"
+              :disabled="avatarUploading"
+            />
+            <div class="space-y-2">
+              <button
+                type="button"
+                @click="$refs.avatarInput.click()"
+                :disabled="avatarUploading"
+                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {{ avatarUploading ? 'Uploading...' : 'Change Avatar' }}
+              </button>
+              <button
+                v-if="profileForm.avatarUrl"
+                type="button"
+                @click="handleRemoveAvatar"
+                :disabled="avatarUploading || removingAvatar"
+                class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
+              >
+                Remove
+              </button>
+            </div>
+            <p class="text-sm text-gray-400 mt-2">
+              Recommended: 128x128px, max 5MB. Supports JPG, PNG, GIF, WebP.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Basic Information -->
+      <div class="bg-gray-800 rounded-lg p-6 space-y-4">
+        <h2 class="text-lg font-semibold text-white mb-4">Basic Information</h2>
+        
+        <!-- Username -->
+        <div>
+          <label for="username" class="block text-sm font-medium text-gray-300 mb-1">
+            Username
+          </label>
+          <input
+            id="username"
+            v-model="profileForm.username"
+            type="text"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Enter username"
+            required
+            :disabled="loading"
+          />
+          <p class="text-xs text-gray-400 mt-1">
+            This is your unique identifier for login.
+          </p>
+        </div>
+
+        <!-- Global Nickname -->
+        <div>
+          <label for="globalNickname" class="block text-sm font-medium text-gray-300 mb-1">
+            Display Name
+          </label>
+          <input
+            id="globalNickname"
+            v-model="profileForm.globalNickname"
+            type="text"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Enter display name"
+            :disabled="loading"
+          />
+          <p class="text-xs text-gray-400 mt-1">
+            This is how you'll appear to others across all servers.
+          </p>
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-300 mb-1">
+            Email
+          </label>
+          <input
+            id="email"
+            v-model="profileForm.email"
+            type="email"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Enter email"
+            required
+            :disabled="loading"
+          />
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="flex justify-end space-x-3">
+        <button
+          type="button"
+          @click="resetForm"
+          :disabled="loading || !hasChanges"
+          class="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Reset
+        </button>
+        <button
+          type="submit"
+          :disabled="loading || !hasChanges"
+          class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+        >
+          <span>{{ loading ? 'Saving...' : 'Save Changes' }}</span>
+          <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+        </button>
+      </div>
+    </form>
+
+    <!-- Password Change Section -->
+    <div class="mt-8 bg-gray-800 rounded-lg p-6">
+      <h2 class="text-lg font-semibold text-white mb-4">Change Password</h2>
+      <form @submit.prevent="handleChangePassword" class="space-y-4">
+        <div>
+          <label for="currentPassword" class="block text-sm font-medium text-gray-300 mb-1">
+            Current Password
+          </label>
+          <input
+            id="currentPassword"
+            v-model="passwordForm.currentPassword"
+            type="password"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Enter current password"
+            required
+            :disabled="changingPassword"
+          />
         </div>
         <div>
-            <h1 class="text-3xl font-bold tracking-tight">User Settings</h1>
-            <p class="mt-1 text-sm text-gray-400">Manage your account and preferences</p>
+          <label for="newPassword" class="block text-sm font-medium text-gray-300 mb-1">
+            New Password
+          </label>
+          <input
+            id="newPassword"
+            v-model="passwordForm.newPassword"
+            type="password"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Enter new password"
+            required
+            minlength="8"
+            :disabled="changingPassword"
+          />
         </div>
-      </header>
-
-      <!-- Profile Information Section Card -->
-      <div class="bg-gray-800/50 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden mb-8">
-        <form @submit.prevent="handleUpdateProfile">
-          <!-- Card Header -->
-          <div class="p-6 border-b border-gray-700/50">
-            <h2 class="text-lg font-semibold leading-6">Profile Information</h2>
-            <p class="mt-1 text-sm text-gray-400">This information may be visible to other users.</p>
-          </div>
-          
-          <!-- Card Body -->
-          <div class="p-6 space-y-6">
-            <!-- Avatar -->
-            <div class="flex items-center gap-x-5">
-                <UserAvatar
-                  :avatar-url="authStore.user?.profilePictureUrl"
-                  :username="profileForm.username || authStore.user?.username || ''"
-                  :size="80"
-                />
-                <div>
-                    <button type="button" class="btn-secondary">
-                        Change Avatar
-                    </button>
-                    <p class="text-xs text-gray-400 mt-2">PNG, JPG, GIF up to 5MB.</p>
-                </div>
-            </div>
-
-            <!-- Form Fields -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                    <label for="username" class="form-label">Username</label>
-                    <input v-model="profileForm.username" type="text" id="username" class="form-input" />
-                    <p v-if="profileErrors.username" class="form-error">{{ profileErrors.username }}</p>
-                </div>
-                <div>
-                    <label for="email" class="form-label">Email Address</label>
-                    <input v-model="profileForm.email" type="email" id="email" class="form-input" />
-                    <p v-if="profileErrors.email" class="form-error">{{ profileErrors.email }}</p>
-                </div>
-            </div>
-            <!-- General Error Message -->
-            <div v-if="profileErrors.general" class="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-sm text-red-400">
-                {{ profileErrors.general }}
-            </div>
-          </div>
-          
-          <!-- Card Footer with Actions -->
-          <div class="bg-gray-900/40 px-6 py-4 flex items-center justify-between">
-            <transition name="fade">
-              <p v-if="profileSuccessMessage" class="text-sm font-medium text-green-400">
-                ✓ {{ profileSuccessMessage }}
-              </p>
-            </transition>
-            <button :disabled="isProfileLoading" type="submit" class="btn-primary ml-auto">
-              <span v-if="!isProfileLoading">Save Changes</span>
-              <span v-else class="flex items-center">
-                <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5" />
-                Saving...
-              </span>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Password Change Section Card -->
-      <div class="bg-gray-800/50 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden">
-         <form @submit.prevent="handleUpdatePassword">
-            <div class="p-6 border-b border-gray-700/50">
-               <h2 class="text-lg font-semibold leading-6">Change Password</h2>
-               <p class="mt-1 text-sm text-gray-400">For your security, we recommend using a strong password.</p>
-            </div>
-            <div class="p-6 space-y-6">
-                <div>
-                   <label for="current-password" class="form-label">Current Password</label>
-                   <input v-model="passwordForm.currentPassword" type="password" id="current-password" class="form-input" required />
-                   <p v-if="passwordErrors.currentPassword" class="form-error">{{ passwordErrors.currentPassword }}</p>
-                </div>
-                <div>
-                   <label for="new-password" class="form-label">New Password</label>
-                   <input v-model="passwordForm.newPassword" type="password" id="new-password" class="form-input" required />
-                   <p v-if="passwordErrors.newPassword" class="form-error">{{ passwordErrors.newPassword }}</p>
-                </div>
-            </div>
-            <div class="bg-gray-900/40 px-6 py-4 flex items-center justify-between">
-                <transition name="fade">
-                    <p v-if="passwordSuccessMessage" class="text-sm font-medium text-green-400">
-                        ✓ {{ passwordSuccessMessage }}
-                    </p>
-                </transition>
-                <button :disabled="isPasswordLoading" type="submit" class="btn-primary ml-auto">
-                    <span v-if="!isPasswordLoading">Update Password</span>
-                    <span v-else class="flex items-center">
-                        <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5" />
-                        Updating...
-                    </span>
-                </button>
-            </div>
-         </form>
-      </div>
-      <!-- Logout szekció -->
-      <div class="mt-8 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-2xl">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium text-white">Logout</p>
-            <p class="text-sm text-gray-400">You will be logged out of your account.</p>
-          </div>
-          <button @click="isLoggingOutModalOpen = true" class="btn-warning flex-shrink-0">
-            Logout
+        <div>
+          <label for="confirmPassword" class="block text-sm font-medium text-gray-300 mb-1">
+            Confirm New Password
+          </label>
+          <input
+            id="confirmPassword"
+            v-model="passwordForm.confirmPassword"
+            type="password"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            placeholder="Confirm new password"
+            required
+            :disabled="changingPassword"
+          />
+        </div>
+        <div class="flex justify-end">
+          <button
+            type="submit"
+            :disabled="changingPassword || !isPasswordFormValid"
+            class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+          >
+            <span>{{ changingPassword ? 'Changing...' : 'Change Password' }}</span>
+            <Loader2 v-if="changingPassword" class="w-4 h-4 animate-spin" />
           </button>
         </div>
-      </div>
-      <!-- Danger Zone szekció -->
-      <div class="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-2xl">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium text-white">Delete your account</p>
-            <p class="text-sm text-gray-400">Once you delete your account, there is no going back.</p>
-          </div>
-          <button @click="isDeleteModalOpen = true" class="btn-danger flex-shrink-0">
-            Delete Account
-          </button>
-        </div>
-      </div>
-
+      </form>
     </div>
+
+    <!-- Danger Zone -->
+    <div class="mt-8 bg-red-900/20 border border-red-900/50 rounded-lg p-6">
+      <h2 class="text-lg font-semibold text-red-400 mb-4">Danger Zone</h2>
+      <p class="text-gray-300 mb-4">
+        Once you delete your account, there is no going back. Please be certain.
+      </p>
+      <button
+        @click="showDeleteConfirm = true"
+        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+      >
+        Delete Account
+      </button>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmModal
+      v-if="showDeleteConfirm"
+      @close="showDeleteConfirm = false"
+      @confirm="handleDeleteAccount"
+      title="Delete Account"
+      message="Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed."
+      confirm-text="Delete My Account"
+      :is-loading="deletingAccount"
+      intent="danger"
+    />
   </div>
-  <!-- Fiók kijelentkezés megerősítése -->
-  <ConfirmModal
-    v-model="isLoggingOutModalOpen"
-    title="Logout"
-    message="Are you sure you want to log out?"
-    confirm-text="Log Out"
-    :is-loading="isLoggingOut"
-    @confirm="handleLogout"
-    intent="warning"
-  />
-  <!-- Fiók törlés megerősítése -->
-  <ConfirmModal
-    v-model="isDeleteModalOpen"
-    title="Delete Account"
-    message="Are you absolutely sure you want to delete your account? All of your servers and messages will be permanently removed. 
-    
-    This action cannot be undone!"
-    confirm-text="Delete Account"
-    :is-loading="isDeleting"
-    @confirm="handleDeleteAccount"
-    intent="danger"
-  />
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { UserCircle, Loader2 } from 'lucide-vue-next';
-import UserAvatar from '@/components/common/UserAvatar.vue';
-import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import { useUserDisplay } from '@/composables/useUserDisplay';
+import { useToast } from '@/composables/useToast';
 import userService from '@/services/userService';
+import uploadService from '@/services/uploadService';
+import { Camera, Loader2 } from 'lucide-vue-next';
+import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type { UpdateProfilePayload, UpdatePasswordPayload } from '@/services/types';
 
-// --- General Settings ---
+// Composables
+const router = useRouter();
 const authStore = useAuthStore();
+const { getDisplayName, getAvatarUrl } = useUserDisplay();
+const { addToast } = useToast();
 
-// --- Profile Update State ---
-const isProfileLoading = ref(false);
-const profileSuccessMessage = ref('');
-const profileErrors = reactive<Record<string, string>>({});
-const profileForm = reactive<UpdateProfilePayload>({
+// State
+const loading = ref(false);
+const avatarUploading = ref(false);
+const uploadProgress = ref(0);
+const removingAvatar = ref(false);
+const changingPassword = ref(false);
+const deletingAccount = ref(false);
+const showDeleteConfirm = ref(false);
+
+// Forms
+const originalProfile = ref({
   username: '',
-  email: ''
+  email: '',
+  globalNickname: '',
+  avatarUrl: ''
 });
 
-// --- Password Update State ---
-const isPasswordLoading = ref(false);
-const passwordSuccessMessage = ref('');
-const passwordErrors = reactive<Record<string, string>>({});
-const passwordForm = reactive<UpdatePasswordPayload>({
+const profileForm = ref({
+  username: '',
+  email: '',
+  globalNickname: '',
+  avatarUrl: ''
+});
+
+const passwordForm = ref({
   currentPassword: '',
-  newPassword: ''
+  newPassword: '',
+  confirmPassword: ''
 });
 
-// --- State for account deletion ---
-const isDeleteModalOpen = ref(false);
-const isDeleting = ref(false);
+const previewAvatar = ref<string>('');
 
-// --- State for logging out ---
-const isLoggingOutModalOpen = ref(false);
-const isLoggingOut = ref(false);
-
-// --- Watch for auth store user changes ---
-watch(
-  () => authStore.user,
-  (newUser) => {
-    if (newUser) {
-      profileForm.username = newUser.username;
-      profileForm.email = newUser.email || '';
-    }
-  },
-  { immediate: true, deep: true } // immediate: true ensures it runs on mount too
-);
-
-
-// --- Load user data ---
-onMounted(async () => {
-  // Ha nincs még user adat, vagy hiányzik az email, fetch-eljük
-  if (!authStore.user?.email) {
-    try {
-      const response = await userService.getProfile();
-      
-      // Update auth store with complete user data
-      authStore.updateUserData({
-        username: response.data.username,
-        email: response.data.email,
-        profilePictureUrl: response.data.profilePictureUrl
-      });
-      
-      // The watch will automatically update profileForm
-    } catch (error) {
-      console.error('Failed to fetch user profile:', error);
-      profileErrors.general = "Could not load profile data. Please refresh the page.";
-    }
-  }
+// Computed
+const hasChanges = computed(() => {
+  return JSON.stringify(profileForm.value) !== JSON.stringify(originalProfile.value);
 });
 
-// --- Profile Update Logic ---
-const validateProfile = (): boolean => {
-  Object.keys(profileErrors).forEach(key => delete profileErrors[key]);
-  let isValid = true;
-  if (profileForm.username.length < 3 || profileForm.username.length > 20) {
-    profileErrors.username = 'Username must be between 3 and 20 characters.';
-    isValid = false;
+const isPasswordFormValid = computed(() => {
+  return passwordForm.value.currentPassword.length > 0
+    && passwordForm.value.newPassword.length >= 8
+    && passwordForm.value.newPassword === passwordForm.value.confirmPassword;
+});
+
+// Methods
+const loadProfile = async () => {
+  try {
+    const profile = await authStore.fetchUserProfile();
+    if (profile) {
+      const data = {
+        username: profile.username,
+        email: profile.email,
+        globalNickname: profile.globalNickname || '',
+        avatarUrl: profile.avatarUrl || profile.profilePictureUrl || ''
+      };
+      originalProfile.value = { ...data };
+      profileForm.value = { ...data };
+      previewAvatar.value = data.avatarUrl;
+    }
+  } catch (error) {
+    addToast({
+      type: 'danger',
+      message: 'Failed to load profile'
+    });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email)) {
-    profileErrors.email = 'Please enter a valid email address.';
-    isValid = false;
+};
+
+const handleAvatarUpload = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  if (!input.files || input.files.length === 0) return;
+  
+  const file = input.files[0];
+  
+  try {
+    avatarUploading.value = true;
+    uploadProgress.value = 0;
+    
+    // Upload avatar
+    const uploadResult = await uploadService.uploadAvatar(file, {
+      onProgress: (progress) => {
+        uploadProgress.value = progress.percentage;
+      }
+    });
+    
+    // Update form and preview
+    profileForm.value.avatarUrl = uploadResult.url;
+    previewAvatar.value = uploadResult.url;
+    
+    addToast({
+      type: 'success',
+      message: 'Avatar uploaded successfully'
+    });
+  } catch (error: any) {
+    addToast({
+      type: 'danger',
+      message: error.message || 'Failed to upload avatar'
+    });
+  } finally {
+    avatarUploading.value = false;
+    uploadProgress.value = 0;
+    input.value = ''; // Reset input
   }
-  return isValid;
+};
+
+const handleRemoveAvatar = async () => {
+  try {
+    removingAvatar.value = true;
+    
+    // Delete avatar on backend
+    await uploadService.deleteAvatar();
+    
+    // Update form and preview
+    profileForm.value.avatarUrl = '';
+    previewAvatar.value = '';
+    
+    addToast({
+      type: 'success',
+      message: 'Avatar removed successfully'
+    });
+  } catch (error) {
+    addToast({
+      type: 'danger',
+      message: 'Failed to remove avatar'
+    });
+  } finally {
+    removingAvatar.value = false;
+  }
 };
 
 const handleUpdateProfile = async () => {
-  profileSuccessMessage.value = '';
-  if (!validateProfile()) return;
-
-  isProfileLoading.value = true;
+  if (!hasChanges.value) return;
+  
   try {
-    await userService.updateProfile(profileForm);
+    loading.value = true;
     
-    // Use the new updateUserData method instead of direct mutation
+    const payload: UpdateProfilePayload = {
+      username: profileForm.value.username,
+      email: profileForm.value.email,
+      globalNickname: profileForm.value.globalNickname || undefined,
+      avatarUrl: profileForm.value.avatarUrl || undefined
+    };
+    
+    await userService.updateProfile(payload);
+    
+    // Update auth store
     authStore.updateUserData({
-      username: profileForm.username,
-      email: profileForm.email
+      username: payload.username,
+      email: payload.email,
+      globalNickname: payload.globalNickname,
+      avatarUrl: payload.avatarUrl
     });
     
-    profileSuccessMessage.value = 'Profile updated successfully!';
-    setTimeout(() => profileSuccessMessage.value = '', 3000);
+    // Update original values
+    originalProfile.value = { ...profileForm.value };
+    
+    addToast({
+      type: 'success',
+      message: 'Profile updated successfully'
+    });
+  } catch (error) {
+    addToast({
+      type: 'danger',
+      message: 'Failed to update profile'
+    });
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleChangePassword = async () => {
+  if (!isPasswordFormValid.value) return;
+  
+  try {
+    changingPassword.value = true;
+    
+    const payload: UpdatePasswordPayload = {
+      currentPassword: passwordForm.value.currentPassword,
+      newPassword: passwordForm.value.newPassword
+    };
+    
+    await userService.updatePassword(payload);
+    
+    // Reset form
+    passwordForm.value = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    };
+    
+    addToast({
+      type: 'success',
+      message: 'Password changed successfully'
+    });
   } catch (error: any) {
-    if (error.response?.status === 409) {
-      profileErrors.general = 'This username or email is already taken.';
-    } else {
-      profileErrors.general = 'An unexpected error occurred.';
-    }
+    addToast({
+      type: 'danger',
+      message: error.response?.data?.message || 'Failed to change password'
+    });
   } finally {
-    isProfileLoading.value = false;
+    changingPassword.value = false;
   }
 };
 
-// --- Password Update Logic ---
-const validatePassword = (): boolean => {
-    Object.keys(passwordErrors).forEach(key => delete passwordErrors[key]);
-    let isValid = true;
-    if (passwordForm.newPassword.length < 6) {
-        passwordErrors.newPassword = 'New password must be at least 6 characters.';
-        isValid = false;
-    }
-    if (passwordForm.newPassword === passwordForm.currentPassword) {
-        passwordErrors.newPassword = 'New password cannot be the same as the current one.';
-        isValid = false;
-    }
-    return isValid;
-}
-
-const handleUpdatePassword = async () => {
-    passwordSuccessMessage.value = '';
-    if (!validatePassword()) return;
-
-    isPasswordLoading.value = true;
-    try {
-        await userService.updatePassword(passwordForm);
-        passwordSuccessMessage.value = 'Password updated successfully!';
-        passwordForm.currentPassword = '';
-        passwordForm.newPassword = '';
-        setTimeout(() => passwordSuccessMessage.value = '', 3000);
-    } catch (error: any) {
-        if (error.response?.status === 400) {
-            passwordErrors.currentPassword = 'The current password you entered is incorrect.';
-        } else {
-            passwordErrors.currentPassword = 'An unexpected error occurred.';
-        }
-    } finally {
-        isPasswordLoading.value = false;
-    }
-};
-
-// --- Account Deletion Logic ---
 const handleDeleteAccount = async () => {
-  isDeleting.value = true;
   try {
+    deletingAccount.value = true;
+    
     await userService.deleteAccount();
-    await authStore.logout();
+    
+    addToast({
+      type: 'success',
+      message: 'Account deleted successfully'
+    });
+    
+    // Logout and redirect
+    authStore.logout();
+    router.push({ name: 'Login' });
   } catch (error) {
-    console.error('Failed to delete account:', error);
-    isDeleteModalOpen.value = false;
-    profileErrors.general = 'Failed to delete account. Please try again later.';
+    addToast({
+      type: 'danger',
+      message: 'Failed to delete account'
+    });
   } finally {
-    isDeleting.value = false;
+    deletingAccount.value = false;
+    showDeleteConfirm.value = false;
   }
 };
 
-const handleLogout = async () => {
-  isLoggingOut.value = true;
-  try {
-    await authStore.logout();
-  } catch (error) {
-    console.error('Failed to logout:', error);
-    isLoggingOutModalOpen.value = false;
-    profileErrors.general = 'Failed to logout. Please try again later.';
-  } finally {
-    isLoggingOut.value = false;
-  }
+const resetForm = () => {
+  profileForm.value = { ...originalProfile.value };
+  previewAvatar.value = originalProfile.value.avatarUrl;
 };
+
+// Load profile on mount
+onMounted(() => {
+  loadProfile();
+});
 </script>

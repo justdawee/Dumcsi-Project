@@ -77,7 +77,7 @@
         <UserAvatar
           :avatar-url="authStore.user?.profilePictureUrl"
           :username="authStore.user?.username || ''"
-          :size="32"
+          :size=
         />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">
@@ -90,6 +90,24 @@
         <RouterLink to="/settings/profile" title="Felhasználói beállítások">
           <Settings class="w-4 h-4 text-gray-400 hover:text-gray-200 cursor-pointer" />
         </RouterLink>
+      </div>
+    </div>
+    <!-- User info section -->
+    <div class="absolute bottom-0 left-0 right-0 bg-gray-900 p-3">
+      <div class="flex items-center gap-2">
+        <img 
+          :src="getAvatarUrl(authStore.user)" 
+          :alt="getDisplayName(authStore.user)"
+          class="w-8 h-8 rounded-full"
+        >
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-white truncate">
+            {{ getDisplayName(authStore.user) }}
+          </div>
+          <div class="text-xs text-gray-400 truncate">
+            @{{ authStore.user?.username }}
+          </div>
+        </div>
       </div>
     </div>
     <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
@@ -126,6 +144,7 @@ import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import channelService from '@/services/channelService';
 import type { ServerDetail, ChannelListItem, Role } from '@/services/types';
+import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Store ---
 const props = defineProps<{
@@ -138,6 +157,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const { addToast } = useToast();
+const { getDisplayName, getAvatarUrl } = useUserDisplay();
 
 // --- State ---
 const isEditModalOpen = ref(false);
