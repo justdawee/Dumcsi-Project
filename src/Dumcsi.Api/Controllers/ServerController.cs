@@ -1,5 +1,6 @@
 ﻿using Dumcsi.Api.Common;
 using Dumcsi.Api.Helpers;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -7,6 +8,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using SixLabors.ImageSharp;
@@ -20,7 +22,8 @@ namespace Dumcsi.Api.Controllers;
 public class ServerController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory, 
     IAuditLogService auditLogService,
-    IFileStorageService fileStorageService)
+    IFileStorageService fileStorageService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
@@ -199,6 +202,17 @@ public class ServerController(
             Icon = new { Old = oldValues.Icon, New = server.Icon },
             Public = new { Old = oldValues.Public, New = server.Public }
         };
+        
+        // Értesítjük a klienseket a szerver frissítéséről
+        var serverDto = new ServerDtos.ServerListItemDto 
+        {
+            Id = server.Id,
+            Name = server.Name,
+            Description = server.Description,
+            Icon = server.Icon,
+            Public = server.Public
+        };
+        await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto, cancellationToken);
 
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerUpdated, id, AuditLogTargetType.Server, changes);
 
@@ -226,8 +240,11 @@ public class ServerController(
 
         // Audit log bejegyzés a szerver törléséről
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerDeleted, id, AuditLogTargetType.Server);
+        
+        // Értesítjük a klienseket a szerver törléséről
+        await chatHubContext.Clients.All.SendAsync("ServerDeleted", id, cancellationToken);
 
-        return OkResponse("Server deleted successfully."); // <-- Szabványos válasz
+        return OkResponse("Server deleted successfully.");
     }
     
     [HttpGet("{id}/members")]
@@ -355,6 +372,9 @@ public class ServerController(
 
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberLeft, CurrentUserId, AuditLogTargetType.User, reason: "User left the server.");
 
+        // A frontend ez alapján tudja eltávolítani a usert a taglistából, és frissíteni a taglétszámot.
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserLeftServer", new { UserId = CurrentUserId, ServerId = id });
+        
         return OkResponse("Successfully left the server.");
     }
     
@@ -484,6 +504,17 @@ public class ServerController(
         
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberJoined, CurrentUserId, AuditLogTargetType.User, new { server.Name });
 
+        var userDto = new UserDtos.UserProfileDto 
+        {
+            Id = user.Id,
+            Username = user.Username,
+            GlobalNickname = user.GlobalNickname,
+            Avatar = user.Avatar
+        };
+        
+        // A frontend ez alapján tudja hozzáadni az új usert a taglistához, és frissíteni a taglétszámot.
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = id });
+        
         return OkResponse(new { ServerId = server.Id }, "Successfully joined server.");
     }
     
@@ -558,6 +589,17 @@ public class ServerController(
             // 7. Audit naplózás
             await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconChanged = newIconUrl });
 
+            var serverDto = new ServerDtos.ServerListItemDto
+            {
+                Id = server.Id,
+                Name = server.Name,
+                Description = server.Description,
+                Icon = newIconUrl,
+                Public = server.Public
+            };
+            
+            await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto);
+            
             return OkResponse(new { url = newIconUrl });
         }
         catch (Exception ex)
@@ -606,6 +648,17 @@ public class ServerController(
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconRemoved = oldIconUrl });
 
+        var serverDto = new ServerDtos.ServerListItemDto
+        {
+            Id = server.Id,
+            Name = server.Name,
+            Description = server.Description,
+            Icon = null, // Az ikon törölve lett
+            Public = server.Public
+        };
+        
+        await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto);
+        
         return OkResponse("Server icon deleted successfully.");
     }
 }

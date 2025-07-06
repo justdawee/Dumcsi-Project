@@ -1,11 +1,13 @@
 ﻿using System.Security.Cryptography;
 using Dumcsi.Api.Common;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -16,7 +18,7 @@ namespace Dumcsi.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/user")]
-public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IFileStorageService fileStorageService) 
+public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IFileStorageService fileStorageService, IHubContext<ChatHub> chatHubContext) 
     : BaseApiController(dbContextFactory)
 {
     [HttpGet("me")]
@@ -52,7 +54,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
     {
         if (!ModelState.IsValid)
         {
-            return BadRequestResponse("Invalid request data."); // <-- Szabványos válasz
+            return BadRequestResponse("Invalid request data.");
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -74,6 +76,18 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         user.Avatar = request.Avatar;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        
+        // Értesítjük a klienseket a profil frissítéséről
+        var updatedUserProfile = new UserDtos.UserProfileDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            GlobalNickname = user.GlobalNickname,
+            Email = user.Email,
+            Avatar = user.Avatar
+        };
+        
+        await chatHubContext.Clients.All.SendAsync("UserUpdated", updatedUserProfile, cancellationToken);
 
         return OkResponse("Profile updated successfully.");
     }
@@ -220,6 +234,18 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
             // 5. Adatbázis frissítése
             user.Avatar = newAvatarUrl;
             await dbContext.SaveChangesAsync();
+            
+            // 6. Értesítés a klienseknek
+            var updatedUserProfile = new UserDtos.UserProfileDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                GlobalNickname = user.GlobalNickname,
+                Email = user.Email,
+                Avatar = user.Avatar
+            };
+            
+            await chatHubContext.Clients.All.SendAsync("UserUpdated", updatedUserProfile);
 
             return OkResponse(new { url = newAvatarUrl });
         }
@@ -258,6 +284,17 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         // Adatbázis frissítése
         user.Avatar = null;
         await dbContext.SaveChangesAsync();
+        
+        // Értesítés a klienseknek
+        var updatedUserProfile = new UserDtos.UserProfileDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            GlobalNickname = user.GlobalNickname,
+            Email = user.Email,
+            Avatar = null // Az avatar URL-t null-ra állítjuk
+        };
+        await chatHubContext.Clients.All.SendAsync("UserUpdated", updatedUserProfile);
 
         return OkResponse("Avatar deleted successfully.");
     }

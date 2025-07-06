@@ -1,4 +1,5 @@
 ﻿using Dumcsi.Api.Common;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -6,6 +7,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -15,7 +17,8 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/invites")]
 public class InviteController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
-    IAuditLogService auditLogService)
+    IAuditLogService auditLogService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet("{inviteCode}")]
@@ -102,6 +105,16 @@ public class InviteController(
             AuditLogTargetType.User,
             reason: $"User joined via invite code: {invite.Code}"
         );
+        
+        var userDto = new UserDtos.UserProfileDto 
+        {
+            Id = user.Id,
+            Username = user.Username,
+            GlobalNickname = user.GlobalNickname,
+            Avatar = user.Avatar
+        };
+        // Értesítjük a szerver többi tagját, hogy új felhasználó érkezett.
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = serverId }, cancellationToken);
 
         return OkResponse(new { ServerId = serverId }, "Successfully joined server.");
     }

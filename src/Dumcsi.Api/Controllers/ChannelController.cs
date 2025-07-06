@@ -1,5 +1,6 @@
 ﻿using Dumcsi.Api.Common;
 using Dumcsi.Api.Helpers;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -7,6 +8,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using NodaTime.Extensions;
@@ -18,7 +20,8 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/channels")]
 public class ChannelController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
-    IAuditLogService auditLogService)
+    IAuditLogService auditLogService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet("{id}")]
@@ -87,8 +90,21 @@ public class ChannelController(
             Description = new { Old = oldValues.Description, New = channel.Description },
             Position = new { Old = oldValues.Position, New = channel.Position }
         };
-
+        
+        var channelDto = new ChannelDtos.ChannelDetailDto
+        {
+            Id = channel.Id,
+            Name = channel.Name,
+            Description = channel.Description,
+            Type = channel.Type,
+            Position = channel.Position,
+            CreatedAt = channel.CreatedAt
+        };
+        
         await auditLogService.LogAsync(channel.ServerId, CurrentUserId, AuditLogActionType.ChannelUpdated, channel.Id, AuditLogTargetType.Channel, changes);
+        
+        // Csak az adott szerver csoportjának küldjük!
+        await chatHubContext.Clients.Group(channel.ServerId.ToString()).SendAsync("ChannelUpdated", channelDto, cancellationToken);
 
         return OkResponse("Channel updated successfully.");
     }
@@ -116,6 +132,9 @@ public class ChannelController(
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ChannelDeleted, id, AuditLogTargetType.Channel, new { Name = deletedChannelName });
 
+        // Csak az adott szerver csoportjának küldjük!
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("ChannelDeleted", new { ServerId = serverId, ChannelId = id }, cancellationToken);
+        
         return OkResponse("Channel deleted successfully.");
     }
 }

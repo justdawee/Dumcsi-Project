@@ -1,5 +1,5 @@
-﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
+﻿using Dumcsi.Api.Helpers;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -7,6 +7,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -17,7 +18,8 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/server/{serverId}/roles")]
 public class RoleController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
-    IAuditLogService auditLogService)
+    IAuditLogService auditLogService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
@@ -96,6 +98,8 @@ public class RoleController(
             IsMentionable = newRole.IsMentionable
         };
         
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("RoleCreated", roleDto, cancellationToken);
+        
         return OkResponse(roleDto, "Role created successfully.");
     }
 
@@ -139,6 +143,19 @@ public class RoleController(
         };
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.RoleUpdated, role.Id, AuditLogTargetType.Role, changes);
+        
+        var roleDto = new ServerDtos.RoleDto
+        {
+            Id = role.Id,
+            Name = role.Name,
+            Color = role.Color,
+            Position = role.Position,
+            Permissions = role.Permissions,
+            IsHoisted = role.IsHoisted,
+            IsMentionable = role.IsMentionable
+        };
+        
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("RoleUpdated", roleDto, cancellationToken);
 
         return OkResponse("Role updated successfully.");
     }
@@ -171,6 +188,8 @@ public class RoleController(
 
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.RoleDeleted, roleId, AuditLogTargetType.Role, new { Name = deletedRoleName });
 
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("RoleDeleted", roleId, cancellationToken);
+        
         return OkResponse("Role deleted successfully.");
     }
 
@@ -213,6 +232,20 @@ public class RoleController(
         };
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.MemberRolesUpdated, memberId, AuditLogTargetType.User, changes);
+        
+        var newRolesDto = newRoles.Select(r => new ServerDtos.RoleDto {
+            Id = r.Id,
+            Name = r.Name,
+            Color = r.Color,
+            Position = r.Position,
+            Permissions = r.Permissions,
+            IsHoisted = r.IsHoisted,
+            IsMentionable = r.IsMentionable
+        }).ToList();
+        
+        var payload = new { ServerId = serverId, MemberId = memberId, Roles = newRolesDto };
+        
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("MemberRolesUpdated", payload, cancellationToken);
         
         return OkResponse("Member roles updated successfully.");
     }

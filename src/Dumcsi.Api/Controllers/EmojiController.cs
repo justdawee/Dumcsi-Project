@@ -1,5 +1,6 @@
 ﻿using Dumcsi.Api.Common;
 using Dumcsi.Api.Helpers;
+using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
@@ -7,6 +8,7 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using SixLabors.ImageSharp;
@@ -19,7 +21,8 @@ namespace Dumcsi.Api.Controllers;
 public class EmojiController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
-    IFileStorageService fileStorageService)
+    IFileStorageService fileStorageService,
+    IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
@@ -125,6 +128,11 @@ public class EmojiController(
             // 6. Audit Naplózás
             await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiAdded = emoji.Name });
 
+            // 7. Értesítés a klienseken keresztül
+            var emojiDto = new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl };
+            
+            await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("EmojiCreated", emojiDto);
+            
             return OkResponse(new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl }, "Emoji created successfully.");
         }
         catch (Exception ex)
@@ -159,6 +167,8 @@ public class EmojiController(
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiRemoved = deletedEmojiName });
 
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("EmojiDeleted", new { ServerId = serverId, EmojiId = emojiId });
+        
         return OkResponse("Emoji deleted successfully.");
     }
 }
