@@ -298,4 +298,33 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
 
         return OkResponse("Avatar deleted successfully.");
     }
+    
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers([FromQuery] string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+        {
+            return OkResponse(new List<UserDtos.UserProfileDto>());
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var users = await dbContext.Users
+            .AsNoTracking()
+            .Where(u => 
+                u.Username.ToLower().Contains(query.ToLower()) || 
+                (u.GlobalNickname != null && u.GlobalNickname.ToLower().Contains(query.ToLower()))
+            )
+            .Take(20) // Limitáljuk a találatok számát a teljesítmény érdekében
+            .Select(u => new UserDtos.UserProfileDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                GlobalNickname = u.GlobalNickname,
+                Avatar = u.Avatar
+            })
+            .ToListAsync(cancellationToken);
+
+        return OkResponse(users);
+    }
 }
