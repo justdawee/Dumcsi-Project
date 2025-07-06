@@ -36,11 +36,13 @@ builder.Services
 
 builder.Services.AddJwtAuthentication(builder.Configuration); // JWT alapú hitelesítés engedélyezése
 
-builder.Services.AddScoped<IAuditLogService, AuditLogService>(); // Audit log szolgáltatás regisztrálása
-
 builder.Services.AddScoped<IAuthService, AuthService>(); // Hitelesítési szolgáltatás regisztrálása
 
+builder.Services.AddSingleton<IFileStorageService, MinioFileStorageService>(); // Fájl tároló szolgáltatás regisztrálása
+
 builder.Services.AddSingleton<IPresenceService, PresenceService>(); // Online/Offline állapot szolgáltatás regisztrálása
+
+builder.Services.AddScoped<IAuditLogService, AuditLogService>(); // Audit log szolgáltatás regisztrálása
 
 var app = builder.Build(); // Alkalmazás létrehozása
 

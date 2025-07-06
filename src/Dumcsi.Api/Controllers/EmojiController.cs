@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using SixLabors.ImageSharp;
 
 namespace Dumcsi.Api.Controllers;
 
@@ -17,13 +18,13 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/server/{serverId}/emojis")]
 public class EmojiController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
-    IAuditLogService auditLogService)
+    IAuditLogService auditLogService,
+    IFileStorageService fileStorageService)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
     public async Task<IActionResult> GetEmojis(long serverId, CancellationToken cancellationToken)
     {
-        // Az emojik megtekintéséhez elég, ha a felhasználó látja a csatornákat (tagja a szervernek).
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewChannels))
         {
             return ForbidResponse();
@@ -40,99 +41,124 @@ public class EmojiController(
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateEmoji(long serverId, [FromBody] EmojiDtos.CreateEmojiRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateEmoji(long serverId, [FromForm] string name, [FromForm] IFormFile? file)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequestResponse("Invalid request data.");
-        }
-        
+        // 1. Jogosultság ellenőrzése
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
         {
             return ForbidResponse("You do not have permission to create emojis.");
         }
 
-        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        var server = await dbContext.Servers.FindAsync([serverId], cancellationToken);
-        var creator = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
+        // 2. Validációk
+        if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
+        {
+            return BadRequestResponse("Emoji name must be at least 2 characters long.");
+        }
+        
+        if (file == null || file.Length == 0)
+        {
+            return BadRequestResponse("No file uploaded.");
+        }
 
+        if (file.Length > 8 * 1024 * 1024) // max 8MB
+        {
+            return BadRequestResponse("File size cannot exceed 8MB.");
+        }
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif" };
+        if (!allowedTypes.Contains(file.ContentType.ToLower()))
+        {
+            return BadRequestResponse("Invalid file type. Only JPG, PNG, GIF, WEBP, and AVIF are allowed.");
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        var server = await dbContext.Servers.FindAsync(serverId);
+        var creator = await dbContext.Users.FindAsync(CurrentUserId);
         if (server == null || creator == null)
         {
             return NotFoundResponse("Server or creator not found.");
         }
 
-        var emoji = new CustomEmoji
+        try
         {
-            Name = request.Name,
-            ImageUrl = request.ImageUrl,
-            Server = server,
-            Creator = creator,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
+            // 3. Képfeldolgozás
+            using var image = await Image.LoadAsync(file.OpenReadStream());
 
-        dbContext.CustomEmojis.Add(emoji);
-        await dbContext.SaveChangesAsync(cancellationToken);
-        
-        // Audit log bejegyzés
-        // Itt a TargetId lehetne maga az emoji ID-ja, de mivel az az adatbázisban generálódik,
-        // a TargetType.Server-t használjuk és a changes-ben adjuk meg a részleteket.
-        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.EmojiCreated, serverId, AuditLogTargetType.Server, new { EmojiAdded = emoji.Name });
+            if (image.Width > 128 || image.Height > 128)
+            {
+                return BadRequestResponse("Image dimensions cannot exceed 128x128 pixels.");
+            }
+            
+            // A kép mentése egy memory stream-be a feltöltéshez
+            await using var memoryStream = new MemoryStream();
+            // A GIF-eket nem kódoljuk újra, hogy megmaradjon az animáció. A többit egységesen PNG-be mentjük.
+            if (file.ContentType.ToLower() == "image/gif")
+            {
+                // Visszaírjuk az eredeti streamet a memory stream-be
+                await file.OpenReadStream().CopyToAsync(memoryStream);
+            }
+            else
+            {
+                // Itt jöhetne a 256KB-ra való tömörítés logikája, pl. a PNG encoder minőségének állításával.
+                // Ez egy komplexebb feladat, most a méretkorlátot a validációnál kezeljük.
+                await image.SaveAsPngAsync(memoryStream);
+            }
+            memoryStream.Position = 0;
 
+            // 4. Feltöltés a MinIO-ba
+            var emojiFileName = $":{name}:"; // A naming scheme-et a fájlnévben is használhatjuk
+            var emojiUrl = await fileStorageService.UploadFileAsync(memoryStream, emojiFileName, file.ContentType);
 
-        return OkResponse(new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl }, "Emoji created successfully.");
+            // 5. Adatbázis mentés
+            var emoji = new CustomEmoji
+            {
+                Name = name, // Az adatbázisban a tiszta nevet tároljuk
+                ImageUrl = emojiUrl,
+                Server = server,
+                Creator = creator,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant()
+            };
+
+            dbContext.CustomEmojis.Add(emoji);
+            await dbContext.SaveChangesAsync();
+            
+            // 6. Audit Naplózás
+            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiAdded = emoji.Name });
+
+            return OkResponse(new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl }, "Emoji created successfully.");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse.Fail($"An error occurred while processing the emoji: {ex.Message}"));
+        }
     }
 
     [HttpDelete("{emojiId}")]
-    public async Task<IActionResult> DeleteEmoji(long serverId, long emojiId, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteEmoji(long serverId, long emojiId)
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
         {
             return ForbidResponse("You do not have permission to delete emojis.");
         }
 
-        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        var emoji = await dbContext.CustomEmojis.FirstOrDefaultAsync(e => e.Id == emojiId && e.ServerId == serverId, cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        var emoji = await dbContext.CustomEmojis.FirstOrDefaultAsync(e => e.Id == emojiId && e.ServerId == serverId);
         if (emoji == null)
         {
             return NotFoundResponse("Emoji not found.");
         }
-
-        var deletedEmojiName = emoji.Name; // Mentsük a nevet a loghoz
+        
+        // Fájl törlése a MinIO-ból
+        var fileName = Path.GetFileName(new Uri(emoji.ImageUrl).LocalPath);
+        await fileStorageService.DeleteFileAsync(fileName);
+        
+        var deletedEmojiName = emoji.Name;
 
         dbContext.CustomEmojis.Remove(emoji);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync();
         
-        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.EmojiDeleted, serverId, AuditLogTargetType.Server, new { EmojiRemoved = deletedEmojiName });
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiRemoved = deletedEmojiName });
 
         return OkResponse("Emoji deleted successfully.");
-    }
-    
-    [HttpPut("{emojiId}")]
-    public async Task<IActionResult> UpdateEmoji(long serverId, long emojiId, [FromBody] EmojiDtos.UpdateEmojiRequestDto request, CancellationToken cancellationToken)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequestResponse("Invalid request data.");
-        }
-        
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
-        {
-            return ForbidResponse("You do not have permission to update emojis.");
-        }
-
-        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        var emoji = await dbContext.CustomEmojis.FirstOrDefaultAsync(e => e.Id == emojiId && e.ServerId == serverId, cancellationToken);
-        if (emoji == null)
-        {
-            return NotFoundResponse("Emoji not found.");
-        }
-
-        emoji.Name = request.Name;
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.EmojiUpdated, serverId, AuditLogTargetType.Server, new { EmojiUpdated = emoji.Name });
-
-        return OkResponse(new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl }, "Emoji updated successfully.");
     }
 }

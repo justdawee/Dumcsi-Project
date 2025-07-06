@@ -1,4 +1,5 @@
-﻿using Dumcsi.Api.Helpers;
+﻿using Dumcsi.Api.Common;
+using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -19,6 +20,7 @@ namespace Dumcsi.Api.Controllers;
 public class MessageController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
@@ -32,14 +34,10 @@ public class MessageController(
         if (!hasPermission) return ForbidResponse("You do not have permission to send messages in this channel.");
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        
-        var channel = await dbContext.Channels.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId, cancellationToken);
-        var author = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
 
-        if (channel == null || author == null)
-        {
-            return NotFoundResponse("Channel or user not found.");
-        }
+        var channel = await dbContext.Channels.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId, cancellationToken);
+        var author = await dbContext.Users.FindAsync(new object[] { CurrentUserId }, cancellationToken);
+        if (channel == null || author == null) return NotFoundResponse("Channel or user not found.");
 
         var message = new Message
         {
@@ -49,17 +47,24 @@ public class MessageController(
             Timestamp = SystemClock.Instance.GetCurrentInstant(),
             Tts = request.Tts
         };
+        
+        if (request.AttachmentIds != null && request.AttachmentIds.Any())
+        {
+            var attachments = await dbContext.Attachments
+                .Where(a => request.AttachmentIds.Contains(a.Id))
+                .ToListAsync(cancellationToken);
+            message.Attachments = attachments;
+        }
 
         dbContext.Messages.Add(message);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
+
         var messageDto = MapMessageToDto(message);
         
-        // Üzenet szétküldése a SignalR Hub-on keresztül
         await chatHubContext.Clients
             .Group(channelId.ToString())
             .SendAsync("ReceiveMessage", messageDto, cancellationToken);
-        
+
         return OkResponse(messageDto, "Message sent successfully.");
     }
 
@@ -242,6 +247,56 @@ public class MessageController(
             .SendAsync("MessageDeleted", new { ChannelId = channelId, MessageId = messageId }, cancellationToken);
 
         return OkResponse("Message deleted successfully.");
+    }
+    
+    [HttpPost("~/api/channels/{channelId}/attachments")]
+    public async Task<IActionResult> UploadAttachment(long channelId, IFormFile? file)
+    {
+        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.AttachFiles);
+        if (!isMember) return ForbidResponse("You are not a member of this server.");
+        if (!hasPermission) return ForbidResponse("You do not have permission to attach files in this channel.");
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequestResponse("No file uploaded.");
+        }
+
+        // 1. Validáció a kérés alapján
+        if (file.Length > 50 * 1024 * 1024) // max 50MB
+        {
+            return BadRequestResponse("File size cannot exceed 50MB.");
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var fileUrl = await fileStorageService.UploadFileAsync(stream, file.FileName, file.ContentType);
+
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+            var attachment = new Attachment
+            {
+                FileName = file.FileName,
+                FileUrl = fileUrl,
+                FileSize = (int)file.Length,
+                ContentType = file.ContentType
+            };
+
+            dbContext.Attachments.Add(attachment);
+            await dbContext.SaveChangesAsync();
+
+            // Visszaadjuk a teljes attachment objektumot az ID-val együtt
+            return OkResponse(new MessageDtos.AttachmentDto {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileUrl = attachment.FileUrl,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse.Fail($"An error occurred during file upload: {ex.Message}"));
+        }
     }
     
     // --- Mapper ---

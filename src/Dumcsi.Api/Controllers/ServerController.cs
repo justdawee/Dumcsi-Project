@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using Dumcsi.Api.Common;
+﻿using Dumcsi.Api.Common;
 using Dumcsi.Api.Helpers;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -10,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace Dumcsi.Api.Controllers;
 
@@ -18,7 +19,8 @@ namespace Dumcsi.Api.Controllers;
 [Route("api/server")]
 public class ServerController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory, 
-    IAuditLogService auditLogService) 
+    IAuditLogService auditLogService,
+    IFileStorageService fileStorageService)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
@@ -50,7 +52,7 @@ public class ServerController(
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var user = await dbContext.Users.FindAsync(new object[] { CurrentUserId }, cancellationToken);
+        var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null) return Unauthorized();
 
         var server = new Server
@@ -483,5 +485,127 @@ public class ServerController(
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberJoined, CurrentUserId, AuditLogTargetType.User, new { server.Name });
 
         return OkResponse(new { ServerId = server.Id }, "Successfully joined server.");
+    }
+    
+    [HttpPost("{serverId}/icon")]
+    public async Task<IActionResult> UploadOrUpdateServerIcon(long serverId, IFormFile? file)
+    {
+        // 1. Jogosultság ellenőrzése
+        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
+        {
+            return ForbidResponse("You do not have permission to manage this server's icon.");
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequestResponse("No file uploaded.");
+        }
+
+        // 2. Validációk a kérés alapján
+        if (file.Length > 20 * 1024 * 1024) // max 20MB
+        {
+            return BadRequestResponse("File size cannot exceed 20MB.");
+        }
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLower()))
+        {
+            return BadRequestResponse("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
+        }
+        
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        var server = await dbContext.Servers.FindAsync(serverId);
+        if (server == null)
+        {
+            return NotFoundResponse("Server not found.");
+        }
+
+        try
+        {
+            // 3. Képfeldolgozás
+            using var image = await Image.LoadAsync(file.OpenReadStream());
+
+            if (image.Width > 1024 || image.Height > 1024)
+            {
+                return BadRequestResponse("Image dimensions cannot exceed 1024x1024 pixels.");
+            }
+            
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new Size(512, 512), // Nagyobb egységes méret a szerver ikonoknak
+                Mode = ResizeMode.Crop
+            }));
+
+            await using var memoryStream = new MemoryStream();
+            await image.SaveAsPngAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            // 4. Régi ikon törlése
+            if (!string.IsNullOrEmpty(server.Icon))
+            {
+                var oldFileName = Path.GetFileName(new Uri(server.Icon).LocalPath);
+                await fileStorageService.DeleteFileAsync(oldFileName);
+            }
+
+            // 5. Új ikon feltöltése
+            var newIconUrl = await fileStorageService.UploadFileAsync(memoryStream, $"{serverId}_icon.png", "image/png");
+
+            // 6. Adatbázis frissítése
+            server.Icon = newIconUrl;
+            server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+            await dbContext.SaveChangesAsync();
+            
+            // 7. Audit naplózás
+            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconChanged = newIconUrl });
+
+            return OkResponse(new { url = newIconUrl });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse.Fail($"An error occurred while processing the image: {ex.Message}"));
+        }
+    }
+
+    [HttpDelete("{serverId}/icon")]
+    public async Task<IActionResult> DeleteServerIcon(long serverId)
+    {
+        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
+        {
+            return ForbidResponse("You do not have permission to manage this server's icon.");
+        }
+        
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        var server = await dbContext.Servers.FindAsync(serverId);
+        if (server == null)
+        {
+            return NotFoundResponse("Server not found.");
+        }
+
+        if (string.IsNullOrEmpty(server.Icon))
+        {
+            return OkResponse("Server has no icon to delete.");
+        }
+
+        var oldIconUrl = server.Icon; // Elmentjük a loghoz
+
+        // Fájl törlése a MinIO-ból
+        try 
+        {
+            var fileName = Path.GetFileName(new Uri(oldIconUrl).LocalPath);
+            await fileStorageService.DeleteFileAsync(fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse.Fail($"Failed to delete server icon: {ex.Message}"));
+        }
+        
+        // Adatbázis frissítése
+        server.Icon = null;
+        server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        await dbContext.SaveChangesAsync();
+        
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconRemoved = oldIconUrl });
+
+        return OkResponse("Server icon deleted successfully.");
     }
 }
