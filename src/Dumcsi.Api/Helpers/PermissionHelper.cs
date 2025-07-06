@@ -17,9 +17,9 @@ public static class PermissionHelper
     /// <param name="requiredPermission">Az elvárt jogosultság.</param>
     /// <returns>True, ha a felhasználó rendelkezik a jogosultsággal.</returns>
     public static async Task<bool> HasPermissionForServerAsync(
-        this ControllerBase controller, 
-        IDbContextFactory<DumcsiDbContext> dbContextFactory, 
-        long serverId, 
+        this ControllerBase controller,
+        IDbContextFactory<DumcsiDbContext> dbContextFactory,
+        long serverId,
         Permission requiredPermission)
     {
         var userIdClaim = controller.User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -40,7 +40,7 @@ public static class PermissionHelper
         var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
 
         if (permissions.HasFlag(Permission.Administrator)) return true;
-        
+
         return permissions.HasFlag(requiredPermission);
     }
 
@@ -53,9 +53,9 @@ public static class PermissionHelper
     /// <param name="requiredPermission">Az elvárt jogosultság.</param>
     /// <returns>Egy (IsMember, HasPermission) tuple-t ad vissza.</returns>
     public static async Task<(bool IsMember, bool HasPermission)> CheckPermissionsForChannelAsync(
-        this ControllerBase controller, 
-        IDbContextFactory<DumcsiDbContext> dbContextFactory, 
-        long channelId, 
+        this ControllerBase controller,
+        IDbContextFactory<DumcsiDbContext> dbContextFactory,
+        long channelId,
         Permission requiredPermission)
     {
         var userIdClaim = controller.User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -63,9 +63,9 @@ public static class PermissionHelper
         {
             return (false, false);
         }
-        
+
         await using var dbContext = await dbContextFactory.CreateDbContextAsync();
-        
+
         var member = await dbContext.ServerMembers
             .AsNoTracking()
             .Where(m => m.UserId == userId && m.Server.Channels.Any(c => c.Id == channelId))
@@ -73,11 +73,50 @@ public static class PermissionHelper
             .FirstOrDefaultAsync();
 
         if (member == null) return (false, false);
-        
+
         var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
 
         if (permissions.HasFlag(Permission.Administrator)) return (true, true);
 
         return (true, permissions.HasFlag(requiredPermission));
+    }
+
+    /// <summary>
+    /// Visszaadja a bejelentkezett felhasználó tagsági állapotát és összesített jogosultságait egy adott csatornához.
+    /// </summary>
+    /// <returns>Egy (IsMember, Permissions) tuple-t ad vissza, ahol a Permissions a felhasználó összesített jogosultságait tartalmazza.</returns>
+    public static async Task<(bool IsMember, Permission Permissions)> GetPermissionsForChannelAsync(
+        this ControllerBase controller,
+        IDbContextFactory<DumcsiDbContext> dbContextFactory,
+        long channelId)
+    {
+        var userIdClaim = controller.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!long.TryParse(userIdClaim, out var userId))
+        {
+            return (false, Permission.None);
+        }
+
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+
+        var member = await dbContext.ServerMembers
+            .AsNoTracking()
+            .Where(m => m.UserId == userId && m.Server.Channels.Any(c => c.Id == channelId))
+            .Include(m => m.Roles)
+            .FirstOrDefaultAsync();
+
+        if (member == null)
+        {
+            return (false, Permission.None);
+        }
+
+        var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
+
+        // Ha a felhasználó adminisztrátor, a jogosultságaihoz hozzáadjuk az összes lehetséges jogosultságot.
+        if (permissions.HasFlag(Permission.Administrator))
+        {
+            return (true, (Permission)long.MaxValue); // A maximális érték minden flag-et bekapcsol
+        }
+
+        return (true, permissions);
     }
 }

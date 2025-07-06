@@ -32,6 +32,15 @@ public class MessageController(
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.SendMessages);
         if (!isMember) return ForbidResponse("You are not a member of this server.");
         if (!hasPermission) return ForbidResponse("You do not have permission to send messages in this channel.");
+        
+        if (request.MentionedRoleIds != null && request.MentionedRoleIds.Any())
+        {
+            var (member, permission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.MentionEveryone);
+            if (!member || !permission)
+            {
+                return ForbidResponse("You do not have permission to mention roles in this channel.");
+            }
+        }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -54,6 +63,47 @@ public class MessageController(
                 .Where(a => request.AttachmentIds.Contains(a.Id))
                 .ToListAsync(cancellationToken);
             message.Attachments = attachments;
+        }
+        
+        if (request.MentionedUserIds != null && request.MentionedUserIds.Any())
+        {
+            // Lekérdezzük a megemlített felhasználókat az adatbázisból
+            var mentionedUsers = await dbContext.Users
+                .Where(u => request.MentionedUserIds.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+            
+            // Hozzárendeljük őket az üzenet navigációs property-jéhez
+            message.MentionUsers = mentionedUsers;
+        }
+        
+        if (request.MentionedRoleIds != null && request.MentionedRoleIds.Any())
+        {
+            // Először lekérjük a felhasználó jogosultságait
+            var (member, permissions) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
+
+            if (!member) return ForbidResponse(); // Alapvető tagsági ellenőrzés
+
+            // Lekérdezzük a megemlíteni kívánt szerepköröket az adatbázisból
+            var mentionedRoles = await dbContext.Roles
+                .Where(r => r.ServerId == channel.ServerId && request.MentionedRoleIds.Contains(r.Id))
+                .ToListAsync(cancellationToken);
+            
+            // Ha a felhasználónak NINCS MentionEveryone joga, akkor egyesével ellenőrizzük a szerepköröket
+            if (!permissions.HasFlag(Permission.MentionEveryone))
+            {
+                // Végigmegyünk a szerepkörökön, amiket meg akart említeni
+                foreach (var role in mentionedRoles)
+                {
+                    // Ha csak egy is van köztük, ami nem említhető meg, visszautasítjuk a kérést.
+                    if (!role.IsMentionable)
+                    {
+                        return ForbidResponse($"You do not have permission to mention the '{role.Name}' role.");
+                    }
+                }
+            }
+        
+            // Ha a validáció sikeres, hozzárendeljük a szerepköröket az üzenethez
+            message.MentionRoles = mentionedRoles;
         }
 
         dbContext.Messages.Add(message);
@@ -317,6 +367,14 @@ public class MessageController(
             Timestamp = message.Timestamp,
             EditedTimestamp = message.EditedTimestamp,
             Tts = message.Tts ?? false,
+            Mentions = message.MentionUsers?.Select(u => new UserDtos.UserProfileDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                GlobalNickname = u.GlobalNickname,
+                Avatar = u.Avatar
+            }).ToList() ?? new List<UserDtos.UserProfileDto>(),
+            MentionRoleIds = message.MentionRoles?.Select(r => r.Id).ToList() ?? new List<long>(),
             Attachments = message.Attachments.Select(a => new MessageDtos.AttachmentDto
             {
                 Id = a.Id,

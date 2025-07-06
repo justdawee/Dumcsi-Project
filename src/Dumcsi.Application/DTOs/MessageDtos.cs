@@ -28,6 +28,8 @@ public class MessageDtos
         public string Content { get; set; } = string.Empty;
         public bool Tts { get; set; } = false;
         public List<long>? AttachmentIds { get; set; }
+        public List<long>? MentionedUserIds { get; set; }
+        public List<long>? MentionedRoleIds { get; set; }
     }
     
     public class UpdateMessageRequestDto
