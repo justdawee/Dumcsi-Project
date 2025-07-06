@@ -1,16 +1,52 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
+using Dumcsi.Domain.Interfaces;
 
 namespace Dumcsi.Api.Hubs;
 
 [Authorize]
-public class ChatHub : Hub
+public class ChatHub(IPresenceService presenceService) : Hub
 {
     // Memóriában tároljuk, hogy melyik csatornában (string) kik vannak (ConnectionId lista)
     // TODO: Redis cache használata a jobb teljesítmény érdekében, ha nagyobb terhelés várható
     private static readonly ConcurrentDictionary<string, List<string>> VoiceChannelUsers = new();
 
+    // --- Online/Offline állapotok kezelése ---
+    public override async Task OnConnectedAsync()
+    {
+        var userId = Context.UserIdentifier; // Bejelentkezett user ID-ja a tokenből
+        if (userId != null)
+        {
+            var isFirstConnection = await presenceService.UserConnected(userId, Context.ConnectionId);
+
+            // Csak akkor küldünk értesítést, ha ez volt a felhasználó első aktív kapcsolata
+            if (isFirstConnection)
+            {
+                // Értesítjük az összes többi klienst, hogy ez a user online lett
+                await Clients.Others.SendAsync("UserIsOnline", userId);
+            }
+        }
+        await base.OnConnectedAsync();
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null)
+        {
+            var wentOffline = await presenceService.UserDisconnected(userId, Context.ConnectionId);
+            
+            // Csak akkor küldünk értesítést, ha ez volt az utolsó aktív kapcsolata
+            if (wentOffline)
+            {
+                // Értesítjük az összes többi klienst, hogy ez a user offline lett
+                await Clients.Others.SendAsync("UserIsOffline", userId);
+            }
+        }
+        await base.OnDisconnectedAsync(exception);
+    }
+    
     // --- Text Chat Metódusok ---
     public async Task JoinChannel(string channelId)
     {

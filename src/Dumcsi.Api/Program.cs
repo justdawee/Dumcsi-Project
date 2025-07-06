@@ -40,6 +40,8 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>(); // Audit log sz
 
 builder.Services.AddScoped<IAuthService, AuthService>(); // Hitelesítési szolgáltatás regisztrálása
 
+builder.Services.AddSingleton<IPresenceService, PresenceService>(); // Online/Offline állapot szolgáltatás regisztrálása
+
 var app = builder.Build(); // Alkalmazás létrehozása
 
 // Database inicializálás védve
