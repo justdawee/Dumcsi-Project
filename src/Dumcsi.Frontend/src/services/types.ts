@@ -182,6 +182,13 @@ export interface EmojiDto {
 }
 
 // --- Payloads ---
+export interface JwtPayload {
+  sub: string;
+  username: string;
+  profilePictureUrl?: string;
+  exp: number;
+}
+
 export interface LoginPayload {
   usernameOrEmail: string;
   password: string;

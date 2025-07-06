@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import router from '@/router';
+import { RouteNames } from '@/router';
+import { useAppStore } from './app';
 import authService from '@/services/authService';
 import userService from '@/services/userService';
+import { signalRService } from '@/services/signalrService';
 import { jwtDecode } from 'jwt-decode';
-import { RouteNames } from '@/router';
-import { initializeSignalR, stopSignalR } from '@/services/signalrService';
 import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -37,7 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  const checkAuth = async () => { // Make this async
+  const checkAuth = async () => {
     if (!token.value) {
       user.value = null;
       return;
@@ -48,7 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
       const isExpired = Date.now() >= payload.exp * 1000;
 
       if (isExpired) {
-        logout();
+        await logout();
       } else {
         // Set basic user info from token
         user.value = {
@@ -68,7 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (e) {
       console.error("Invalid token found, logging out.", e);
-      logout();
+      await logout();
     }
   };
   
@@ -77,10 +78,10 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       const tokenData = await authService.login(credentials);
-      setToken(tokenData.accessToken);
+      setToken(tokenData.token);
       
       // Sikeres bejelentkezés után indítjuk a SignalR kapcsolatot
-      initializeSignalR(); 
+      await signalRService.initialize();
 
       await checkAuth();
 
@@ -109,11 +110,11 @@ export const useAuthStore = defineStore('auth', () => {
   
   const logout = async () => {
     // Kijelentkezéskor leállítjuk a SignalR kapcsolatot
-    stopSignalR(); 
+    await signalRService.stop();
 
     setToken(null);
     user.value = null;
-    useAppStore().reset(); // App store resetelése, hogy ne maradjanak ott régi adatok
+    useAppStore().$reset(); // App store resetelése, hogy ne maradjanak ott régi adatok
     if (router.currentRoute.value.name !== 'Login') {
        await router.push({ name: 'Login' });
     }
