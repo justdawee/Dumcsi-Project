@@ -16,6 +16,17 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
     {
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         
+        // Külön ellenőrizzük a felhasználónevet és az email címet
+        if (await dbContext.Users.AnyAsync(u => u.Username == request.Username, cancellationToken))
+        {
+            return Result.Failure("AUTH_USERNAME_TAKEN");
+        }
+        
+        if (await dbContext.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
+        {
+            return Result.Failure("AUTH_EMAIL_TAKEN");
+        }
+
         var salt = RandomNumberGenerator.GetBytes(16);
         var hash = KeyDerivation.Pbkdf2(request.Password, salt, KeyDerivationPrf.HMACSHA256, 10000, 32);
         byte[] passwordHash = new byte[salt.Length + hash.Length];
@@ -40,7 +51,8 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
         }
         catch (DbUpdateException)
         {
-            return Result.Failure("This username or email is already taken.");
+            // Fallback hiba, ha versenyhelyzet miatt mégis ütközés lenne
+            return Result.Failure("AUTH_REGISTRATION_CONFLICT");
         }
     }
 
@@ -51,7 +63,8 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
         var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Username == request.UsernameOrEmail || x.Email == request.UsernameOrEmail, cancellationToken);
         if (user == null)
         {
-            return Result.Failure<TokenResponseDto>("Invalid username or password.");
+            // Külön kezeljük, ha a felhasználó nem létezik
+            return Result.Failure<TokenResponseDto>("AUTH_USER_NOT_FOUND");
         }
         
         var salt = new byte[16];
@@ -64,7 +77,8 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
 
         if (!providedPasswordHash.SequenceEqual(user.PasswordHash))
         {
-            return Result.Failure<TokenResponseDto>("Invalid username or password.");
+            // Külön kezeljük, ha a jelszó hibás
+            return Result.Failure<TokenResponseDto>("AUTH_INVALID_PASSWORD");
         }
 
         return await GenerateAndSaveTokensAsync(user, dbContext, cancellationToken);
@@ -78,14 +92,9 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
             .Include(rt => rt.User)
             .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
 
-        if (savedRefreshToken == null)
+        if (savedRefreshToken == null || savedRefreshToken.ExpiresAt < SystemClock.Instance.GetCurrentInstant())
         {
-            return Result.Failure<TokenResponseDto>("Invalid refresh token.");
-        }
-
-        if (savedRefreshToken.ExpiresAt < SystemClock.Instance.GetCurrentInstant())
-        {
-            return Result.Failure<TokenResponseDto>("Refresh token has expired.");
+            return Result.Failure<TokenResponseDto>("AUTH_INVALID_REFRESH_TOKEN");
         }
 
         dbContext.UserRefreshTokens.Remove(savedRefreshToken);
