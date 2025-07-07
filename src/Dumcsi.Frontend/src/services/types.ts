@@ -294,6 +294,7 @@ export interface MessageDeletedPayload {
 
 export interface UserServerPayload {
   serverId: EntityId;
+  serverName: string;
   userId: EntityId;
   user?: UserDto;
 }

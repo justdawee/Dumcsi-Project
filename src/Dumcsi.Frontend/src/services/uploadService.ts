@@ -1,247 +1,219 @@
 import api from './api';
-import type { UploadResponse } from './types';
-
-interface UploadProgress {
-  loaded: number;
-  total: number;
-  percentage: number;
-}
+import type { AxiosProgressEvent } from 'axios';
 
 interface UploadOptions {
-  onProgress?: (progress: UploadProgress) => void;
-  maxSizeInMB?: number;
-  allowedTypes?: string[];
+  onProgress?: (progress: number) => void;
+}
+
+interface UploadResponse {
+  url: string;
+  fileName?: string;
+  fileSize?: number;
 }
 
 class UploadService {
-  // File size limits (in MB)
-  private readonly limits = {
-    avatar: 5,
-    serverIcon: 5,
-    emoji: 2,
-    attachment: 25
-  };
+  // Maximum file sizes (in bytes)
+  private readonly MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
+  private readonly MAX_SERVER_ICON_SIZE = 5 * 1024 * 1024; // 5MB
+  private readonly MAX_EMOJI_SIZE = 2 * 1024 * 1024; // 2MB
+  private readonly MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB
 
   // Allowed file types
-  private readonly allowedTypes = {
-    avatar: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-    serverIcon: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-    emoji: ['image/png', 'image/gif', 'image/webp'],
-    attachment: [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'video/mp4', 'video/webm', 'video/ogg',
-      'audio/mpeg', 'audio/ogg', 'audio/wav',
-      'application/pdf', 'text/plain',
-      'application/zip', 'application/x-rar-compressed'
-    ]
-  };
+  private readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  private readonly ALLOWED_ATTACHMENT_TYPES = [
+    ...this.ALLOWED_IMAGE_TYPES,
+    'application/pdf',
+    'text/plain',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'video/mp4',
+    'video/webm',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/webm'
+  ];
 
   /**
-   * Validates file before upload
+   * Upload user avatar
    */
-  private validateFile(file: File, type: keyof typeof this.limits, options?: UploadOptions): void {
-    // Check file size
-    const maxSize = (options?.maxSizeInMB || this.limits[type]) * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new Error(`File size exceeds ${options?.maxSizeInMB || this.limits[type]}MB limit`);
-    }
-
-    // Check file type
-    const allowedTypes = options?.allowedTypes || this.allowedTypes[type];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error(`File type ${file.type} is not allowed. Allowed types: ${allowedTypes.join(', ')}`);
-    }
-  }
-
-  /**
-   * Creates FormData and configures upload request
-   */
-  private createFormData(file: File, additionalData?: Record<string, any>): FormData {
+  async uploadAvatar(file: File, options?: UploadOptions): Promise<UploadResponse> {
+    this.validateImage(file, this.MAX_AVATAR_SIZE, 'Avatar');
+    
     const formData = new FormData();
     formData.append('file', file);
 
-    if (additionalData) {
-      Object.entries(additionalData).forEach(([key, value]) => {
-        formData.append(key, value);
-      });
-    }
-
-    return formData;
-  }
-
-  /**
-   * Uploads user avatar
-   */
-  async uploadAvatar(file: File, options?: UploadOptions): Promise<UploadResponse> {
-    this.validateFile(file, 'avatar', options);
-    
-    const formData = this.createFormData(file);
-    
     const response = await api.post<UploadResponse>('/user/me/avatar', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
-      onUploadProgress: (progressEvent) => {
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (options?.onProgress && progressEvent.total) {
-          const progress: UploadProgress = {
-            loaded: progressEvent.loaded,
-            total: progressEvent.total,
-            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          };
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           options.onProgress(progress);
         }
-      }
+      },
     });
-    
+
     return response.data;
   }
 
   /**
-   * Uploads server icon
+   * Upload server icon
    */
   async uploadServerIcon(serverId: number, file: File, options?: UploadOptions): Promise<UploadResponse> {
-    this.validateFile(file, 'serverIcon', options);
+    this.validateImage(file, this.MAX_SERVER_ICON_SIZE, 'Server icon');
     
-    const formData = this.createFormData(file);
-    
+    const formData = new FormData();
+    formData.append('file', file);
+
     const response = await api.post<UploadResponse>(`/server/${serverId}/icon`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
-      onUploadProgress: (progressEvent) => {
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (options?.onProgress && progressEvent.total) {
-          const progress: UploadProgress = {
-            loaded: progressEvent.loaded,
-            total: progressEvent.total,
-            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          };
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           options.onProgress(progress);
         }
-      }
+      },
     });
-    
+
     return response.data;
   }
 
   /**
-   * Uploads custom emoji
+   * Upload custom emoji
    */
-  async uploadEmoji(serverId: number, file: File, name: string, options?: UploadOptions): Promise<UploadResponse> {
-    this.validateFile(file, 'emoji', options);
+  async uploadEmoji(serverId: number, file: File, emojiName: string, options?: UploadOptions): Promise<UploadResponse> {
+    this.validateImage(file, this.MAX_EMOJI_SIZE, 'Emoji');
     
-    if (!name || name.length < 2 || name.length > 32) {
-      throw new Error('Emoji name must be between 2 and 32 characters');
-    }
-    
-    const formData = this.createFormData(file, { name });
-    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', emojiName);
+
     const response = await api.post<UploadResponse>(`/server/${serverId}/emojis`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
-      onUploadProgress: (progressEvent) => {
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (options?.onProgress && progressEvent.total) {
-          const progress: UploadProgress = {
-            loaded: progressEvent.loaded,
-            total: progressEvent.total,
-            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          };
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           options.onProgress(progress);
         }
-      }
+      },
     });
-    
+
     return response.data;
   }
 
   /**
-   * Uploads message attachment
+   * Upload message attachment
    */
   async uploadAttachment(channelId: number, file: File, options?: UploadOptions): Promise<UploadResponse> {
-    this.validateFile(file, 'attachment', options);
+    this.validateAttachment(file);
     
-    const formData = this.createFormData(file);
-    
+    const formData = new FormData();
+    formData.append('file', file);
+
     const response = await api.post<UploadResponse>(`/channels/${channelId}/attachments`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
-      onUploadProgress: (progressEvent) => {
+      onUploadProgress: (progressEvent: AxiosProgressEvent) => {
         if (options?.onProgress && progressEvent.total) {
-          const progress: UploadProgress = {
-            loaded: progressEvent.loaded,
-            total: progressEvent.total,
-            percentage: Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          };
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           options.onProgress(progress);
         }
-      }
+      },
     });
-    
+
     return response.data;
   }
 
   /**
-   * Uploads multiple attachments
+   * Upload multiple attachments
    */
   async uploadAttachments(
     channelId: number, 
     files: File[], 
-    options?: UploadOptions & { onFileProgress?: (fileIndex: number, progress: UploadProgress) => void }
+    options?: UploadOptions
   ): Promise<UploadResponse[]> {
-    const results: UploadResponse[] = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const uploadOptions: UploadOptions = {
-        ...options,
-        onProgress: options?.onFileProgress 
-          ? (progress) => options.onFileProgress!(i, progress)
-          : options?.onProgress
-      };
-      
-      try {
-        const result = await this.uploadAttachment(channelId, file, uploadOptions);
-        results.push(result);
-      } catch (error) {
-        console.error(`Failed to upload file ${file.name}:`, error);
-        throw error;
-      }
+    const uploadPromises = files.map((file, index) => 
+      this.uploadAttachment(channelId, file, {
+        onProgress: (progress) => {
+          if (options?.onProgress) {
+            // Calculate overall progress
+            const overallProgress = files.reduce((sum, _, i) => {
+              if (i < index) return sum + 100;
+              if (i === index) return sum + progress;
+              return sum;
+            }, 0) / files.length;
+            options.onProgress(Math.round(overallProgress));
+          }
+        }
+      })
+    );
+
+    return Promise.all(uploadPromises);
+  }
+
+  /**
+   * Validate image file
+   */
+  private validateImage(file: File, maxSize: number, fileType: string): void {
+    if (!this.ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      throw new Error(`${fileType} must be an image (JPEG, PNG, GIF, or WebP)`);
     }
-    
-    return results;
+
+    if (file.size > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024);
+      throw new Error(`${fileType} must be less than ${maxSizeMB}MB`);
+    }
+
+    // Additional validation for image dimensions could be added here
+    // This would require reading the image with FileReader and Image APIs
   }
 
   /**
-   * Deletes uploaded avatar
+   * Validate attachment file
    */
-  async deleteAvatar(): Promise<void> {
-    await api.delete('/user/me/avatar');
+  private validateAttachment(file: File): void {
+    if (!this.ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
+      throw new Error('File type not allowed. Please check supported file types.');
+    }
+
+    if (file.size > this.MAX_ATTACHMENT_SIZE) {
+      throw new Error('File must be less than 50MB');
+    }
   }
 
   /**
-   * Deletes server icon
+   * Generate a preview URL for a file
    */
-  async deleteServerIcon(serverId: number): Promise<void> {
-    await api.delete(`/server/${serverId}/icon`);
-  }
-
-  /**
-   * Helper to get file preview URL
-   */
-  getFilePreviewUrl(file: File): string {
+  generatePreviewUrl(file: File): string {
     return URL.createObjectURL(file);
   }
 
   /**
-   * Helper to revoke file preview URL (to prevent memory leaks)
+   * Revoke a preview URL to free memory
    */
-  revokeFilePreviewUrl(url: string): void {
+  revokePreviewUrl(url: string): void {
     URL.revokeObjectURL(url);
   }
 
   /**
-   * Helper to format file size
+   * Check if a file is an image
+   */
+  isImage(file: File): boolean {
+    return this.ALLOWED_IMAGE_TYPES.includes(file.type);
+  }
+
+  /**
+   * Format file size for display
    */
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
@@ -254,9 +226,4 @@ class UploadService {
   }
 }
 
-// Export singleton instance
-const uploadService = new UploadService();
-export default uploadService;
-
-// Export class and types for testing
-export { UploadService, type UploadProgress, type UploadOptions };
+export default new UploadService();

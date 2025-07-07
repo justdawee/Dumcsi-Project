@@ -86,69 +86,84 @@ const setupInterceptors = () => {
         switch (status) {
           case 401:
             // Unauthorized: Clear auth and redirect to login
-            authStore.logout();
-            router.push({ name: 'Login' });
-            addToast({
-              type: 'warning',
-              title: 'Session Expired',
-              message: 'Please login again to continue.',
-            });
-            break;
-            
-          case 403:
-            // Forbidden: User doesn't have permission
-            addToast({
-              type: 'danger',
-              title: 'Access Denied',
-              message: "You don't have permission to perform this action.",
-            });
-            break;
-            
-          case 404:
-            // Not Found: Resource doesn't exist
-            console.error('Resource not found:', error.config?.url);
-            // Let individual components handle 404s
-            break;
-            
-          case 422:
-            // Validation error
-            if (error.response.data?.errors) {
-              const errors = error.response.data.errors;
-              const firstError = Object.values(errors)[0];
+            if (authStore.isAuthenticated) {
+              authStore.logout();
+              router.push({ name: 'Login' });
               addToast({
-                type: 'danger',
-                title: 'Validation Error',
-                message: Array.isArray(firstError) ? firstError[0] : firstError,
+                type: 'warning',
+                title: 'Session Expired',
+                message: 'Please login again to continue.',
+                duration: 5000
               });
             }
             break;
             
+          case 403:
+            // Forbidden
+            addToast({
+              type: 'danger',
+              title: 'Access Denied',
+              message: 'You do not have permission to perform this action.',
+              duration: 5000
+            });
+            break;
+            
+          case 404:
+            // Not found
+            addToast({
+              type: 'warning',
+              title: 'Not Found',
+              message: errorMessage,
+              duration: 4000
+            });
+            break;
+            
+          case 429:
+            // Rate limited
+            addToast({
+              type: 'warning',
+              title: 'Too Many Requests',
+              message: 'Please slow down and try again later.',
+              duration: 5000
+            });
+            break;
+            
           case 500:
-            // Server error
+          case 502:
+          case 503:
+            // Server errors
             addToast({
               type: 'danger',
               title: 'Server Error',
-              message: 'Something went wrong on the server. Please try again later.',
+              message: 'Something went wrong on our end. Please try again later.',
+              duration: 5000
             });
             break;
             
           default:
             // Other errors
-            if (status >= 400) {
-              addToast({
-                type: 'danger',
-                title: `Error ${status}`,
-                message: errorMessage,
-              });
-            }
-            break;
+            addToast({
+              type: 'danger',
+              title: 'Error',
+              message: errorMessage,
+              duration: 5000
+            });
         }
       } else if (error.request) {
-        // Request was made but no response received
+        // Network error
         addToast({
           type: 'danger',
           title: 'Network Error',
           message: 'Unable to connect to the server. Please check your internet connection.',
+          duration: 5000
+        });
+      } else {
+        // Other errors
+        addToast({
+          type: 'danger',
+          title: 'Error',
+          message: error.message || 'An unexpected error occurred.',
+          duration: 5000
         });
       }
       
@@ -159,26 +174,19 @@ const setupInterceptors = () => {
 
 // Helper function to determine if success message should be shown
 const shouldShowSuccessMessage = (config: any): boolean => {
-  // Show success messages for POST, PUT, PATCH, DELETE operations
-  const method = config.method?.toUpperCase();
-  const showForMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+  // Show success messages for mutations (POST, PUT, PATCH, DELETE)
+  // but not for GET requests
+  const method = config.method?.toLowerCase();
+  const mutationMethods = ['post', 'put', 'patch', 'delete'];
   
-  // Don't show for certain endpoints (like sending messages)
-  const silentEndpoints = [
-    '/messages',
-    '/auth/login',
-    '/auth/register'
-  ];
+  // Skip success messages for certain endpoints
+  const skipEndpoints = ['/auth/login', '/auth/register', '/messages'];
+  const shouldSkip = skipEndpoints.some(endpoint => config.url?.includes(endpoint));
   
-  const isSilentEndpoint = silentEndpoints.some(endpoint => 
-    config.url?.includes(endpoint)
-  );
-  
-  return showForMethods.includes(method) && !isSilentEndpoint;
+  return mutationMethods.includes(method) && !shouldSkip;
 };
 
 // Initialize interceptors
 setupInterceptors();
 
 export default api;
-export type { ApiResponse };

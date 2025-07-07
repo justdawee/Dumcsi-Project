@@ -1,130 +1,96 @@
-import { computed, type ComputedRef } from 'vue';
-//import type { UserDto, UserProfile, ServerMember } from '@/services/types';
+import type { UserDto, UserProfile, UserSearchResult, ServerMember } from '@/services/types';
 
-// Type for any user-like object
-type UserLike = {
-  username: string;
-  globalNickname?: string | null;
-};
-
+/**
+ * Composable for handling user display logic
+ * Prioritizes GlobalNickname over Username
+ */
 export function useUserDisplay() {
   /**
-   * Gets the display name for a user (GlobalNickname or Username)
+   * Get display name for a user
+   * Prioritizes: GlobalNickname > Username
    */
-  const getDisplayName = (user: UserLike | null | undefined): string => {
+  const getDisplayName = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string => {
     if (!user) return 'Unknown User';
-    return user.globalNickname || user.username;
+    
+    // For UserSearchResult and UserProfile
+    if ('globalNickname' in user && user.globalNickname) {
+      return user.globalNickname;
+    }
+    
+    // For all user types
+    return user.username || 'Unknown User';
   };
 
   /**
-   * Creates a computed display name for reactive user objects
+   * Get avatar URL with fallback
    */
-  const createDisplayName = (user: ComputedRef<UserLike | null | undefined> | UserLike | null | undefined): ComputedRef<string> => {
-    return computed(() => {
-      const userData = typeof user === 'object' && 'value' in user! ? user.value : user;
-      return getDisplayName(userData);
-    });
+  const getAvatarUrl = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string | null => {
+    if (!user) return null;
+    
+    // Handle different property names
+    if ('profilePictureUrl' in user) {
+      return user.profilePictureUrl || null;
+    }
+    
+    if ('avatarUrl' in user) {
+      return user.avatarUrl || null;
+    }
+    
+    return null;
   };
 
   /**
-   * Formats a user mention for display in messages
+   * Generate initials from display name
    */
-  const formatMention = (user: UserLike & { id: number }): string => {
+  const getInitials = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string => {
+    const displayName = getDisplayName(user);
+    
+    const words = displayName.trim().split(/\s+/);
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    
+    return displayName.substring(0, 2).toUpperCase();
+  };
+
+  /**
+   * Format mention text for a user
+   */
+  const getMentionText = (user: UserDto | UserProfile | UserSearchResult | ServerMember): string => {
     return `@${getDisplayName(user)}`;
   };
 
   /**
-   * Gets initials from a user's display name (for avatar placeholders)
+   * Check if user has custom avatar
    */
-  const getInitials = (user: UserLike | null | undefined): string => {
-    const name = getDisplayName(user);
-    const parts = name.split(' ');
-    
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-    
-    return name.substring(0, 2).toUpperCase();
+  const hasCustomAvatar = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): boolean => {
+    return !!getAvatarUrl(user);
   };
 
   /**
-   * Gets avatar URL with fallback
+   * Get user color based on ID (for default avatars)
    */
-  const getAvatarUrl = (user: { avatarUrl?: string | null; profilePictureUrl?: string | null } | null | undefined): string => {
-    if (!user) return '/default-avatar.png';
-    return user.avatarUrl || user.profilePictureUrl || '/default-avatar.png';
-  };
-
-  /**
-   * Formats user status (online/offline)
-   */
-  const getUserStatus = (user: { isOnline?: boolean } | null | undefined): string => {
-    if (!user || user.isOnline === undefined) return 'offline';
-    return user.isOnline ? 'online' : 'offline';
-  };
-
-  /**
-   * Gets status color for UI elements
-   */
-  const getStatusColor = (user: { isOnline?: boolean } | null | undefined): string => {
-    const status = getUserStatus(user);
-    return status === 'online' ? 'bg-green-500' : 'bg-gray-500';
-  };
-
-  /**
-   * Searches for users by display name or username
-   */
-  const matchesSearch = (user: UserLike, searchQuery: string): boolean => {
-    if (!searchQuery) return true;
+  const getUserColor = (userId: number): string => {
+    const colors = [
+      '#7c3aed', // purple
+      '#2563eb', // blue
+      '#10b981', // emerald
+      '#f59e0b', // amber
+      '#ef4444', // red
+      '#8b5cf6', // violet
+      '#06b6d4', // cyan
+      '#84cc16', // lime
+    ];
     
-    const query = searchQuery.toLowerCase();
-    const username = user.username.toLowerCase();
-    const globalNickname = user.globalNickname?.toLowerCase() || '';
-    
-    return username.includes(query) || globalNickname.includes(query);
-  };
-
-  /**
-   * Sorts users by display name
-   */
-  const sortByDisplayName = (users: UserLike[]): UserLike[] => {
-    return [...users].sort((a, b) => {
-      const nameA = getDisplayName(a).toLowerCase();
-      const nameB = getDisplayName(b).toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-  };
-
-  /**
-   * Groups users by first letter of display name
-   */
-  const groupByFirstLetter = (users: UserLike[]): Record<string, UserLike[]> => {
-    const groups: Record<string, UserLike[]> = {};
-    
-    users.forEach(user => {
-      const firstLetter = getDisplayName(user)[0].toUpperCase();
-      if (!groups[firstLetter]) {
-        groups[firstLetter] = [];
-      }
-      groups[firstLetter].push(user);
-    });
-    
-    return groups;
+    return colors[userId % colors.length];
   };
 
   return {
     getDisplayName,
-    createDisplayName,
-    formatMention,
-    getInitials,
     getAvatarUrl,
-    getUserStatus,
-    getStatusColor,
-    matchesSearch,
-    sortByDisplayName,
-    groupByFirstLetter
+    getInitials,
+    getMentionText,
+    hasCustomAvatar,
+    getUserColor,
   };
 }
-
-// Type exports for convenience
-export type { UserLike };
