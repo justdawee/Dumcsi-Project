@@ -8,6 +8,7 @@ import userService from '@/services/userService';
 import { signalRService } from '@/services/signalrService';
 import { jwtDecode } from 'jwt-decode';
 import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
+import { getDisplayMessage } from '@/services/errorHandler';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'));
@@ -26,7 +27,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  // Method to fetch fresh user data
   const fetchUserProfile = async () => {
     try {
       const response = await userService.getProfile();
@@ -51,21 +51,8 @@ export const useAuthStore = defineStore('auth', () => {
       if (isExpired) {
         await logout();
       } else {
-        // Set basic user info from token
-        user.value = {
-          id: parseInt(payload.sub, 10),
-          username: payload.username, // Temporary, will be overwritten
-          email: '',
-          profilePictureUrl: payload.profilePictureUrl || undefined,
-          globalNickname: payload.globalNickname || undefined,
-        };
-        
-        // Fetch fresh user data from the API
-        try {
+        if (!user.value) { // Fetch only if user data is not already loaded
           await fetchUserProfile();
-        } catch (error) {
-          // If fetching fails, we still have basic data from the token
-          console.error('Failed to fetch fresh user data:', error);
         }
       }
     } catch (e) {
@@ -75,27 +62,23 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const login = async (credentials: LoginPayload) => {
-  loading.value = true;
-  error.value = null;
-  try {
-    const tokenData = await authService.login(credentials);
-    // 1. A setToken elmenti a tokent a localStore-ba és a Pinia állapotába.
-    setToken(tokenData.token); 
-    
-    // 2. A checkAuth frissíti a felhasználói adatokat.
-    await checkAuth();
-    
-    // 3. Átirányítás a sikeres bejelentkezés után.
-    const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-    await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
-    
-  } catch (err: any) {
-    error.value = err.message || 'Invalid username or password';
-    throw err;
-  } finally {
-    loading.value = false;
-  }
-};
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await authService.login(credentials);
+      setToken(response.token); // Assuming login returns { token: '...' }
+      
+      await checkAuth();
+
+      const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
+    } catch (err: any) {
+      error.value = getDisplayMessage(err); 
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
   
   const register = async (userData: RegisterPayload) => {
     loading.value = true;
@@ -104,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
       await authService.register(userData);
       await router.push({ name: RouteNames.LOGIN, query: { registered: 'true' } });
     } catch (err: any) {
-      error.value = err.response?.data?.message || 'Registration failed';
+      error.value = getDisplayMessage(err); 
       throw err;
     } finally {
       loading.value = false;
@@ -112,23 +95,15 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
-    // Stop SignalR connection when logging out
     await signalRService.stop();
-
     setToken(null);
     user.value = null;
-    
-    // Reset app store
-    const appStore = useAppStore();
-    appStore.$reset();
-    
-    // Only navigate to login if not already there
-    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
-      await router.push({ name: RouteNames.LOGIN });
+    useAppStore().$reset();
+    if (router.currentRoute.value.name !== 'Login') {
+       await router.push({ name: 'Login' });
     }
   };
 
-  // Update user data and ensure reactivity
   const updateUserData = (updates: Partial<UserProfile>) => {
     if (user.value) {
       user.value = { ...user.value, ...updates };
