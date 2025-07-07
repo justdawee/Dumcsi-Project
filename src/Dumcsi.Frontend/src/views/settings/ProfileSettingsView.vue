@@ -1,240 +1,205 @@
 <template>
-  <div class="max-w-2xl mx-auto p-6">
-    <h1 class="text-2xl font-bold text-white mb-6">Profile Settings</h1>
+  <div class="min-h-screen bg-gray-900 p-8">
+    <div class="max-w-4xl mx-auto">
+      <h1 class="text-3xl font-bold text-white mb-8">Profile Settings</h1>
 
-    <!-- Profile Form -->
-    <form @submit.prevent="handleUpdateProfile" class="space-y-6">
-      <!-- Avatar Section -->
-      <div class="bg-gray-800 rounded-lg p-6">
-        <h2 class="text-lg font-semibold text-white mb-4">Avatar</h2>
-        <div class="flex items-center space-x-4">
+      <!-- Profile Section -->
+      <div class="bg-gray-800 rounded-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold text-white mb-6">Profile Information</h2>
+        
+        <!-- Avatar Upload -->
+        <div class="flex items-start gap-6 mb-6">
           <div class="relative group">
-            <img
-              :src="previewAvatar || getAvatarUrl(profileForm)"
-              :alt="getDisplayName(profileForm)"
-              class="w-20 h-20 rounded-full object-cover"
+            <UserAvatar
+              :avatar-url="previewAvatar || getAvatarUrl(authStore.user)"
+              :username="authStore.user?.username || ''"
+              :size="80"
+              class="ring-4 ring-gray-700"
             />
-            <div
-              class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              @click="$refs.avatarInput.click()"
+            <button
+              @click="fileInput?.click()"
+              :disabled="avatarUploading"
+              class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition disabled:cursor-not-allowed"
             >
-              <Camera class="w-6 h-6 text-white" />
+              <Camera v-if="!avatarUploading" class="w-8 h-8 text-white" />
+              <Loader2 v-else class="w-8 h-8 text-white animate-spin" />
+            </button>
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              class="hidden"
+              @change="handleAvatarSelect"
+            />
+          </div>
+          
+          <div class="flex-1">
+            <p class="text-sm text-gray-400 mb-2">
+              We recommend an image of at least 128x128 for best results.
+            </p>
+            <div class="flex gap-2">
+              <button
+                v-if="hasChanges && (previewAvatar || profileForm.avatarUrl !== originalProfile.avatarUrl)"
+                @click="resetAvatar"
+                class="px-4 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition"
+              >
+                Reset
+              </button>
+              <button
+                v-if="hasCustomAvatar(authStore.user)"
+                @click="removeAvatar"
+                :disabled="removingAvatar"
+                class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <span>{{ removingAvatar ? 'Removing...' : 'Remove Avatar' }}</span>
+                <Loader2 v-if="removingAvatar" class="w-4 h-4 animate-spin" />
+              </button>
             </div>
-            <!-- Upload progress indicator -->
-            <div
-              v-if="avatarUploading"
-              class="absolute inset-0 rounded-full"
-            >
-              <svg class="w-20 h-20 transform -rotate-90">
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  stroke="currentColor"
-                  stroke-width="8"
-                  fill="none"
-                  class="text-gray-700"
+            <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-2">
+              <div class="w-full bg-gray-700 rounded-full h-2">
+                <div 
+                  class="bg-primary h-2 rounded-full transition-all duration-300"
+                  :style="{ width: `${uploadProgress}%` }"
                 />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  stroke="currentColor"
-                  stroke-width="8"
-                  fill="none"
-                  :stroke-dasharray="`${2 * Math.PI * 36}`"
-                  :stroke-dashoffset="`${2 * Math.PI * 36 * (1 - uploadProgress / 100)}`"
-                  class="text-primary transition-all duration-300"
-                />
-              </svg>
+              </div>
+              <p class="text-xs text-gray-400 mt-1">Uploading... {{ uploadProgress }}%</p>
             </div>
           </div>
-          <div class="flex-1">
+        </div>
+
+        <!-- Profile Form -->
+        <form @submit.prevent="handleUpdateProfile" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              Username
+            </label>
             <input
-              ref="avatarInput"
-              type="file"
-              @change="handleAvatarUpload"
-              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-              class="hidden"
-              :disabled="avatarUploading"
+              v-model="profileForm.username"
+              type="text"
+              disabled
+              class="w-full px-4 py-2 bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed"
             />
-            <div class="space-y-2">
-              <button
-                type="button"
-                @click="$refs.avatarInput.click()"
-                :disabled="avatarUploading"
-                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {{ avatarUploading ? 'Uploading...' : 'Change Avatar' }}
-              </button>
-              <button
-                v-if="profileForm.avatarUrl"
-                type="button"
-                @click="handleRemoveAvatar"
-                :disabled="avatarUploading || removingAvatar"
-                class="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
-              >
-                Remove
-              </button>
-            </div>
-            <p class="text-sm text-gray-400 mt-2">
-              Recommended: 128x128px, max 5MB. Supports JPG, PNG, GIF, WebP.
+            <p class="text-xs text-gray-500 mt-1">Username cannot be changed</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              Email
+            </label>
+            <input
+              v-model="profileForm.email"
+              type="email"
+              disabled
+              class="w-full px-4 py-2 bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed"
+            />
+            <p class="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              Display Name
+            </label>
+            <input
+              v-model="profileForm.globalNickname"
+              type="text"
+              placeholder="How should we display your name?"
+              maxlength="32"
+              class="w-full px-4 py-2 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              This is how your name appears across all servers. Leave empty to use your username.
             </p>
           </div>
-        </div>
+
+          <div class="flex items-center justify-between pt-4">
+            <div class="text-sm text-gray-400">
+              <span v-if="hasChanges">You have unsaved changes</span>
+            </div>
+            <button
+              type="submit"
+              :disabled="!hasChanges || loading"
+              class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span>{{ loading ? 'Saving...' : 'Save Changes' }}</span>
+              <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+            </button>
+          </div>
+        </form>
       </div>
 
-      <!-- Basic Information -->
-      <div class="bg-gray-800 rounded-lg p-6 space-y-4">
-        <h2 class="text-lg font-semibold text-white mb-4">Basic Information</h2>
+      <!-- Password Section -->
+      <div class="bg-gray-800 rounded-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold text-white mb-6">Change Password</h2>
         
-        <!-- Username -->
-        <div>
-          <label for="username" class="block text-sm font-medium text-gray-300 mb-1">
-            Username
-          </label>
-          <input
-            id="username"
-            v-model="profileForm.username"
-            type="text"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Enter username"
-            required
-            :disabled="loading"
-          />
-          <p class="text-xs text-gray-400 mt-1">
-            This is your unique identifier for login.
-          </p>
-        </div>
+        <form @submit.prevent="handleChangePassword" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              Current Password
+            </label>
+            <input
+              v-model="passwordForm.currentPassword"
+              type="password"
+              autocomplete="current-password"
+              class="w-full px-4 py-2 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+          </div>
 
-        <!-- Global Nickname -->
-        <div>
-          <label for="globalNickname" class="block text-sm font-medium text-gray-300 mb-1">
-            Display Name
-          </label>
-          <input
-            id="globalNickname"
-            v-model="profileForm.globalNickname"
-            type="text"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Enter display name"
-            :disabled="loading"
-          />
-          <p class="text-xs text-gray-400 mt-1">
-            This is how you'll appear to others across all servers.
-          </p>
-        </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              New Password
+            </label>
+            <input
+              v-model="passwordForm.newPassword"
+              type="password"
+              autocomplete="new-password"
+              class="w-full px-4 py-2 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              Must be at least 8 characters long
+            </p>
+          </div>
 
-        <!-- Email -->
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-300 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            v-model="profileForm.email"
-            type="email"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Enter email"
-            required
-            :disabled="loading"
-          />
-        </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">
+              Confirm New Password
+            </label>
+            <input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              class="w-full px-4 py-2 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-primary focus:outline-none"
+            />
+            <p v-if="passwordError" class="text-xs text-red-400 mt-1">
+              {{ passwordError }}
+            </p>
+          </div>
+
+          <div class="flex justify-end pt-4">
+            <button
+              type="submit"
+              :disabled="!canChangePassword || changingPassword"
+              class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <span>{{ changingPassword ? 'Changing...' : 'Change Password' }}</span>
+              <Loader2 v-if="changingPassword" class="w-4 h-4 animate-spin" />
+            </button>
+          </div>
+        </form>
       </div>
 
-      <!-- Submit Button -->
-      <div class="flex justify-end space-x-3">
+      <!-- Danger Zone -->
+      <div class="bg-red-900/20 border border-red-900/50 rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-red-400 mb-4">Danger Zone</h2>
+        <p class="text-gray-300 mb-4">
+          Once you delete your account, there is no going back. Please be certain.
+        </p>
         <button
-          type="button"
-          @click="resetForm"
-          :disabled="loading || !hasChanges"
-          class="px-6 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          @click="showDeleteConfirm = true"
+          class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
         >
-          Reset
-        </button>
-        <button
-          type="submit"
-          :disabled="loading || !hasChanges"
-          class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-        >
-          <span>{{ loading ? 'Saving...' : 'Save Changes' }}</span>
-          <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+          Delete Account
         </button>
       </div>
-    </form>
-
-    <!-- Password Change Section -->
-    <div class="mt-8 bg-gray-800 rounded-lg p-6">
-      <h2 class="text-lg font-semibold text-white mb-4">Change Password</h2>
-      <form @submit.prevent="handleChangePassword" class="space-y-4">
-        <div>
-          <label for="currentPassword" class="block text-sm font-medium text-gray-300 mb-1">
-            Current Password
-          </label>
-          <input
-            id="currentPassword"
-            v-model="passwordForm.currentPassword"
-            type="password"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Enter current password"
-            required
-            :disabled="changingPassword"
-          />
-        </div>
-        <div>
-          <label for="newPassword" class="block text-sm font-medium text-gray-300 mb-1">
-            New Password
-          </label>
-          <input
-            id="newPassword"
-            v-model="passwordForm.newPassword"
-            type="password"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Enter new password"
-            required
-            minlength="8"
-            :disabled="changingPassword"
-          />
-        </div>
-        <div>
-          <label for="confirmPassword" class="block text-sm font-medium text-gray-300 mb-1">
-            Confirm New Password
-          </label>
-          <input
-            id="confirmPassword"
-            v-model="passwordForm.confirmPassword"
-            type="password"
-            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            placeholder="Confirm new password"
-            required
-            :disabled="changingPassword"
-          />
-        </div>
-        <div class="flex justify-end">
-          <button
-            type="submit"
-            :disabled="changingPassword || !isPasswordFormValid"
-            class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-          >
-            <span>{{ changingPassword ? 'Changing...' : 'Change Password' }}</span>
-            <Loader2 v-if="changingPassword" class="w-4 h-4 animate-spin" />
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Danger Zone -->
-    <div class="mt-8 bg-red-900/20 border border-red-900/50 rounded-lg p-6">
-      <h2 class="text-lg font-semibold text-red-400 mb-4">Danger Zone</h2>
-      <p class="text-gray-300 mb-4">
-        Once you delete your account, there is no going back. Please be certain.
-      </p>
-      <button
-        @click="showDeleteConfirm = true"
-        class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-      >
-        Delete Account
-      </button>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -260,13 +225,14 @@ import { useToast } from '@/composables/useToast';
 import userService from '@/services/userService';
 import uploadService from '@/services/uploadService';
 import { Camera, Loader2 } from 'lucide-vue-next';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type { UpdateProfilePayload, UpdatePasswordPayload } from '@/services/types';
 
 // Composables
 const router = useRouter();
 const authStore = useAuthStore();
-const { getDisplayName, getAvatarUrl } = useUserDisplay();
+const { getDisplayName, getAvatarUrl, hasCustomAvatar } = useUserDisplay();
 const { addToast } = useToast();
 
 // State
@@ -277,6 +243,7 @@ const removingAvatar = ref(false);
 const changingPassword = ref(false);
 const deletingAccount = ref(false);
 const showDeleteConfirm = ref(false);
+const fileInput = ref<HTMLInputElement>();
 
 // Forms
 const originalProfile = ref({
@@ -303,134 +270,144 @@ const previewAvatar = ref<string>('');
 
 // Computed
 const hasChanges = computed(() => {
-  return JSON.stringify(profileForm.value) !== JSON.stringify(originalProfile.value);
+  return profileForm.value.globalNickname !== originalProfile.value.globalNickname ||
+         profileForm.value.avatarUrl !== originalProfile.value.avatarUrl ||
+         previewAvatar.value !== '';
 });
 
-const isPasswordFormValid = computed(() => {
-  return passwordForm.value.currentPassword.length > 0
-    && passwordForm.value.newPassword.length >= 8
-    && passwordForm.value.newPassword === passwordForm.value.confirmPassword;
+const passwordError = computed(() => {
+  if (passwordForm.value.newPassword && passwordForm.value.newPassword.length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  if (passwordForm.value.newPassword && passwordForm.value.confirmPassword && 
+      passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    return 'Passwords do not match';
+  }
+  return '';
+});
+
+const canChangePassword = computed(() => {
+  return passwordForm.value.currentPassword &&
+         passwordForm.value.newPassword &&
+         passwordForm.value.confirmPassword &&
+         passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
+         passwordForm.value.newPassword.length >= 8;
 });
 
 // Methods
-const loadProfile = async () => {
-  try {
-    const profile = await authStore.fetchUserProfile();
-    if (profile) {
-      const data = {
-        username: profile.username,
-        email: profile.email,
-        globalNickname: profile.globalNickname || '',
-        avatarUrl: profile.avatarUrl || profile.profilePictureUrl || ''
-      };
-      originalProfile.value = { ...data };
-      profileForm.value = { ...data };
-      previewAvatar.value = data.avatarUrl;
-    }
-  } catch (error) {
-    addToast({
-      type: 'danger',
-      message: 'Failed to load profile'
-    });
+const loadProfile = () => {
+  if (authStore.user) {
+    const profile = {
+      username: authStore.user.username,
+      email: authStore.user.email,
+      globalNickname: authStore.user.globalNickname || '',
+      avatarUrl: authStore.user.profilePictureUrl || ''
+    };
+    originalProfile.value = { ...profile };
+    profileForm.value = { ...profile };
   }
 };
 
-const handleAvatarUpload = async (event: Event) => {
+const handleAvatarSelect = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
   
   const file = input.files[0];
   
   try {
+    // Validate file
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      throw new Error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('Image must be less than 5MB');
+    }
+    
+    // Show preview
+    previewAvatar.value = uploadService.generatePreviewUrl(file);
+    
+    // Upload avatar
     avatarUploading.value = true;
     uploadProgress.value = 0;
     
-    // Upload avatar
-    const uploadResult = await uploadService.uploadAvatar(file, {
+    const response = await uploadService.uploadAvatar(file, {
       onProgress: (progress) => {
-        uploadProgress.value = progress.percentage;
+        uploadProgress.value = progress;
       }
     });
     
-    // Update form and preview
-    profileForm.value.avatarUrl = uploadResult.url;
-    previewAvatar.value = uploadResult.url;
+    profileForm.value.avatarUrl = response.url;
     
     addToast({
       type: 'success',
-      message: 'Avatar uploaded successfully'
+      message: 'Avatar uploaded successfully',
+      duration: 3000
     });
   } catch (error: any) {
     addToast({
       type: 'danger',
-      message: error.message || 'Failed to upload avatar'
+      message: error.message || 'Failed to upload avatar',
+      duration: 5000
     });
+    resetAvatar();
   } finally {
     avatarUploading.value = false;
     uploadProgress.value = 0;
-    input.value = ''; // Reset input
+    if (input) input.value = '';
   }
 };
 
-const handleRemoveAvatar = async () => {
-  try {
-    removingAvatar.value = true;
-    
-    // Delete avatar on backend
-    await uploadService.deleteAvatar();
-    
-    // Update form and preview
-    profileForm.value.avatarUrl = '';
+const resetAvatar = () => {
+  if (previewAvatar.value) {
+    uploadService.revokePreviewUrl(previewAvatar.value);
     previewAvatar.value = '';
-    
-    addToast({
-      type: 'success',
-      message: 'Avatar removed successfully'
-    });
-  } catch (error) {
-    addToast({
-      type: 'danger',
-      message: 'Failed to remove avatar'
-    });
+  }
+  profileForm.value.avatarUrl = originalProfile.value.avatarUrl;
+};
+
+const removeAvatar = async () => {
+  removingAvatar.value = true;
+  try {
+    profileForm.value.avatarUrl = '';
+    await handleUpdateProfile();
   } finally {
     removingAvatar.value = false;
   }
 };
 
 const handleUpdateProfile = async () => {
-  if (!hasChanges.value) return;
+  if (!hasChanges.value && !removingAvatar.value) return;
   
+  loading.value = true;
   try {
-    loading.value = true;
-    
     const payload: UpdateProfilePayload = {
-      username: profileForm.value.username,
-      email: profileForm.value.email,
       globalNickname: profileForm.value.globalNickname || undefined,
       avatarUrl: profileForm.value.avatarUrl || undefined
     };
     
     await userService.updateProfile(payload);
-    
-    // Update auth store
-    authStore.updateUserData({
-      username: payload.username,
-      email: payload.email,
-      globalNickname: payload.globalNickname,
-      avatarUrl: payload.avatarUrl
-    });
+    await authStore.fetchUserProfile();
     
     // Update original values
     originalProfile.value = { ...profileForm.value };
     
+    // Clean up preview
+    if (previewAvatar.value) {
+      uploadService.revokePreviewUrl(previewAvatar.value);
+      previewAvatar.value = '';
+    }
+    
     addToast({
       type: 'success',
-      message: 'Profile updated successfully'
+      message: 'Profile updated successfully',
+      duration: 3000
     });
-  } catch (error) {
+  } catch (error: any) {
     addToast({
       type: 'danger',
-      message: 'Failed to update profile'
+      message: error.message || 'Failed to update profile',
+      duration: 5000
     });
   } finally {
     loading.value = false;
@@ -438,11 +415,10 @@ const handleUpdateProfile = async () => {
 };
 
 const handleChangePassword = async () => {
-  if (!isPasswordFormValid.value) return;
+  if (!canChangePassword.value) return;
   
+  changingPassword.value = true;
   try {
-    changingPassword.value = true;
-    
     const payload: UpdatePasswordPayload = {
       currentPassword: passwordForm.value.currentPassword,
       newPassword: passwordForm.value.newPassword
@@ -450,7 +426,7 @@ const handleChangePassword = async () => {
     
     await userService.updatePassword(payload);
     
-    // Reset form
+    // Clear form
     passwordForm.value = {
       currentPassword: '',
       newPassword: '',
@@ -459,12 +435,14 @@ const handleChangePassword = async () => {
     
     addToast({
       type: 'success',
-      message: 'Password changed successfully'
+      message: 'Password changed successfully',
+      duration: 3000
     });
   } catch (error: any) {
     addToast({
       type: 'danger',
-      message: error.response?.data?.message || 'Failed to change password'
+      message: error.message || 'Failed to change password',
+      duration: 5000
     });
   } finally {
     changingPassword.value = false;
@@ -472,23 +450,21 @@ const handleChangePassword = async () => {
 };
 
 const handleDeleteAccount = async () => {
+  deletingAccount.value = true;
   try {
-    deletingAccount.value = true;
-    
     await userService.deleteAccount();
+    await authStore.logout();
     
     addToast({
-      type: 'success',
-      message: 'Account deleted successfully'
+      type: 'info',
+      message: 'Your account has been deleted',
+      duration: 5000
     });
-    
-    // Logout and redirect
-    authStore.logout();
-    router.push({ name: 'Login' });
-  } catch (error) {
+  } catch (error: any) {
     addToast({
       type: 'danger',
-      message: 'Failed to delete account'
+      message: error.message || 'Failed to delete account',
+      duration: 5000
     });
   } finally {
     deletingAccount.value = false;
@@ -496,12 +472,7 @@ const handleDeleteAccount = async () => {
   }
 };
 
-const resetForm = () => {
-  profileForm.value = { ...originalProfile.value };
-  previewAvatar.value = originalProfile.value.avatarUrl;
-};
-
-// Load profile on mount
+// Lifecycle
 onMounted(() => {
   loadProfile();
 });
