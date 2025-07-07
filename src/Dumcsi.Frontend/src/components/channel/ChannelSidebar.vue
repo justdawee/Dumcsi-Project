@@ -77,7 +77,7 @@
         <UserAvatar
           :avatar-url="authStore.user?.profilePictureUrl"
           :username="authStore.user?.username || ''"
-          :size=
+          :size="'xs'"
         />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">
