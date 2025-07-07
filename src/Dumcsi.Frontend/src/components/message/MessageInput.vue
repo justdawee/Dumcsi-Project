@@ -52,7 +52,7 @@
           <UserAvatar
             :avatar-url="getAvatarUrl(user)"
             :username="user.username"
-            :size="'md'"
+            :size="24"
           />
           <div class="flex-1 text-left">
             <div class="text-sm font-medium text-white">{{ getDisplayName(user) }}</div>
@@ -196,7 +196,7 @@ interface Attachment {
 const attachments = ref<Attachment[]>([]);
 
 // Typing indicator
-const typingTimeout = ref<ReturnType<typeof setTimeout>>();
+const typingTimeout = ref<NodeJS.Timeout>();
 const lastTypingNotification = ref(0);
 const typingUsers = computed(() => {
   const channelTypingUsers = appStore.typingUsers.get(props.channel.id) || new Set();
@@ -447,7 +447,7 @@ const handleSend = async () => {
     
     const payload: CreateMessagePayload = {
       content: messageContent.value.trim(),
-      attachmentUrls: attachmentUrls,
+      attachments: attachmentUrls,
       mentionedUserIds: Array.from(mentionedUserIds.value),
       mentionedRoleIds: Array.from(mentionedRoleIds.value)
     };

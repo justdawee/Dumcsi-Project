@@ -382,8 +382,8 @@ const handleUpdateProfile = async () => {
   loading.value = true;
   try {
     const payload: UpdateProfilePayload = {
-      globalNickname: profileForm.value.globalNickname || undefined,
-      avatarUrl: profileForm.value.avatarUrl || undefined
+      globalNickname: profileForm.value.globalNickname || null,
+      avatarUrl: profileForm.value.avatarUrl || null
     };
     
     await userService.updateProfile(payload);

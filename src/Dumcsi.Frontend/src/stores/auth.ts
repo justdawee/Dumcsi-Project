@@ -57,6 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
           username: payload.username, // Temporary, will be overwritten
           email: '',
           profilePictureUrl: payload.profilePictureUrl || undefined,
+          globalNickname: payload.globalNickname || undefined,
         };
         
         // Fetch fresh user data from the API
@@ -80,15 +81,25 @@ export const useAuthStore = defineStore('auth', () => {
       const tokenData = await authService.login(credentials);
       setToken(tokenData.token);
       
-      // Sikeres bejelentkezés után indítjuk a SignalR kapcsolatot
-      await signalRService.initialize();
-
+      // Check auth to set user data
       await checkAuth();
 
+      // Small delay to ensure token is propagated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Initialize SignalR connection after successful login
+      try {
+        await signalRService.initialize();
+      } catch (signalrError) {
+        console.error('SignalR initialization failed:', signalrError);
+        // Don't fail login if SignalR fails
+      }
+
       const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-      await router.push(redirectPath || { name: 'ServerSelect' });
+      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
     } catch (err: any) {
-      error.value = err.message || 'Helytelen felhasználónév vagy jelszó.';
+      error.value = err.message || 'Invalid username or password';
+      throw err;
     } finally {
       loading.value = false;
     }
@@ -109,14 +120,19 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
-    // Kijelentkezéskor leállítjuk a SignalR kapcsolatot
+    // Stop SignalR connection when logging out
     await signalRService.stop();
 
     setToken(null);
     user.value = null;
-    useAppStore().$reset(); // App store resetelése, hogy ne maradjanak ott régi adatok
-    if (router.currentRoute.value.name !== 'Login') {
-       await router.push({ name: 'Login' });
+    
+    // Reset app store
+    const appStore = useAppStore();
+    appStore.$reset();
+    
+    // Only navigate to login if not already there
+    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
+      await router.push({ name: RouteNames.LOGIN });
     }
   };
 
@@ -126,9 +142,6 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = { ...user.value, ...updates };
     }
   };
-
-  // Initialize - note this is now async
-  checkAuth();
 
   return {
     token,

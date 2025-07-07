@@ -7,6 +7,7 @@ const authService = {
   },
 
   login(payload: LoginPayload): Promise<AuthResponse> {
+    console.log('Attempting to log in with payload:', payload);
     return api.post<AuthResponse>('/auth/login', payload).then(res => res.data);
   },
 };

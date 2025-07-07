@@ -1,73 +1,121 @@
 <template>
-  <div class="relative inline-block">
+  <div 
+    :class="[
+      'relative flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden',
+      sizeClasses,
+      className
+    ]"
+    :style="{ backgroundColor: !avatarUrl && user ? getUserColor(userId) : undefined }"
+  >
     <img 
+      v-if="avatarUrl && !imageError" 
       :src="avatarUrl" 
       :alt="displayName"
-      :class="['rounded-full object-cover', sizeClasses[size]]"
+      class="w-full h-full object-cover"
       @error="handleImageError"
-    >
+    />
+    <span v-else :class="textSizeClass">
+      {{ initials }}
+    </span>
+    
+    <!-- Online indicator -->
     <div 
-      v-if="showStatus && user?.isOnline !== undefined"
+      v-if="showOnlineIndicator && isOnline"
       :class="[
-        'absolute bottom-0 right-0 rounded-full border-2',
-        statusClasses[size],
-        user.isOnline ? 'bg-green-500' : 'bg-gray-500',
-        `border-${borderColor}`
+        'absolute border-gray-800 bg-green-500 rounded-full',
+        onlineIndicatorClasses
       ]"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useUserDisplay } from '@/composables/useUserDisplay';
-import type { UserLike } from '@/composables/useUserDisplay';
+import { useAppStore } from '@/stores/app';
+import type { UserDto, UserProfile, UserSearchResult, ServerMember } from '@/services/types';
 
-interface Props {
-  user: UserLike & { 
-    avatarUrl?: string | null; 
-    profilePictureUrl?: string | null;
-    isOnline?: boolean;
-  } | null | undefined;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  showStatus?: boolean;
-  borderColor?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  size: 'md',
-  showStatus: false,
-  borderColor: 'gray-800'
+// Props
+const props = withDefaults(defineProps<{
+  user?: UserDto | UserProfile | UserSearchResult | ServerMember | null;
+  avatarUrl?: string | null;
+  username?: string;
+  userId?: number;
+  size?: number;
+  showOnlineIndicator?: boolean;
+  className?: string;
+}>(), {
+  size: 40,
+  showOnlineIndicator: false,
+  className: 'rounded-full'
 });
 
-const { getDisplayName, getAvatarUrl } = useUserDisplay();
+// Composables
+const { getDisplayName, getInitials, getUserColor } = useUserDisplay();
+const appStore = useAppStore();
 
-const defaultAvatar = '/default-avatar.png';
+// State
 const imageError = ref(false);
 
-const displayName = computed(() => getDisplayName(props.user));
-const avatarUrl = computed(() => {
-  if (imageError.value) return defaultAvatar;
-  return getAvatarUrl(props.user);
+// Computed
+const displayName = computed(() => {
+  if (props.user) return getDisplayName(props.user);
+  return props.username || 'Unknown User';
 });
 
-const sizeClasses = {
-  xs: 'w-6 h-6',
-  sm: 'w-8 h-8',
-  md: 'w-10 h-10',
-  lg: 'w-12 h-12',
-  xl: 'w-16 h-16'
-};
+const initials = computed(() => {
+  if (props.user) return getInitials(props.user);
+  
+  const name = props.username || 'Unknown User';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+});
 
-const statusClasses = {
-  xs: 'w-2 h-2',
-  sm: 'w-2.5 h-2.5',
-  md: 'w-3 h-3',
-  lg: 'w-3.5 h-3.5',
-  xl: 'w-4 h-4'
-};
+const userId = computed(() => {
+  if (props.user && 'id' in props.user) return props.user.id;
+  if (props.user && 'userId' in props.user) return props.user.userId;
+  return props.userId || 0;
+});
 
+const isOnline = computed(() => {
+  return appStore.onlineUsers.has(userId.value);
+});
+
+const sizeClasses = computed(() => {
+  const sizeMap: Record<number, string> = {
+    24: 'w-6 h-6',
+    32: 'w-8 h-8',
+    40: 'w-10 h-10',
+    48: 'w-12 h-12',
+    64: 'w-16 h-16',
+    80: 'w-20 h-20',
+    128: 'w-32 h-32'
+  };
+  return sizeMap[props.size] || `w-[${props.size}px] h-[${props.size}px]`;
+});
+
+const textSizeClass = computed(() => {
+  if (props.size <= 24) return 'text-xs';
+  if (props.size <= 32) return 'text-sm';
+  if (props.size <= 48) return 'text-base';
+  if (props.size <= 64) return 'text-lg';
+  return 'text-xl';
+});
+
+const onlineIndicatorClasses = computed(() => {
+  if (props.size <= 32) {
+    return 'bottom-0 right-0 w-2 h-2 border';
+  } else if (props.size <= 48) {
+    return 'bottom-0 right-0 w-3 h-3 border-2';
+  } else {
+    return 'bottom-1 right-1 w-4 h-4 border-2';
+  }
+});
+
+// Methods
 const handleImageError = () => {
   imageError.value = true;
-};
-</script>
+};</script>

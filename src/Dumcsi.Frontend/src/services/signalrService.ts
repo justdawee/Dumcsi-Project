@@ -20,12 +20,16 @@ class SignalRService {
   private reconnectAttempts = 0;
 
   constructor() {
+    // Connection will be created in initialize()
+  }
+
+  private createConnection(): void {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
         accessTokenFactory: () => {
-          // This is fine, as it's a factory function called later
-          const authStore = useAuthStore();
-          return authStore.token || '';
+          // Get token directly from localStorage to ensure it's available
+          const token = localStorage.getItem('token');
+          return token ? `Bearer ${token}` : '';
         }
       })
       .withAutomaticReconnect({
@@ -38,17 +42,17 @@ class SignalRService {
       })
       .configureLogging(signalR.LogLevel.Warning)
       .build();
-
-    this.setupEventHandlers();
   }
 
   private setupEventHandlers(): void {
     if (!this.connection) return;
 
+    const appStore = useAppStore();
+    const { addToast } = useToast();
+
     // Connection lifecycle events
     this.connection.onreconnecting(() => {
       console.log('SignalR: Reconnecting...');
-      const { addToast } = useToast();
       addToast({
         type: 'warning',
         message: 'Connection lost. Reconnecting...',
@@ -59,7 +63,6 @@ class SignalRService {
     this.connection.onreconnected(() => {
       console.log('SignalR: Reconnected');
       this.reconnectAttempts = 0;
-      const { addToast } = useToast();
       addToast({
         type: 'success',
         message: 'Connection restored',
@@ -74,77 +77,62 @@ class SignalRService {
 
     // Message events
     this.connection.on('ReceiveMessage', (message: MessageDto) => {
-      const appStore = useAppStore();
       appStore.handleReceiveMessage(message);
     });
 
     this.connection.on('MessageUpdated', (message: MessageDto) => {
-      const appStore = useAppStore();
       appStore.handleMessageUpdated(message);
     });
 
     this.connection.on('MessageDeleted', (payload: MessageDeletedPayload) => {
-      const appStore = useAppStore();
       appStore.handleMessageDeleted(payload);
     });
 
     // User events
     this.connection.on('UserUpdated', (user: UserDto) => {
-      const appStore = useAppStore();
       appStore.handleUserUpdated(user);
     });
 
     this.connection.on('UserOnline', (userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserOnline(userId);
     });
 
     this.connection.on('UserOffline', (userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserOffline(userId);
     });
 
     this.connection.on('UserTyping', (channelId: EntityId, userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserTyping(channelId, userId);
     });
 
     this.connection.on('UserStoppedTyping', (channelId: EntityId, userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserStoppedTyping(channelId, userId);
     });
 
     // Server events
     this.connection.on('ServerCreated', (server: ServerDto) => {
-      const appStore = useAppStore();
       appStore.handleServerCreated(server);
     });
 
     this.connection.on('ServerUpdated', (server: ServerDto) => {
-      const appStore = useAppStore();
       appStore.handleServerUpdated(server);
     });
 
     this.connection.on('ServerDeleted', (serverId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleServerDeleted(serverId);
     });
 
     this.connection.on('UserJoinedServer', (payload: UserServerPayload) => {
-      const appStore = useAppStore();
       appStore.handleUserJoinedServer(payload);
     });
 
     this.connection.on('UserLeftServer', (payload: UserServerPayload) => {
-      const appStore = useAppStore();
       appStore.handleUserLeftServer(payload);
     });
 
     this.connection.on('UserKickedFromServer', (payload: UserServerPayload) => {
-      const appStore = useAppStore();
       appStore.handleUserKickedFromServer(payload);
-      if (payload.userId === useAuthStore().currentUser?.id) {
-        const { addToast } = useToast();
+      if (payload.userId === appStore.currentUserId) {
         addToast({
           type: 'warning',
           title: 'Kicked from Server',
@@ -155,10 +143,8 @@ class SignalRService {
     });
 
     this.connection.on('UserBannedFromServer', (payload: UserServerPayload) => {
-      const appStore = useAppStore();
       appStore.handleUserBannedFromServer(payload);
-      if (payload.userId === useAuthStore().currentUser?.id) {
-        const { addToast } = useToast();
+      if (payload.userId === appStore.currentUserId) {
         addToast({
           type: 'danger',
           title: 'Banned from Server',
@@ -170,47 +156,43 @@ class SignalRService {
 
     // Channel events
     this.connection.on('ChannelCreated', (serverId: EntityId, channel: ChannelDto) => {
-      const appStore = useAppStore();
       appStore.handleChannelCreated(serverId, channel);
     });
 
     this.connection.on('ChannelUpdated', (channel: ChannelDto) => {
-      const appStore = useAppStore();
       appStore.handleChannelUpdated(channel);
     });
 
     this.connection.on('ChannelDeleted', (payload: ChannelDeletedPayload) => {
-      const appStore = useAppStore();
       appStore.handleChannelDeleted(payload);
     });
 
     // Voice channel events
     this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId, user: UserDto) => {
-      const appStore = useAppStore();
       appStore.handleUserJoinedVoiceChannel(channelId, user);
     });
 
     this.connection.on('UserLeftVoiceChannel', (channelId: EntityId, userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserLeftVoiceChannel(channelId, userId);
     });
 
     this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserStartedScreenShare(channelId, userId);
     });
 
     this.connection.on('UserStoppedScreenShare', (channelId: EntityId, userId: EntityId) => {
-      const appStore = useAppStore();
       appStore.handleUserStoppedScreenShare(channelId, userId);
     });
   }
 
   async initialize(): Promise<void> {
-    if (!this.connection) return;
+    if (!this.connection) {
+      this.createConnection();
+      this.setupEventHandlers();
+    }
 
     try {
-      await this.connection.start();
+      await this.connection!.start();
       console.log('SignalR: Connected');
       this.reconnectAttempts = 0;
     } catch (error) {
