@@ -11,7 +11,19 @@ using Dumcsi.Application.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args); // Web alkalmazás létrehozása
 
-builder.Services.AddCors(); // CORS engedélyezése
+const string myAllowSpecificOrigins = "_myAllowSpecificOrigins";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: myAllowSpecificOrigins,
+        policy  =>
+        {
+            // Add your frontend's development URL
+            policy.WithOrigins("http://localhost:5173") 
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials(); // Crucial for SignalR authentication
+        });
+});
 
 builder.Services.AddControllers() // Kontroller alapú API engedélyezése
     .AddJsonOptions(options =>
@@ -80,10 +92,9 @@ if (app.Environment.IsDevelopment())
 }
 
 // CORS beállítások alkalmazása
-app.UseCors(corsPolicyBuilder => corsPolicyBuilder
-    .AllowAnyOrigin()
-    .AllowAnyMethod()
-    .AllowAnyHeader());
+app.UseCors(myAllowSpecificOrigins);
+
+app.UseAuthorization();
 
 app.UseHttpsRedirection(); // HTTPS engedélyezése
 
