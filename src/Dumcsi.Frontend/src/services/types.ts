@@ -1,19 +1,194 @@
-// Entity ID type
+// --- Enums ---
+export enum Role { 
+  Member = 0, 
+  Moderator = 1, 
+  Admin = 2 
+}
+
+export enum ChannelType { 
+  Text = 0, 
+  Voice = 1 
+}
+
+export enum ModerationStatus { 
+  Visible = 0, 
+  UserDeleted = 1, 
+  ModeratedRemoved = 2 
+}
+
+// --- Type Aliases for Clarity ---
+
+/** A string representation of a date in ISO 8601 format (e.g., "2023-10-27T10:00:00Z"). */
+export type ISODateString = string;
+
 export type EntityId = number;
 
-// Enums
-export enum Role {
-  Member = 0,
-  Moderator = 1,
-  Admin = 2
+// --- DTOs / Interfaces ---
+
+// User & Auth
+export interface UserProfile {
+  id: EntityId;
+  username: string;
+  email: string;
+  globalNickname?: string;
+  avatarUrl?: string;
+  profilePictureUrl?: string; // Legacy support
+  isOnline?: boolean;
+  lastSeenAt?: ISODateString;
 }
 
-export enum ChannelType {
-  Text = 0,
-  Voice = 1
+export interface UserDto {
+  id: EntityId;
+  username: string;
+  globalNickname?: string;
+  avatarUrl?: string;
+  isOnline: boolean;
 }
 
-// Auth Types
+export interface UserSearchResult {
+  id: EntityId;
+  username: string;
+  globalNickname?: string;
+  avatarUrl?: string;
+  isOnline: boolean;
+}
+
+// Server
+export interface ServerListItem {
+  id: EntityId;
+  name: string;
+  description: string;
+  iconUrl?: string;
+  memberCount: number;
+  ownerId: EntityId;
+  isOwner: boolean;
+  memberLimit: number;
+  isPublic: boolean;
+  createdAt: ISODateString;
+}
+
+export interface ServerDetail extends ServerListItem {
+  ownerUsername: string;
+  currentUserRole: Role;
+  channels: ChannelListItem[];
+  roles?: RoleDto[];
+  emojis?: EmojiDto[];
+}
+
+export interface ServerDto {
+  id: EntityId;
+  name: string;
+  description?: string;
+  iconUrl?: string;
+  memberCount: number;
+  isPublic: boolean;
+}
+
+export interface ServerMember {
+  userId: EntityId;
+  username: string;
+  globalNickname?: string;
+  profilePictureUrl?: string;
+  avatarUrl?: string;
+  role: Role;
+  roles?: EntityId[]; // Role IDs
+  joinedAt: ISODateString;
+  isOnline?: boolean;
+}
+
+// Channel
+export interface ChannelListItem {
+  id: EntityId;
+  name: string;
+  description?: string;
+  type: ChannelType;
+  position: number;
+  createdAt: ISODateString;
+}
+
+export interface ChannelDetail extends ChannelListItem {
+  messages: MessageListItem[];
+  serverId: EntityId;
+}
+
+export interface ChannelDto {
+  id: EntityId;
+  serverId: EntityId;
+  name: string;
+  description?: string;
+  type: ChannelType;
+  position: number;
+}
+
+// Message
+export interface MessageListItem {
+  id: EntityId;
+  content: string;
+  senderId: EntityId;
+  senderUsername: string;
+  senderGlobalNickname?: string;
+  senderAvatarUrl?: string;
+  moderationStatus: ModerationStatus;
+  createdAt: ISODateString;
+  editedAt?: ISODateString;
+  channelId?: EntityId;
+  attachments?: AttachmentDto[];
+  reactions?: ReactionDto[];
+  mentionedUsers?: UserDto[];
+  mentionedRoles?: RoleDto[];
+}
+
+export interface MessageDto extends MessageListItem {
+  channelId: EntityId;
+}
+
+// Attachments
+export interface AttachmentDto {
+  id: EntityId;
+  filename: string;
+  url: string;
+  size: number;
+  contentType: string;
+}
+
+// Reactions
+export interface ReactionDto {
+  emojiId?: EntityId;
+  emoji?: string; // Unicode emoji
+  count: number;
+  users: UserDto[];
+  hasReacted: boolean; // Current user has reacted
+}
+
+// Roles
+export interface RoleDto {
+  id: EntityId;
+  serverId: EntityId;
+  name: string;
+  color: string;
+  permissions: string[];
+  position: number;
+  isMentionable: boolean;
+}
+
+// Emojis
+export interface EmojiDto {
+  id: EntityId;
+  serverId: EntityId;
+  name: string;
+  url: string;
+  createdBy: EntityId;
+  createdAt: ISODateString;
+}
+
+// --- Payloads ---
+export interface JwtPayload {
+  sub: string;
+  username: string;
+  profilePictureUrl?: string;
+  exp: number;
+}
+
 export interface LoginPayload {
   usernameOrEmail: string;
   password: string;
@@ -25,49 +200,15 @@ export interface RegisterPayload {
   password: string;
 }
 
-export interface AuthResponse {
-  token: string;
-}
-
-export interface JwtPayload {
-  sub: string;
-  username: string;
-  email?: string;
-  profilePictureUrl?: string;
-  globalNickname?: string;
-  exp: number;
-  iat: number;
-}
-
-// User Types
-export interface UserDto {
-  id: EntityId;
-  username: string;
-  email?: string;
-  profilePictureUrl?: string;
-  globalNickname?: string;
-  createdAt?: string;
-}
-
-export interface UserProfile {
-  id: EntityId;
-  username: string;
-  email: string;
-  profilePictureUrl?: string;
-  globalNickname?: string;
-  createdAt?: string;
-}
-
-export interface UserSearchResult {
-  id: EntityId;
-  username: string;
-  globalNickname?: string;
-  profilePictureUrl?: string;
+export interface RefreshTokenRequestDto {
+  refreshToken: string;
 }
 
 export interface UpdateProfilePayload {
-  globalNickname?: string | null;
-  avatarUrl?: string | null;
+  username?: string;
+  email?: string;
+  globalNickname?: string;
+  avatarUrl?: string;
 }
 
 export interface UpdatePasswordPayload {
@@ -75,103 +216,66 @@ export interface UpdatePasswordPayload {
   newPassword: string;
 }
 
-// Server Types
-export interface ServerDto {
-  id: EntityId;
-  name: string;
-  description?: string;
-  iconUrl?: string;
-  ownerId: EntityId;
-  inviteCode?: string;
-  memberCount?: number;
-  createdAt: string;
-}
-
-export interface ServerListItem extends ServerDto {
-  currentUserRole?: Role;
-}
-
-export interface ServerDetail extends ServerDto {
-  channels: ChannelListItem[];
-  currentUserRole: Role;
-  memberCount: number;
-}
-
-export interface ServerMember {
-  userId: EntityId;
-  username: string;
-  profilePictureUrl?: string;
-  globalNickname?: string;
-  role: Role;
-  joinedAt: string;
-}
-
 export interface CreateServerPayload {
   name: string;
   description?: string;
+  isPublic: boolean;
+  iconUrl?: string;
 }
 
 export interface UpdateServerPayload {
-  name?: string;
-  description?: string | null;
-  iconUrl?: string | null;
+  name: string;
+  description?: string;
+  iconUrl?: string;
+  isPublic: boolean;
 }
 
 export interface JoinServerPayload {
   inviteCode: string;
 }
 
-// Channel Types
-export interface ChannelDto {
-  id: EntityId;
+// --- API Responses ---
+export interface AuthResponse {
+  accessToken: string; // Javítva 'token'-ről 'accessToken'-re
+  refreshToken: string;
+}
+
+export interface InviteResponse {
+  inviteCode: string;
+  message: string;
+}
+
+export interface JoinServerResponse {
+  message: string;
+  serverName: string;
   serverId: EntityId;
-  name: string;
-  description?: string;
-  type: ChannelType;
-  position: number;
-  createdAt: string;
 }
 
-export interface ChannelListItem extends ChannelDto {}
-
-export interface ChannelDetail extends ChannelDto {
-  memberCount?: number;
+// File Upload Responses
+export interface UploadResponse {
+  url: string;
+  filename?: string;
+  size?: number;
+  contentType?: string;
 }
 
+// --- Channel Payloads ---
 export interface CreateChannelPayload {
   name: string;
-  type: ChannelType;
   description?: string;
+  type: ChannelType;
 }
 
 export interface UpdateChannelPayload {
-  name?: string;
-  description?: string | null;
-  position?: number;
+  name: string;
+  description?: string;
+  position: number;
 }
 
-// Message Types
-export interface MessageDto {
-  id: EntityId;
-  channelId: EntityId;
-  userId: EntityId;
-  content: string;
-  attachments?: string[];
-  mentionedUserIds?: EntityId[];
-  mentionedRoleIds?: EntityId[];
-  isEdited: boolean;
-  isPinned: boolean;
-  createdAt: string;
-  updatedAt?: string;
-}
-
-export interface MessageListItem extends MessageDto {
-  user: UserDto;
-}
-
+// --- Message Payloads ---
 export interface CreateMessagePayload {
   content: string;
-  attachments?: string[];
+  attachmentUrls?: string[];
   mentionedUserIds?: EntityId[];
   mentionedRoleIds?: EntityId[];
 }
@@ -180,59 +284,53 @@ export interface UpdateMessagePayload {
   content: string;
 }
 
-// Real-time Event Payloads
+// --- SignalR Event Payloads ---
 export interface MessageDeletedPayload {
-  messageId: EntityId;
   channelId: EntityId;
+  messageId: EntityId;
 }
 
 export interface UserServerPayload {
-  userId: EntityId;
   serverId: EntityId;
-  serverName?: string;
+  userId: EntityId;
   user?: UserDto;
 }
 
 export interface ChannelDeletedPayload {
+  serverId: EntityId;
   channelId: EntityId;
-  serverId: EntityId;
-}
-
-export interface EmojiDto {
-  id: EntityId;
-  serverId: EntityId;
-  name: string;
-  imageUrl: string;
-  createdAt: string;
 }
 
 export interface EmojiDeletedPayload {
-  emojiId: EntityId;
   serverId: EntityId;
+  emojiId: EntityId;
 }
 
 export interface MemberRolesUpdatedPayload {
   serverId: EntityId;
   userId: EntityId;
-  newRole: Role;
+  roleIds: EntityId[];
 }
 
 export interface ReactionPayload {
   messageId: EntityId;
+  channelId: EntityId;
   userId: EntityId;
-  emoji: string;
+  emojiId?: EntityId;
+  emoji?: string;
 }
 
+// --- WebRTC Payloads ---
 export interface VoiceChannelPayload {
   channelId: EntityId;
   userId: EntityId;
-  action: 'join' | 'leave';
+  user?: UserDto;
 }
 
 export interface WebRTCSignalPayload {
-  channelId: EntityId;
-  userId: EntityId;
-  signal: any;
+  fromUserId: EntityId;
+  toUserId: EntityId;
+  signal: any; // RTCSessionDescription or RTCIceCandidate
 }
 
 export interface ScreenSharePayload {
@@ -241,44 +339,15 @@ export interface ScreenSharePayload {
   isSharing: boolean;
 }
 
-// API Response Types
-export interface PaginatedResponse<T> {
-  items: T[];
-  totalCount: number;
-  pageNumber: number;
-  pageSize: number;
-  totalPages: number;
-}
-
-export interface MessageQueryParams {
-  before?: EntityId;
-  after?: EntityId;
-  limit?: number;
-}
-
-// Form Types
-export interface ServerFormData {
-  name: string;
-  description: string;
-  iconUrl?: string;
-}
-
-export interface ChannelFormData {
-  name: string;
-  type: ChannelType;
-  description: string;
-}
-
-// UI State Types
-export interface Toast {
-  id?: string;
-  type: 'success' | 'danger' | 'warning' | 'info';
-  title?: string;
-  message: string;
-  duration?: number;
-}
-
-export interface ModalState {
-  isOpen: boolean;
-  data?: any;
+// --- Audit Log ---
+export interface AuditLogEntry {
+  id: EntityId;
+  serverId: EntityId;
+  userId: EntityId;
+  username: string;
+  action: string;
+  targetType?: string;
+  targetId?: EntityId;
+  changes?: Record<string, any>;
+  createdAt: ISODateString;
 }

@@ -7,7 +7,7 @@ import authService from '@/services/authService';
 import userService from '@/services/userService';
 import { signalRService } from '@/services/signalrService';
 import { jwtDecode } from 'jwt-decode';
-import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile } from '@/services/types';
+import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile, AuthResponse } from '@/services/types';
 import { getDisplayMessage } from '@/services/errorHandler';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -17,6 +17,10 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null);
 
   const isAuthenticated = computed(() => !!token.value && !!user.value);
+
+  const clearError = () => {
+    error.value = null;
+  };
 
   const setToken = (newToken: string | null) => {
     token.value = newToken;
@@ -51,7 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (isExpired) {
         await logout();
       } else {
-        if (!user.value) { // Fetch only if user data is not already loaded
+        if (!user.value) {
           await fetchUserProfile();
         }
       }
@@ -65,15 +69,15 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await authService.login(credentials);
-      setToken(response.token); // Assuming login returns { token: '...' }
+      const response: AuthResponse = await authService.login(credentials);
+      setToken(response.accessToken); 
       
       await checkAuth();
 
       const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
       await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
     } catch (err: any) {
-      error.value = getDisplayMessage(err); 
+      error.value = getDisplayMessage(err);
       throw err;
     } finally {
       loading.value = false;
@@ -85,9 +89,15 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     try {
       await authService.register(userData);
-      await router.push({ name: RouteNames.LOGIN, query: { registered: 'true' } });
+      await router.push({ 
+        name: RouteNames.LOGIN, 
+        query: { 
+          registered: 'true',
+          username: userData.username
+        } 
+      });
     } catch (err: any) {
-      error.value = getDisplayMessage(err); 
+      error.value = getDisplayMessage(err);
       throw err;
     } finally {
       loading.value = false;
@@ -116,6 +126,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isAuthenticated,
+    clearError,
     login,
     register,
     logout,

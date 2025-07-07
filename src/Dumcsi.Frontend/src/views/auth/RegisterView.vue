@@ -102,11 +102,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { MessageSquare, Loader2 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
+
+onMounted(() => {
+  authStore.clearError()
+})
 
 const form = ref({
   username: '',
