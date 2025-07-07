@@ -65,6 +65,20 @@ public static class JwtFactoryExtensions
             
             options.Events = new JwtBearerEvents
             {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+
+                    // Ha a kérés egy WebSocket kapcsolódási kísérlet a ChatHub-hoz
+                    // és van access_token a query stringben, akkor azt használjuk.
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) &&
+                        (path.StartsWithSegments("/chathub")))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                },
                 OnTokenValidated = async context =>
                 {
                     // A DI konténerből elkérjük a DbContextFactory-t.
