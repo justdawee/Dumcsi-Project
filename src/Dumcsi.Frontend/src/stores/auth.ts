@@ -75,35 +75,27 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const login = async (credentials: LoginPayload) => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const tokenData = await authService.login(credentials);
-      setToken(tokenData.token);
-      
-      // Check auth to set user data
-      await checkAuth();
-
-      // Small delay to ensure token is propagated
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Initialize SignalR connection after successful login
-      try {
-        await signalRService.initialize();
-      } catch (signalrError) {
-        console.error('SignalR initialization failed:', signalrError);
-        // Don't fail login if SignalR fails
-      }
-
-      const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
-    } catch (err: any) {
-      error.value = err.message || 'Invalid username or password';
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  };
+  loading.value = true;
+  error.value = null;
+  try {
+    const tokenData = await authService.login(credentials);
+    // 1. A setToken elmenti a tokent a localStore-ba és a Pinia állapotába.
+    setToken(tokenData.token); 
+    
+    // 2. A checkAuth frissíti a felhasználói adatokat.
+    await checkAuth();
+    
+    // 3. Átirányítás a sikeres bejelentkezés után.
+    const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+    await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
+    
+  } catch (err: any) {
+    error.value = err.message || 'Invalid username or password';
+    throw err;
+  } finally {
+    loading.value = false;
+  }
+};
   
   const register = async (userData: RegisterPayload) => {
     loading.value = true;

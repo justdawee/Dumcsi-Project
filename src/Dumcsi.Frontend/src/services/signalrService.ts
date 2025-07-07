@@ -27,9 +27,11 @@ class SignalRService {
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
         accessTokenFactory: () => {
-          // Get token directly from localStorage to ensure it's available
           const token = localStorage.getItem('token');
-          return token ? `Bearer ${token}` : '';
+          // --- ÚJ SOROK A DEBUGOLÁSHOZ ---
+          console.log('SignalR accessTokenFactory: Token from localStorage:', token);
+          // ------------------------------------
+          return token || '';
         }
       })
       .withAutomaticReconnect({
