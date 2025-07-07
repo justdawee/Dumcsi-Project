@@ -1,4 +1,5 @@
-﻿using Dumcsi.Api.Helpers;
+﻿using Dumcsi.Api.Common;
+using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -27,7 +28,7 @@ public class RoleController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
         {
-            return ForbidResponse("You do not have permission to view roles.");
+            return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_VIEW", "You do not have permission to view roles."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -54,7 +55,7 @@ public class RoleController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
         {
-            return ForbidResponse("You do not have permission to create roles.");
+            return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_CREATE", "You do not have permission to create roles."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -62,7 +63,7 @@ public class RoleController(
         var server = await dbContext.Servers.FindAsync([serverId], cancellationToken);
         if (server == null)
         {
-            return NotFoundResponse("Server not found.");
+            return NotFound(ApiResponse.Fail("ROLE_SERVER_NOT_FOUND", "The server to add the role to does not exist."));
         }
 
         var highestPosition = await dbContext.Roles
@@ -100,7 +101,7 @@ public class RoleController(
         
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("RoleCreated", roleDto, cancellationToken);
         
-        return OkResponse(roleDto, "Role created successfully.");
+        return CreatedAtAction(nameof(GetRoles), new { serverId }, ApiResponse<ServerDtos.RoleDto>.Success(roleDto, "Role created successfully."));
     }
 
     [HttpPatch("{roleId}")]
@@ -108,7 +109,7 @@ public class RoleController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
         {
-            return ForbidResponse("You do not have permission to update roles.");
+            return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_UPDATE", "You do not have permission to update roles."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -116,9 +117,9 @@ public class RoleController(
         var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId, cancellationToken);
         if (role == null)
         {
-            return NotFoundResponse("Role not found.");
+            return NotFound(ApiResponse.Fail("ROLE_NOT_FOUND", "The role to update does not exist."));
         }
-
+        
         var oldValues = new { role.Name, role.Color, role.Permissions, role.Position, role.IsHoisted, role.IsMentionable };
 
         if (role.Name != "@everyone")
@@ -165,7 +166,7 @@ public class RoleController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
         {
-            return ForbidResponse("You do not have permission to delete roles.");
+            return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_DELETE", "You do not have permission to delete roles."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -173,15 +174,15 @@ public class RoleController(
         var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.Id == roleId && r.ServerId == serverId, cancellationToken);
         if (role == null)
         {
-            return NotFoundResponse("Role not found.");
+            return NotFound(ApiResponse.Fail("ROLE_NOT_FOUND", "The role to delete does not exist."));
         }
 
         if (role.Name is "@everyone" or "Admin")
         {
-            return BadRequestResponse("Cannot delete default roles.");
+            return BadRequest(ApiResponse.Fail("ROLE_CANNOT_DELETE_DEFAULT", "Default roles ('@everyone', 'Admin') cannot be deleted."));
         }
 
-        var deletedRoleName = role.Name; // Mentsük el a nevet a loghoz
+        var deletedRoleName = role.Name;
 
         dbContext.Roles.Remove(role);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -198,7 +199,7 @@ public class RoleController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
         {
-            return ForbidResponse("You do not have permission to manage member roles.");
+            return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_ASSIGN", "You do not have permission to manage member roles."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -209,7 +210,7 @@ public class RoleController(
 
         if (member == null)
         {
-            return NotFoundResponse("Member not found in this server.");
+            return NotFound(ApiResponse.Fail("ROLE_MEMBER_NOT_FOUND", "The specified member was not found in this server."));
         }
 
         var oldRoleIds = member.Roles.Select(r => r.Id).ToList();

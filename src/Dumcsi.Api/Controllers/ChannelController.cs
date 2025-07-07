@@ -2,7 +2,6 @@
 using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
-using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
@@ -11,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
-using NodaTime.Extensions;
 
 namespace Dumcsi.Api.Controllers;
 
@@ -28,8 +26,14 @@ public class ChannelController(
     public async Task<IActionResult> GetChannel(long id, CancellationToken cancellationToken)
     {
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ViewChannels);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to view this channel.");
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_VIEW", "You do not have permission to view this channel."));
+        }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -39,10 +43,9 @@ public class ChannelController(
 
         if (channel == null)
         {
-            return NotFoundResponse("Channel not found.");
+            return NotFound(ApiResponse.Fail("CHANNEL_NOT_FOUND", "The requested channel does not exist."));
         }
-
-        // Itt egy egyszerűsített DTO-t adunk vissza, az üzenetek a MessageControlleren keresztül érhetők el.
+        
         var response = new ChannelDtos.ChannelDetailDto
         {
             Id = channel.Id,
@@ -61,19 +64,25 @@ public class ChannelController(
     {
         if (!ModelState.IsValid)
         {
-            return BadRequestResponse("Invalid request data.");
+            return BadRequest(ApiResponse.Fail("CHANNEL_UPDATE_INVALID_DATA", "The provided data for updating the channel is invalid."));
         }
 
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ManageChannels);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to manage this channel.");
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_MANAGE", "You do not have permission to manage this channel."));
+        }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var channel = await dbContext.Channels.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (channel == null)
         {
-            return NotFoundResponse("Channel not found.");
+            return NotFound(ApiResponse.Fail("CHANNEL_NOT_FOUND", "The channel to update does not exist."));
         }
 
         var oldValues = new { channel.Name, channel.Description, channel.Position };
@@ -103,7 +112,6 @@ public class ChannelController(
         
         await auditLogService.LogAsync(channel.ServerId, CurrentUserId, AuditLogActionType.ChannelUpdated, channel.Id, AuditLogTargetType.Channel, changes);
         
-        // Csak az adott szerver csoportjának küldjük!
         await chatHubContext.Clients.Group(channel.ServerId.ToString()).SendAsync("ChannelUpdated", channelDto, cancellationToken);
 
         return OkResponse("Channel updated successfully.");
@@ -113,26 +121,31 @@ public class ChannelController(
     public async Task<IActionResult> DeleteChannel(long id, CancellationToken cancellationToken)
     {
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ManageChannels);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to delete this channel.");
+        if (!isMember)
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_DELETE", "You do not have permission to delete this channel."));
+        }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var channel = await dbContext.Channels.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
         if (channel == null)
         {
-            return NotFoundResponse("Channel not found.");
+            return NotFound(ApiResponse.Fail("CHANNEL_NOT_FOUND", "The channel to delete does not exist."));
         }
 
-        var deletedChannelName = channel.Name; // Mentsük a nevet a loghoz
+        var deletedChannelName = channel.Name;
         var serverId = channel.ServerId;
 
         dbContext.Channels.Remove(channel);
         await dbContext.SaveChangesAsync(cancellationToken);
         
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ChannelDeleted, id, AuditLogTargetType.Channel, new { Name = deletedChannelName });
-
-        // Csak az adott szerver csoportjának küldjük!
+        
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("ChannelDeleted", new { ServerId = serverId, ChannelId = id }, cancellationToken);
         
         return OkResponse("Channel deleted successfully.");

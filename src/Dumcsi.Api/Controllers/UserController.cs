@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
-
 namespace Dumcsi.Api.Controllers;
 
 [Authorize]
@@ -32,7 +31,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
 
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
 
         var userProfile = new UserDtos.UserProfileDto
@@ -54,7 +53,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
     {
         if (!ModelState.IsValid)
         {
-            return BadRequestResponse("Invalid request data.");
+            return BadRequest(ApiResponse.Fail("PROFILE_UPDATE_INVALID_DATA", "The provided profile data is invalid."));
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -62,12 +61,12 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
 
         if (await dbContext.Users.AnyAsync(u => u.Id != CurrentUserId && (u.Username == request.Username || u.Email == request.Email), cancellationToken))
         {
-            return Conflict(ApiResponse.Fail("Username or email is already taken."));
+            return ConflictResponse("PROFILE_UPDATE_CONFLICT", "Username or email is already taken.");
         }
 
         user.Username = request.Username;
@@ -77,7 +76,6 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
 
         await dbContext.SaveChangesAsync(cancellationToken);
         
-        // Értesítjük a klienseket a profil frissítéséről
         var updatedUserProfile = new UserDtos.UserProfileDto
         {
             Id = user.Id,
@@ -100,7 +98,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
 
         dbContext.Users.Remove(user);
@@ -114,7 +112,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
     {
         if (!ModelState.IsValid)
         {
-            return BadRequestResponse("Invalid request data.");
+            return BadRequest(ApiResponse.Fail("PASSWORD_CHANGE_INVALID_DATA", "The provided password data is invalid."));
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -122,11 +120,11 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
-
-        // Jelenlegi jelszó ellenőrzése
-        var salt = user.PasswordHash[..16];
+        
+        var salt = new byte[16];
+        Buffer.BlockCopy(user.PasswordHash, 0, salt, 0, 16);
         var hash = KeyDerivation.Pbkdf2(
             password: request.CurrentPassword,
             salt: salt,
@@ -141,10 +139,9 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
 
         if (!currentPasswordHash.SequenceEqual(user.PasswordHash))
         {
-            return BadRequestResponse("Invalid current password.");
+            return BadRequest(ApiResponse.Fail("PASSWORD_CHANGE_INVALID_CURRENT", "The current password provided is incorrect."));
         }
-
-        // Új jelszó hashelése
+        
         var newSalt = RandomNumberGenerator.GetBytes(16);
         var newHash = KeyDerivation.Pbkdf2(
             password: request.NewPassword,
@@ -171,50 +168,46 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequestResponse("No file uploaded.");
+            return BadRequest(ApiResponse.Fail("AVATAR_FILE_MISSING", "No file was uploaded."));
         }
 
-        // 1. Validációk a kérés alapján
         if (file.Length > 10 * 1024 * 1024) // max 10MB
         {
-            return BadRequestResponse("File size cannot exceed 10MB.");
+            return BadRequest(ApiResponse.Fail("AVATAR_FILE_TOO_LARGE", "File size cannot exceed 10MB."));
         }
 
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
         {
-            return BadRequestResponse("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
+            return BadRequest(ApiResponse.Fail("AVATAR_INVALID_FILE_TYPE", "Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var user = await dbContext.Users.FindAsync(CurrentUserId);
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
 
         try
         {
-            // 2. Képfeldolgozás
             using var image = await Image.LoadAsync(file.OpenReadStream());
 
             if (image.Width > 1024 || image.Height > 1024)
             {
-                return BadRequestResponse("Image dimensions cannot exceed 1024x1024 pixels.");
+                return BadRequest(ApiResponse.Fail("AVATAR_INVALID_DIMENSIONS", "Image dimensions cannot exceed 1024x1024 pixels."));
             }
-
-            // A kép átméretezése (opcionális, de ajánlott a konzisztencia miatt)
+            
             image.Mutate(x => x.Resize(new ResizeOptions
             {
-                Size = new Size(256, 256), // Egységes méretre hozzuk az avatarokat
+                Size = new Size(256, 256),
                 Mode = ResizeMode.Crop
             }));
 
             await using var memoryStream = new MemoryStream();
-            await image.SaveAsPngAsync(memoryStream); // Mindent PNG-ként mentünk az egységességért
+            await image.SaveAsPngAsync(memoryStream);
             memoryStream.Position = 0;
-
-            // 3. Régi kép törlése a MinIO-ból
+            
             if (!string.IsNullOrEmpty(user.Avatar))
             {
                 try
@@ -224,18 +217,15 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
                 }
                 catch
                 {
-                    // Ha a törlés nem sikerül (pl. már nem létezik), nem állítjuk le a folyamatot, csak logolhatnánk.
+                    // Log this error but don't fail the operation
                 }
             }
-
-            // 4. Új kép feltöltése
+            
             var newAvatarUrl = await fileStorageService.UploadFileAsync(memoryStream, $"{CurrentUserId}_avatar.png", "image/png");
-
-            // 5. Adatbázis frissítése
+            
             user.Avatar = newAvatarUrl;
             await dbContext.SaveChangesAsync();
             
-            // 6. Értesítés a klienseknek
             var updatedUserProfile = new UserDtos.UserProfileDto
             {
                 Id = user.Id,
@@ -251,7 +241,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"An error occurred while processing the image: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("AVATAR_PROCESSING_ERROR", $"An error occurred while processing the image: {ex.Message}"));
         }
     }
 
@@ -262,15 +252,14 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         var user = await dbContext.Users.FindAsync(CurrentUserId);
         if (user == null)
         {
-            return NotFoundResponse("User not found.");
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
         }
 
         if (string.IsNullOrEmpty(user.Avatar))
         {
             return OkResponse("User has no avatar to delete.");
         }
-
-        // Fájl törlése a MinIO-ból
+        
         try
         {
             var fileName = Path.GetFileName(new Uri(user.Avatar).LocalPath);
@@ -278,21 +267,19 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"An error occurred while deleting the avatar: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("AVATAR_DELETE_ERROR", $"An error occurred while deleting the avatar: {ex.Message}"));
         }
-
-        // Adatbázis frissítése
+        
         user.Avatar = null;
         await dbContext.SaveChangesAsync();
         
-        // Értesítés a klienseknek
         var updatedUserProfile = new UserDtos.UserProfileDto
         {
             Id = user.Id,
             Username = user.Username,
             GlobalNickname = user.GlobalNickname,
             Email = user.Email,
-            Avatar = null // Az avatar URL-t null-ra állítjuk
+            Avatar = null
         };
         await chatHubContext.Clients.All.SendAsync("UserUpdated", updatedUserProfile);
 
@@ -315,7 +302,7 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
                 u.Username.ToLower().Contains(query.ToLower()) || 
                 (u.GlobalNickname != null && u.GlobalNickname.ToLower().Contains(query.ToLower()))
             )
-            .Take(20) // Limitáljuk a találatok számát a teljesítmény érdekében
+            .Take(20)
             .Select(u => new UserDtos.UserProfileDto
             {
                 Id = u.Id,

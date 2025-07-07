@@ -1,30 +1,46 @@
 ﻿namespace Dumcsi.Api.Common;
 
-// Sikeres válasz adat nélkül
+// Ezt az új belső osztályt adjuk hozzá
+public class ErrorPayload
+{
+    public string Code { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
 public class ApiResponse
 {
     public bool IsSuccess { get; }
     public string? Message { get; }
 
-    protected ApiResponse(bool isSuccess, string? message = null)
+    // Új property a hiba objektumnak
+    public ErrorPayload? Error { get; }
+
+    // Módosított konstruktor
+    protected ApiResponse(bool isSuccess, string? message = null, ErrorPayload? error = null)
     {
         IsSuccess = isSuccess;
         Message = message;
+        Error = error;
     }
 
     public static ApiResponse Success(string? message = null) => new(true, message);
-    public static ApiResponse Fail(string message) => new(false, message);
+    
+    // Új Fail metódus hibakóddal
+    public static ApiResponse Fail(string code, string message) => new(false, null, new ErrorPayload { Code = code, Message = message });
 }
 
-// Sikeres válasz adatokkal
 public class ApiResponse<T> : ApiResponse
 {
     public T? Data { get; }
 
-    private ApiResponse(T data, bool isSuccess, string? message = null) : base(isSuccess, message)
+    private ApiResponse(T? data, bool isSuccess, string? message = null, ErrorPayload? error = null) 
+        : base(isSuccess, message, error)
     {
         Data = data;
     }
 
-    public static ApiResponse<T> Success(T data, string? message = null) => new(data, true, message);
+    public static ApiResponse<T> Success(T data, string? message = null) => new(data, true, message, null);
+    
+    // Típusos Fail metódus is kell
+    public static new ApiResponse<T> Fail(string code, string message) => new(default, false, null, new ErrorPayload { Code = code, Message = message });
 }

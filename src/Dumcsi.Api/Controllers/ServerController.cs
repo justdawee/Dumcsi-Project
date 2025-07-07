@@ -20,7 +20,7 @@ namespace Dumcsi.Api.Controllers;
 [ApiController]
 [Route("api/server")]
 public class ServerController(
-    IDbContextFactory<DumcsiDbContext> dbContextFactory, 
+    IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
     IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
@@ -56,7 +56,10 @@ public class ServerController(
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
-        if (user == null) return Unauthorized();
+        if (user == null) 
+        {
+            return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
+        }
 
         var server = new Server
         {
@@ -122,7 +125,7 @@ public class ServerController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_VIEW", "You do not have permission to view this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -135,7 +138,10 @@ public class ServerController(
             .ThenInclude(m => m.Roles)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
-        if (server == null) return NotFoundResponse("Server not found.");
+        if (server == null) 
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The requested server does not exist."));
+        }
 
         var currentUserMembership = server.Members.First();
         var currentUserPermissions = currentUserMembership.Roles
@@ -171,19 +177,28 @@ public class ServerController(
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateServer(long id, [FromBody] ServerDtos.UpdateServerRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
+        if (!ModelState.IsValid) 
+        {
+            return BadRequest(ApiResponse.Fail("SERVER_UPDATE_INVALID_DATA", "The provided data for updating the server is invalid."));
+        }
 
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageServer))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_MANAGE", "You do not have permission to manage this server."));
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) return NotFoundResponse("Server not found.");
+        if (server == null) 
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to update does not exist."));
+        }
 
-        if (server.OwnerId != CurrentUserId) return ForbidResponse("Only the server owner can update the server.");
+        if (server.OwnerId != CurrentUserId) 
+        {
+            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can update the server."));
+        }
 
         var oldValues = new { server.Name, server.Description, server.Icon, server.Public };
 
@@ -203,7 +218,6 @@ public class ServerController(
             Public = new { Old = oldValues.Public, New = server.Public }
         };
         
-        // Értesítjük a klienseket a szerver frissítéséről
         var serverDto = new ServerDtos.ServerListItemDto 
         {
             Id = server.Id,
@@ -227,21 +241,19 @@ public class ServerController(
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
         if (server == null)
         {
-            return NotFoundResponse("Server not found.");
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to delete does not exist."));
         }
         
         if (server.OwnerId != CurrentUserId)
         {
-            return ForbidResponse("Only the server owner can delete the server.");
+            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can delete the server."));
         }
 
         dbContext.Servers.Remove(server);
         await dbContext.SaveChangesAsync(cancellationToken);
-
-        // Audit log bejegyzés a szerver törléséről
+        
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerDeleted, id, AuditLogTargetType.Server);
         
-        // Értesítjük a klienseket a szerver törléséről
         await chatHubContext.Clients.All.SendAsync("ServerDeleted", id, cancellationToken);
 
         return OkResponse("Server deleted successfully.");
@@ -250,10 +262,9 @@ public class ServerController(
     [HttpGet("{id}/members")]
     public async Task<IActionResult> GetServerMembers(long id, CancellationToken cancellationToken)
     {
-        // A tagok listázásához elég, ha a felhasználó látja a csatornákat.
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("SERVER_MEMBERS_FORBIDDEN_VIEW", "You do not have permission to view server members."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -293,7 +304,7 @@ public class ServerController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.CreateInvite))
         {
-            return ForbidResponse("You don't have permission to create invites.");
+            return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_CREATE", "You don't have permission to create invites."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -301,7 +312,10 @@ public class ServerController(
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
         var creator = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
 
-        if (server == null || creator == null) return NotFoundResponse("Server or creator not found.");
+        if (server == null || creator == null) 
+        {
+            return NotFound(ApiResponse.Fail("INVITE_CREATE_PREREQUISITES_NOT_FOUND", "Server or creator not found."));
+        }
 
         var expiresAt = request.ExpiresInHours.HasValue
             ? SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(request.ExpiresInHours.Value))
@@ -320,8 +334,7 @@ public class ServerController(
 
         dbContext.Invites.Add(invite);
         await dbContext.SaveChangesAsync(cancellationToken);
-
-        // Audit log bejegyzés a meghívó létrehozásáról
+        
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteCreated, null, AuditLogTargetType.Invite, new { invite.Code });
 
         return OkResponse(new { invite.Code });
@@ -332,18 +345,20 @@ public class ServerController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageServer))
         {
-            return ForbidResponse("You don't have permission to delete invites.");
+            return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You don't have permission to delete invites."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var invite = await dbContext.Invites.FindAsync([id], cancellationToken);
-        if (invite == null) return NotFoundResponse("Invite not found.");
+        if (invite == null) 
+        {
+            return NotFound(ApiResponse.Fail("INVITE_NOT_FOUND", "Invite not found."));
+        }
 
         dbContext.Invites.Remove(invite);
         await dbContext.SaveChangesAsync(cancellationToken);
-
-        // Audit log bejegyzés a meghívó törléséről
+        
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteDeleted, null, AuditLogTargetType.Invite, new { invite.Code });
 
         return OkResponse("Invite deleted successfully.");
@@ -355,25 +370,30 @@ public class ServerController(
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) return NotFoundResponse("Server not found.");
+        if (server == null) 
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to leave does not exist."));
+        }
         
         if (server.OwnerId == CurrentUserId)
         {
-            return BadRequestResponse("Server owner cannot leave. Delete the server instead.");
+            return BadRequest(ApiResponse.Fail("SERVER_OWNER_CANNOT_LEAVE", "Server owner cannot leave. Delete the server instead."));
         }
 
         var membership = await dbContext.ServerMembers
             .FirstOrDefaultAsync(sm => sm.ServerId == id && sm.UserId == CurrentUserId, cancellationToken);
 
-        if (membership == null) return BadRequestResponse("You are not a member of this server.");
+        if (membership == null) 
+        {
+            return BadRequest(ApiResponse.Fail("SERVER_LEAVE_NOT_MEMBER", "You are not a member of this server."));
+        }
 
         dbContext.ServerMembers.Remove(membership);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberLeft, CurrentUserId, AuditLogTargetType.User, reason: "User left the server.");
-
-        // A frontend ez alapján tudja eltávolítani a usert a taglistából, és frissíteni a taglétszámot.
-        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserLeftServer", new { UserId = CurrentUserId, ServerId = id });
+        
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserLeftServer", new { UserId = CurrentUserId, ServerId = id }, cancellationToken: cancellationToken);
         
         return OkResponse("Successfully left the server.");
     }
@@ -383,7 +403,7 @@ public class ServerController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_LIST_FORBIDDEN_VIEW", "You do not have permission to view channels on this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -406,17 +426,23 @@ public class ServerController(
     [HttpPost("{id}/channels")]
     public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
+        if (!ModelState.IsValid) 
+        {
+            return BadRequest(ApiResponse.Fail("CHANNEL_CREATE_INVALID_DATA", "The provided data for creating a channel is invalid."));
+        }
         
         if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageChannels))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_CREATE", "You do not have permission to create channels on this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) return NotFoundResponse("Server not found.");
+        if (server == null) 
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to add the channel to does not exist."));
+        }
 
         var channel = new Channel
         {
@@ -443,7 +469,7 @@ public class ServerController(
             Position = channel.Position
         };
         
-        return OkResponse(channelDto, "Channel created successfully.");
+        return CreatedAtAction(nameof(GetChannels), new { id }, ApiResponse<ChannelDtos.ChannelListItemDto>.Success(channelDto, "Channel created successfully."));
     }
     
     [HttpGet("public")]
@@ -477,17 +503,26 @@ public class ServerController(
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) return NotFoundResponse("Server not found.");
+        if (server == null) 
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to join does not exist."));
+        }
         
-        if (!server.Public) return ForbidResponse("This server is not public. You need an invite to join.");
+        if (!server.Public) 
+        {
+            return StatusCode(403, ApiResponse.Fail("SERVER_JOIN_NOT_PUBLIC", "This server is not public. You need an invite to join."));
+        }
         
         if (await dbContext.ServerMembers.AnyAsync(sm => sm.ServerId == id && sm.UserId == CurrentUserId, cancellationToken))
         {
-            return BadRequestResponse("You are already a member of this server.");
+            return BadRequest(ApiResponse.Fail("SERVER_JOIN_ALREADY_MEMBER", "You are already a member of this server."));
         }
 
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
-        if (user == null) return Unauthorized();
+        if (user == null) 
+        {
+            return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
+        }
 
         var everyoneRole = await dbContext.Roles.FirstAsync(r => r.ServerId == id && r.Name == "@everyone", cancellationToken);
         
@@ -512,8 +547,7 @@ public class ServerController(
             Avatar = user.Avatar
         };
         
-        // A frontend ez alapján tudja hozzáadni az új usert a taglistához, és frissíteni a taglétszámot.
-        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = id });
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = id }, cancellationToken: cancellationToken);
         
         return OkResponse(new { ServerId = server.Id }, "Successfully joined server.");
     }
@@ -521,72 +555,72 @@ public class ServerController(
     [HttpPost("{serverId}/icon")]
     public async Task<IActionResult> UploadOrUpdateServerIcon(long serverId, IFormFile? file)
     {
-        // 1. Jogosultság ellenőrzése
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
         {
-            return ForbidResponse("You do not have permission to manage this server's icon.");
+            return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
         }
 
         if (file == null || file.Length == 0)
         {
-            return BadRequestResponse("No file uploaded.");
+            return BadRequest(ApiResponse.Fail("SERVER_ICON_FILE_MISSING", "No file uploaded."));
         }
 
-        // 2. Validációk a kérés alapján
         if (file.Length > 20 * 1024 * 1024) // max 20MB
         {
-            return BadRequestResponse("File size cannot exceed 20MB.");
+            return BadRequest(ApiResponse.Fail("SERVER_ICON_FILE_TOO_LARGE", "File size cannot exceed 20MB."));
         }
 
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
         {
-            return BadRequestResponse("Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.");
+            return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_FILE_TYPE", "Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed."));
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var server = await dbContext.Servers.FindAsync(serverId);
         if (server == null)
         {
-            return NotFoundResponse("Server not found.");
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "Server not found."));
         }
 
         try
         {
-            // 3. Képfeldolgozás
             using var image = await Image.LoadAsync(file.OpenReadStream());
 
             if (image.Width > 1024 || image.Height > 1024)
             {
-                return BadRequestResponse("Image dimensions cannot exceed 1024x1024 pixels.");
+                return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_DIMENSIONS", "Image dimensions cannot exceed 1024x1024 pixels."));
             }
             
             image.Mutate(x => x.Resize(new ResizeOptions
             {
-                Size = new Size(512, 512), // Nagyobb egységes méret a szerver ikonoknak
+                Size = new Size(512, 512),
                 Mode = ResizeMode.Crop
             }));
 
             await using var memoryStream = new MemoryStream();
             await image.SaveAsPngAsync(memoryStream);
             memoryStream.Position = 0;
-
-            // 4. Régi ikon törlése
+            
             if (!string.IsNullOrEmpty(server.Icon))
             {
-                var oldFileName = Path.GetFileName(new Uri(server.Icon).LocalPath);
-                await fileStorageService.DeleteFileAsync(oldFileName);
+                try
+                {
+                    var oldFileName = Path.GetFileName(new Uri(server.Icon).LocalPath);
+                    await fileStorageService.DeleteFileAsync(oldFileName);
+                }
+                catch
+                {
+                    // Log this error but don't fail the operation
+                }
             }
-
-            // 5. Új ikon feltöltése
+            
             var newIconUrl = await fileStorageService.UploadFileAsync(memoryStream, $"{serverId}_icon.png", "image/png");
-
-            // 6. Adatbázis frissítése
+            
             server.Icon = newIconUrl;
             server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             await dbContext.SaveChangesAsync();
             
-            // 7. Audit naplózás
             await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconChanged = newIconUrl });
 
             var serverDto = new ServerDtos.ServerListItemDto
@@ -604,7 +638,7 @@ public class ServerController(
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"An error occurred while processing the image: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("SERVER_ICON_PROCESSING_ERROR", $"An error occurred while processing the image: {ex.Message}"));
         }
     }
 
@@ -613,14 +647,14 @@ public class ServerController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
         {
-            return ForbidResponse("You do not have permission to manage this server's icon.");
+            return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
         }
         
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var server = await dbContext.Servers.FindAsync(serverId);
         if (server == null)
         {
-            return NotFoundResponse("Server not found.");
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "Server not found."));
         }
 
         if (string.IsNullOrEmpty(server.Icon))
@@ -628,9 +662,8 @@ public class ServerController(
             return OkResponse("Server has no icon to delete.");
         }
 
-        var oldIconUrl = server.Icon; // Elmentjük a loghoz
-
-        // Fájl törlése a MinIO-ból
+        var oldIconUrl = server.Icon;
+        
         try 
         {
             var fileName = Path.GetFileName(new Uri(oldIconUrl).LocalPath);
@@ -638,10 +671,9 @@ public class ServerController(
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"Failed to delete server icon: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("SERVER_ICON_DELETE_ERROR", $"Failed to delete server icon: {ex.Message}"));
         }
         
-        // Adatbázis frissítése
         server.Icon = null;
         server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         await dbContext.SaveChangesAsync();
@@ -653,7 +685,7 @@ public class ServerController(
             Id = server.Id,
             Name = server.Name,
             Description = server.Description,
-            Icon = null, // Az ikon törölve lett
+            Icon = null,
             Public = server.Public
         };
         

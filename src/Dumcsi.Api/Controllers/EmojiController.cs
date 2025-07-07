@@ -30,7 +30,7 @@ public class EmojiController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewChannels))
         {
-            return ForbidResponse();
+            return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_VIEW", "You do not have permission to view emojis on this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -49,29 +49,29 @@ public class EmojiController(
         // 1. Jogosultság ellenőrzése
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
         {
-            return ForbidResponse("You do not have permission to create emojis.");
+            return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_CREATE", "You do not have permission to create emojis."));
         }
 
         // 2. Validációk
         if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
         {
-            return BadRequestResponse("Emoji name must be at least 2 characters long.");
+            return BadRequest(ApiResponse.Fail("EMOJI_INVALID_NAME", "Emoji name must be at least 2 characters long."));
         }
         
         if (file == null || file.Length == 0)
         {
-            return BadRequestResponse("No file uploaded.");
+            return BadRequest(ApiResponse.Fail("EMOJI_FILE_MISSING", "No file was uploaded."));
         }
 
         if (file.Length > 8 * 1024 * 1024) // max 8MB
         {
-            return BadRequestResponse("File size cannot exceed 8MB.");
+            return BadRequest(ApiResponse.Fail("EMOJI_FILE_TOO_LARGE", "File size cannot exceed 8MB."));
         }
 
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
         {
-            return BadRequestResponse("Invalid file type. Only JPG, PNG, GIF, WEBP, and AVIF are allowed.");
+            return BadRequest(ApiResponse.Fail("EMOJI_INVALID_FILE_TYPE", "Invalid file type. Only JPG, PNG, GIF, WEBP, and AVIF are allowed."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
@@ -79,7 +79,7 @@ public class EmojiController(
         var creator = await dbContext.Users.FindAsync(CurrentUserId);
         if (server == null || creator == null)
         {
-            return NotFoundResponse("Server or creator not found.");
+            return NotFound(ApiResponse.Fail("EMOJI_CREATE_PREREQUISITES_NOT_FOUND", "Server or creator user not found."));
         }
 
         try
@@ -89,33 +89,28 @@ public class EmojiController(
 
             if (image.Width > 128 || image.Height > 128)
             {
-                return BadRequestResponse("Image dimensions cannot exceed 128x128 pixels.");
+                return BadRequest(ApiResponse.Fail("EMOJI_INVALID_DIMENSIONS", "Image dimensions cannot exceed 128x128 pixels."));
             }
             
-            // A kép mentése egy memory stream-be a feltöltéshez
             await using var memoryStream = new MemoryStream();
-            // A GIF-eket nem kódoljuk újra, hogy megmaradjon az animáció. A többit egységesen PNG-be mentjük.
             if (file.ContentType.ToLower() == "image/gif")
             {
-                // Visszaírjuk az eredeti streamet a memory stream-be
                 await file.OpenReadStream().CopyToAsync(memoryStream);
             }
             else
             {
-                // Itt jöhetne a 256KB-ra való tömörítés logikája, pl. a PNG encoder minőségének állításával.
-                // Ez egy komplexebb feladat, most a méretkorlátot a validációnál kezeljük.
                 await image.SaveAsPngAsync(memoryStream);
             }
             memoryStream.Position = 0;
 
-            // 4. Feltöltés a MinIO-ba
-            var emojiFileName = $":{name}:"; // A naming scheme-et a fájlnévben is használhatjuk
+            // 4. Feltöltés
+            var emojiFileName = $":{name}:";
             var emojiUrl = await fileStorageService.UploadFileAsync(memoryStream, emojiFileName, file.ContentType);
 
             // 5. Adatbázis mentés
             var emoji = new CustomEmoji
             {
-                Name = name, // Az adatbázisban a tiszta nevet tároljuk
+                Name = name,
                 ImageUrl = emojiUrl,
                 Server = server,
                 Creator = creator,
@@ -126,18 +121,18 @@ public class EmojiController(
             await dbContext.SaveChangesAsync();
             
             // 6. Audit Naplózás
-            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiAdded = emoji.Name });
+            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.EmojiCreated, emoji.Id, AuditLogTargetType.User, new { EmojiName = emoji.Name });
 
             // 7. Értesítés a klienseken keresztül
             var emojiDto = new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl };
             
             await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("EmojiCreated", emojiDto);
             
-            return OkResponse(new EmojiDtos.EmojiDto { Id = emoji.Id, Name = emoji.Name, ImageUrl = emoji.ImageUrl }, "Emoji created successfully.");
+            return OkResponse(emojiDto, "Emoji created successfully.");
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"An error occurred while processing the emoji: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("EMOJI_PROCESSING_ERROR", $"An error occurred while processing the emoji: {ex.Message}"));
         }
     }
 
@@ -146,14 +141,14 @@ public class EmojiController(
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
         {
-            return ForbidResponse("You do not have permission to delete emojis.");
+            return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_DELETE", "You do not have permission to delete emojis."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var emoji = await dbContext.CustomEmojis.FirstOrDefaultAsync(e => e.Id == emojiId && e.ServerId == serverId);
         if (emoji == null)
         {
-            return NotFoundResponse("Emoji not found.");
+            return NotFound(ApiResponse.Fail("EMOJI_NOT_FOUND", "The emoji to delete does not exist."));
         }
         
         // Fájl törlése a MinIO-ból
@@ -165,7 +160,7 @@ public class EmojiController(
         dbContext.CustomEmojis.Remove(emoji);
         await dbContext.SaveChangesAsync();
         
-        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { EmojiRemoved = deletedEmojiName });
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.EmojiDeleted, emoji.Id, AuditLogTargetType.User, new { EmojiName = deletedEmojiName });
 
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("EmojiDeleted", new { ServerId = serverId, EmojiId = emojiId });
         

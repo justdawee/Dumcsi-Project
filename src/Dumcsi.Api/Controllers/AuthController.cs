@@ -16,7 +16,7 @@ public class AuthController(IAuthService authService) : ControllerBase
         
         return result.IsSuccess 
             ? Ok(ApiResponse.Success("Registration successful."))
-            : Conflict(ApiResponse.Fail(result.Error ?? "An unknown error occurred."));
+            : Conflict(ApiResponse.Fail("AUTH_REGISTRATION_CONFLICT", result.Error ?? "Username or email is already taken."));
     }
     
     [HttpPost("login")]
@@ -24,10 +24,9 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         var result = await authService.LoginUserAsync(request, cancellationToken);
         
-        // A sikertelen bejelentkezésre 401 Unauthorized válasszal kell reagálni.
         if (!result.IsSuccess)
         {
-            return Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid credentials."));
+            return Unauthorized(ApiResponse.Fail("AUTH_INVALID_CREDENTIALS", result.Error ?? "Invalid username or password."));
         }
 
         return Ok(ApiResponse<TokenResponseDto>.Success(result.Value!));
@@ -40,6 +39,6 @@ public class AuthController(IAuthService authService) : ControllerBase
         
         return result.IsSuccess 
             ? Ok(ApiResponse<TokenResponseDto>.Success(result.Value!))
-            : Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid refresh token."));
+            : Unauthorized(ApiResponse.Fail("AUTH_INVALID_REFRESH_TOKEN", result.Error ?? "The provided refresh token is invalid or has expired."));
     }
 }

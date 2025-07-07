@@ -25,11 +25,11 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
 
         if (!isMember) 
         {
-            return ForbidResponse("You are not a member of this server.");
+            return StatusCode(403, ApiResponse.Fail("REACTION_ACCESS_DENIED", "You are not a member of this server."));
         }
         if (!hasPermission) 
         {
-            return ForbidResponse("You do not have permission to add reactions in this channel.");
+            return StatusCode(403, ApiResponse.Fail("REACTION_FORBIDDEN_ADD", "You do not have permission to add reactions in this channel."));
         }
 
         var emojiId = WebUtility.UrlDecode(emoji);
@@ -41,7 +41,7 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
 
         if (message == null || user == null)
         {
-            return NotFoundResponse("Message or user not found.");
+            return NotFound(ApiResponse.Fail("REACTION_PREREQUISITES_NOT_FOUND", "The message or user could not be found."));
         }
 
         var reaction = new Reaction
@@ -61,7 +61,8 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
         }
         catch (DbUpdateException) 
         { 
-            // A reakció már létezik, ami nem hiba.
+            // The reaction already exists, which is not an error in this context.
+            // The user's intent was to have the reaction present, and it is.
         }
         
         var payload = new 
@@ -71,7 +72,7 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
             EmojiId = emojiId,
             UserId = CurrentUserId 
         };
-        // Értesítjük a csatorna többi tagját
+        
         await chatHubContext.Clients.Group(channelId.ToString()).SendAsync("ReactionAdded", payload, cancellationToken);
     
         return OkResponse("Reaction added.");
@@ -83,7 +84,7 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
         var (isMember, _) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.None);
         if (!isMember)
         {
-            return ForbidResponse("You are not a member of this server.");
+            return StatusCode(403, ApiResponse.Fail("REACTION_ACCESS_DENIED", "You are not a member of this server."));
         }
 
         var emojiId = WebUtility.UrlDecode(emoji);
@@ -97,6 +98,8 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
             dbContext.Reactions.Remove(reaction);
             await dbContext.SaveChangesAsync(cancellationToken);
         }
+        // If reaction is null, it means the user already removed it or never added it.
+        // This is not an error condition, so we proceed silently.
         
         var payload = new 
         {
@@ -105,7 +108,7 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
             EmojiId = emojiId,
             UserId = CurrentUserId
         };
-        // Értesítjük a csatorna többi tagját
+        
         await chatHubContext.Clients.Group(channelId.ToString()).SendAsync("ReactionRemoved", payload, cancellationToken);
         
         return OkResponse("Reaction removed.");

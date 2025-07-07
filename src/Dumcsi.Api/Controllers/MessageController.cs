@@ -27,26 +27,38 @@ public class MessageController(
     [HttpPost]
     public async Task<IActionResult> SendMessage(long channelId, [FromBody] MessageDtos.CreateMessageRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
+        if (!ModelState.IsValid) 
+        {
+            return BadRequest(ApiResponse.Fail("MESSAGE_INVALID_DATA", "The provided message data is invalid."));
+        }
 
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.SendMessages);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to send messages in this channel.");
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_SEND", "You do not have permission to send messages in this channel."));
+        }
         
         if (request.MentionedRoleIds != null && request.MentionedRoleIds.Any())
         {
-            var (member, permission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.MentionEveryone);
-            if (!member || !permission)
+            var (member, permission) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
+            if (!member || !permission.HasFlag(Permission.MentionEveryone))
             {
-                return ForbidResponse("You do not have permission to mention roles in this channel.");
+                return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_MENTION_ROLES", "You do not have permission to mention roles in this channel."));
             }
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var channel = await dbContext.Channels.Include(c => c.Server).FirstOrDefaultAsync(c => c.Id == channelId, cancellationToken);
-        var author = await dbContext.Users.FindAsync(new object[] { CurrentUserId }, cancellationToken);
-        if (channel == null || author == null) return NotFoundResponse("Channel or user not found.");
+        var author = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
+        if (channel == null || author == null) 
+        {
+            return NotFound(ApiResponse.Fail("MESSAGE_SEND_PREREQUISITES_NOT_FOUND", "Channel or author user not found."));
+        }
 
         var message = new Message
         {
@@ -59,50 +71,32 @@ public class MessageController(
         
         if (request.AttachmentIds != null && request.AttachmentIds.Any())
         {
-            var attachments = await dbContext.Attachments
+            message.Attachments = await dbContext.Attachments
                 .Where(a => request.AttachmentIds.Contains(a.Id))
                 .ToListAsync(cancellationToken);
-            message.Attachments = attachments;
         }
         
         if (request.MentionedUserIds != null && request.MentionedUserIds.Any())
         {
-            // Lekérdezzük a megemlített felhasználókat az adatbázisból
-            var mentionedUsers = await dbContext.Users
+            message.MentionUsers = await dbContext.Users
                 .Where(u => request.MentionedUserIds.Contains(u.Id))
                 .ToListAsync(cancellationToken);
-            
-            // Hozzárendeljük őket az üzenet navigációs property-jéhez
-            message.MentionUsers = mentionedUsers;
         }
         
         if (request.MentionedRoleIds != null && request.MentionedRoleIds.Any())
         {
-            // Először lekérjük a felhasználó jogosultságait
-            var (member, permissions) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
-
-            if (!member) return ForbidResponse(); // Alapvető tagsági ellenőrzés
-
-            // Lekérdezzük a megemlíteni kívánt szerepköröket az adatbázisból
             var mentionedRoles = await dbContext.Roles
                 .Where(r => r.ServerId == channel.ServerId && request.MentionedRoleIds.Contains(r.Id))
                 .ToListAsync(cancellationToken);
             
-            // Ha a felhasználónak NINCS MentionEveryone joga, akkor egyesével ellenőrizzük a szerepköröket
+            var (_, permissions) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
             if (!permissions.HasFlag(Permission.MentionEveryone))
             {
-                // Végigmegyünk a szerepkörökön, amiket meg akart említeni
-                foreach (var role in mentionedRoles)
+                foreach (var role in mentionedRoles.Where(role => !role.IsMentionable))
                 {
-                    // Ha csak egy is van köztük, ami nem említhető meg, visszautasítjuk a kérést.
-                    if (!role.IsMentionable)
-                    {
-                        return ForbidResponse($"You do not have permission to mention the '{role.Name}' role.");
-                    }
+                    return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_MENTION_NOT_MENTIONABLE", $"You do not have permission to mention the '{role.Name}' role."));
                 }
             }
-        
-            // Ha a validáció sikeres, hozzárendeljük a szerepköröket az üzenethez
             message.MentionRoles = mentionedRoles;
         }
 
@@ -115,15 +109,21 @@ public class MessageController(
             .Group(channelId.ToString())
             .SendAsync("ReceiveMessage", messageDto, cancellationToken);
 
-        return OkResponse(messageDto, "Message sent successfully.");
+        return CreatedAtAction(nameof(GetMessages), new { channelId }, ApiResponse<MessageDtos.MessageDto>.Success(messageDto, "Message sent successfully."));
     }
 
     [HttpGet]
     public async Task<IActionResult> GetMessages(long channelId, [FromQuery] long? before = null, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to read the message history in this channel.");
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_READ_HISTORY", "You do not have permission to read the message history in this channel."));
+        }
 
         if (limit is < 1 or > 100) limit = 50;
 
@@ -152,57 +152,30 @@ public class MessageController(
     public async Task<IActionResult> GetMessageContext(long channelId, long messageId, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to read the message history in this channel.");
-
-        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-
-        // 1. Lekérdezzük az X üzenetet a fókuszban lévő üzenet ELŐTT
-        var messagesBefore = await dbContext.Messages
-            .AsNoTracking()
-            .Where(m => m.ChannelId == channelId && m.Id < messageId)
-            .OrderByDescending(m => m.Id)
-            .Take(limit / 2)
-            .ToListAsync(cancellationToken);
-
-        // 2. Lekérdezzük a fókuszban lévő üzenetet
-        var targetMessage = await dbContext.Messages
-            .AsNoTracking()
-            .Include(m => m.Author)
-            .Include(m => m.Attachments)
-            .Include(m => m.Reactions)
-            .FirstOrDefaultAsync(m => m.Id == messageId, cancellationToken);
-            
-        if (targetMessage == null)
+        if (!isMember) 
         {
-            return NotFoundResponse("The target message does not exist.");
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_READ_HISTORY", "You do not have permission to read the message history in this channel."));
         }
 
-        // 3. Lekérdezzük az Y üzenetet a fókuszban lévő üzenet UTÁN
-        var messagesAfter = await dbContext.Messages
-            .AsNoTracking()
-            .Where(m => m.ChannelId == channelId && m.Id > messageId)
-            .OrderBy(m => m.Id)
-            .Take(limit / 2)
-            .ToListAsync(cancellationToken);
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        
+        var targetMessage = await dbContext.Messages.FindAsync([messageId], cancellationToken);
+        if (targetMessage == null || targetMessage.ChannelId != channelId)
+        {
+            return NotFound(ApiResponse.Fail("MESSAGE_NOT_FOUND", "The target message does not exist in this channel."));
+        }
 
-        // 4. Összefűzzük és sorba rendezzük a listákat
-        var allMessages = messagesBefore.OrderBy(m => m.Id) // A "before" listát visszafordítjuk
-            .Concat(new[] { targetMessage })
-            .Concat(messagesAfter)
-            .ToList();
+        var messagesBefore = await dbContext.Messages.Where(m => m.ChannelId == channelId && m.Id < messageId).OrderByDescending(m => m.Id).Take(limit / 2).ToListAsync(cancellationToken);
+        var messagesAfter = await dbContext.Messages.Where(m => m.ChannelId == channelId && m.Id > messageId).OrderBy(m => m.Id).Take(limit / 2).ToListAsync(cancellationToken);
 
-        // Minden üzenethez betöltjük a szükséges adatokat
-        // (Ezt egy optimalizáltabb lekérdezéssel is meg lehetne oldani, de így a legolvashatóbb)
+        var allMessages = messagesBefore.OrderBy(m => m.Id).Append(targetMessage).Concat(messagesAfter).ToList();
+        
         var messageIds = allMessages.Select(m => m.Id).ToList();
-        var fullMessages = await dbContext.Messages
-            .AsNoTracking()
-            .Where(m => messageIds.Contains(m.Id))
-            .Include(m => m.Author)
-            .Include(m => m.Attachments)
-            .Include(m => m.Reactions)
-            .OrderBy(m => m.Id)
-            .ToListAsync(cancellationToken);
+        var fullMessages = await dbContext.Messages.AsNoTracking().Where(m => messageIds.Contains(m.Id)).Include(m => m.Author).Include(m => m.Attachments).Include(m => m.Reactions).OrderBy(m => m.Id).ToListAsync(cancellationToken);
             
         var messageDtos = fullMessages.Select(MapMessageToDto).ToList();
 
@@ -212,23 +185,23 @@ public class MessageController(
     [HttpPatch("{messageId}")]
     public async Task<IActionResult> EditMessage(long channelId, long messageId, [FromBody] MessageDtos.UpdateMessageRequestDto request, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) return BadRequestResponse("Invalid request data.");
+        if (!ModelState.IsValid) 
+        {
+            return BadRequest(ApiResponse.Fail("MESSAGE_UPDATE_INVALID_DATA", "The provided data for updating the message is invalid."));
+        }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
     
-        // Azért kell az Author is, hogy a MapMessageToDto működjön
-        var message = await dbContext.Messages
-            .Include(m => m.Channel)
-            .Include(m => m.Author!)
-            .Include(m => m.Attachments)
-            .Include(m => m.Reactions)
-            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
+        var message = await dbContext.Messages.Include(m => m.Channel).Include(m => m.Author!).Include(m => m.Attachments).Include(m => m.Reactions).FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
         
-        if (message == null) return NotFoundResponse("Message not found.");
+        if (message == null) 
+        {
+            return NotFound(ApiResponse.Fail("MESSAGE_NOT_FOUND", "The message to edit does not exist."));
+        }
     
         if (message.Author!.Id != CurrentUserId)
         {
-            return ForbidResponse("You can only edit your own messages.");
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_EDIT", "You can only edit your own messages."));
         }
     
         var oldContent = message.Content;
@@ -237,20 +210,10 @@ public class MessageController(
     
         await dbContext.SaveChangesAsync(cancellationToken);
     
-        await auditLogService.LogAsync(
-            message.Channel.ServerId,
-            CurrentUserId,
-            AuditLogActionType.ChannelUpdated, // Vagy egy új MessageEdited típus
-            message.Id,
-            AuditLogTargetType.User,
-            new { OldContent = oldContent, NewContent = message.Content }
-        );
+        await auditLogService.LogAsync(message.Channel.ServerId, CurrentUserId, AuditLogActionType.MessageEdited, message.Id, AuditLogTargetType.User, new { OldContent = oldContent, NewContent = message.Content });
         
-        // Üzenet frissítése a SignalR Hub-on keresztül
-        var updatedMessageDto = MapMessageToDto(message); // A frissített adatokat küldjük ki
-        await chatHubContext.Clients
-            .Group(channelId.ToString())
-            .SendAsync("MessageUpdated", updatedMessageDto, cancellationToken);
+        var updatedMessageDto = MapMessageToDto(message);
+        await chatHubContext.Clients.Group(channelId.ToString()).SendAsync("MessageUpdated", updatedMessageDto, cancellationToken);
 
         return OkResponse("Message updated successfully.");
     }
@@ -260,41 +223,34 @@ public class MessageController(
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var message = await dbContext.Messages
-            .Include(m => m.Channel)
-            .Include(m => m.Author)
-            .FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
+        var message = await dbContext.Messages.Include(m => m.Channel).Include(m => m.Author).FirstOrDefaultAsync(m => m.Id == messageId && m.ChannelId == channelId, cancellationToken);
         
-        if (message == null) return NotFoundResponse("Message not found.");
+        if (message == null) 
+        {
+            return NotFound(ApiResponse.Fail("MESSAGE_NOT_FOUND", "The message to delete does not exist."));
+        }
 
         var (isMember, hasManageMessagesPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ManageMessages);
     
-        if (!isMember) return ForbidResponse();
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
+        }
         if (message.Author!.Id != CurrentUserId && !hasManageMessagesPermission)
         {
-            return ForbidResponse("You can only delete your own messages or you need permission.");
+            return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_DELETE", "You can only delete your own messages or you need 'Manage Messages' permission."));
         }
     
         var deletedContent = message.Content;
-        var serverId = message.Channel.ServerId; // Mentsük el a törlés előtt
+        var serverId = message.Channel.ServerId;
         var authorUsername = message.Author!.Username;
 
         dbContext.Messages.Remove(message);
         await dbContext.SaveChangesAsync(cancellationToken);
     
-        await auditLogService.LogAsync(
-            serverId,
-            CurrentUserId,
-            AuditLogActionType.ChannelUpdated, // Vagy egy új MessageDeleted típus
-            messageId,
-            AuditLogTargetType.User,
-            new { DeletedContent = deletedContent, Author = authorUsername }
-        );
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.MessageDeleted, messageId, AuditLogTargetType.User, new { DeletedContent = deletedContent, Author = authorUsername });
     
-        // Üzenet törlése a SignalR Hub-on keresztül
-        await chatHubContext.Clients
-            .Group(channelId.ToString())
-            .SendAsync("MessageDeleted", new { ChannelId = channelId, MessageId = messageId }, cancellationToken);
+        await chatHubContext.Clients.Group(channelId.ToString()).SendAsync("MessageDeleted", new { ChannelId = channelId, MessageId = messageId }, cancellationToken);
 
         return OkResponse("Message deleted successfully.");
     }
@@ -303,18 +259,23 @@ public class MessageController(
     public async Task<IActionResult> UploadAttachment(long channelId, IFormFile? file)
     {
         var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.AttachFiles);
-        if (!isMember) return ForbidResponse("You are not a member of this server.");
-        if (!hasPermission) return ForbidResponse("You do not have permission to attach files in this channel.");
+        if (!isMember) 
+        {
+            return StatusCode(403, ApiResponse.Fail("ATTACHMENT_ACCESS_DENIED", "You are not a member of this server."));
+        }
+        if (!hasPermission) 
+        {
+            return StatusCode(403, ApiResponse.Fail("ATTACHMENT_FORBIDDEN_UPLOAD", "You do not have permission to attach files in this channel."));
+        }
 
         if (file == null || file.Length == 0)
         {
-            return BadRequestResponse("No file uploaded.");
+            return BadRequest(ApiResponse.Fail("ATTACHMENT_FILE_MISSING", "No file was uploaded."));
         }
 
-        // 1. Validáció a kérés alapján
         if (file.Length > 50 * 1024 * 1024) // max 50MB
         {
-            return BadRequestResponse("File size cannot exceed 50MB.");
+            return BadRequest(ApiResponse.Fail("ATTACHMENT_FILE_TOO_LARGE", "File size cannot exceed 50MB."));
         }
 
         try
@@ -333,23 +294,23 @@ public class MessageController(
 
             dbContext.Attachments.Add(attachment);
             await dbContext.SaveChangesAsync();
-
-            // Visszaadjuk a teljes attachment objektumot az ID-val együtt
-            return OkResponse(new MessageDtos.AttachmentDto {
+            
+            var attachmentDto = new MessageDtos.AttachmentDto {
                 Id = attachment.Id,
                 FileName = attachment.FileName,
                 FileUrl = attachment.FileUrl,
                 FileSize = attachment.FileSize,
                 ContentType = attachment.ContentType
-            });
+            };
+            
+            return OkResponse(attachmentDto);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail($"An error occurred during file upload: {ex.Message}"));
+            return StatusCode(500, ApiResponse.Fail("ATTACHMENT_UPLOAD_ERROR", $"An error occurred during file upload: {ex.Message}"));
         }
     }
     
-    // --- Mapper ---
     private MessageDtos.MessageDto MapMessageToDto(Message message)
     {
         return new MessageDtos.MessageDto
@@ -367,14 +328,14 @@ public class MessageController(
             Timestamp = message.Timestamp,
             EditedTimestamp = message.EditedTimestamp,
             Tts = message.Tts ?? false,
-            Mentions = message.MentionUsers?.Select(u => new UserDtos.UserProfileDto
+            Mentions = message.MentionUsers.Select(u => new UserDtos.UserProfileDto
             {
                 Id = u.Id,
                 Username = u.Username,
                 GlobalNickname = u.GlobalNickname,
                 Avatar = u.Avatar
-            }).ToList() ?? new List<UserDtos.UserProfileDto>(),
-            MentionRoleIds = message.MentionRoles?.Select(r => r.Id).ToList() ?? new List<long>(),
+            }).ToList(),
+            MentionRoleIds = message.MentionRoles.Select(r => r.Id).ToList(),
             Attachments = message.Attachments.Select(a => new MessageDtos.AttachmentDto
             {
                 Id = a.Id,

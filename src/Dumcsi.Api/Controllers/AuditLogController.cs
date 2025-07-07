@@ -20,9 +20,9 @@ public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFact
     {
         if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewAuditLog))
         {
-            return ForbidResponse("You do not have permission to view the audit log.");
+            return StatusCode(403, ApiResponse.Fail("AUDIT_LOG_FORBIDDEN", "You do not have permission to view the audit log."));
         }
-
+        
         if (pageSize > 100) pageSize = 100;
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);

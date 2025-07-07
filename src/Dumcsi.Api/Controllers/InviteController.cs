@@ -34,7 +34,7 @@ public class InviteController(
 
         if (invite == null || (invite.ExpiresAt.HasValue && invite.ExpiresAt < SystemClock.Instance.GetCurrentInstant()))
         {
-            return NotFoundResponse("This invite is invalid or has expired.");
+            return NotFound(ApiResponse.Fail("INVITE_NOT_FOUND_OR_EXPIRED", "This invite is invalid or has expired."));
         }
 
         var response = new InviteDtos.InviteInfoDto
@@ -60,28 +60,38 @@ public class InviteController(
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var invite = await dbContext.Invites
-            .Include(i => i.Server) // <-- Töltsük be a szervert is a naplózáshoz
+            .Include(i => i.Server)
             .FirstOrDefaultAsync(i => i.Code == inviteCode, cancellationToken);
 
         if (invite == null || (invite.ExpiresAt.HasValue && invite.ExpiresAt < SystemClock.Instance.GetCurrentInstant()))
         {
-            return NotFoundResponse("This invite is invalid or has expired.");
+            return NotFound(ApiResponse.Fail("INVITE_NOT_FOUND_OR_EXPIRED", "This invite is invalid or has expired."));
         }
+        
         if (invite.MaxUses > 0 && invite.CurrentUses >= invite.MaxUses)
         {
-            return BadRequestResponse("This invite has reached its maximum number of uses.");
+            return BadRequest(ApiResponse.Fail("INVITE_MAX_USES_REACHED", "This invite has reached its maximum number of uses."));
         }
 
         var serverId = invite.ServerId;
         if (await dbContext.ServerMembers.AnyAsync(sm => sm.ServerId == serverId && sm.UserId == CurrentUserId, cancellationToken))
         {
-            return BadRequestResponse("You are already a member of this server.");
+            return ConflictResponse("INVITE_ALREADY_MEMBER", "You are already a member of this server.");
         }
 
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
-        var everyoneRole = await dbContext.Roles.FirstAsync(r => r.ServerId == serverId && r.Name == "@everyone", cancellationToken);
-
-        if (user == null) return NotFoundResponse("Critical error: User or Server not found.");
+        if (user == null)
+        {
+            // This should not happen for an authorized user, but it's a good safeguard.
+            return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
+        }
+        
+        var everyoneRole = await dbContext.Roles.FirstOrDefaultAsync(r => r.ServerId == serverId && r.Name == "@everyone", cancellationToken);
+        if (everyoneRole == null)
+        {
+            // This indicates a server setup issue.
+            return StatusCode(500, ApiResponse.Fail("SERVER_SETUP_ERROR", "The default '@everyone' role is missing on the server."));
+        }
 
         var newMember = new ServerMember
         {
@@ -96,7 +106,6 @@ public class InviteController(
         dbContext.ServerMembers.Add(newMember);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // Audit log bejegyzés a csatlakozásról
         await auditLogService.LogAsync(
             serverId,
             CurrentUserId,
@@ -113,10 +122,9 @@ public class InviteController(
             GlobalNickname = user.GlobalNickname,
             Avatar = user.Avatar
         };
-        // Értesítjük a szerver többi tagját, hogy új felhasználó érkezett.
+        
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = serverId }, cancellationToken);
 
         return OkResponse(new { ServerId = serverId }, "Successfully joined server.");
     }
-    
 }
