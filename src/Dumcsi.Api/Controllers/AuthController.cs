@@ -24,9 +24,13 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         var result = await authService.LoginUserAsync(request, cancellationToken);
         
-        return result.IsSuccess 
-            ? Ok(ApiResponse<TokenResponseDto>.Success(result.Value!))
-            : Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid credentials."));
+        // A sikertelen bejelentkezésre 401 Unauthorized válasszal kell reagálni.
+        if (!result.IsSuccess)
+        {
+            return Unauthorized(ApiResponse.Fail(result.Error ?? "Invalid credentials."));
+        }
+
+        return Ok(ApiResponse<TokenResponseDto>.Success(result.Value!));
     }
     
     [HttpPost("refresh")]
