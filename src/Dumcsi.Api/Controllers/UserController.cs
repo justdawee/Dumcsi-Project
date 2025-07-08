@@ -314,4 +314,32 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
 
         return OkResponse(users);
     }
+    
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetUser(long id, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+
+        if (user == null)
+        {
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "The requested user profile could not be found."));
+        }
+
+        var userProfile = new UserDtos.UserProfileDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Avatar = user.Avatar,
+            GlobalNickname = user.GlobalNickname,
+            Locale = user.Locale,
+            Verified = user.Verified
+        };
+
+        return OkResponse(userProfile);
+    }
 }
