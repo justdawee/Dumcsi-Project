@@ -30,7 +30,7 @@
               >
                 <div class="flex items-center gap-4 mb-3">
                   <div class="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <img v-if="server.iconUrl" :src="server.iconUrl" :alt="server.name" class="w-full h-full object-cover" />
+                    <img v-if="server.icon" :src="server.icon" :alt="server.name" class="w-full h-full object-cover" />
                     <span v-else class="text-lg font-bold text-primary">{{ getServerInitials(server.name) }}</span>
                   </div>
                   <div class="flex-1 min-w-0">
@@ -73,7 +73,7 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
-import type { ServerListItem } from '@/services/types';
+import type { ServerListItemDto } from '@/services/types';
 import { Loader2 } from 'lucide-vue-next';
 
 // --- Props & Emits ---
@@ -84,7 +84,7 @@ const emit = defineEmits(['update:modelValue']);
 const router = useRouter();
 const appStore = useAppStore();
 const { addToast } = useToast();
-const servers = ref<ServerListItem[]>([]);
+const servers = ref<ServerListItemDto[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const joiningState = reactive<Record<number, boolean>>({});
@@ -113,7 +113,7 @@ const fetchPublicServers = async () => {
   }
 };
 
-const joinServer = async (server: ServerListItem) => {
+const joinServer = async (server: ServerListItemDto) => {
   if (isMember(server.id).value) {
     router.push(`/servers/${server.id}`);
     closeModal();

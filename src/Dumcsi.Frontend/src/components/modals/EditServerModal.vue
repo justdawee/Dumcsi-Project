@@ -23,16 +23,16 @@
             </div>
             <div>
               <label for="server-icon-url" class="form-label">Icon URL (Optional)</label>
-              <input v-model="form.iconUrl" type="text" id="server-icon-url" class="form-input" placeholder="https://example.com/icon.png" />
+              <input v-model="form.icon" type="text" id="server-icon-url" class="form-input" placeholder="https://example.com/icon.png" />
             </div>
             <div class="flex items-center">
               <input
-                id="isPublic"
-                v-model="form.isPublic"
+                id="public"
+                v-model="form.public"
                 type="checkbox"
                 class="w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded-sm focus:ring-primary/50"
               />
-              <label for="isPublic" class="ml-2 text-sm text-gray-300">
+              <label for="public" class="ml-2 text-sm text-gray-300">
                 Make server public
               </label>
             </div>
@@ -57,24 +57,24 @@ import { ref, reactive, watch } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import { useToast } from '@/composables/useToast';
-import type { ServerListItem, UpdateServerPayload } from '@/services/types';
+import type { ServerListItemDto, UpdateServerRequestDto } from '@/services/types';
 
 const { addToast } = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
   modelValue: boolean;
-  server: ServerListItem | null;
+  server: ServerListItemDto | null;
 }>();
 
 const emit = defineEmits(['close', 'server-updated']);
 
 // --- State ---
-const form = reactive<UpdateServerPayload>({
+const form = reactive<UpdateServerRequestDto>({
   name: '',
   description: '',
-  iconUrl: '',
-  isPublic: false
+  icon: '',
+  public: false
 });
 const isLoading = ref(false);
 const error = ref('');
@@ -88,8 +88,8 @@ watch(() => props.server, (newServer) => {
   if (newServer) {
     form.name = newServer.name;
     form.description = newServer.description || '';
-    form.iconUrl = newServer.iconUrl || '';
-    form.isPublic = newServer.isPublic;
+    form.icon = newServer.icon || '';
+    form.public = newServer.public;
   }
 }, { immediate: true });
 

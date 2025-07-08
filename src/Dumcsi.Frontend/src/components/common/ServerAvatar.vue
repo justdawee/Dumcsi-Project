@@ -1,11 +1,11 @@
 <template>
   <div 
     class="w-12 h-12 rounded-3xl flex items-center justify-center text-white font-bold transition-all duration-200 hover:rounded-2xl overflow-hidden"
-    :style="{ backgroundColor: (!iconUrl || imageError) ? backgroundColor : undefined }"
+    :style="{ backgroundColor: (!icon || imageError) ? backgroundColor : undefined }"
   >
     <img 
-      v-if="iconUrl && !imageError" 
-      :src="iconUrl" 
+      v-if="icon && !imageError" 
+      :src="icon" 
       :alt="displayName"
       class="w-full h-full object-cover"
       @error="handleImageError"
@@ -18,7 +18,7 @@
 import { ref, computed } from 'vue';
 
 const props = withDefaults(defineProps<{
-  iconUrl?: string | null;
+  icon?: string | null;
   name?: string | null;
   serverName?: string;
 }>(), {

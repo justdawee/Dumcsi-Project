@@ -51,12 +51,12 @@
         
         <div class="flex items-center">
           <input
-            id="isPublic"
-            v-model="createForm.isPublic"
+            id="public"
+            v-model="createForm.public"
             type="checkbox"
             class="w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded-sm focus:ring-primary/50"
           />
-          <label for="isPublic" class="ml-2 text-sm text-gray-300">
+          <label for="public" class="ml-2 text-sm text-gray-300">
             Make server public
           </label>
         </div>
@@ -129,7 +129,7 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import { Loader2 } from 'lucide-vue-next';
-import type { CreateServerPayload } from '@/services/types';
+import type { CreateServerRequestDto } from '@/services/types';
 
 const emit = defineEmits(['close']);
 const router = useRouter();
@@ -140,10 +140,10 @@ const activeTab = ref<'create' | 'join'>('create');
 const loading = ref(false);
 const error = ref('');
 
-const createForm = ref<CreateServerPayload>({
+const createForm = ref<CreateServerRequestDto>({
   name: '',
   description: '',
-  isPublic: false
+  public: false
 });
 
 const handleCreateServer = async () => {

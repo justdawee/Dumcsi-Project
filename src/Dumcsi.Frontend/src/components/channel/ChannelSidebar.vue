@@ -75,7 +75,7 @@
     <div class="px-2 py-2 bg-gray-900 border-t border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
-          :avatar-url="authStore.user?.avatarUrl"
+          :avatar-url="authStore.user?.avatar"
           :username="authStore.user?.username || ''"
           :size="'xs'"
         />
@@ -143,12 +143,12 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import channelService from '@/services/channelService';
-import type { ServerDetail, ChannelListItem, Role } from '@/services/types';
+import type { ServerDetailDto, ChannelListItemDto, Role } from '@/services/types';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Store ---
 const props = defineProps<{
-  server: ServerDetail | null;
+  server: ServerDetailDto | null;
   loading: boolean;
 }>();
 
@@ -161,14 +161,14 @@ const { getDisplayName, getAvatarUrl } = useUserDisplay();
 
 // --- State ---
 const isEditModalOpen = ref(false);
-const editingChannel = ref<ChannelListItem | null>(null);
+const editingChannel = ref<ChannelListItemDto | null>(null);
 
 interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
 const channelContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const channelMenuItems = ref<MenuItem[]>([]);
 const isConfirmDeleteOpen = ref(false);
 const isDeleting = ref(false);
-const deletingChannel = ref<ChannelListItem | null>(null);
+const deletingChannel = ref<ChannelListItemDto | null>(null);
 
 const roleNames: Record<Role, string> = { 0: 'Member', 1: 'Moderator', 2: 'Admin' };
 
@@ -179,12 +179,12 @@ const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type 
 const canManageChannels = computed(() => (props.server?.currentUserRole ?? 0) > 0);
 
 // --- Methods ---
-const openEditModal = (channel: ChannelListItem) => {
+const openEditModal = (channel: ChannelListItemDto) => {
   editingChannel.value = channel;
   isEditModalOpen.value = true;
 };
 
-const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
+const openChannelMenu = (event: MouseEvent, channel: ChannelListItemDto) => {
   if (!canManageChannels.value) return; // Ne nyíljon meg a menü, ha nincs jogosultság
 
   channelMenuItems.value = [
@@ -195,7 +195,7 @@ const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
   channelContextMenu.value?.open(event);
 };
 
-const promptDeleteChannel = (channel: ChannelListItem) => {
+const promptDeleteChannel = (channel: ChannelListItemDto) => {
   deletingChannel.value = channel;
   isConfirmDeleteOpen.value = true;
 };

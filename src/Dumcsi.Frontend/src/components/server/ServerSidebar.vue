@@ -43,7 +43,7 @@
           :class="{ 'active': currentServerId === server.id }"
         >
           <ServerAvatar
-            :icon-url="server.iconUrl"
+            :icon-url="server.icon"
             :server-name="server.name"
           />
         </RouterLink>
@@ -138,7 +138,7 @@ import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
-import type { ServerListItem } from '@/services/types';
+import type { ServerListItemDto } from '@/services/types';
 
 // --- State ---
 const route = useRoute();
@@ -149,7 +149,7 @@ const { addToast } = useToast();
 interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const serverMenuItems = ref<MenuItem[]>([]);
-const selectedServer = ref<ServerListItem | null>(null);
+const selectedServer = ref<ServerListItemDto | null>(null);
 
 const showCreateModal = ref(false);
 const isInviteModalOpen = ref(false);
@@ -169,7 +169,7 @@ const isHome = computed(() => route.name === 'ServerSelect');
 const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
 
 // --- Methods ---
-const handleInvite = async (server: ServerListItem) => {
+const handleInvite = async (server: ServerListItemDto) => {
     try {
         const response = await serverService.generateInvite(server.id);
         selectedServer.value = server;
@@ -183,7 +183,7 @@ const handleInvite = async (server: ServerListItem) => {
     }
 };
 
-const handleCreateChannel = (server: ServerListItem) => {
+const handleCreateChannel = (server: ServerListItemDto) => {
     // Ha nem az aktív szerverre kattintottunk, először navigáljunk oda
     if (currentServerId.value !== server.id) {
         router.push({ name: 'Server', params: { serverId: server.id } });
@@ -192,12 +192,12 @@ const handleCreateChannel = (server: ServerListItem) => {
     appStore.openCreateChannelModal(server.id);
 };
 
-const handleEditServer = (server: ServerListItem) => {
+const handleEditServer = (server: ServerListItemDto) => {
     selectedServer.value = server;
     isEditServerModalOpen.value = true;
 };
 
-const handleLeaveServer = (server: ServerListItem) => {
+const handleLeaveServer = (server: ServerListItemDto) => {
     selectedServer.value = server;
     isLeaveConfirmOpen.value = true;
 };
@@ -232,7 +232,7 @@ const confirmLeaveServer = async () => {
   }
 };
 
-const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
+const openServerMenu = (event: MouseEvent, server: ServerListItemDto) => {
   serverMenuItems.value = [
     { label: 'Invite', icon: UserPlus, action: () => handleInvite(server) },
     { label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server) },

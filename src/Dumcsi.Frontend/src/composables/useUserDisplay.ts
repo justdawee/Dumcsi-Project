@@ -1,4 +1,4 @@
-import type { UserDto, UserProfile, UserSearchResult, ServerMember } from '@/services/types';
+import type { UserDto, UserProfile, UserSearchResult, ServerMemberDto } from '@/services/types';
 
 /**
  * Composable for handling user display logic
@@ -9,7 +9,7 @@ export function useUserDisplay() {
    * Get display name for a user
    * Prioritizes: GlobalNickname > Username
    */
-  const getDisplayName = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string => {
+  const getDisplayName = (user: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null | undefined): string => {
     if (!user) return 'Unknown User';
     
     // For UserSearchResult and UserProfile
@@ -24,7 +24,7 @@ export function useUserDisplay() {
   /**
    * Get avatar URL with fallback
    */
-  const getAvatarUrl = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string | null => {
+  const getAvatarUrl = (user: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null | undefined): string | null => {
     if (!user) return null;
     
     // Handle different property names
@@ -38,7 +38,7 @@ export function useUserDisplay() {
   /**
    * Generate initials from display name
    */
-  const getInitials = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): string => {
+  const getInitials = (user: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null | undefined): string => {
     const displayName = getDisplayName(user);
     
     const words = displayName.trim().split(/\s+/);
@@ -52,14 +52,14 @@ export function useUserDisplay() {
   /**
    * Format mention text for a user
    */
-  const getMentionText = (user: UserDto | UserProfile | UserSearchResult | ServerMember): string => {
+  const getMentionText = (user: UserDto | UserProfile | UserSearchResult | ServerMemberDto): string => {
     return `@${getDisplayName(user)}`;
   };
 
   /**
    * Check if user has custom avatar
    */
-  const hasCustomAvatar = (user: UserDto | UserProfile | UserSearchResult | ServerMember | null | undefined): boolean => {
+  const hasCustomAvatar = (user: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null | undefined): boolean => {
     return !!getAvatarUrl(user);
   };
 

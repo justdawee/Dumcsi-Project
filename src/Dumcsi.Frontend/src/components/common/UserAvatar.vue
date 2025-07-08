@@ -33,11 +33,11 @@
 import { ref, computed } from 'vue';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { useAppStore } from '@/stores/app';
-import type { UserDto, UserProfile, UserSearchResult, ServerMember } from '@/services/types';
+import type { UserDto, UserProfile, UserSearchResult, ServerMemberDto } from '@/services/types';
 
 // Props
 const props = withDefaults(defineProps<{
-  user?: UserDto | UserProfile | UserSearchResult | ServerMember | null;
+  user?: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null;
   avatarUrl?: string | null;
   username?: string;
   userId?: number;

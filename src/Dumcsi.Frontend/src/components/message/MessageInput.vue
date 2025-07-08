@@ -133,11 +133,11 @@ import { useTypingIndicator } from '@/composables/useTypingIndicator';
 // Component imports
 import { Paperclip, Send, X, File, Loader2 } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import type { ChannelDetail, CreateMessagePayload } from '@/services/types';
+import type { ChannelDetailDto, CreateMessageRequestDto } from '@/services/types';
 
 // --- Props ---
 const props = defineProps<{
-  channel: ChannelDetail;
+  channel: ChannelDetailDto;
 }>();
 
 // --- Refs ---
@@ -227,7 +227,7 @@ const handleSend = async () => {
     
     // Csak akkor küldjük az üzenetet, ha van szöveg vagy sikeres feltöltés
     if (messageContent.value.trim().length > 0 || attachmentIds.length > 0) {
-      const payload: CreateMessagePayload = {
+      const payload: CreateMessageRequestDto = {
         content: messageContent.value.trim(),
         attachmentIds: attachmentIds,
         mentionedUserIds: Array.from(mentionedUserIds.value),

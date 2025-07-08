@@ -16,10 +16,10 @@
 import { computed } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
-import type { ChannelDetail } from '@/services/types';
+import type { ChannelDetailDto } from '@/services/types';
 
 const props = defineProps<{
-  channel: ChannelDetail;
+  channel: ChannelDetailDto;
 }>();
 
 const appStore = useAppStore();

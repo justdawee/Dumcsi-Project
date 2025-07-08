@@ -70,14 +70,14 @@ import { Loader2 } from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import channelService from '@/services/channelService';
 import { useToast } from '@/composables/useToast';
-import type { ChannelListItem, UpdateChannelPayload } from '@/services/types';
+import type { ChannelListItemDto, UpdateChannelRequestDto } from '@/services/types';
 
 const { addToast } = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
   modelValue: boolean;
-  channel: ChannelListItem | null;
+  channel: ChannelListItemDto | null;
 }>();
 
 const emit = defineEmits<{
@@ -87,7 +87,7 @@ const emit = defineEmits<{
 }>();
 
 // --- State ---
-const form = reactive<Partial<UpdateChannelPayload>>({ name: '', description: '' });
+const form = reactive<Partial<UpdateChannelRequestDto>>({ name: '', description: '' });
 const isLoading = ref(false);
 const isDeleting = ref(false);
 const error = ref('');

@@ -71,8 +71,8 @@
           <div class="flex items-center gap-4 mb-3">
             <div class="w-16 h-16 rounded-2xl bg-primary/20 flex items-center justify-center overflow-hidden">
               <img
-                v-if="server.iconUrl"
-                :src="server.iconUrl"
+                v-if="server.icon"
+                :src="server.icon"
                 :alt="server.name"
                 class="w-full h-full object-cover"
               />

@@ -88,13 +88,13 @@ import { Edit3, Trash2 } from 'lucide-vue-next';
 import MessageEdit from './MessageEdit.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import type { MessageListItem } from '@/services/types';
+import type { MessageDto } from '@/services/types';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Emits ---
 const props = defineProps<{
-  message: MessageListItem;
-  previousMessage: MessageListItem | null;
+  message: MessageDto;
+  previousMessage: MessageDto | null;
   currentUserId: number | undefined;
 }>();
 

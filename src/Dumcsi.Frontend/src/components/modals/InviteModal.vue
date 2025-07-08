@@ -10,7 +10,7 @@
         <header class="flex items-center space-x-4 mb-4">
           <UserAvatar
             v-if="server"
-            :avatar-url="server.iconUrl"
+            :avatar-url="server.icon"
             :username="server.name"
             :size="64"
           />
@@ -71,12 +71,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Copy } from 'lucide-vue-next';
-import type { ServerDetail } from '@/services/types';
+import type { ServerDetailDto } from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const props = defineProps<{
   modelValue: boolean;
-  server: ServerDetail | null;
+  server: ServerDetailDto | null;
   inviteCode?: string;
 }>();
 
