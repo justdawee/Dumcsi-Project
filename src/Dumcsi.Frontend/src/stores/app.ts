@@ -1,44 +1,40 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type {
-  ServerListItem,
-  ServerDetail,
-  ChannelDetail,
-  MessageListItem,
+  ServerListItemDto,
+  ServerDetailDto,
+  ChannelDetailDto,
   MessageDto,
-  ServerMember,
-  CreateServerPayload,
-  UpdateServerPayload,
-  CreateChannelPayload,
-  UpdateChannelPayload,
-  CreateMessagePayload,
-  UpdateMessagePayload,
+  ServerMemberDto,
+  CreateServerRequestDto,
+  UpdateServerRequestDto,
+  CreateChannelRequestDto,
+  UpdateChannelRequestDto,
+  CreateMessageRequestDto,
+  UpdateMessageRequestDto,
   EntityId,
-  UserDto,
-  ServerDto,
-  ChannelDto,
-  MessageDeletedPayload,
-  UserServerPayload,
-  ChannelDeletedPayload,
+  UserProfileDto,
+  ChannelListItemDto,
+  CreateInviteRequestDto,
 } from '@/services/types';
 
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
-import inviteService from '@/services/inviteService';
 import router from '@/router';
+import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
 
 export const useAppStore = defineStore('app', () => {
   // State
-  const servers = ref<ServerListItem[]>([]);
-  const currentServer = ref<ServerDetail | null>(null);
-  const currentChannel = ref<ChannelDetail | null>(null);
-  const messages = ref<MessageListItem[]>([]);
-  const members = ref<ServerMember[]>([]);
+  const servers = ref<ServerListItemDto[]>([]);
+  const currentServer = ref<ServerDetailDto | null>(null);
+  const currentChannel = ref<ChannelDetailDto | null>(null);
+  const messages = ref<MessageDto[]>([]);
+  const members = ref<ServerMemberDto[]>([]);
   const onlineUsers = ref<Set<EntityId>>(new Set());
   const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map());
-  const voiceChannelUsers = ref<Map<EntityId, UserDto[]>>(new Map());
+  const voiceChannelUsers = ref<Map<EntityId, UserProfileDto[]>>(new Map());
   const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
   
   const isCreateChannelModalOpen = ref(false);
@@ -53,6 +49,7 @@ export const useAppStore = defineStore('app', () => {
   });
 
   const error = ref<string | null>(null);
+  const { addToast } = useToast();
 
   // Computed
   const currentUserId = computed(() => {
@@ -72,6 +69,10 @@ export const useAppStore = defineStore('app', () => {
     } catch (err: any) {
       error.value = err.message || 'An error occurred';
       console.error(err);
+      addToast({
+        type: 'danger',
+        message: error.value || 'An unknown error occurred',
+      });
       return null;
     } finally {
       loading.value[loadingKey] = false;
@@ -80,31 +81,31 @@ export const useAppStore = defineStore('app', () => {
 
   // Server Actions
   const fetchServers = async () => {
-    const response = await handleApiCall('servers', () => serverService.getServers());
-    if (response) servers.value = response.data;
+    const result = await handleApiCall('servers', () => serverService.getServers());
+    if (result) servers.value = result;
   };
 
   const fetchServer = async (serverId: EntityId) => {
-    const response = await handleApiCall('server', () => serverService.getServer(serverId));
-    if (response) {
-      currentServer.value = response.data;
+    const result = await handleApiCall('server', () => serverService.getServer(serverId));
+    if (result) {
+      currentServer.value = result;
       await fetchServerMembers(serverId);
     }
   };
 
   const fetchServerMembers = async (serverId: EntityId) => {
-    const response = await handleApiCall('members', () => serverService.getServerMembers(serverId));
-    if (response) members.value = response.data;
+    const result = await handleApiCall('members', () => serverService.getServerMembers(serverId));
+    if (result) members.value = result;
   };
 
-  const createServer = async (payload: CreateServerPayload) => {
-    const response = await serverService.createServer(payload);
+  const createServer = async (payload: CreateServerRequestDto) => {
+    const result = await serverService.createServer(payload);
     await fetchServers();
-    await router.push(`/servers/${response.data.serverId}`);
-    return response.data;
+    await router.push(`/servers/${result.serverId}`);
+    return result;
   };
 
-  const updateServer = async (serverId: EntityId, payload: UpdateServerPayload) => {
+  const updateServer = async (serverId: EntityId, payload: UpdateServerRequestDto) => {
     await serverService.updateServer(serverId, payload);
     await fetchServer(serverId);
     await fetchServers();
@@ -122,42 +123,26 @@ export const useAppStore = defineStore('app', () => {
     await router.push('/servers');
   };
 
-    /**
-   * Joins a server using an invite code.
-   * @param inviteCode The invite code to use.
-   */
-  const joinServerWithInvite = async (inviteCode: string) => {
-    const response = await inviteService.joinServerWithInvite(inviteCode);
-    await fetchServers(); // Refresh server list
-    return response.data;
-  };
-
-  /**
-   * Joins a public server by its ID.
-   * @param serverId The ID of the public server to join.
-   */
-  const joinPublicServer = async (serverId: EntityId) => {
-    const response = await serverService.joinPublicServer(serverId);
-    await fetchServers(); // Refresh server list
-    return response.data;
+  const generateInvite = async (serverId: EntityId, payload?: CreateInviteRequestDto) => {
+    return await serverService.generateInvite(serverId, payload);
   };
 
   // Channel Actions
   const fetchChannel = async (channelId: EntityId) => {
-    const response = await handleApiCall('channel', () => channelService.getChannel(channelId));
-    if (response) {
-      currentChannel.value = response.data;
+    const result = await handleApiCall('channel', () => channelService.getChannel(channelId));
+    if (result) {
+      currentChannel.value = result;
       await fetchMessages(channelId);
     }
   };
 
-  const createChannel = async (serverId: EntityId, payload: CreateChannelPayload) => {
-    const response = await channelService.createChannel(serverId, payload);
+  const createChannel = async (serverId: EntityId, payload: CreateChannelRequestDto) => {
+    const result = await serverService.createChannel(serverId, payload);
     await fetchServer(serverId);
-    return response.data;
+    return result;
   };
 
-  const updateChannel = async (channelId: EntityId, payload: UpdateChannelPayload) => {
+  const updateChannel = async (channelId: EntityId, payload: UpdateChannelRequestDto) => {
     await channelService.updateChannel(channelId, payload);
     if (currentChannel.value?.id === channelId) {
       await fetchChannel(channelId);
@@ -174,179 +159,121 @@ export const useAppStore = defineStore('app', () => {
       const firstChannel = currentServer.value.channels?.[0];
       if (firstChannel) {
         await router.push(`/servers/${currentServer.value.id}/channels/${firstChannel.id}`);
+      } else {
+        await router.push(`/servers/${currentServer.value.id}`);
       }
     }
   };
 
   // Message Actions
-  const fetchMessages = async (channelId: EntityId) => {
-    const response = await handleApiCall('messages', () => 
-      messageService.getMessages(channelId, { limit: 50 })
+  const fetchMessages = async (channelId: EntityId, before?: EntityId) => {
+    const result = await handleApiCall('messages', () => 
+      messageService.getMessages(channelId, { before, limit: 50 })
     );
-    if (response) messages.value = response.data;
+    if (result) {
+      if (before) {
+        messages.value = [...result, ...messages.value];
+      } else {
+        messages.value = result;
+      }
+    }
   };
 
-  const fetchMoreMessages = async (channelId: EntityId, beforeId: EntityId) => {
-    const response = await messageService.getMessages(channelId, { 
-      before: beforeId, 
-      limit: 50 
-    });
-    messages.value = [...response.data, ...messages.value];
+  const sendMessage = async (channelId: EntityId, payload: CreateMessageRequestDto) => {
+    const result = await messageService.sendMessage(channelId, payload);
+    messages.value.push(result);
+    return result;
   };
 
-  const sendMessage = async (channelId: EntityId, payload: CreateMessagePayload) => {
-    const response = await messageService.sendMessage(channelId, payload);
-    // SignalR will handle adding the message to the list
-    return response.data;
+  const editMessage = async (channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequestDto) => {
+    await messageService.editMessage(channelId, messageId, payload);
+    const messageIndex = messages.value.findIndex(m => m.id === messageId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        content: payload.content,
+        editedTimestamp: new Date().toISOString(),
+      };
+    }
   };
 
-  const editMessage = async (messageId: EntityId, payload: UpdateMessagePayload) => {
-    if (!currentChannel.value) return;
-    await messageService.editMessage(currentChannel.value.id, messageId, payload);
-    // SignalR will handle updating the message
-  };
-
-  const deleteMessage = async (messageId: EntityId) => {
-    if (!currentChannel.value) return;
-    await messageService.deleteMessage(currentChannel.value.id, messageId);
-    // SignalR will handle removing the message
+  const deleteMessage = async (channelId: EntityId, messageId: EntityId) => {
+    await messageService.deleteMessage(channelId, messageId);
+    messages.value = messages.value.filter(m => m.id !== messageId);
   };
 
   // SignalR Event Handlers
-  const handleReceiveMessage = (message: MessageDto) => {
+  const addMessage = (message: MessageDto) => {
     if (currentChannel.value?.id === message.channelId) {
       messages.value.push(message);
     }
   };
 
-  const handleMessageUpdated = (message: MessageDto) => {
+  const updateMessage = (message: MessageDto) => {
     const index = messages.value.findIndex(m => m.id === message.id);
     if (index !== -1) {
       messages.value[index] = message;
     }
   };
 
-  const handleMessageDeleted = (payload: MessageDeletedPayload) => {
-    messages.value = messages.value.filter(m => m.id !== payload.messageId);
-  };
-
-  const handleUserUpdated = (user: UserDto) => {
-    const member = members.value.find(m => m.userId === user.id);
-    if (member) {
-      member.username = user.username;
-      member.avatarUrl = user.avatarUrl;
+  const removeMessage = (channelId: EntityId, messageId: EntityId) => {
+    if (currentChannel.value?.id === channelId) {
+      messages.value = messages.value.filter(m => m.id !== messageId);
     }
   };
 
-  const handleUserOnline = (userId: EntityId) => {
+  const setUserOnline = (userId: EntityId) => {
     onlineUsers.value.add(userId);
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      //member.isOnline = true;
+    }
   };
 
-  const handleUserOffline = (userId: EntityId) => {
+  const setUserOffline = (userId: EntityId) => {
     onlineUsers.value.delete(userId);
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      //member.isOnline = false;
+    }
   };
 
-  const handleUserTyping = (channelId: EntityId, userId: EntityId) => {
+  const addTypingUser = (channelId: EntityId, userId: EntityId) => {
     if (!typingUsers.value.has(channelId)) {
       typingUsers.value.set(channelId, new Set());
     }
     typingUsers.value.get(channelId)!.add(userId);
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-      handleUserStoppedTyping(channelId, userId);
-    }, 3000);
   };
 
-  const handleUserStoppedTyping = (channelId: EntityId, userId: EntityId) => {
+  const removeTypingUser = (channelId: EntityId, userId: EntityId) => {
     typingUsers.value.get(channelId)?.delete(userId);
   };
 
-  const handleServerCreated = (_server: ServerDto) => {
-    fetchServers();
+  const getTypingUsersInChannel = (channelId: EntityId): EntityId[] => {
+    return Array.from(typingUsers.value.get(channelId) || []);
   };
 
-  const handleServerUpdated = (server: ServerDto) => {
-    const index = servers.value.findIndex(s => s.id === server.id);
-    if (index !== -1) {
-      servers.value[index] = { ...servers.value[index], ...server };
-    }
-    if (currentServer.value?.id === server.id) {
+  const updateServerInfo = (server: Partial<ServerDetailDto>) => {
+    if (currentServer.value && currentServer.value.id === server.id) {
       currentServer.value = { ...currentServer.value, ...server };
     }
-  };
-
-  const handleServerDeleted = (serverId: EntityId) => {
-    servers.value = servers.value.filter(s => s.id !== serverId);
-    if (currentServer.value?.id === serverId) {
-      router.push('/servers');
+    const serverIndex = servers.value.findIndex(s => s.id === server.id);
+    if (serverIndex !== -1) {
+      servers.value[serverIndex] = { ...servers.value[serverIndex], ...server };
     }
   };
 
-  const handleUserJoinedServer = (payload: UserServerPayload) => {
-    if (currentServer.value?.id === payload.serverId) {
-      fetchServerMembers(payload.serverId);
-    }
-  };
-
-  const handleUserLeftServer = (payload: UserServerPayload) => {
-    if (currentServer.value?.id === payload.serverId) {
-      members.value = members.value.filter(m => m.userId !== payload.userId);
-    }
-  };
-
-  const handleUserKickedFromServer = (payload: UserServerPayload) => {
-    if (payload.userId === currentUserId.value) {
-      servers.value = servers.value.filter(s => s.id !== payload.serverId);
-      if (currentServer.value?.id === payload.serverId) {
-        router.push('/servers');
-      }
-    } else if (currentServer.value?.id === payload.serverId) {
-      members.value = members.value.filter(m => m.userId !== payload.userId);
-    }
-  };
-
-  const handleUserBannedFromServer = (payload: UserServerPayload) => {
-    handleUserKickedFromServer(payload);
-  };
-
-  const handleChannelCreated = (serverId: EntityId, _channel: ChannelDto) => {
-    if (currentServer.value?.id === serverId) {
-      fetchServer(serverId);
-    }
-  };
-
-  const handleChannelUpdated = (channel: ChannelDto) => {
-    if (currentServer.value) {
-      const index = currentServer.value.channels.findIndex(c => c.id === channel.id);
-      if (index !== -1) {
-        currentServer.value.channels[index] = { ...currentServer.value.channels[index], ...channel };
-      }
-    }
-    if (currentChannel.value?.id === channel.id) {
-      currentChannel.value = { ...currentChannel.value, ...channel };
-    }
-  };
-
-  const handleChannelDeleted = (payload: ChannelDeletedPayload) => {
-    if (currentServer.value) {
-      currentServer.value.channels = currentServer.value.channels.filter(
-        c => c.id !== payload.channelId
-      );
-    }
-    if (currentChannel.value?.id === payload.channelId) {
-      router.push(`/servers/${payload.serverId}`);
-    }
-  };
-
-  const handleUserJoinedVoiceChannel = (channelId: EntityId, user: UserDto) => {
+  const addUserToVoiceChannel = (channelId: EntityId, user: UserProfileDto) => {
     if (!voiceChannelUsers.value.has(channelId)) {
       voiceChannelUsers.value.set(channelId, []);
     }
-    voiceChannelUsers.value.get(channelId)!.push(user);
+    const users = voiceChannelUsers.value.get(channelId)!;
+    if (!users.find(u => u.id === user.id)) {
+      users.push(user);
+    }
   };
 
-  const handleUserLeftVoiceChannel = (channelId: EntityId, userId: EntityId) => {
+  const removeUserFromVoiceChannel = (channelId: EntityId, userId: EntityId) => {
     const users = voiceChannelUsers.value.get(channelId);
     if (users) {
       voiceChannelUsers.value.set(
@@ -356,18 +283,17 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
-  const handleUserStartedScreenShare = (channelId: EntityId, userId: EntityId) => {
+  const setUserScreenShare = (channelId: EntityId, userId: EntityId, isSharing: boolean) => {
     if (!screenShares.value.has(channelId)) {
       screenShares.value.set(channelId, new Set());
     }
-    screenShares.value.get(channelId)!.add(userId);
+    if (isSharing) {
+      screenShares.value.get(channelId)!.add(userId);
+    } else {
+      screenShares.value.get(channelId)!.delete(userId);
+    }
   };
 
-  const handleUserStoppedScreenShare = (channelId: EntityId, userId: EntityId) => {
-    screenShares.value.get(channelId)?.delete(userId);
-  };
-
-  // Modal Actions
   const openCreateChannelModal = (serverId: EntityId) => {
     createChannelForServerId.value = serverId;
     isCreateChannelModalOpen.value = true;
@@ -393,17 +319,19 @@ export const useAppStore = defineStore('app', () => {
     error,
     isCreateChannelModalOpen,
     createChannelForServerId,
+
+    // Computed
     currentUserId,
 
     // Server Actions
     fetchServers,
     fetchServer,
+    fetchServerMembers,
     createServer,
     updateServer,
     deleteServer,
     leaveServer,
-    joinServerWithInvite,
-    joinPublicServer,
+    generateInvite,
 
     // Channel Actions
     fetchChannel,
@@ -413,34 +341,23 @@ export const useAppStore = defineStore('app', () => {
 
     // Message Actions
     fetchMessages,
-    fetchMoreMessages,
     sendMessage,
     editMessage,
     deleteMessage,
 
-    // SignalR Handlers
-    handleReceiveMessage,
-    handleMessageUpdated,
-    handleMessageDeleted,
-    handleUserUpdated,
-    handleUserOnline,
-    handleUserOffline,
-    handleUserTyping,
-    handleUserStoppedTyping,
-    handleServerCreated,
-    handleServerUpdated,
-    handleServerDeleted,
-    handleUserJoinedServer,
-    handleUserLeftServer,
-    handleUserKickedFromServer,
-    handleUserBannedFromServer,
-    handleChannelCreated,
-    handleChannelUpdated,
-    handleChannelDeleted,
-    handleUserJoinedVoiceChannel,
-    handleUserLeftVoiceChannel,
-    handleUserStartedScreenShare,
-    handleUserStoppedScreenShare,
+    // SignalR Event Handlers
+    addMessage,
+    updateMessage,
+    removeMessage,
+    setUserOnline,
+    setUserOffline,
+    addTypingUser,
+    removeTypingUser,
+    getTypingUsersInChannel,
+    updateServerInfo,
+    addUserToVoiceChannel,
+    removeUserFromVoiceChannel,
+    setUserScreenShare,
 
     // Modal Actions
     openCreateChannelModal,
@@ -457,8 +374,7 @@ export const useAppStore = defineStore('app', () => {
       typingUsers.value.clear();
       voiceChannelUsers.value.clear();
       screenShares.value.clear();
-      isCreateChannelModalOpen.value = false;
-      createChannelForServerId.value = null;
-    }
+      error.value = null;
+    },
   };
 });

@@ -19,19 +19,21 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
   // --- Methods ---
 
   const searchUsers = debounce(async (query: string) => {
-    if (query.length < 1) {
-      mentionSuggestions.value = [];
-      return;
-    }
-    try {
-      const response = await userService.searchUsers(query);
-      mentionSuggestions.value = response.data;
-      selectedMentionIndex.value = 0;
-    } catch (error) {
-      console.error('User search for mentions failed:', error);
-      mentionSuggestions.value = [];
-    }
-  }, 300);
+  if (query.length < 1) {
+    mentionSuggestions.value = [];
+    return;
+  }
+  try {
+    const response = await userService.searchUsers(query); 
+    
+    mentionSuggestions.value = response; 
+    
+    selectedMentionIndex.value = 0;
+  } catch (error) {
+    console.error('User search for mentions failed:', error);
+    mentionSuggestions.value = [];
+  }
+}, 300);
 
   const closeMentionSuggestions = () => {
     showMentionSuggestions.value = false;

@@ -1,12 +1,12 @@
 import api from './api';
 import type { AxiosProgressEvent } from 'axios';
+import type { ApiResponse, EntityId } from './types';
 
 interface UploadOptions {
   onProgress?: (progress: number) => void;
 }
 
-export interface UploadResponse {
-  id: number;
+interface UploadResponse {
   url: string;
   fileName?: string;
   fileSize?: number;
@@ -47,7 +47,7 @@ class UploadService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post<UploadResponse>('/user/me/avatar', formData, {
+    const response = await api.post<ApiResponse<UploadResponse>>('/user/me/avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -59,19 +59,22 @@ class UploadService {
       },
     });
 
-    return response.data;
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   }
 
   /**
    * Upload server icon
    */
-  async uploadServerIcon(serverId: number, file: File, options?: UploadOptions): Promise<UploadResponse> {
+  async uploadServerIcon(serverId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
     this.validateImage(file, this.MAX_SERVER_ICON_SIZE, 'Server icon');
     
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post<UploadResponse>(`/server/${serverId}/icon`, formData, {
+    const response = await api.post<ApiResponse<UploadResponse>>(`/server/${serverId}/icon`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -83,20 +86,23 @@ class UploadService {
       },
     });
 
-    return response.data;
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   }
 
   /**
    * Upload custom emoji
    */
-  async uploadEmoji(serverId: number, file: File, emojiName: string, options?: UploadOptions): Promise<UploadResponse> {
+  async uploadEmoji(serverId: EntityId, file: File, emojiName: string, options?: UploadOptions): Promise<UploadResponse> {
     this.validateImage(file, this.MAX_EMOJI_SIZE, 'Emoji');
     
     const formData = new FormData();
     formData.append('file', file);
     formData.append('name', emojiName);
 
-    const response = await api.post<UploadResponse>(`/server/${serverId}/emojis`, formData, {
+    const response = await api.post<ApiResponse<UploadResponse>>(`/server/${serverId}/emojis`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -108,19 +114,22 @@ class UploadService {
       },
     });
 
-    return response.data;
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   }
 
   /**
    * Upload message attachment
    */
-  async uploadAttachment(channelId: number, file: File, options?: UploadOptions): Promise<UploadResponse> {
+  async uploadAttachment(channelId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
     this.validateAttachment(file);
     
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post<UploadResponse>(`/channels/${channelId}/attachments`, formData, {
+    const response = await api.post<ApiResponse<UploadResponse>>(`/channels/${channelId}/attachments`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -132,51 +141,23 @@ class UploadService {
       },
     });
 
-    return response.data;
-  }
-
-  /**
-   * Upload multiple attachments
-   */
-  async uploadAttachments(
-    channelId: number, 
-    files: File[], 
-    options?: UploadOptions
-  ): Promise<UploadResponse[]> {
-    const uploadPromises = files.map((file, index) => 
-      this.uploadAttachment(channelId, file, {
-        onProgress: (progress) => {
-          if (options?.onProgress) {
-            // Calculate overall progress
-            const overallProgress = files.reduce((sum, _, i) => {
-              if (i < index) return sum + 100;
-              if (i === index) return sum + progress;
-              return sum;
-            }, 0) / files.length;
-            options.onProgress(Math.round(overallProgress));
-          }
-        }
-      })
-    );
-
-    return Promise.all(uploadPromises);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   }
 
   /**
    * Validate image file
    */
-  private validateImage(file: File, maxSize: number, fileType: string): void {
+  private validateImage(file: File, maxSize: number, type: string): void {
     if (!this.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      throw new Error(`${fileType} must be an image (JPEG, PNG, GIF, or WebP)`);
+      throw new Error(`${type} must be a valid image file (JPEG, PNG, GIF, or WebP)`);
     }
 
     if (file.size > maxSize) {
-      const maxSizeMB = maxSize / (1024 * 1024);
-      throw new Error(`${fileType} must be less than ${maxSizeMB}MB`);
+      throw new Error(`${type} must be less than ${this.formatFileSize(maxSize)}`);
     }
-
-    // Additional validation for image dimensions could be added here
-    // This would require reading the image with FileReader and Image APIs
   }
 
   /**
@@ -184,7 +165,7 @@ class UploadService {
    */
   private validateAttachment(file: File): void {
     if (!this.ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
-      throw new Error('File type not allowed. Please check supported file types.');
+      throw new Error('File type not supported. Please check supported file types.');
     }
 
     if (file.size > this.MAX_ATTACHMENT_SIZE) {

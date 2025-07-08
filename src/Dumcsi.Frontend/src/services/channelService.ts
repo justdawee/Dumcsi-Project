@@ -1,25 +1,50 @@
-import type { AxiosResponse } from 'axios';
 import api from './api';
-import type { ChannelDetail, CreateChannelPayload, UpdateChannelPayload } from './types';
-
-type EntityId = number;
+import type { 
+  ChannelDetailDto, 
+  UpdateChannelRequestDto,
+  CreateChannelRequestDto,
+  ChannelListItemDto,
+  ApiResponse,
+  EntityId
+} from './types';
 
 const channelService = {
-
-  getChannel(id: EntityId): Promise<AxiosResponse<ChannelDetail>> {
-    return api.get<ChannelDetail>(`/channels/${id}`);
+  async getChannel(id: EntityId): Promise<ChannelDetailDto> {
+    const response = await api.get<ApiResponse<ChannelDetailDto>>(`/channels/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  createChannel(serverId: EntityId, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelDetail>> {
-    return api.post<ChannelDetail>(`/server/${serverId}/channels`, payload);
+  async getChannels(): Promise<ChannelListItemDto[]> {
+    const response = await api.get<ApiResponse<ChannelListItemDto[]>>('/channels');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  updateChannel(id: EntityId, payload: UpdateChannelPayload): Promise<AxiosResponse<void>> {
-    return api.patch<void>(`/channels/${id}`, payload);
+  async createChannel(payload: CreateChannelRequestDto): Promise<ChannelDetailDto> {
+    const response = await api.post<ApiResponse<ChannelDetailDto>>('/channels', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  deleteChannel(id: EntityId): Promise<AxiosResponse<void>> {
-    return api.delete<void>(`/channels/${id}`);
+  async updateChannel(id: EntityId, payload: UpdateChannelRequestDto): Promise<void> {
+    const response = await api.patch<ApiResponse<void>>(`/channels/${id}`, payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  async deleteChannel(id: EntityId): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>(`/channels/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 };
 

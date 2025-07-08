@@ -1,13 +1,34 @@
 import api from './api';
-import type { LoginPayload, RegisterPayload, AuthResponse } from './types';
+import type { 
+  LoginRequestDto, 
+  RegisterRequestDto, 
+  RefreshTokenRequestDto,
+  TokenResponseDto, 
+  ApiResponse 
+} from './types';
 
 const authService = {
-  register(payload: RegisterPayload): Promise<void> {
-    return api.post('/auth/register', payload).then(res => res.data);
+  async register(payload: RegisterRequestDto): Promise<void> {
+    const response = await api.post<ApiResponse<void>>('/auth/register', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 
-  login(payload: LoginPayload): Promise<AuthResponse> {
-    return api.post<AuthResponse>('/auth/login', payload).then(res => res.data);
+  async login(payload: LoginRequestDto): Promise<TokenResponseDto> {
+    const response = await api.post<ApiResponse<TokenResponseDto>>('/auth/login', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  async refresh(payload: RefreshTokenRequestDto): Promise<TokenResponseDto> {
+    const response = await api.post<ApiResponse<TokenResponseDto>>('/auth/refresh', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 };
 

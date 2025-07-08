@@ -1,119 +1,138 @@
-import type { AxiosResponse } from 'axios';
 import api from './api';
 import type { 
-  ServerListItem, 
-  CreateServerPayload, 
-  ServerDetail, 
-  ServerMember, 
-  ChannelListItem, 
-  CreateChannelPayload, 
-  JoinServerPayload, 
-  InviteResponse, 
-  JoinServerResponse, 
-  UpdateServerPayload 
+  ServerListItemDto, 
+  CreateServerRequestDto, 
+  ServerDetailDto, 
+  ServerMemberDto, 
+  ChannelListItemDto, 
+  CreateChannelRequestDto, 
+  UpdateServerRequestDto,
+  InviteInfoDto,
+  CreateInviteRequestDto,
+  ApiResponse,
+  EntityId
 } from './types';
 
-type EntityId = number;
-
 const serverService = {
-  /**
-   * @description Fetches the list of servers the current user is a member of.
-   */
-  getServers(): Promise<AxiosResponse<ServerListItem[]>> {
-    return api.get<ServerListItem[]>('/server');
+  async getServers(): Promise<ServerListItemDto[]> {
+    const response = await api.get<ApiResponse<ServerListItemDto[]>>('/server');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Creates a new server.
-   */
-  createServer(payload: CreateServerPayload): Promise<AxiosResponse<{ serverId: number; message: string }>> {
-    const apiPayload = {
-      name: payload.name,
-      description: payload.description,
-      public: payload.isPublic,
-    };
-    return api.post('/server', apiPayload);
+  async createServer(payload: CreateServerRequestDto): Promise<{ serverId: EntityId; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>('/server', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Fetches detailed information for a single server.
-   * @param id The unique identifier of the server.
-   */
-  getServer(id: EntityId): Promise<AxiosResponse<ServerDetail>> {
-    return api.get<ServerDetail>(`/server/${id}`);
+  async getServer(id: EntityId): Promise<ServerDetailDto> {
+    const response = await api.get<ApiResponse<ServerDetailDto>>(`/server/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Deletes a server. Only the owner can perform this action.
-   * @param id The unique identifier of the server.
-   */
-  deleteServer(id: EntityId): Promise<AxiosResponse<{ message: string }>> {
-    return api.delete(`/server/${id}`);
+  async deleteServer(id: EntityId): Promise<{ message: string }> {
+    const response = await api.delete<ApiResponse<{ message: string }>>(`/server/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Fetches the list of members for a given server.
-   * @param id The unique identifier of the server.
-   */
-  getServerMembers(id: EntityId): Promise<AxiosResponse<ServerMember[]>> {
-    return api.get<ServerMember[]>(`/server/${id}/members`);
-  },
-  
-  /**
-   * @description Leaves a server.
-   * @param id The unique identifier of the server.
-   */
-  leaveServer(id: EntityId): Promise<AxiosResponse<{ message: string }>> {
-    return api.post(`/server/${id}/leave`);
+  async getServerMembers(id: EntityId): Promise<ServerMemberDto[]> {
+    const response = await api.get<ApiResponse<ServerMemberDto[]>>(`/server/${id}/members`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Generates a new invite code for a server.
-   * @param id The unique identifier of the server.
-   */
-  generateInvite(id: EntityId): Promise<AxiosResponse<InviteResponse>> {
-    return api.post<InviteResponse>(`/server/${id}/invite`, {});
+  async joinServer(inviteCode: string): Promise<{ serverId: EntityId; serverName: string; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; serverName: string; message: string }>>(
+      '/server/join', 
+      { inviteCode }
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Fetches the list of channels for a given server.
-   * @param id The unique identifier of the server.
-   */
-  getServerChannels(id: EntityId): Promise<AxiosResponse<ChannelListItem[]>> {
-    return api.get<ChannelListItem[]>(`/server/${id}/channels`);
+  async leaveServer(id: EntityId): Promise<{ message: string }> {
+    const response = await api.post<ApiResponse<{ message: string }>>(`/server/${id}/leave`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Creates a new channel within a server.
-   * @param serverId The ID of the server where the channel will be created.
-   * @param payload The data for the new channel.
-   */
-  createChannel(serverId: EntityId, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelListItem>> {
-    return api.post<ChannelListItem>(`/server/${serverId}/channels`, payload);
+  async generateInvite(id: EntityId, payload?: CreateInviteRequestDto): Promise<{ inviteCode: string; message: string }> {
+    const response = await api.post<ApiResponse<{ inviteCode: string; message: string }>>(
+      `/server/${id}/invite`, 
+      payload || {}
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Updates a server's settings.
-   * @param id The unique identifier of the server.
-   * @param payload The new settings for the server.
-   */
-  updateServer(id: EntityId, payload: UpdateServerPayload): Promise<AxiosResponse<void>> {
-    return api.put<void>(`/server/${id}`, payload);
+  async getInviteInfo(inviteCode: string): Promise<InviteInfoDto> {
+    const response = await api.get<ApiResponse<InviteInfoDto>>(`/invite/${inviteCode}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Fetches a list of all public servers available to join.
-   */
-  getPublicServers(): Promise<AxiosResponse<ServerListItem[]>> {
-    return api.get<ServerListItem[]>('/server/public');
+  async getServerChannels(id: EntityId): Promise<ChannelListItemDto[]> {
+    const response = await api.get<ApiResponse<ChannelListItemDto[]>>(`/server/${id}/channels`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  /**
-   * @description Joins a public server directly by its ID.
-   * @param serverId The unique identifier of the public server to join.
-   */
-  joinPublicServer(serverId: EntityId): Promise<AxiosResponse<{ serverId: number; message: string }>> {
-    return api.post(`/server/${serverId}/join`);
+  async createChannel(serverId: EntityId, payload: CreateChannelRequestDto): Promise<ChannelListItemDto> {
+    const response = await api.post<ApiResponse<ChannelListItemDto>>(
+      `/server/${serverId}/channels`, 
+      payload
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  async updateServer(id: EntityId, payload: UpdateServerRequestDto): Promise<void> {
+    const response = await api.put<ApiResponse<void>>(`/server/${id}`, payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  async getPublicServers(): Promise<ServerListItemDto[]> {
+    const response = await api.get<ApiResponse<ServerListItemDto[]>>('/server/public');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  async joinPublicServer(serverId: EntityId): Promise<{ serverId: EntityId; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>(`/server/${serverId}/join`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 };
+
 export default serverService;

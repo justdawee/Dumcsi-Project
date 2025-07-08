@@ -2,17 +2,25 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import router from '@/router';
 import { RouteNames } from '@/router';
-// TÖRÖLVE: import { useAppStore } from './app'; - Eltávolítjuk a felső szintű importot
+import { useAppStore } from './app';
 import authService from '@/services/authService';
 import userService from '@/services/userService';
 import { signalRService } from '@/services/signalrService';
 import { jwtDecode } from 'jwt-decode';
-import type { JwtPayload, LoginPayload, RegisterPayload, UserProfile, AuthResponse } from '@/services/types';
+import type { 
+  JwtPayload, 
+  LoginRequestDto, 
+  RegisterRequestDto, 
+  UserProfileDto,
+  TokenResponseDto,
+  RefreshTokenRequestDto
+} from '@/services/types';
 import { getDisplayMessage } from '@/services/errorHandler';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'));
-  const user = ref<UserProfile | null>(null);
+  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'));
+  const user = ref<UserProfileDto | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -22,22 +30,46 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
   };
 
-  const setToken = (newToken: string | null) => {
-    token.value = newToken;
-    if (newToken) {
-      localStorage.setItem('token', newToken);
+  const setTokens = (tokens: TokenResponseDto | null) => {
+    if (tokens) {
+      token.value = tokens.accessToken;
+      refreshToken.value = tokens.refreshToken;
+      localStorage.setItem('token', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
     } else {
+      token.value = null;
+      refreshToken.value = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     }
   };
 
   const fetchUserProfile = async () => {
     try {
-      const response = await userService.getProfile();
-      user.value = response.data;
-      return response.data;
+      const profile = await userService.getProfile();
+      user.value = profile;
+      return profile;
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
+      throw error;
+    }
+  };
+
+  const refreshAccessToken = async () => {
+    if (!refreshToken.value) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const payload: RefreshTokenRequestDto = {
+        refreshToken: refreshToken.value
+      };
+      const tokens = await authService.refresh(payload);
+      setTokens(tokens);
+      return tokens;
+    } catch (error) {
+      console.error('Failed to refresh token:', error);
+      await logout();
       throw error;
     }
   };
@@ -53,7 +85,14 @@ export const useAuthStore = defineStore('auth', () => {
       const isExpired = Date.now() >= payload.exp * 1000;
 
       if (isExpired) {
-        await logout();
+        // Try to refresh the token
+        try {
+          await refreshAccessToken();
+          // Retry with new token
+          await fetchUserProfile();
+        } catch {
+          await logout();
+        }
       } else {
         if (!user.value) {
           await fetchUserProfile();
@@ -65,14 +104,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
   
-  const login = async (credentials: LoginPayload) => {
+  const login = async (credentials: LoginRequestDto) => {
     loading.value = true;
     error.value = null;
     try {
-      const response: AuthResponse = await authService.login(credentials);
-      setToken(response.accessToken); 
+      const tokens = await authService.login(credentials);
+      setTokens(tokens);
       
-      await checkAuth();
+      await fetchUserProfile();
 
       const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
       await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
@@ -84,7 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
   
-  const register = async (userData: RegisterPayload) => {
+  const register = async (userData: RegisterRequestDto) => {
     loading.value = true;
     error.value = null;
     try {
@@ -105,19 +144,16 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
-    const { useAppStore } = await import('./app');
-    const appStore = useAppStore();
-
     await signalRService.stop();
-    setToken(null);
+    setTokens(null);
     user.value = null;
-    appStore.$reset();
-    if (router.currentRoute.value.name !== 'Login') {
-       await router.push({ name: 'Login' });
+    useAppStore().$reset();
+    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
+      await router.push({ name: RouteNames.LOGIN });
     }
   };
 
-  const updateUserData = (updates: Partial<UserProfile>) => {
+  const updateUserData = (updates: Partial<UserProfileDto>) => {
     if (user.value) {
       user.value = { ...user.value, ...updates };
     }
@@ -125,6 +161,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     token,
+    refreshToken,
     user,
     loading,
     error,
@@ -136,5 +173,6 @@ export const useAuthStore = defineStore('auth', () => {
     checkAuth,
     fetchUserProfile,
     updateUserData,
+    refreshAccessToken,
   };
 });
