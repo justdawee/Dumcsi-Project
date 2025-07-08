@@ -25,7 +25,7 @@ class SignalRService {
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
-          if (retryContext.previousRetryCount === this.maxReconnectAttempts) {
+          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
             return null; // Újracsatlakozás leállítása
           }
           return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
@@ -63,24 +63,32 @@ class SignalRService {
 
     this.connection.onclose(() => {
       console.log('SignalR: Connection closed');
-      this.handleConnectionClosed();
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.handleConnectionClosed();
+      }
     });
 
     registerSignalREventHandlers(this.connection, appStore);
   }
 
   async initialize(): Promise<void> {
+    if (this.connection && this.connection.state !== signalR.HubConnectionState.Disconnected) {
+        return;
+    }
+    
     if (!this.connection) {
       this.createConnection();
       this.setupEventHandlers();
     }
+    
+    this.reconnectAttempts = 0;
 
     try {
       await this.connection!.start();
       console.log('SignalR: Connected');
-      this.reconnectAttempts = 0;
     } catch (error) {
-      console.error('SignalR: Failed to connect', error);
+      console.error('SignalR: Failed to connect initially', error);
+      this.reconnectAttempts = this.maxReconnectAttempts; // Megakadályozzuk a további próbálkozást
       this.handleConnectionClosed();
     }
   }
@@ -94,6 +102,7 @@ class SignalRService {
     if (this.connection) {
       try {
         await this.connection.stop();
+        console.log('SignalR: Connection stopped successfully.');
       } catch (error) {
         console.error('SignalR: Error stopping connection', error);
       }
@@ -104,28 +113,17 @@ class SignalRService {
     const authStore = useAuthStore();
     
     if (!authStore.isAuthenticated) {
-      return; // Ne próbálkozzon újracsatlakozással, ha nincs bejelentkezve
-    }
-
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      const { addToast } = useToast();
-      addToast({
-        type: 'danger',
-        title: 'Connection Failed',
-        message: 'Unable to establish real-time connection. Please refresh the page.',
-        duration: 0 // Állandó
-      });
       return;
     }
 
-    this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
-
-    console.log(`SignalR: Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    const { addToast } = useToast();
     
-    setTimeout(() => {
-      this.initialize();
-    }, delay);
+    addToast({
+      type: 'danger',
+      title: 'Connection Failed',
+      message: 'Unable to establish real-time connection. Please refresh the page.',
+      duration: 0 // Nem tűnik el automatikusan
+    });
   }
 
   // Nyilvános metódusok üzenetek küldéséhez
