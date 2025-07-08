@@ -2,6 +2,7 @@
 using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
+using Dumcsi.Application.Interfaces;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using Dumcsi.Domain.Interfaces;
@@ -22,6 +23,7 @@ namespace Dumcsi.Api.Controllers;
 public class ServerController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IServerSetupService serverSetupService,
     IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
@@ -61,62 +63,8 @@ public class ServerController(
             return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
         }
 
-        var server = new Server
-        {
-            Name = request.Name,
-            Description = request.Description,
-            Public = request.Public,
-            OwnerId = CurrentUserId,
-            Owner = user,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
-
-        var everyoneRole = new Role
-        {
-            Name = "@everyone",
-            Server = server,
-            Permissions = Permission.ViewChannels | Permission.ReadMessageHistory | Permission.SendMessages | Permission.AddReactions | Permission.Connect | Permission.Speak,
-            Position = 0,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
+        var server = await serverSetupService.CreateNewServerAsync(user, request.Name, request.Description, request.Public, cancellationToken);
         
-        var adminRole = new Role
-        {
-            Name = "Admin",
-            Server = server,
-            Permissions = Permission.Administrator,
-            Position = 1,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
-
-        var serverMember = new ServerMember
-        {
-            User = user,
-            Server = server,
-            JoinedAt = SystemClock.Instance.GetCurrentInstant()
-        };
-        
-        serverMember.Roles.Add(everyoneRole);
-        serverMember.Roles.Add(adminRole);
-
-        var defaultChannel = new Channel
-        {
-            Name = "general",
-            Server = server,
-            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
-            UpdatedAt = SystemClock.Instance.GetCurrentInstant()
-        };
-
-        dbContext.Servers.Add(server);
-        dbContext.Roles.AddRange(everyoneRole, adminRole);
-        dbContext.ServerMembers.Add(serverMember);
-        dbContext.Channels.Add(defaultChannel);
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(server.Id, CurrentUserId, AuditLogActionType.ServerCreated, server.Id, AuditLogTargetType.Server, new { server.Name });
-
         return OkResponse(new { ServerId = server.Id }, "Server created successfully.");
     }
 

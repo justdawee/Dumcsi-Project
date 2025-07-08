@@ -50,6 +50,8 @@ builder.Services.AddJwtAuthentication(builder.Configuration); // JWT alapú hite
 
 builder.Services.AddScoped<IAuthService, AuthService>(); // Hitelesítési szolgáltatás regisztrálása
 
+builder.Services.AddScoped<IServerSetupService, ServerSetupService>(); // Szerver beállító szolgáltatás regisztrálása
+
 builder.Services.AddSingleton<IFileStorageService, MinioFileStorageService>(); // Fájl tároló szolgáltatás regisztrálása
 
 builder.Services.AddSingleton<IPresenceService, PresenceService>(); // Online/Offline állapot szolgáltatás regisztrálása
