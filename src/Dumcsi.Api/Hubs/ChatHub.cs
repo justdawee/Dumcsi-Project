@@ -24,7 +24,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             if (isFirstConnection)
             {
                 // Értesítjük az összes többi klienst, hogy ez a user online lett
-                await Clients.Others.SendAsync("UserIsOnline", userId);
+                await Clients.Others.SendAsync("UserOnline", long.Parse(userId));
             }
         }
         await base.OnConnectedAsync();
@@ -41,7 +41,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             if (wentOffline)
             {
                 // Értesítjük az összes többi klienst, hogy ez a user offline lett
-                await Clients.Others.SendAsync("UserIsOffline", userId);
+                await Clients.Others.SendAsync("UserOffline", long.Parse(userId));
             }
         }
         await base.OnDisconnectedAsync(exception);
@@ -56,6 +56,17 @@ public class ChatHub(IPresenceService presenceService) : Hub
     public async Task LeaveChannel(string channelId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, channelId);
+    }
+    
+    public async Task SendTypingIndicator(string channelId)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            // Értesítjük a csatorna többi tagját (a küldőt kivéve), hogy a felhasználó gépel.
+            // A kliens oldali app.ts a "UserTyping" eseményt várja.
+            await Clients.OthersInGroup(channelId).SendAsync("UserTyping", long.Parse(channelId), userIdLong);
+        }
     }
     
     // --- Voice Chat Metódusok ---
@@ -73,10 +84,13 @@ public class ChatHub(IPresenceService presenceService) : Hub
         }
 
         // Hozzáadjuk az új felhasználót a listához
-        var updatedUsers = VoiceChannelUsers.AddOrUpdate(channelId, 
+        VoiceChannelUsers.AddOrUpdate(channelId, 
             new List<string> { connectionId }, 
             (key, existingList) => {
-                existingList.Add(connectionId);
+                lock (existingList)
+                {
+                    existingList.Add(connectionId);
+                }
                 return existingList;
             });
             
