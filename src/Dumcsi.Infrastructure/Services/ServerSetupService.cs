@@ -5,6 +5,8 @@ using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Dumcsi.Infrastructure.Services
 {
@@ -13,15 +15,14 @@ namespace Dumcsi.Infrastructure.Services
         public async Task<Server> CreateNewServerAsync(User owner, string name, string? description, bool isPublic, CancellationToken cancellationToken = default)
         {
             await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            
+            dbContext.Users.Attach(owner);
 
-            // A szerver létrehozása egyetlen tranzakción belül történik,
-            // biztosítva az adatok konzisztenciáját.
             var server = new Server
             {
                 Name = name,
                 Description = description,
                 Public = isPublic,
-                OwnerId = owner.Id,
                 Owner = owner,
                 CreatedAt = SystemClock.Instance.GetCurrentInstant(),
                 UpdatedAt = SystemClock.Instance.GetCurrentInstant()
@@ -70,7 +71,6 @@ namespace Dumcsi.Infrastructure.Services
 
             await dbContext.SaveChangesAsync(cancellationToken);
             
-            // Audit napló bejegyzés létrehozása
             await auditLogService.LogAsync(server.Id, owner.Id, AuditLogActionType.ServerCreated, server.Id, AuditLogTargetType.Server, new { server.Name });
 
             return server;
