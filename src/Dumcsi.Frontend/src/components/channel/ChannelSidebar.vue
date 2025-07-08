@@ -75,7 +75,7 @@
     <div class="px-2 py-2 bg-gray-900 border-t border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
-          :avatar-url="authStore.user?.profilePictureUrl"
+          :avatar-url="authStore.user?.avatarUrl"
           :username="authStore.user?.username || ''"
           :size="'xs'"
         />
