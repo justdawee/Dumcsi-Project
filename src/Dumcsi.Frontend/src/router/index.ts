@@ -86,24 +86,26 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
-  
-  authStore.checkAuth(); // Assuming this method checks for token expiration and logs out if needed.
+  // If the user has a token but no user data, check auth to populate user
+  if (authStore.token && !authStore.user) {
+    try {
+      await authStore.checkAuth();
+    } catch (error) {
+      // Token invalid, auth store will handle cleanup
+    }
+  }
 
   const isAuthenticated = authStore.isAuthenticated;
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
 
   if (requiresAuth && !isAuthenticated) {
-    // If the route requires authentication and the user is not authenticated,
     next({ name: RouteNames.LOGIN, query: { redirect: to.fullPath } });
   } else if (requiresGuest && isAuthenticated) {
-    // If the route is for guests (like login/register) and the user is already logged in,
-    // redirect them to the main server selection page.
     next({ name: RouteNames.SERVER_SELECT });
   } else {
-    // Otherwise, allow navigation.
     next();
   }
 });

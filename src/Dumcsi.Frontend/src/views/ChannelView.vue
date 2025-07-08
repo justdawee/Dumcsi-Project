@@ -1,44 +1,48 @@
 <template>
-  <div class="flex-1 flex flex-col bg-gray-800 h-full overflow-hidden">
-    <div class="px-6 h-14 border-b border-gray-700 flex items-center justify-between shadow-xs flex-shrink-0">
-      <div class="flex items-center gap-2 min-w-0">
-        <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
-        <h3 class="font-semibold text-white truncate">{{ currentChannel?.name }}</h3>
-        <span v-if="channelDescription" class="text-sm text-gray-400 ml-2 truncate hidden sm:block">
-          {{ channelDescription }}
-        </span>
-      </div>
+  <div class="flex flex-col h-screen bg-gray-900">
+    <!-- Channel Header -->
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
       <div class="flex items-center gap-2">
-        <button @click="isMemberListOpen = !isMemberListOpen" class="p-2 hover:bg-gray-700 rounded-md transition" title="Toggle Member List">
-          <Users class="w-5 h-5 text-gray-400" />
-        </button>
+        <Hash class="w-5 h-5 text-gray-400" />
+        <h2 class="text-lg font-semibold text-white">{{ currentChannel?.name || 'Loading...' }}</h2>
+        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline">{{ channelDescription }}</span>
       </div>
+      <button 
+        @click="isMemberListOpen = !isMemberListOpen"
+        class="p-2 text-gray-400 hover:text-white transition"
+      >
+        <Users class="w-5 h-5" />
+      </button>
     </div>
 
-    <div class="flex-1 flex overflow-hidden">
-      <div
-        ref="messagesContainer"
-        class="flex-1 overflow-y-auto scrollbar-thin p-4"
-        @scroll="debouncedScrollHandler"
-      >
-        <div v-if="appStore.loading.messages" class="flex justify-center py-4">
-          <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+    <div class="flex flex-1 overflow-hidden">
+      <div class="flex-1 flex flex-col">
+        <div 
+          ref="messagesContainer" 
+          class="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800"
+          @scroll="debouncedScrollHandler"
+        >
+          <div v-if="appStore.loading.messages" class="flex justify-center p-4">
+            <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+          </div>
+          <MessageItem
+            v-for="(message, index) in messages"
+            :key="message.id"
+            :message="message"
+            :previous-message="messages[index - 1] || null"
+            :current-user-id="authStore.user?.id"
+            @edit="handleEditMessage"
+            @delete="handleDeleteMessage"
+          />
         </div>
-        
-        <div v-if="!messages.length && !appStore.loading.channel" class="text-center text-gray-500 pt-8">
-          <p class="font-semibold">Welcome to #{{ currentChannel?.name }}!</p>
-          <p class="text-sm">Be the first to send a message.</p>
+
+        <div class="px-4 pb-4 pt-2 border-t border-gray-700/50">
+          <MessageInput
+            v-if="currentChannel"
+            :channel="currentChannel"
+            @send="handleSendMessage"
+          />
         </div>
-        
-        <MessageItem
-          v-for="(message, index) in messages"
-          :key="message.id"
-          :message="message"
-          :previous-message="messages[index - 1] || null"
-          :current-user-id="authStore.user?.id"
-          @edit="handleEditMessage"
-          @delete="handleDeleteMessage"
-        />
       </div>
 
       <div v-if="isMemberListOpen" class="w-60 bg-gray-800 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
@@ -57,14 +61,6 @@
           </li>
         </ul>
       </div>
-    </div>
-
-    <div class="px-4 pb-4 pt-2 border-t border-gray-700/50">
-      <MessageInput
-        v-if="appStore.currentChannel"
-        :channel-name="appStore.currentChannel.name"
-        @send="handleSendMessage"
-      />
     </div>
   </div>
 </template>

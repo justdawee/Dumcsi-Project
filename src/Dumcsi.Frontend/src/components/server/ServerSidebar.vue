@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass } from 'lucide-vue-next';
@@ -162,6 +162,7 @@ const isLeaving = ref(false);
 const tooltipText = ref('');
 const tooltipTop = ref(0);
 const tooltipVisible = ref(false);
+let tooltipTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // --- Computed ---
 const isHome = computed(() => route.name === 'ServerSelect');
@@ -242,16 +243,34 @@ const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
 };
 
 const showTooltip = (e: MouseEvent, text: string) => {
+  // Clear any existing timeout
+  if (tooltipTimeout) {
+    clearTimeout(tooltipTimeout);
+  }
+  
   const target = e.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
   tooltipTop.value = rect.top + rect.height / 2;
   tooltipText.value = text;
-  tooltipVisible.value = true;
+  
+  tooltipTimeout = setTimeout(() => {
+    tooltipVisible.value = true;
+  }, 500);
 };
 
 const hideTooltip = () => {
+  if (tooltipTimeout) {
+    clearTimeout(tooltipTimeout);
+    tooltipTimeout = null;
+  }
   tooltipVisible.value = false;
 };
+
+onUnmounted(() => {
+  if (tooltipTimeout) {
+    clearTimeout(tooltipTimeout);
+  }
+});
 </script>
 
 <style scoped>

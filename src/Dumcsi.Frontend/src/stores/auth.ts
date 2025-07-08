@@ -105,14 +105,20 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
+  if (signalRService.isConnected) {
     await signalRService.stop();
-    setToken(null);
-    user.value = null;
-    useAppStore().$reset();
-    if (router.currentRoute.value.name !== 'Login') {
-       await router.push({ name: 'Login' });
-    }
-  };
+  }
+  
+  setToken(null);
+  user.value = null;
+  
+  const appStore = useAppStore();
+  appStore.$reset();
+  
+  if (router.currentRoute.value.name !== RouteNames.LOGIN) {
+    await router.push({ name: RouteNames.LOGIN });
+  }
+};
 
   const updateUserData = (updates: Partial<UserProfile>) => {
     if (user.value) {

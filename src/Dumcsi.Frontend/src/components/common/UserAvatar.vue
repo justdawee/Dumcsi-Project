@@ -41,7 +41,7 @@ const props = withDefaults(defineProps<{
   avatarUrl?: string | null;
   username?: string;
   userId?: number;
-  size?: number;
+  size?: number | string;
   showOnlineIndicator?: boolean;
   className?: string;
 }>(), {
@@ -50,72 +50,65 @@ const props = withDefaults(defineProps<{
   className: 'rounded-full'
 });
 
+const parsedSize = computed(() => {
+  if (typeof props.size === 'string') {
+    const sizeMap: Record<string, number> = {
+      'xs': 24,
+      'sm': 32,
+      'md': 40,
+      'lg': 48,
+      'xl': 56
+    };
+    return sizeMap[props.size] || 40;
+  }
+  return props.size;
+});
+
 // Composables
-const { getDisplayName, getInitials, getUserColor } = useUserDisplay();
 const appStore = useAppStore();
+const { getUserColor, getInitials } = useUserDisplay();
 
 // State
 const imageError = ref(false);
 
 // Computed
-const displayName = computed(() => {
-  if (props.user) return getDisplayName(props.user);
-  return props.username || 'Unknown User';
-});
+const displayName = computed(() => props.username || props.user?.username || 'Unknown');
+const userId = computed(() => props.userId || (props.user && ('userId' in props.user ? props.user.userId : props.user.id)) || 0);
+const isOnline = computed(() => appStore.onlineUsers.has(userId.value));
 
 const initials = computed(() => {
-  if (props.user) return getInitials(props.user);
-  
-  const name = props.username || 'Unknown User';
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  if (props.user) {
+    return getInitials(props.user);
   }
-  return name.substring(0, 2).toUpperCase();
-});
-
-const userId = computed(() => {
-  if (props.user && 'id' in props.user) return props.user.id;
-  if (props.user && 'userId' in props.user) return props.user.userId;
-  return props.userId || 0;
-});
-
-const isOnline = computed(() => {
-  return appStore.onlineUsers.has(userId.value);
+  return getInitials({ username: displayName.value } as UserDto);
 });
 
 const sizeClasses = computed(() => {
-  const sizeMap: Record<number, string> = {
-    24: 'w-6 h-6',
-    32: 'w-8 h-8',
-    40: 'w-10 h-10',
-    48: 'w-12 h-12',
-    64: 'w-16 h-16',
-    80: 'w-20 h-20',
-    128: 'w-32 h-32'
-  };
-  return sizeMap[props.size] || `w-[${props.size}px] h-[${props.size}px]`;
+  const size = parsedSize.value;
+  if (size <= 24) return 'w-6 h-6';
+  if (size <= 32) return 'w-8 h-8';
+  if (size <= 40) return 'w-10 h-10';
+  if (size <= 48) return 'w-12 h-12';
+  return 'w-14 h-14';
 });
 
 const textSizeClass = computed(() => {
-  if (props.size <= 24) return 'text-xs';
-  if (props.size <= 32) return 'text-sm';
-  if (props.size <= 48) return 'text-base';
-  if (props.size <= 64) return 'text-lg';
-  return 'text-xl';
+  const size = parsedSize.value;
+  if (size <= 24) return 'text-xs';
+  if (size <= 32) return 'text-sm';
+  if (size <= 40) return 'text-base';
+  return 'text-lg';
 });
 
 const onlineIndicatorClasses = computed(() => {
-  if (props.size <= 32) {
-    return 'bottom-0 right-0 w-2 h-2 border';
-  } else if (props.size <= 48) {
-    return 'bottom-0 right-0 w-3 h-3 border-2';
-  } else {
-    return 'bottom-1 right-1 w-4 h-4 border-2';
-  }
+  const size = parsedSize.value;
+  if (size <= 32) return 'w-2 h-2 bottom-0 right-0 border';
+  if (size <= 40) return 'w-3 h-3 bottom-0 right-0 border-2';
+  return 'w-4 h-4 bottom-1 right-1 border-2';
 });
 
 // Methods
 const handleImageError = () => {
   imageError.value = true;
-};</script>
+};
+</script>

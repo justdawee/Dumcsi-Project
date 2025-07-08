@@ -13,6 +13,7 @@ app.use(pinia);
 app.use(router);
 
 const authStore = useAuthStore();
+let signalRInitialized = false;
 
 // Wait for router to be ready before mounting
 router.isReady().then(async () => {
@@ -23,13 +24,13 @@ router.isReady().then(async () => {
       await authStore.checkAuth();
       
       // Initialize SignalR connection if authenticated
-      if (authStore.isAuthenticated) {
+      if (authStore.isAuthenticated && !signalRInitialized) {
         console.log('Initializing SignalR connection...');
         await signalRService.initialize();
+        signalRInitialized = true;
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      // Token is invalid, auth store will handle cleanup
     }
   }
   
@@ -38,24 +39,30 @@ router.isReady().then(async () => {
 });
 
 // Setup auth state change listener
+let authStateTimeout: ReturnType<typeof setTimeout> | null = null;
 authStore.$subscribe((_, state) => {
-  // When user logs in
-  if (state.token && !signalRService.isConnected) {
-    console.log('User authenticated, initializing SignalR...');
-    signalRService.initialize();
-  }
+  if (authStateTimeout) clearTimeout(authStateTimeout);
   
-  // When user logs out
-  if (!state.token && signalRService.isConnected) {
-    console.log('User logged out, stopping SignalR...');
-    signalRService.stop();
-  }
+  authStateTimeout = setTimeout(async () => {
+    // When user logs in
+    if (state.token && !signalRService.isConnected && authStore.isAuthenticated) {
+      console.log('User authenticated, initializing SignalR...');
+      await signalRService.initialize();
+      signalRInitialized = true;
+    }
+    
+    // When user logs out
+    if (!state.token && signalRService.isConnected) {
+      console.log('User logged out, stopping SignalR...');
+      await signalRService.stop();
+      signalRInitialized = false;
+    }
+  }, 100);
 });
 
 // Handle page visibility changes
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated && !signalRService.isConnected) {
-    // Reconnect when page becomes visible
     signalRService.initialize();
   }
 });

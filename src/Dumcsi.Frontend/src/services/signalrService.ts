@@ -18,6 +18,7 @@ class SignalRService {
   private reconnectInterval: ReturnType<typeof setTimeout> | null = null;
   private readonly maxReconnectAttempts = 5;
   private reconnectAttempts = 0;
+  private isInitializing = false;
 
   constructor() {
     // Connection will be created in initialize()
@@ -28,9 +29,6 @@ class SignalRService {
       .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
         accessTokenFactory: () => {
           const token = localStorage.getItem('token');
-          // --- ÚJ SOROK A DEBUGOLÁSHOZ ---
-          console.log('SignalR accessTokenFactory: Token from localStorage:', token);
-          // ------------------------------------
           return token || '';
         }
       })
@@ -187,7 +185,19 @@ class SignalRService {
     });
   }
 
-  async initialize(): Promise<void> {
+   async initialize(): Promise<void> {
+    if (this.isInitializing) {
+      console.log('SignalR: Already initializing, skipping...');
+      return;
+    }
+
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      console.log('SignalR: Already connected');
+      return;
+    }
+
+    this.isInitializing = true;
+
     if (!this.connection) {
       this.createConnection();
       this.setupEventHandlers();
@@ -200,18 +210,23 @@ class SignalRService {
     } catch (error) {
       console.error('SignalR: Failed to connect', error);
       this.handleConnectionClosed();
+    } finally {
+      this.isInitializing = false;
     }
   }
 
   async stop(): Promise<void> {
+    this.isInitializing = false;
+    
     if (this.reconnectInterval) {
-      clearInterval(this.reconnectInterval);
+      clearTimeout(this.reconnectInterval);
       this.reconnectInterval = null;
     }
 
     if (this.connection) {
       try {
         await this.connection.stop();
+        this.connection = null;
       } catch (error) {
         console.error('SignalR: Error stopping connection', error);
       }
@@ -222,16 +237,18 @@ class SignalRService {
     const authStore = useAuthStore();
     
     if (!authStore.isAuthenticated) {
-      return; // Don't try to reconnect if not authenticated
+      this.isInitializing = false;
+      return;
     }
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.isInitializing = false;
       const { addToast } = useToast();
       addToast({
         type: 'danger',
         title: 'Connection Failed',
         message: 'Unable to establish real-time connection. Please refresh the page.',
-        duration: 0 // Persistent
+        duration: 0
       });
       return;
     }
@@ -241,7 +258,7 @@ class SignalRService {
 
     console.log(`SignalR: Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
     
-    setTimeout(() => {
+    this.reconnectInterval = setTimeout(() => {
       this.initialize();
     }, delay);
   }
@@ -250,7 +267,7 @@ class SignalRService {
   async sendTypingIndicator(channelId: EntityId): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {
-        await this.connection.invoke('SendTypingIndicator', channelId);
+        await this.connection.invoke('SendTypingIndicator', channelId.toString());
       } catch (error) {
         console.error('Failed to send typing indicator:', error);
       }

@@ -1,34 +1,46 @@
 <template>
   <div class="relative">
     <!-- Attachment Preview -->
-    <div v-if="attachments.length > 0" class="mb-2 p-2 bg-gray-700 rounded-lg">
+    <div v-if="attachments.length > 0" class="mb-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700/50">
       <div class="flex flex-wrap gap-2">
         <div 
           v-for="(attachment, index) in attachments" 
           :key="index"
           class="relative group"
         >
-          <div v-if="uploadService.isImage(attachment.file)" class="relative">
+          <!-- Image Preview -->
+          <div v-if="attachment.url" class="relative">
             <img 
               :src="attachment.url" 
               :alt="attachment.file.name"
               class="h-20 w-20 object-cover rounded"
             />
-            <div v-if="attachment.uploading" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded">
-              <div class="text-white text-xs">{{ attachment.progress }}%</div>
+            <div v-if="attachment.uploading" class="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded">
+              <div class="relative w-10 h-10">
+                <svg class="w-full h-full" viewBox="0 0 36 36">
+                  <path class="text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="4"></path>
+                  <path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" :stroke-dasharray="`${attachment.progress}, 100`" stroke-width="4" stroke-linecap="round"></path>
+                </svg>
+                <span class="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">{{ attachment.progress }}%</span>
+              </div>
             </div>
           </div>
-          <div v-else class="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded">
-            <File class="w-4 h-4 text-gray-400" />
-            <span class="text-sm text-gray-300 max-w-[150px] truncate">{{ attachment.file.name }}</span>
-            <span class="text-xs text-gray-500">{{ uploadService.formatFileSize(attachment.file.size) }}</span>
+          <!-- Generic File Preview -->
+          <div v-else class="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded h-20 w-48">
+            <File class="w-6 h-6 text-gray-400 flex-shrink-0" />
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm text-gray-300 truncate">{{ attachment.file.name }}</span>
+              <span class="text-xs text-gray-500">{{ uploadService.formatFileSize(attachment.file.size) }}</span>
+            </div>
           </div>
+          <!-- Remove Button -->
           <button
             v-if="!attachment.uploading"
             @click="removeAttachment(index)"
-            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+            class="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+            title="Remove file"
           >
-            <X class="w-3 h-3" />
+            <X class="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -37,7 +49,7 @@
     <!-- Mention Suggestions -->
     <div 
       v-if="showMentionSuggestions && mentionSuggestions.length > 0"
-      class="absolute bottom-full mb-2 left-0 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+      class="absolute bottom-full mb-2 left-0 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto scrollbar-thin"
     >
       <div class="p-1">
         <button
@@ -45,15 +57,11 @@
           :key="user.id"
           @click="selectMention(user)"
           :class="[
-            'w-full flex items-center gap-2 p-2 rounded hover:bg-gray-700 transition',
-            { 'bg-gray-700': index === selectedMentionIndex }
+            'w-full flex items-center gap-2 p-2 rounded hover:bg-primary/20 transition',
+            { 'bg-primary/20': index === selectedMentionIndex }
           ]"
         >
-          <UserAvatar
-            :avatar-url="getAvatarUrl(user)"
-            :username="user.username"
-            :size="24"
-          />
+          <UserAvatar :user="user" :size="24" />
           <div class="flex-1 text-left">
             <div class="text-sm font-medium text-white">{{ getDisplayName(user) }}</div>
             <div v-if="user.globalNickname" class="text-xs text-gray-400">@{{ user.username }}</div>
@@ -63,47 +71,21 @@
     </div>
 
     <!-- Typing Indicator -->
-    <div 
-      v-if="typingUsers.length > 0" 
-      class="absolute -top-6 left-0 text-xs text-gray-400 italic"
-    >
-      <span v-if="typingUsers.length === 1">
-        {{ getDisplayName(typingUsers[0]) }} is typing...
-      </span>
-      <span v-else-if="typingUsers.length === 2">
-        {{ getDisplayName(typingUsers[0]) }} and {{ getDisplayName(typingUsers[1]) }} are typing...
-      </span>
-      <span v-else>
-        {{ getDisplayName(typingUsers[0]) }} and {{ typingUsers.length - 1 }} others are typing...
-      </span>
+    <div v-if="typingIndicatorText" class="absolute -top-6 left-1 text-xs text-gray-400 italic transition-opacity">
+      {{ typingIndicatorText }}
     </div>
 
     <!-- Input Area -->
-    <div class="flex items-end gap-2 bg-gray-700 rounded-lg p-2">
-      <input
-        ref="fileInput"
-        type="file"
-        multiple
-        class="hidden"
-        accept="image/*,application/pdf,text/plain,application/zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,video/mp4,video/webm,audio/mpeg,audio/wav,audio/webm"
-        @change="handleFileSelect"
-      />
+    <div class="flex items-end gap-2 bg-gray-700/80 rounded-lg p-2">
+      <input ref="fileInput" type="file" multiple class="hidden" @change="onFileSelected" />
       
       <button
         @click="fileInput?.click()"
         :disabled="isUploading || attachments.length >= 10"
         class="p-2 text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        title="Attach files"
+        title="Attach files (max 10)"
       >
         <Paperclip class="w-5 h-5" />
-      </button>
-
-      <button
-        @click="showEmojiPicker = !showEmojiPicker"
-        class="p-2 text-gray-400 hover:text-gray-200 transition"
-        title="Add emoji"
-      >
-        <Smile class="w-5 h-5" />
       </button>
 
       <textarea
@@ -111,388 +93,160 @@
         v-model="messageContent"
         @input="handleInput"
         @keydown="handleKeyDown"
-        :placeholder="`Message #${channel.name}`"
+        :placeholder="`Message #${props.channel.name}`"
         :disabled="isSending || isUploading"
-        class="flex-1 bg-transparent text-white placeholder-gray-400 resize-none outline-none max-h-[200px] scrollbar-thin"
+        class="flex-1 bg-transparent text-gray-100 placeholder-gray-400 resize-none outline-none max-h-[200px] scrollbar-thin"
         :style="{ height: textareaHeight }"
         rows="1"
       />
 
       <button
         @click="handleSend"
-        :disabled="!canSend || isSending || isUploading"
+        :disabled="!canSend"
         :class="[
-          'p-2 transition',
-          canSend && !isSending && !isUploading
-            ? 'text-primary hover:text-primary-hover'
+          'p-2 rounded-full transition',
+          canSend
+            ? 'text-primary bg-primary/20 hover:bg-primary/30'
             : 'text-gray-500 cursor-not-allowed'
         ]"
         type="button"
+        title="Send Message"
       >
-        <Send class="w-5 h-5" />
+        <Send v-if="!isSending" class="w-5 h-5" />
+        <Loader2 v-else class="w-5 h-5 animate-spin" />
       </button>
-    </div>
-
-    <!-- Character counter -->
-    <div 
-      v-if="messageContent.length > 1800" 
-      class="mt-1 text-xs text-right"
-      :class="messageContent.length > 2000 ? 'text-danger' : 'text-gray-400'"
-    >
-      {{ messageContent.length }} / 2000
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, computed, nextTick, toRef } from 'vue';
 import { useAppStore } from '@/stores/app';
-import { useUserDisplay } from '@/composables/useUserDisplay';
 import { useToast } from '@/composables/useToast';
-import userService from '@/services/userService';
+import { useUserDisplay } from '@/composables/useUserDisplay';
 import uploadService from '@/services/uploadService';
-import { signalRService } from '@/services/signalrService';
-import { Paperclip, Smile, Send, X, File } from 'lucide-vue-next';
-import { debounce } from 'lodash';
-import UserAvatar from '@/components/common/UserAvatar.vue';
-import type { UserSearchResult, ChannelDetail, CreateMessagePayload } from '@/services/types';
 
-// Props
+// Import the new composables
+import { useAttachments } from '@/composables/useAttachments';
+import { useMentions } from '@/composables/useMentions';
+import { useTypingIndicator } from '@/composables/useTypingIndicator';
+
+// Component imports
+import { Paperclip, Send, X, File, Loader2 } from 'lucide-vue-next';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import type { ChannelDetail, CreateMessagePayload } from '@/services/types';
+
+// --- Props ---
 const props = defineProps<{
   channel: ChannelDetail;
 }>();
 
-// Composables
-const appStore = useAppStore();
-const { getDisplayName, getAvatarUrl } = useUserDisplay();
-const { addToast } = useToast();
-
-// State
+// --- Refs ---
 const messageContent = ref('');
 const messageInput = ref<HTMLTextAreaElement>();
 const fileInput = ref<HTMLInputElement>();
 const textareaHeight = ref('auto');
 const isSending = ref(false);
-const isUploading = ref(false);
-const showEmojiPicker = ref(false);
 
-// Mention state
-const showMentionSuggestions = ref(false);
-const mentionSuggestions = ref<UserSearchResult[]>([]);
-const currentMentionSearch = ref('');
-const selectedMentionIndex = ref(0);
-const mentionedUserIds = ref<Set<number>>(new Set());
-const mentionedRoleIds = ref<Set<number>>(new Set());
-const mentionPosition = ref(0);
+// --- Composables Initialization ---
+const appStore = useAppStore();
+const { addToast } = useToast();
+const { getDisplayName } = useUserDisplay();
+const channelIdRef = toRef(props.channel, 'id');
 
-// Attachment state
-interface Attachment {
-  file: File;
-  url?: string;
-  uploading: boolean;
-  progress: number;
-  error?: string;
-}
-const attachments = ref<Attachment[]>([]);
+const { 
+  attachments, 
+  isUploading, 
+  handleFileSelect, 
+  removeAttachment, 
+  uploadAttachments, 
+  clearAttachments 
+} = useAttachments(channelIdRef);
 
-// Typing indicator
-const typingTimeout = ref<NodeJS.Timeout>();
-const lastTypingNotification = ref(0);
-const typingUsers = computed(() => {
-  const channelTypingUsers = appStore.typingUsers.get(props.channel.id) || new Set();
-  return Array.from(channelTypingUsers)
-    .filter(userId => userId !== appStore.currentUserId)
-    .map(userId => appStore.members.find(m => m.userId === userId))
-    .filter(Boolean);
-});
+const { 
+  showMentionSuggestions, 
+  mentionSuggestions, 
+  selectedMentionIndex, 
+  mentionedUserIds, 
+  checkForMentions, 
+  selectMention, 
+  handleMentionKeyDown, 
+  clearMentions 
+} = useMentions(messageContent, messageInput);
 
-// Computed
+const { 
+  typingIndicatorText, 
+  sendTypingIndicator 
+} = useTypingIndicator(channelIdRef);
+
+
+// --- Computed ---
 const canSend = computed(() => {
   return (messageContent.value.trim().length > 0 || attachments.value.length > 0) 
-    && messageContent.value.length <= 2000
-    && !attachments.value.some(a => a.uploading);
+    && !isUploading.value
+    && !isSending.value;
 });
 
-// Debounced search function
-const searchUsers = debounce(async (query: string) => {
-  if (query.length < 1) {
-    mentionSuggestions.value = [];
-    return;
-  }
-  
-  try {
-    const response = await userService.searchUsers(query);
-    mentionSuggestions.value = response.data;
-    selectedMentionIndex.value = 0;
-  } catch (error) {
-    console.error('User search failed:', error);
-    mentionSuggestions.value = [];
-  }
-}, 300);
+// --- Methods ---
 
-// Methods
+const adjustTextareaHeight = () => {
+  if (!messageInput.value) return;
+  messageInput.value.style.height = 'auto';
+  const scrollHeight = messageInput.value.scrollHeight;
+  const maxHeight = 200;
+  messageInput.value.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+  messageInput.value.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+};
+
 const handleInput = () => {
   adjustTextareaHeight();
   checkForMentions();
   sendTypingIndicator();
 };
 
-const adjustTextareaHeight = () => {
-  if (!messageInput.value) return;
-  
-  messageInput.value.style.height = 'auto';
-  const scrollHeight = messageInput.value.scrollHeight;
-  const maxHeight = 200;
-  
-  if (scrollHeight > maxHeight) {
-    messageInput.value.style.height = `${maxHeight}px`;
-    messageInput.value.style.overflowY = 'auto';
-  } else {
-    messageInput.value.style.height = `${scrollHeight}px`;
-    messageInput.value.style.overflowY = 'hidden';
-  }
-  
-  textareaHeight.value = messageInput.value.style.height;
-};
-
-const checkForMentions = () => {
-  if (!messageInput.value) return;
-  
-  const cursorPosition = messageInput.value.selectionStart;
-  const textBeforeCursor = messageContent.value.substring(0, cursorPosition);
-  const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-  
-  if (lastAtIndex !== -1) {
-    const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
-    
-    if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
-      currentMentionSearch.value = textAfterAt;
-      mentionPosition.value = lastAtIndex;
-      showMentionSuggestions.value = true;
-      searchUsers(textAfterAt);
-    } else {
-      closeMentionSuggestions();
-    }
-  } else {
-    closeMentionSuggestions();
-  }
-};
-
-const closeMentionSuggestions = () => {
-  showMentionSuggestions.value = false;
-  currentMentionSearch.value = '';
-  selectedMentionIndex.value = 0;
-  mentionSuggestions.value = [];
-};
-
-const selectMention = (user: UserSearchResult) => {
-  if (!messageInput.value) return;
-  
-  const beforeMention = messageContent.value.substring(0, mentionPosition.value);
-  const afterMention = messageContent.value.substring(mentionPosition.value + currentMentionSearch.value.length + 1);
-  
-  const mentionText = `@${getDisplayName(user)}`;
-  messageContent.value = `${beforeMention}${mentionText} ${afterMention}`;
-  
-  mentionedUserIds.value.add(user.id);
-  closeMentionSuggestions();
-  
-  nextTick(() => {
-    if (messageInput.value) {
-      const newCursorPosition = beforeMention.length + mentionText.length + 1;
-      messageInput.value.focus();
-      messageInput.value.setSelectionRange(newCursorPosition, newCursorPosition);
-    }
-  });
-};
-
-const sendTypingIndicator = () => {
-  const now = Date.now();
-  if (now - lastTypingNotification.value > 2000) {
-    lastTypingNotification.value = now;
-    signalRService.sendTypingIndicator(props.channel.id);
-  }
-  
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value);
-  }
-  
-  typingTimeout.value = setTimeout(() => {
-    lastTypingNotification.value = 0;
-  }, 3000);
-};
-
 const handleKeyDown = (event: KeyboardEvent) => {
-  if (showMentionSuggestions.value) {
-    switch (event.key) {
-      case 'ArrowUp':
-        event.preventDefault();
-        selectedMentionIndex.value = Math.max(0, selectedMentionIndex.value - 1);
-        break;
-        
-      case 'ArrowDown':
-        event.preventDefault();
-        selectedMentionIndex.value = Math.min(mentionSuggestions.value.length - 1, selectedMentionIndex.value + 1);
-        break;
-        
-      case 'Enter':
-      case 'Tab':
-        if (mentionSuggestions.value[selectedMentionIndex.value]) {
-          event.preventDefault();
-          selectMention(mentionSuggestions.value[selectedMentionIndex.value]);
-        }
-        break;
-        
-      case 'Escape':
-        event.preventDefault();
-        closeMentionSuggestions();
-        break;
-    }
-  } else if (event.key === 'Enter' && !event.shiftKey) {
+  if (handleMentionKeyDown(event)) return;
+  if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
-    handleSend();
-  }
-};
-
-const handleFileSelect = async (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  if (!input.files || input.files.length === 0) return;
-  
-  const files = Array.from(input.files);
-  const totalAttachments = attachments.value.length + files.length;
-  
-  if (totalAttachments > 10) {
-    addToast({
-      type: 'warning',
-      message: 'You can only attach up to 10 files per message',
-      duration: 3000
-    });
-    return;
-  }
-  
-  for (const file of files) {
-    const attachment: Attachment = {
-      file,
-      url: uploadService.generatePreviewUrl(file),
-      uploading: false,
-      progress: 0
-    };
-    attachments.value.push(attachment);
-  }
-  
-  input.value = '';
-};
-
-const removeAttachment = (index: number) => {
-  const attachment = attachments.value[index];
-  if (attachment.url) {
-    uploadService.revokePreviewUrl(attachment.url);
-  }
-  attachments.value.splice(index, 1);
-};
-
-const uploadAttachments = async () => {
-  if (attachments.value.length === 0) return [];
-  
-  isUploading.value = true;
-  const uploadedUrls: string[] = [];
-  
-  try {
-    for (const attachment of attachments.value) {
-      attachment.uploading = true;
-      
-      try {
-        const response = await uploadService.uploadAttachment(props.channel.id, attachment.file, {
-          onProgress: (progress) => {
-            attachment.progress = progress;
-          }
-        });
-        
-        uploadedUrls.push(response.url);
-        attachment.uploading = false;
-      } catch (error: any) {
-        attachment.uploading = false;
-        attachment.error = error.message;
-        throw error;
-      }
+    if (canSend.value) {
+      handleSend();
     }
-    
-    return uploadedUrls;
-  } finally {
-    isUploading.value = false;
   }
+};
+
+const onFileSelected = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    handleFileSelect(target.files);
+    target.value = ''; // Reset input to allow selecting the same file again
 };
 
 const handleSend = async () => {
-  if (!canSend.value || isSending.value) return;
-  
+  if (!canSend.value) return;
   isSending.value = true;
   
   try {
-    let attachmentUrls: string[] = [];
-    
-    if (attachments.value.length > 0) {
-      try {
-        attachmentUrls = await uploadAttachments();
-      } catch (error: any) {
-        addToast({
-          type: 'danger',
-          message: `Failed to upload attachments: ${error.message}`,
-          duration: 5000
-        });
-        isSending.value = false;
-        return;
-      }
-    }
+    const attachmentUrls = await uploadAttachments();
     
     const payload: CreateMessagePayload = {
       content: messageContent.value.trim(),
-      attachments: attachmentUrls,
+      attachmentUrls: attachmentUrls,
       mentionedUserIds: Array.from(mentionedUserIds.value),
-      mentionedRoleIds: Array.from(mentionedRoleIds.value)
+      mentionedRoleIds: [] // Role mention logic can be added to useMentions later
     };
     
     await appStore.sendMessage(props.channel.id, payload);
     
-    // Clear form
+    // Clear form state
     messageContent.value = '';
-    attachments.value.forEach(a => {
-      if (a.url) uploadService.revokePreviewUrl(a.url);
-    });
-    attachments.value = [];
-    mentionedUserIds.value.clear();
-    mentionedRoleIds.value.clear();
+    clearAttachments();
+    clearMentions();
     
-    // Reset textarea height
-    nextTick(() => {
-      if (messageInput.value) {
-        messageInput.value.style.height = 'auto';
-        textareaHeight.value = 'auto';
-      }
-    });
-    
-  } catch (error: any) {
-    addToast({
-      type: 'danger',
-      message: 'Failed to send message',
-      duration: 3000
-    });
+    nextTick(() => adjustTextareaHeight());
+  } catch (error) {
+    console.error("Failed to send message:", error);
+    // User-facing error is handled in useAttachments or appStore
   } finally {
     isSending.value = false;
   }
 };
-
-// Lifecycle
-onMounted(() => {
-  messageInput.value?.focus();
-});
-
-onUnmounted(() => {
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value);
-  }
-  attachments.value.forEach(a => {
-    if (a.url) uploadService.revokePreviewUrl(a.url);
-  });
-});
 </script>
