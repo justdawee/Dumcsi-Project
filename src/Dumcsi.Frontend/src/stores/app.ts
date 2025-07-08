@@ -100,7 +100,7 @@ export const useAppStore = defineStore('app', () => {
   const createServer = async (payload: CreateServerPayload) => {
     const response = await serverService.createServer(payload);
     await fetchServers();
-    await router.push(`/servers/${response.data.id}`);
+    await router.push(`/servers/${response.data.serverId}`);
     return response.data;
   };
 
@@ -201,12 +201,14 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const editMessage = async (messageId: EntityId, payload: UpdateMessagePayload) => {
-    await messageService.updateMessage(messageId, payload);
+    if (!currentChannel.value) return;
+    await messageService.editMessage(currentChannel.value.id, messageId, payload);
     // SignalR will handle updating the message
   };
 
   const deleteMessage = async (messageId: EntityId) => {
-    await messageService.deleteMessage(messageId);
+    if (!currentChannel.value) return;
+    await messageService.deleteMessage(currentChannel.value.id, messageId);
     // SignalR will handle removing the message
   };
 
@@ -232,7 +234,7 @@ export const useAppStore = defineStore('app', () => {
     const member = members.value.find(m => m.userId === user.id);
     if (member) {
       member.username = user.username;
-      member.profilePictureUrl = user.profilePictureUrl;
+      member.avatarUrl = user.avatarUrl;
     }
   };
 
@@ -261,13 +263,13 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const handleServerCreated = (server: ServerDto) => {
-    servers.value.push(server);
+    fetchServers();
   };
 
   const handleServerUpdated = (server: ServerDto) => {
     const index = servers.value.findIndex(s => s.id === server.id);
     if (index !== -1) {
-      servers.value[index] = server;
+      servers.value[index] = { ...servers.value[index], ...server };
     }
     if (currentServer.value?.id === server.id) {
       currentServer.value = { ...currentServer.value, ...server };
@@ -310,7 +312,7 @@ export const useAppStore = defineStore('app', () => {
 
   const handleChannelCreated = (serverId: EntityId, channel: ChannelDto) => {
     if (currentServer.value?.id === serverId) {
-      currentServer.value.channels.push(channel);
+      fetchServer(serverId);
     }
   };
 
@@ -318,7 +320,7 @@ export const useAppStore = defineStore('app', () => {
     if (currentServer.value) {
       const index = currentServer.value.channels.findIndex(c => c.id === channel.id);
       if (index !== -1) {
-        currentServer.value.channels[index] = channel;
+        currentServer.value.channels[index] = { ...currentServer.value.channels[index], ...channel };
       }
     }
     if (currentChannel.value?.id === channel.id) {
