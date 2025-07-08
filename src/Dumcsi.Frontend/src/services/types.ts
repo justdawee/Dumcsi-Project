@@ -32,7 +32,6 @@ export interface UserProfile {
   email: string;
   globalNickname?: string;
   avatarUrl?: string;
-  profilePictureUrl?: string; // Legacy support
   isOnline?: boolean;
   lastSeenAt?: ISODateString;
 }
@@ -88,7 +87,6 @@ export interface ServerMember {
   userId: EntityId;
   username: string;
   globalNickname?: string;
-  profilePictureUrl?: string;
   avatarUrl?: string;
   role: Role;
   roles?: EntityId[]; // Role IDs
@@ -185,7 +183,7 @@ export interface EmojiDto {
 export interface JwtPayload {
   sub: string;
   username: string;
-  profilePictureUrl?: string;
+  avatarUrl?: string;
   exp: number;
 }
 
