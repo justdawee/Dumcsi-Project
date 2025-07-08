@@ -28,10 +28,6 @@ export function useUserDisplay() {
     if (!user) return null;
     
     // Handle different property names
-    if ('profilePictureUrl' in user) {
-      return user.profilePictureUrl || null;
-    }
-    
     if ('avatarUrl' in user) {
       return user.avatarUrl || null;
     }
