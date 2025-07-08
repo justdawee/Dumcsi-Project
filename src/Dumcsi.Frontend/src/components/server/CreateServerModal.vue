@@ -23,6 +23,7 @@
 
       <!-- Create Server Tab -->
       <form v-if="activeTab === 'create'" @submit.prevent="handleCreateServer" class="space-y-4">
+        <!-- ... (a create fül tartalma változatlan) ... -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">
             Server Name
@@ -154,6 +155,10 @@ const handleCreateServer = async () => {
     if (response?.serverId) {
       emit('close');
       router.push({ name: 'Server', params: { serverId: response.serverId } });
+      addToast({
+        type: 'success',
+        message: `Successfully created ${createForm.value.name}.`
+      });
     }
   } catch (err: any) {
     addToast({
@@ -161,10 +166,6 @@ const handleCreateServer = async () => {
       message: 'Failed to create server. Please try again later.'
     });
   } finally {
-    addToast({
-      type: 'success',
-      message: `Successfully created ${createForm.value.name}.`
-    });
     loading.value = false;
   }
 };
@@ -183,10 +184,14 @@ const handleJoinServer = async () => {
   error.value = '';
   
   try {
-    const result = await appStore.joinServer(joinForm.value.inviteCode);
+    const result = await appStore.joinServerWithInvite(joinForm.value.inviteCode);
     if (result?.serverId) {
       emit('close');
       router.push({ name: 'Server', params: { serverId: result.serverId } });
+      addToast({
+        type: 'success',
+        message: `Successfully joined ${result.serverName}.`
+      });
     }
   } catch (err: any) {
     addToast({

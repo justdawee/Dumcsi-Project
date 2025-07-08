@@ -25,6 +25,7 @@ import type {
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
+import inviteService from '@/services/inviteService';
 import router from '@/router';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
@@ -121,6 +122,26 @@ export const useAppStore = defineStore('app', () => {
     await serverService.leaveServer(serverId);
     await fetchServers();
     await router.push('/servers');
+  };
+
+    /**
+   * Joins a server using an invite code.
+   * @param inviteCode The invite code to use.
+   */
+  const joinServerWithInvite = async (inviteCode: string) => {
+    const response = await inviteService.joinServerWithInvite(inviteCode);
+    await fetchServers(); // Refresh server list
+    return response.data;
+  };
+
+  /**
+   * Joins a public server by its ID.
+   * @param serverId The ID of the public server to join.
+   */
+  const joinPublicServer = async (serverId: EntityId) => {
+    const response = await serverService.joinPublicServer(serverId);
+    await fetchServers(); // Refresh server list
+    return response.data;
   };
 
   // Channel Actions
@@ -381,6 +402,7 @@ export const useAppStore = defineStore('app', () => {
     updateServer,
     deleteServer,
     leaveServer,
+    joinServerWithInvite,
 
     // Channel Actions
     fetchChannel,
