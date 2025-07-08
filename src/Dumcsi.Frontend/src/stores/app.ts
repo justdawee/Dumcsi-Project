@@ -262,7 +262,7 @@ export const useAppStore = defineStore('app', () => {
     typingUsers.value.get(channelId)?.delete(userId);
   };
 
-  const handleServerCreated = (server: ServerDto) => {
+  const handleServerCreated = (_server: ServerDto) => {
     fetchServers();
   };
 
@@ -310,7 +310,7 @@ export const useAppStore = defineStore('app', () => {
     handleUserKickedFromServer(payload);
   };
 
-  const handleChannelCreated = (serverId: EntityId, channel: ChannelDto) => {
+  const handleChannelCreated = (serverId: EntityId, _channel: ChannelDto) => {
     if (currentServer.value?.id === serverId) {
       fetchServer(serverId);
     }
@@ -403,6 +403,7 @@ export const useAppStore = defineStore('app', () => {
     deleteServer,
     leaveServer,
     joinServerWithInvite,
+    joinPublicServer,
 
     // Channel Actions
     fetchChannel,

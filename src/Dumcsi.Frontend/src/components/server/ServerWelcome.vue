@@ -62,7 +62,8 @@ import { ref, computed } from 'vue';
 import { MessageSquare, Hash, UserPlus, Loader2 } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import type { ServerDetail } from '@/services/types';
-import { Role } from '@/services/types';
+// JAVÍTÁS: Importáljuk a Permission enumot
+import { Permission } from '@/services/types';
 import { useToast } from '@/composables/useToast';
 import InviteModal from '@/components/modals/InviteModal.vue';
 
@@ -76,7 +77,14 @@ const generatedInviteCode = ref('');
 const generatingInvite = ref(false);
 const isInviteModalOpen = ref(false);
 
-const canInvite = computed(() => (props.server?.currentUserRole ?? Role.Member) > Role.Member);
+// JAVÍTÁS: A computed property most már a jogosultság-flaget ellenőrzi.
+const canInvite = computed(() => {
+  if (!props.server) return false;
+  const userPermissions = props.server.currentUserPermissions;
+  // Ellenőrizzük, hogy a felhasználónak van-e Adminisztrátor VAGY CreateInvite jogosultsága.
+  return (userPermissions & Permission.Administrator) === Permission.Administrator || 
+         (userPermissions & Permission.CreateInvite) === Permission.CreateInvite;
+});
 
 const handleGenerateInvite = async () => {
   if (!props.server || !canInvite.value) return;

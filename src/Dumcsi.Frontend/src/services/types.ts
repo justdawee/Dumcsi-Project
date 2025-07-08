@@ -5,6 +5,33 @@ export enum Role {
   Admin = 2 
 }
 
+export enum Permission {
+  None = 0,
+  ViewChannels = 1 << 0,
+  ManageChannels = 1 << 1,
+  ManageRoles = 1 << 2,
+  ManageEmojis = 1 << 3,
+  ViewAuditLog = 1 << 4,
+  ManageServer = 1 << 5,
+  CreateInvite = 1 << 6,
+  KickMembers = 1 << 7,
+  BanMembers = 1 << 8,
+  SendMessages = 1 << 9,
+  EmbedLinks = 1 << 10,
+  AttachFiles = 1 << 11,
+  AddReactions = 1 << 12,
+  UseExternalEmojis = 1 << 13,
+  MentionEveryone = 1 << 14,
+  ManageMessages = 1 << 15,
+  ReadMessageHistory = 1 << 16,
+  Connect = 1 << 17,
+  Speak = 1 << 18,
+  MuteMembers = 1 << 19,
+  DeafenMembers = 1 << 20,
+  MoveMembers = 1 << 21,
+  Administrator = 1 << 22,
+}
+
 export enum ChannelType { 
   Text = 0, 
   Voice = 1 
@@ -68,7 +95,7 @@ export interface ServerListItem {
 
 export interface ServerDetail extends ServerListItem {
   ownerUsername: string;
-  currentUserRole: Role;
+  currentUserPermissions: Permission; 
   channels: ChannelListItem[];
   roles?: RoleDto[];
   emojis?: EmojiDto[];
