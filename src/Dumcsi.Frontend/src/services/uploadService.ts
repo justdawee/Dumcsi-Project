@@ -5,7 +5,8 @@ interface UploadOptions {
   onProgress?: (progress: number) => void;
 }
 
-interface UploadResponse {
+export interface UploadResponse {
+  id: number;
   url: string;
   fileName?: string;
   fileSize?: number;

@@ -37,12 +37,6 @@ export enum ChannelType {
   Voice = 1 
 }
 
-export enum ModerationStatus { 
-  Visible = 0, 
-  UserDeleted = 1, 
-  ModeratedRemoved = 2 
-}
-
 // --- Type Aliases for Clarity ---
 
 /** A string representation of a date in ISO 8601 format (e.g., "2023-10-27T10:00:00Z"). */
@@ -153,7 +147,6 @@ export interface MessageListItem {
   senderUsername: string;
   senderGlobalNickname?: string;
   senderAvatarUrl?: string;
-  moderationStatus: ModerationStatus;
   createdAt: ISODateString;
   editedAt?: ISODateString;
   channelId?: EntityId;
@@ -299,7 +292,7 @@ export interface UpdateChannelPayload {
 // --- Message Payloads ---
 export interface CreateMessagePayload {
   content: string;
-  attachmentUrls?: string[];
+  attachmentIds?: EntityId[];
   mentionedUserIds?: EntityId[];
   mentionedRoleIds?: EntityId[];
 }

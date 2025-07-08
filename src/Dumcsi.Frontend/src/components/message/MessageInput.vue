@@ -122,7 +122,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, toRef } from 'vue';
 import { useAppStore } from '@/stores/app';
-import { useToast } from '@/composables/useToast';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import uploadService from '@/services/uploadService';
 
@@ -150,7 +149,6 @@ const isSending = ref(false);
 
 // --- Composables Initialization ---
 const appStore = useAppStore();
-const { addToast } = useToast();
 const { getDisplayName } = useUserDisplay();
 const channelIdRef = toRef(props.channel, 'id');
 
@@ -225,16 +223,19 @@ const handleSend = async () => {
   isSending.value = true;
   
   try {
-    const attachmentUrls = await uploadAttachments();
+    const attachmentIds = await uploadAttachments();
     
-    const payload: CreateMessagePayload = {
-      content: messageContent.value.trim(),
-      attachmentUrls: attachmentUrls,
-      mentionedUserIds: Array.from(mentionedUserIds.value),
-      mentionedRoleIds: [] // Role mention logic can be added to useMentions later
-    };
-    
-    await appStore.sendMessage(props.channel.id, payload);
+    // Csak akkor küldjük az üzenetet, ha van szöveg vagy sikeres feltöltés
+    if (messageContent.value.trim().length > 0 || attachmentIds.length > 0) {
+      const payload: CreateMessagePayload = {
+        content: messageContent.value.trim(),
+        attachmentIds: attachmentIds,
+        mentionedUserIds: Array.from(mentionedUserIds.value),
+        mentionedRoleIds: []
+      };
+      
+      await appStore.sendMessage(props.channel.id, payload);
+    }
     
     // Clear form state
     messageContent.value = '';
@@ -244,7 +245,6 @@ const handleSend = async () => {
     nextTick(() => adjustTextareaHeight());
   } catch (error) {
     console.error("Failed to send message:", error);
-    // User-facing error is handled in useAttachments or appStore
   } finally {
     isSending.value = false;
   }

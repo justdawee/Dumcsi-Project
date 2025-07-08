@@ -3,21 +3,17 @@
     class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
     :class="{ 'mt-4': showHeader }"
   >
-    <!-- Message Header (Avatar + Username + Time) -->
     <div v-if="showHeader" class="flex items-start gap-3 mb-1">
       <UserAvatar
-        :username="message.senderUsername"
-        :avatar-url="message.senderAvatarUrl" 
-        :size="40"
+        :user="message.author" :size="40"
       />
       
       <div>
         <div class="flex items-baseline gap-2">
-          <span class="font-semibold text-white">{{ getDisplayName(sender) }}</span>
-          <span class="text-xs text-gray-500">{{ formatTime(message.createdAt) }}</span>
-          <span v-if="message.editedAt" class="text-xs text-gray-500">(edited)</span>
+          <span class="font-semibold text-white">{{ getDisplayName(message.author) }}</span>
+          <span class="text-xs text-gray-500">{{ formatTime(message.timestamp) }}</span>
+          <span v-if="message.editedTimestamp" class="text-xs text-gray-500">(edited)</span>
         </div>
-        <!-- Message Content for header messages -->
         <div class="message-content">
           <p v-if="!isEditing" class="text-gray-100 break-words">
             {{ message.content }}
@@ -32,12 +28,11 @@
       </div>
     </div>
     
-    <!-- Compact Message (no header) -->
     <div v-else class="flex items-start gap-3 group">
       <div class="w-10 shrink-0 text-right">
         <span class="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition">
-          {{ formatTimeShort(message.createdAt) }}
-          <span v-if="message.editedAt" class="text-xs text-gray-500">(edited)</span>
+          {{ formatTimeShort(message.timestamp) }}
+          <span v-if="message.editedTimestamp" class="text-xs text-gray-500">(edited)</span>
         </span>
       </div>
       <div class="flex-1 message-content">
@@ -53,7 +48,6 @@
       </div>
     </div>
     
-    <!-- Message Actions -->
     <div 
       v-if="!isEditing"
       class="absolute right-4 -top-3 bg-gray-700 rounded-lg shadow-lg 
@@ -95,10 +89,11 @@ import MessageEdit from './MessageEdit.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type { MessageListItem } from '@/services/types';
+import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Emits ---
 const props = defineProps<{
-  message: MessageListItem & { senderAvatarUrl?: string };
+  message: MessageListItem;
   previousMessage: MessageListItem | null;
   currentUserId: number | undefined;
 }>();
@@ -108,6 +103,8 @@ const emit = defineEmits<{
   (e: 'delete', messageId: number): void;
 }>();
 
+const { getDisplayName } = useUserDisplay();
+
 // --- State ---
 const isEditing = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -115,20 +112,20 @@ const isDeleteModalOpen = ref(false);
 // --- Computed Properties ---
 const showHeader = computed(() => {
   if (!props.previousMessage) return true;
-  if (props.previousMessage.senderId !== props.message.senderId) return true;
+  if (props.previousMessage.author.id !== props.message.author.id) return true;
   
-  const prevTime = new Date(props.previousMessage.createdAt);
-  const currTime = new Date(props.message.createdAt);
+  const prevTime = new Date(props.previousMessage.timestamp);
+  const currTime = new Date(props.message.timestamp);
   const diffMinutes = (currTime.getTime() - prevTime.getTime()) / (1000 * 60);
   
   return diffMinutes > 5;
 });
 
-const canEdit = computed(() => props.message.senderId === props.currentUserId);
-const canDelete = computed(() => props.message.senderId === props.currentUserId);
+const canEdit = computed(() => props.message.author.id === props.currentUserId);
+const canDelete = computed(() => props.message.author.id === props.currentUserId);
+
 
 // --- Methods ---
-
 const formatTime = (dateString: string) => {
   const date = new Date(dateString);
   const now = new Date();
@@ -163,13 +160,11 @@ const handleDelete = () => {
 
 const confirmDelete = () => {
   emit('delete', props.message.id);
-  isDeleteModalOpen.value = false; // Modális ablak bezárása
+  isDeleteModalOpen.value = false;
 };
 </script>
 
 <style scoped>
-@refrence '@/style.css';
-
 .message-content {
   @apply whitespace-pre-wrap break-words;
 }

@@ -1,15 +1,17 @@
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, type Ref } from 'vue';
 import uploadService from '@/services/uploadService';
+import type { UploadResponse } from '@/services/uploadService';
 import { useToast } from '@/composables/useToast';
 import type { EntityId } from '@/services/types';
 
 // Interface for the attachment state within the composable
 export interface Attachment {
   file: File;
-  url?: string; // Preview URL for images
+  url?: string;
   uploading: boolean;
   progress: number;
   error?: string;
+  uploadedId?: number; 
 }
 
 export function useAttachments(channelId: Ref<EntityId>) {
@@ -52,26 +54,27 @@ export function useAttachments(channelId: Ref<EntityId>) {
     attachments.value.splice(index, 1);
   };
 
-  const uploadAttachments = async (): Promise<string[]> => {
+  const uploadAttachments = async (): Promise<number[]> => {
     if (attachments.value.length === 0) return [];
 
     isUploading.value = true;
-    const uploadedUrls: string[] = [];
+    const uploadedIds: number[] = [];
 
     const uploadPromises = attachments.value.map(async (attachment) => {
-      if (attachment.error) return; // Skip already failed files
+      if (attachment.error) return; // Hibás fájlok kihagyása
       attachment.uploading = true;
       try {
-        const response = await uploadService.uploadAttachment(channelId.value, attachment.file, {
+        const response: UploadResponse = await uploadService.uploadAttachment(channelId.value, attachment.file, {
           onProgress: (progress) => {
             attachment.progress = progress;
           },
         });
-        uploadedUrls.push(response.url);
+        // A backend válaszából kinyerjük a feltöltött fájl ID-ját
+        uploadedIds.push(response.id);
       } catch (error: any) {
         attachment.error = 'Upload failed';
         addToast({ type: 'danger', message: `Failed to upload ${attachment.file.name}` });
-        throw new Error(`Failed to upload ${attachment.file.name}`);
+        // Nem dobunk hibát, hogy a többi feltöltés folytatódhasson
       } finally {
         attachment.uploading = false;
       }
@@ -83,7 +86,8 @@ export function useAttachments(channelId: Ref<EntityId>) {
       isUploading.value = false;
     }
 
-    return uploadedUrls;
+    // Csak a sikeresen feltöltött fájlok ID-jait adjuk vissza
+    return uploadedIds;
   };
 
   const clearAttachments = () => {
