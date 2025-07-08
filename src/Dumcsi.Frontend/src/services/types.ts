@@ -266,8 +266,7 @@ export interface AuthResponse {
 }
 
 export interface InviteResponse {
-  inviteCode: string;
-  message: string;
+  code: string;
 }
 
 export interface JoinServerResponse {
