@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
+using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,13 +15,13 @@ namespace Dumcsi.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/channels/{channelId}/messages/{messageId}/reactions")]
-public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IHubContext<ChatHub> chatHubContext) 
+public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IHubContext<ChatHub> chatHubContext, IPermissionService permissionService) 
     : BaseApiController(dbContextFactory)
 {
     [HttpPut("{emoji}")]
     public async Task<IActionResult> AddReaction(long channelId, long messageId, string emoji, CancellationToken cancellationToken)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.AddReactions);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.AddReactions);
 
         if (!isMember) 
         {
@@ -81,7 +81,7 @@ public class ReactionController(IDbContextFactory<DumcsiDbContext> dbContextFact
     [HttpDelete("{emoji}")]
     public async Task<IActionResult> RemoveReaction(long channelId, long messageId, string emoji, CancellationToken cancellationToken)
     {
-        var (isMember, _) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.None);
+        var (isMember, _) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.None);
         if (!isMember)
         {
             return StatusCode(403, ApiResponse.Fail("REACTION_ACCESS_DENIED", "You are not a member of this server."));

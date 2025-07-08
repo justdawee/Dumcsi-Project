@@ -1,5 +1,4 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -20,6 +19,7 @@ namespace Dumcsi.Api.Controllers;
 public class MessageController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IPermissionService permissionService,
     IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
@@ -32,7 +32,7 @@ public class MessageController(
             return BadRequest(ApiResponse.Fail("MESSAGE_INVALID_DATA", "The provided message data is invalid."));
         }
 
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.SendMessages);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.SendMessages);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
@@ -44,7 +44,7 @@ public class MessageController(
         
         if (request.MentionedRoleIds != null && request.MentionedRoleIds.Any())
         {
-            var (member, permission) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
+            var (member, permission) = await permissionService.GetPermissionsForChannelAsync(CurrentUserId, channelId);
             if (!member || !permission.HasFlag(Permission.MentionEveryone))
             {
                 return StatusCode(403, ApiResponse.Fail("MESSAGE_FORBIDDEN_MENTION_ROLES", "You do not have permission to mention roles in this channel."));
@@ -89,7 +89,7 @@ public class MessageController(
                 .Where(r => r.ServerId == channel.ServerId && request.MentionedRoleIds.Contains(r.Id))
                 .ToListAsync(cancellationToken);
             
-            var (_, permissions) = await this.GetPermissionsForChannelAsync(DbContextFactory, channelId);
+            var (_, permissions) = await permissionService.GetPermissionsForChannelAsync(CurrentUserId, channelId);
             if (!permissions.HasFlag(Permission.MentionEveryone))
             {
                 foreach (var role in mentionedRoles.Where(role => !role.IsMentionable))
@@ -115,7 +115,7 @@ public class MessageController(
     [HttpGet]
     public async Task<IActionResult> GetMessages(long channelId, [FromQuery] long? before = null, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.ReadMessageHistory);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
@@ -151,7 +151,7 @@ public class MessageController(
     [HttpGet("{messageId}/context")]
     public async Task<IActionResult> GetMessageContext(long channelId, long messageId, [FromQuery] int limit = 50, CancellationToken cancellationToken = default)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ReadMessageHistory);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.ReadMessageHistory);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("MESSAGE_ACCESS_DENIED", "You are not a member of this server."));
@@ -230,7 +230,7 @@ public class MessageController(
             return NotFound(ApiResponse.Fail("MESSAGE_NOT_FOUND", "The message to delete does not exist."));
         }
 
-        var (isMember, hasManageMessagesPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.ManageMessages);
+        var (isMember, hasManageMessagesPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.ManageMessages);
     
         if (!isMember) 
         {
@@ -258,7 +258,7 @@ public class MessageController(
     [HttpPost("~/api/channels/{channelId}/attachments")]
     public async Task<IActionResult> UploadAttachment(long channelId, IFormFile? file)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, channelId, Permission.AttachFiles);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, channelId, Permission.AttachFiles);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("ATTACHMENT_ACCESS_DENIED", "You are not a member of this server."));

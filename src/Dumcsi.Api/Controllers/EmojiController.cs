@@ -1,5 +1,4 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -21,6 +20,7 @@ namespace Dumcsi.Api.Controllers;
 public class EmojiController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IPermissionService permissionService,
     IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
@@ -28,7 +28,7 @@ public class EmojiController(
     [HttpGet]
     public async Task<IActionResult> GetEmojis(long serverId, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewChannels))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ViewChannels))
         {
             return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_VIEW", "You do not have permission to view emojis on this server."));
         }
@@ -47,7 +47,7 @@ public class EmojiController(
     public async Task<IActionResult> CreateEmoji(long serverId, [FromForm] string name, [FromForm] IFormFile? file)
     {
         // 1. Jogosultság ellenőrzése
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageEmojis))
         {
             return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_CREATE", "You do not have permission to create emojis."));
         }
@@ -139,7 +139,7 @@ public class EmojiController(
     [HttpDelete("{emojiId}")]
     public async Task<IActionResult> DeleteEmoji(long serverId, long emojiId)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageEmojis))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageEmojis))
         {
             return StatusCode(403, ApiResponse.Fail("EMOJI_FORBIDDEN_DELETE", "You do not have permission to delete emojis."));
         }

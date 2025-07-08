@@ -1,8 +1,6 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
-using Dumcsi.Application.Interfaces;
 using Dumcsi.Domain.Entities;
 using Dumcsi.Domain.Enums;
 using Dumcsi.Domain.Interfaces;
@@ -24,6 +22,7 @@ public class ServerController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
     IServerSetupService serverSetupService,
+    IPermissionService permissionService,
     IFileStorageService fileStorageService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
@@ -71,7 +70,7 @@ public class ServerController(
     [HttpGet("{id}")]
     public async Task<IActionResult> GetServerById(long id, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
             return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_VIEW", "You do not have permission to view this server."));
         }
@@ -130,7 +129,7 @@ public class ServerController(
             return BadRequest(ApiResponse.Fail("SERVER_UPDATE_INVALID_DATA", "The provided data for updating the server is invalid."));
         }
 
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageServer))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
         {
             return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_MANAGE", "You do not have permission to manage this server."));
         }
@@ -210,7 +209,7 @@ public class ServerController(
     [HttpGet("{id}/members")]
     public async Task<IActionResult> GetServerMembers(long id, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
             return StatusCode(403, ApiResponse.Fail("SERVER_MEMBERS_FORBIDDEN_VIEW", "You do not have permission to view server members."));
         }
@@ -250,7 +249,7 @@ public class ServerController(
     [HttpPost("{id}/invite")]
     public async Task<IActionResult> CreateInvite(long id, [FromBody] InviteDtos.CreateInviteRequestDto request, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.CreateInvite))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.CreateInvite))
         {
             return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_CREATE", "You don't have permission to create invites."));
         }
@@ -291,7 +290,7 @@ public class ServerController(
     [HttpDelete("{id}/invite")]
     public async Task<IActionResult> DeleteInvite(long id, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageServer))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
         {
             return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You don't have permission to delete invites."));
         }
@@ -349,7 +348,7 @@ public class ServerController(
     [HttpGet("{id}/channels")]
     public async Task<IActionResult> GetChannels(long id, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ViewChannels))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
             return StatusCode(403, ApiResponse.Fail("CHANNEL_LIST_FORBIDDEN_VIEW", "You do not have permission to view channels on this server."));
         }
@@ -379,7 +378,7 @@ public class ServerController(
             return BadRequest(ApiResponse.Fail("CHANNEL_CREATE_INVALID_DATA", "The provided data for creating a channel is invalid."));
         }
         
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, id, Permission.ManageChannels))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageChannels))
         {
             return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_CREATE", "You do not have permission to create channels on this server."));
         }
@@ -503,7 +502,7 @@ public class ServerController(
     [HttpPost("{serverId}/icon")]
     public async Task<IActionResult> UploadOrUpdateServerIcon(long serverId, IFormFile? file)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageServer))
         {
             return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
         }
@@ -593,7 +592,7 @@ public class ServerController(
     [HttpDelete("{serverId}/icon")]
     public async Task<IActionResult> DeleteServerIcon(long serverId)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageServer))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageServer))
         {
             return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
         }

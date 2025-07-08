@@ -1,8 +1,6 @@
 ﻿using Dumcsi.Domain.Entities;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Dumcsi.Application.Interfaces
+namespace Dumcsi.Domain.Interfaces
 {
     /// <summary>
     /// Defines a service responsible for the complete setup of a new server.

@@ -1,5 +1,4 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Entities;
@@ -20,13 +19,14 @@ namespace Dumcsi.Api.Controllers;
 public class RoleController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IPermissionService permissionService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
     public async Task<IActionResult> GetRoles(long serverId, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageRoles))
         {
             return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_VIEW", "You do not have permission to view roles."));
         }
@@ -53,7 +53,7 @@ public class RoleController(
     [HttpPost]
     public async Task<IActionResult> CreateRole(long serverId, [FromBody] RoleDtos.CreateRoleRequestDto request, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageRoles))
         {
             return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_CREATE", "You do not have permission to create roles."));
         }
@@ -107,7 +107,7 @@ public class RoleController(
     [HttpPatch("{roleId}")]
     public async Task<IActionResult> UpdateRole(long serverId, long roleId, [FromBody] RoleDtos.UpdateRoleRequestDto request, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageRoles))
         {
             return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_UPDATE", "You do not have permission to update roles."));
         }
@@ -164,7 +164,7 @@ public class RoleController(
     [HttpDelete("{roleId}")]
     public async Task<IActionResult> DeleteRole(long serverId, long roleId, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageRoles))
         {
             return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_DELETE", "You do not have permission to delete roles."));
         }
@@ -197,7 +197,7 @@ public class RoleController(
     [HttpPut("members/{memberId}/roles")]
     public async Task<IActionResult> UpdateMemberRoles(long serverId, long memberId, [FromBody] RoleDtos.UpdateMemberRolesRequestDto request, CancellationToken cancellationToken)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ManageRoles))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageRoles))
         {
             return StatusCode(403, ApiResponse.Fail("ROLE_FORBIDDEN_ASSIGN", "You do not have permission to manage member roles."));
         }

@@ -1,5 +1,4 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Api.Hubs;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Enums;
@@ -19,13 +18,14 @@ namespace Dumcsi.Api.Controllers;
 public class ChannelController(
     IDbContextFactory<DumcsiDbContext> dbContextFactory,
     IAuditLogService auditLogService,
+    IPermissionService permissionService,
     IHubContext<ChatHub> chatHubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpGet("{id}")]
     public async Task<IActionResult> GetChannel(long id, CancellationToken cancellationToken)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ViewChannels);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, id, Permission.ViewChannels);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));
@@ -67,7 +67,7 @@ public class ChannelController(
             return BadRequest(ApiResponse.Fail("CHANNEL_UPDATE_INVALID_DATA", "The provided data for updating the channel is invalid."));
         }
 
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ManageChannels);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, id, Permission.ManageChannels);
         if (!isMember) 
         {
             return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));
@@ -120,7 +120,7 @@ public class ChannelController(
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteChannel(long id, CancellationToken cancellationToken)
     {
-        var (isMember, hasPermission) = await this.CheckPermissionsForChannelAsync(DbContextFactory, id, Permission.ManageChannels);
+        var (isMember, hasPermission) = await permissionService.CheckPermissionsForChannelAsync(CurrentUserId, id, Permission.ManageChannels);
         if (!isMember)
         {
             return StatusCode(403, ApiResponse.Fail("CHANNEL_ACCESS_DENIED", "You are not a member of this server."));

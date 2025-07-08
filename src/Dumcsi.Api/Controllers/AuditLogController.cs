@@ -1,7 +1,7 @@
 ﻿using Dumcsi.Api.Common;
-using Dumcsi.Api.Helpers;
 using Dumcsi.Application.DTOs;
 using Dumcsi.Domain.Enums;
+using Dumcsi.Domain.Interfaces;
 using Dumcsi.Infrastructure.Database.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +12,13 @@ namespace Dumcsi.Api.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/server/{serverId}/audit-logs")]
-public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFactory) 
+public class AuditLogController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IPermissionService permissionService) 
     : BaseApiController(dbContextFactory)
 {
     [HttpGet]
     public async Task<IActionResult> GetAuditLogs(long serverId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        if (!await this.HasPermissionForServerAsync(DbContextFactory, serverId, Permission.ViewAuditLog))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ViewAuditLog))
         {
             return StatusCode(403, ApiResponse.Fail("AUDIT_LOG_FORBIDDEN", "You do not have permission to view the audit log."));
         }
