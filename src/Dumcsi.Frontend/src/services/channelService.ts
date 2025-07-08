@@ -1,8 +1,7 @@
 import type { AxiosResponse } from 'axios';
 import api from './api';
-import type { ChannelDetail, UpdateChannelPayload } from './types';
+import type { ChannelDetail, CreateChannelPayload, UpdateChannelPayload } from './types';
 
-// Type alias for a unique identifier for entities, such as channels.
 type EntityId = number;
 
 const channelService = {
@@ -11,8 +10,8 @@ const channelService = {
     return api.get<ChannelDetail>(`/channels/${id}`);
   },
 
-  createChannel(serverId: EntityId, payload: { name: string; description?: string; type: 'text' | 'voice'; position?: number }): Promise<AxiosResponse<ChannelDetail>> {
-    return api.post<ChannelDetail>(`/servers/${serverId}/channels`, payload);
+  createChannel(serverId: EntityId, payload: CreateChannelPayload): Promise<AxiosResponse<ChannelDetail>> {
+    return api.post<ChannelDetail>(`/server/${serverId}/channels`, payload);
   },
 
   updateChannel(id: EntityId, payload: UpdateChannelPayload): Promise<AxiosResponse<void>> {
