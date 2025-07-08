@@ -301,7 +301,7 @@ const loadProfile = () => {
       username: authStore.user.username,
       email: authStore.user.email,
       globalNickname: authStore.user.globalNickname || '',
-      avatarUrl: authStore.user.profilePictureUrl || ''
+      avatarUrl: authStore.user.avatarUrl || ''
     };
     originalProfile.value = { ...profile };
     profileForm.value = { ...profile };

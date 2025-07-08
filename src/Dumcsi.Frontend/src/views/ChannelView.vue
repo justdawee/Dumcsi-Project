@@ -53,7 +53,7 @@
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
             <UserAvatar
-              :avatar-url="member.profilePictureUrl"
+              :avatar-url="member.avatarUrl"
               :username="member.username"
               :size="32"
             />

@@ -9,7 +9,7 @@
           class="relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition"
         >
           <UserAvatar
-          :avatar-url="authStore.user?.profilePictureUrl"
+          :avatar-url="authStore.user?.avatarUrl"
           :username="authStore.user?.username || ''"
           :size="32"
           />
