@@ -1,15 +1,16 @@
 <template>
   <div class="flex flex-col h-screen bg-gray-900">
     <!-- Channel Header -->
-    <div class="flex items-center justify-between px-4 py-3 bg-gray-800 border-b border-gray-700">
-      <div class="flex items-center gap-2">
-        <Hash class="w-5 h-5 text-gray-400" />
-        <h2 class="text-lg font-semibold text-white">{{ currentChannel?.name || 'Loading...' }}</h2>
-        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline">{{ channelDescription }}</span>
+    <div class="flex items-center justify-between px-4 h-14 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
+        <h2 class="text-lg font-semibold text-white truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
+        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline truncate">{{ channelDescription }}</span>
       </div>
       <button 
         @click="isMemberListOpen = !isMemberListOpen"
         class="p-2 text-gray-400 hover:text-white transition"
+        title="Toggle Member List"
       >
         <Users class="w-5 h-5" />
       </button>
@@ -38,10 +39,13 @@
 
         <div class="px-4 pb-4 pt-2 border-t border-gray-700/50">
           <MessageInput
-            v-if="currentChannel"
+            v-if="currentChannel && canSendMessages"
             :channel="currentChannel"
             @send="handleSendMessage"
           />
+           <div v-else-if="!canSendMessages" class="text-center text-gray-400 text-sm py-2">
+            You do not have permission to send messages in this channel.
+          </div>
         </div>
       </div>
 
@@ -53,11 +57,11 @@
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
             <UserAvatar
-              :avatar-url="member.avatarUrl"
+              :avatar-url="member.avatar"
               :username="member.username"
-              :size="32"
+              :size="'sm'"
             />
-            <span class="text-gray-300 font-medium text-sm truncate">{{ member.username }}</span>
+            <span class="text-gray-300 font-medium text-sm truncate">{{ member.serverNickname || member.username }}</span>
           </li>
         </ul>
       </div>
@@ -71,12 +75,17 @@ import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
-import { debounce } from '@/utils/helpers'; // Assuming you have this helper
+import { debounce } from '@/utils/helpers';
 import { Hash, Users, Loader2 } from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import type { UpdateMessagePayload, EntityId } from '@/services/types';
+import { 
+  type CreateMessageRequestDto, 
+  type UpdateMessageRequestDto, 
+  type EntityId,
+  Permission
+} from '@/services/types';
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -92,6 +101,11 @@ const messages = computed(() => appStore.messages);
 const members = computed(() => appStore.members);
 const channelDescription = computed(() => appStore.currentChannel?.description);
 
+const canSendMessages = computed(() => {
+  if (!appStore.currentServer) return false;
+  return (appStore.currentServer.currentUserPermissions & Permission.SendMessages) !== 0;
+});
+
 // --- Core Logic ---
 
 const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
@@ -104,8 +118,9 @@ const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
   }
 };
 
-const loadChannel = async (channelId: EntityId) => {
+const loadChannelData = async (channelId: EntityId) => {
   await appStore.fetchChannel(channelId);
+  await appStore.fetchMessages(channelId);
   await scrollToBottom();
 };
 
@@ -132,23 +147,24 @@ const debouncedScrollHandler = debounce(() => {
   }
 }, 200);
 
-const handleSendMessage = async (content: string) => {
+const handleSendMessage = async (payload: CreateMessageRequestDto) => {
   if (!currentChannel.value) return;
   try {
-    await appStore.sendMessage(currentChannel.value.id, { content });
+    // The appStore will call messageService with the correct DTO
+    await appStore.sendMessage(currentChannel.value.id, payload);
     await scrollToBottom('smooth');
   } catch {
     addToast({ type: 'danger', message: 'Failed to send message.' });
   }
 };
 
-const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessagePayload }) => {
-  appStore.editMessage(payload.messageId, payload.content)
+const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessageRequestDto }) => {
+  appStore.editMessage(currentChannel.value!.id, payload.messageId, payload.content)
     .catch(() => addToast({ type: 'danger', message: 'Failed to edit message.' }));
 };
 
 const handleDeleteMessage = (messageId: EntityId) => {
-  appStore.deleteMessage(messageId)
+  appStore.deleteMessage(currentChannel.value!.id, messageId)
     .catch(() => addToast({ type: 'danger', message: 'Failed to delete message.' }));
 };
 
@@ -156,25 +172,19 @@ const handleDeleteMessage = (messageId: EntityId) => {
 
 onMounted(() => {
   const channelId = parseInt(route.params.channelId as string, 10);
-  if (channelId) loadChannel(channelId);
-});
-
-watch(() => route.params.channelId, (newChannelId) => {
-  if (newChannelId && typeof newChannelId === 'string') {
-    loadChannel(parseInt(newChannelId, 10));
+  if (channelId) {
+    loadChannelData(channelId);
   }
 });
-</script>
 
-<style scoped>
-@keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-.animate-slide-in {
-  animation: slideIn 0.2s ease-out;
-}
-</style>
+watch(() => route.params.channelId, (newId) => {
+  const newChannelId = newId ? parseInt(newId as string, 10) : null;
+  if (newChannelId && newChannelId !== currentChannel.value?.id) {
+    loadChannelData(newChannelId);
+  }
+}, { immediate: true });
+
+</script>
 
 <style scoped>
 @keyframes slideIn {

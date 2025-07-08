@@ -72,6 +72,7 @@
       </div>
     </div>
     
+    <!-- User info section -->
     <div class="px-2 py-2 bg-gray-900 border-t border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
@@ -81,35 +82,18 @@
         />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">
-            {{ authStore.user?.username }}
+            {{ getDisplayName(authStore.user) }}
           </p>
-          <p class="text-xs text-gray-400">
-            {{ server?.currentUserRole ? roleNames[server.currentUserRole] : 'Member' }}
-          </p>
+           <div class="text-xs text-gray-400 truncate">
+            @{{ authStore.user?.username }}
+          </div>
         </div>
         <RouterLink to="/settings/profile" title="Felhasználói beállítások">
           <Settings class="w-4 h-4 text-gray-400 hover:text-gray-200 cursor-pointer" />
         </RouterLink>
       </div>
     </div>
-    <!-- User info section -->
-    <div class="absolute bottom-0 left-0 right-0 bg-gray-900 p-3">
-      <div class="flex items-center gap-2">
-        <img 
-          :src="getAvatarUrl(authStore.user)" 
-          :alt="getDisplayName(authStore.user)"
-          class="w-8 h-8 rounded-full"
-        >
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium text-white truncate">
-            {{ getDisplayName(authStore.user) }}
-          </div>
-          <div class="text-xs text-gray-400 truncate">
-            @{{ authStore.user?.username }}
-          </div>
-        </div>
-      </div>
-    </div>
+
     <ContextMenu ref="channelContextMenu" :items="channelMenuItems" />
     <ConfirmModal
       v-model="isConfirmDeleteOpen"
@@ -143,7 +127,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import channelService from '@/services/channelService';
-import type { ServerDetailDto, ChannelListItemDto, Role } from '@/services/types';
+import { Permission, type ServerDetailDto, type ChannelListItemDto } from '@/services/types';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Store ---
@@ -157,7 +141,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const { addToast } = useToast();
-const { getDisplayName, getAvatarUrl } = useUserDisplay();
+const { getDisplayName } = useUserDisplay();
 
 // --- State ---
 const isEditModalOpen = ref(false);
@@ -170,13 +154,16 @@ const isConfirmDeleteOpen = ref(false);
 const isDeleting = ref(false);
 const deletingChannel = ref<ChannelListItemDto | null>(null);
 
-const roleNames: Record<Role, string> = { 0: 'Member', 1: 'Moderator', 2: 'Admin' };
-
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
-const textChannels = computed(() => props.server?.channels?.filter(c => c.type === 0) || []);
-const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type === 1) || []);
-const canManageChannels = computed(() => (props.server?.currentUserRole ?? 0) > 0);
+const textChannels = computed(() => props.server?.channels?.filter(c => c.type === ChannelType.Text) || []);
+const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type === ChannelType.Voice) || []);
+
+const canManageChannels = computed(() => {
+  if (!props.server) return false;
+  // Use bitwise AND to check for the ManageChannels permission.
+  return (props.server.currentUserPermissions & Permission.ManageChannels) !== 0;
+});
 
 // --- Methods ---
 const openEditModal = (channel: ChannelListItemDto) => {
@@ -185,7 +172,7 @@ const openEditModal = (channel: ChannelListItemDto) => {
 };
 
 const openChannelMenu = (event: MouseEvent, channel: ChannelListItemDto) => {
-  if (!canManageChannels.value) return; // Ne nyíljon meg a menü, ha nincs jogosultság
+  if (!canManageChannels.value) return; // Do not open menu if user lacks permission
 
   channelMenuItems.value = [
     { label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel) },

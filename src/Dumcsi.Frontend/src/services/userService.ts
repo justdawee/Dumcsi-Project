@@ -31,6 +31,13 @@ const userService = {
     }
   },
 
+  async deleteAccount(): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>('/user/me');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
   async searchUsers(query: string): Promise<UserProfileDto[]> {
     const response = await api.get<ApiResponse<UserProfileDto[]>>('/user/search', {
       params: { query }

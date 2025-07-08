@@ -39,7 +39,7 @@
             </p>
             <div class="flex gap-2">
               <button
-                v-if="hasChanges && (previewAvatar || profileForm.avatarUrl !== originalProfile.avatarUrl)"
+                v-if="hasChanges && (previewAvatar || profileForm.avatar !== originalProfile.avatar)"
                 @click="resetAvatar"
                 class="px-4 py-2 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition"
               >
@@ -211,6 +211,7 @@
       message="Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed."
       confirm-text="Delete My Account"
       :is-loading="deletingAccount"
+      :model-value="showDeleteConfirm"
       intent="danger"
     />
   </div>
@@ -227,7 +228,7 @@ import uploadService from '@/services/uploadService';
 import { Camera, Loader2 } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import type { UpdateProfilePayload, UpdatePasswordPayload } from '@/services/types';
+import type { UpdateUserProfileDto, ChangePasswordDto } from '@/services/types';
 
 // Composables
 const router = useRouter();
@@ -250,14 +251,14 @@ const originalProfile = ref({
   username: '',
   email: '',
   globalNickname: '',
-  avatarUrl: ''
+  avatar: ''
 });
 
 const profileForm = ref({
   username: '',
   email: '',
   globalNickname: '',
-  avatarUrl: ''
+  avatar: ''
 });
 
 const passwordForm = ref({
@@ -271,7 +272,7 @@ const previewAvatar = ref<string>('');
 // Computed
 const hasChanges = computed(() => {
   return profileForm.value.globalNickname !== originalProfile.value.globalNickname ||
-         profileForm.value.avatarUrl !== originalProfile.value.avatarUrl ||
+         profileForm.value.avatar !== originalProfile.value.avatar ||
          previewAvatar.value !== '';
 });
 
@@ -301,7 +302,7 @@ const loadProfile = () => {
       username: authStore.user.username,
       email: authStore.user.email,
       globalNickname: authStore.user.globalNickname || '',
-      avatarUrl: authStore.user.avatarUrl || ''
+      avatarUrl: authStore.user.avatar || ''
     };
     originalProfile.value = { ...profile };
     profileForm.value = { ...profile };
@@ -337,7 +338,7 @@ const handleAvatarSelect = async (event: Event) => {
       }
     });
     
-    profileForm.value.avatarUrl = response.url;
+    profileForm.value.avatar = response.url;
     
     addToast({
       type: 'success',
@@ -363,13 +364,13 @@ const resetAvatar = () => {
     uploadService.revokePreviewUrl(previewAvatar.value);
     previewAvatar.value = '';
   }
-  profileForm.value.avatarUrl = originalProfile.value.avatarUrl;
+  profileForm.value.avatar = originalProfile.value.avatar;
 };
 
 const removeAvatar = async () => {
   removingAvatar.value = true;
   try {
-    profileForm.value.avatarUrl = '';
+    profileForm.value.avatar = '';
     await handleUpdateProfile();
   } finally {
     removingAvatar.value = false;
@@ -381,9 +382,11 @@ const handleUpdateProfile = async () => {
   
   loading.value = true;
   try {
-    const payload: UpdateProfilePayload = {
+    const payload: UpdateUserProfileDto = {
+      username: profileForm.value.username || originalProfile.value.username,
       globalNickname: profileForm.value.globalNickname || null,
-      avatarUrl: profileForm.value.avatarUrl || null
+      email: profileForm.value.email || null,
+      avatar: profileForm.value.avatar || null
     };
     
     await userService.updateProfile(payload);
@@ -419,12 +422,12 @@ const handleChangePassword = async () => {
   
   changingPassword.value = true;
   try {
-    const payload: UpdatePasswordPayload = {
+    const payload: ChangePasswordDto = {
       currentPassword: passwordForm.value.currentPassword,
       newPassword: passwordForm.value.newPassword
     };
     
-    await userService.updatePassword(payload);
+    await userService.changePassword(payload);
     
     // Clear form
     passwordForm.value = {

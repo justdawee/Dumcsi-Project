@@ -179,6 +179,15 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const fetchMoreMessages = async (channelId: EntityId, before?: EntityId) => {
+    const result = await handleApiCall('messages', () => 
+      messageService.getMessages(channelId, { before, limit: 50 })
+    );
+    if (result) {
+      messages.value = [...messages.value, ...result];
+    }
+  };
+
   const sendMessage = async (channelId: EntityId, payload: CreateMessageRequestDto) => {
     const result = await messageService.sendMessage(channelId, payload);
     messages.value.push(result);
@@ -341,6 +350,7 @@ export const useAppStore = defineStore('app', () => {
 
     // Message Actions
     fetchMessages,
+    fetchMoreMessages,
     sendMessage,
     editMessage,
     deleteMessage,

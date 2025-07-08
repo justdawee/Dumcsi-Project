@@ -77,7 +77,6 @@ import type { ServerListItemDto } from '@/services/types';
 import { Loader2 } from 'lucide-vue-next';
 
 // --- Props & Emits ---
-const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits(['update:modelValue']);
 
 // --- State ---
@@ -102,7 +101,7 @@ const fetchPublicServers = async () => {
   loading.value = true;
   try {
     const response = await serverService.getPublicServers();
-    servers.value = response.data;
+    servers.value = response;
   } catch (err: any) {
     addToast({
       type: 'danger',
