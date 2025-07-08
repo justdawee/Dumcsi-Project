@@ -125,6 +125,7 @@ public class InviteController(
         
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = serverId }, cancellationToken);
 
-        return OkResponse(new { ServerId = serverId }, "Successfully joined server.");
+        var serverName = invite.Server.Name;
+        return OkResponse(new { ServerId = serverId, ServerName = serverName }, "Successfully joined server.");
     }
 }

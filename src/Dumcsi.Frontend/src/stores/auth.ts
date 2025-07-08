@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import router from '@/router';
 import { RouteNames } from '@/router';
-import { useAppStore } from './app';
+// TÖRÖLVE: import { useAppStore } from './app'; - Eltávolítjuk a felső szintű importot
 import authService from '@/services/authService';
 import userService from '@/services/userService';
 import { signalRService } from '@/services/signalrService';
@@ -105,20 +105,17 @@ export const useAuthStore = defineStore('auth', () => {
   };
   
   const logout = async () => {
-  if (signalRService.isConnected) {
+    const { useAppStore } = await import('./app');
+    const appStore = useAppStore();
+
     await signalRService.stop();
-  }
-  
-  setToken(null);
-  user.value = null;
-  
-  const appStore = useAppStore();
-  appStore.$reset();
-  
-  if (router.currentRoute.value.name !== RouteNames.LOGIN) {
-    await router.push({ name: RouteNames.LOGIN });
-  }
-};
+    setToken(null);
+    user.value = null;
+    appStore.$reset();
+    if (router.currentRoute.value.name !== 'Login') {
+       await router.push({ name: 'Login' });
+    }
+  };
 
   const updateUserData = (updates: Partial<UserProfile>) => {
     if (user.value) {

@@ -27,7 +27,6 @@ import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
 import inviteService from '@/services/inviteService';
 import router from '@/router';
-import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
 
 export const useAppStore = defineStore('app', () => {
@@ -54,7 +53,6 @@ export const useAppStore = defineStore('app', () => {
   });
 
   const error = ref<string | null>(null);
-  const { addToast } = useToast();
 
   // Computed
   const currentUserId = computed(() => {
