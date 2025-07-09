@@ -1,106 +1,102 @@
 <template>
-  <div class="flex h-screen bg-discord-gray-900">
-    <!-- Server List -->
-    <div class="w-18 bg-discord-gray-800 flex flex-col items-center py-3 space-y-2">
+  <div class="flex h-screen bg-[var(--bg-primary)] overflow-hidden">
+    <!-- Server list sidebar -->
+    <div class="w-[72px] bg-[var(--bg-secondary)] flex flex-col items-center py-3 space-y-2 flex-shrink-0">
+      <!-- Home/DMs button -->
       <button
-        class="w-12 h-12 bg-discord-gray-700 hover:bg-discord-blurple rounded-full flex items-center justify-center transition-all duration-150 server-hover"
-        @click="$router.push('/app')"
+        @click="goHome"
+        :class="[
+          'w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200',
+          isHome ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+        ]"
       >
-        <Home class="w-6 h-6 text-white" />
+        <Home class="w-6 h-6" />
       </button>
-      
-      <div class="w-8 h-0.5 bg-discord-gray-600 rounded-full"></div>
-      
-      <div v-for="server in servers" :key="server.id" class="relative">
+
+      <div class="w-8 h-[2px] bg-[var(--bg-hover)] rounded-full" />
+
+      <!-- Server list -->
+      <div class="flex-1 w-full overflow-y-auto scrollbar-hide space-y-2">
         <button
+          v-for="server in appStore.sortedServers"
+          :key="server.id"
+          @click="selectServer(server.id)"
           :class="[
-            'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-150 server-hover',
-            currentServerId === server.id ? 'bg-discord-blurple rounded-2xl' : 'bg-discord-gray-700'
+            'relative w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 mx-auto',
+            currentServerId === server.id
+              ? 'bg-[var(--accent-primary)]/20 ring-2 ring-[var(--accent-primary)]'
+              : 'bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)]'
           ]"
-          @click="navigateToServer(server.id)"
         >
           <img
-            v-if="server.icon"
-            :src="server.icon"
+            v-if="server.iconUrl"
+            :src="server.iconUrl"
             :alt="server.name"
-            class="w-full h-full rounded-full object-cover"
+            class="w-10 h-10 rounded-2xl object-cover"
           />
-          <span v-else class="text-white font-medium text-sm">
-            {{ server.name.charAt(0).toUpperCase() }}
+          <span v-else class="text-[var(--text-primary)] font-semibold">
+            {{ server.name.substring(0, 2).toUpperCase() }}
+          </span>
+          
+          <!-- Notification indicator -->
+          <span v-if="server.unreadCount" class="absolute -top-1 -right-1 bg-[var(--accent-secondary)] text-xs text-white w-5 h-5 rounded-full flex items-center justify-center">
+            {{ server.unreadCount > 99 ? '99+' : server.unreadCount }}
           </span>
         </button>
-        
-        <div
-          v-if="currentServerId === server.id"
-          class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full -ml-1"
-        ></div>
       </div>
-      
+
+      <!-- Add server button -->
       <button
-        class="w-12 h-12 bg-discord-gray-700 hover:bg-discord-green rounded-full flex items-center justify-center transition-all duration-150 server-hover"
-        @click="showCreateServerModal = true"
+        @click="appStore.showServerModal = true"
+        class="w-12 h-12 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--accent-primary)] hover:text-white flex items-center justify-center transition-all duration-200"
       >
-        <Plus class="w-6 h-6 text-white" />
+        <Plus class="w-6 h-6" />
+      </button>
+
+      <div class="w-8 h-[2px] bg-[var(--bg-hover)] rounded-full" />
+
+      <!-- User settings -->
+      <button
+        @click="goToSettings"
+        class="w-12 h-12 rounded-2xl bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] flex items-center justify-center transition-all duration-200"
+      >
+        <Settings class="w-6 h-6" />
       </button>
     </div>
 
-    <!-- Main Content -->
+    <!-- Main content -->
     <div class="flex-1 flex">
       <router-view />
     </div>
 
-    <!-- Create Server Modal -->
-    <CreateServerModal
-      v-if="showCreateServerModal"
-      @close="showCreateServerModal = false"
-      @created="handleServerCreated"
-    />
+    <!-- Modals -->
+    <CreateServerModal v-if="appStore.showServerModal" @close="appStore.showServerModal = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Home, Plus } from 'lucide-vue-next'
+import { Home, Plus, Settings } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
-import { useToast } from '@/composables/useToast'
 import CreateServerModal from '@/components/modals/CreateServerModal.vue'
-import type { EntityId, ServerDetailDto } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const { addToast } = useToast()
 
-const showCreateServerModal = ref(false)
+const currentServerId = computed(() => route.params.serverId as string | undefined)
+const isHome = computed(() => !currentServerId.value && route.name !== 'settings')
 
-const servers = computed(() => appStore.servers)
-const currentServerId = computed(() => {
-  const serverId = route.params.serverId
-  return serverId ? parseInt(serverId as string, 10) : null
-})
-
-const navigateToServer = (serverId: EntityId) => {
-  router.push(`/app/servers/${serverId}`)
+function goHome() {
+  router.push('/')
 }
 
-const handleServerCreated = (server: ServerDetailDto) => {
-  showCreateServerModal.value = false
-  navigateToServer(server.id)
-  addToast({
-    type: 'success',
-    message: `Server "${server.name}" created successfully!`
-  })
+function selectServer(serverId: string) {
+  router.push(`/servers/${serverId}`)
 }
 
-onMounted(async () => {
-  try {
-    await appStore.fetchServers()
-  } catch (error) {
-    addToast({
-      type: 'danger',
-      message: 'Failed to load servers'
-    })
-  }
-})
+function goToSettings() {
+  router.push('/settings')
+}
 </script>

@@ -3,522 +3,374 @@ import { ref, computed } from 'vue'
 import { serverService } from '@/services/serverService'
 import { channelService } from '@/services/channelService'
 import { messageService } from '@/services/messageService'
-import { roleService } from '@/services/roleService'
-import { emojiService } from '@/services/emojiService'
-import { signalRService } from '@/services/signalrService'
-import { handleError } from '@/services/errorHandler'
-import type {
-  ServerListItemDto,
-  ServerDetailDto,
-  ChannelDetailDto,
-  MessageDto,
-  CreateMessageRequestDto,
-  UpdateMessageRequestDto,
-  ServerMemberDto,
-  RoleDto,
-  EmojiDto,
-  CreateServerRequestDto,
-  CreateChannelRequestDto,
-  EntityId,
-  LoadingStates,
-  MessageDeletedPayload,
-  UserServerPayload,
-  ChannelDeletedPayload,
-  UserDto
-} from '@/types'
-import { useAuthStore } from './auth'
+import { userService } from '@/services/userService'
+import signalrService from '@/services/signalrService'
+import type { Server, ServerDetails, Channel, Message, User, TypingIndicator, PaginatedResponse } from '@/types'
+import { errorMessages } from '@/locales/en'
+
+interface TypingUser extends TypingIndicator {
+  timestamp: number
+}
 
 export const useAppStore = defineStore('app', () => {
   // State
-  const servers = ref<ServerListItemDto[]>([])
-  const currentServer = ref<ServerDetailDto | null>(null)
-  const currentChannel = ref<ChannelDetailDto | null>(null)
-  const messages = ref<MessageDto[]>([])
-  const members = ref<ServerMemberDto[]>([])
-  const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map())
-  const onlineUsers = ref<Set<EntityId>>(new Set())
-  const voiceChannelUsers = ref<Map<EntityId, Set<EntityId>>>(new Map())
-
-  const loading = ref<LoadingStates>({
-    servers: false,
-    messages: false,
-    members: false,
-    channels: false,
-    auth: false
-  })
+  const servers = ref<Server[]>([])
+  const currentServer = ref<ServerDetails | null>(null)
+  const currentChannel = ref<Channel | null>(null)
+  const messages = ref<Map<string, Message[]>>(new Map())
+  const typingUsers = ref<Map<string, TypingUser[]>>(new Map())
+  const onlineUsers = ref<Set<string>>(new Set())
+  const connectionStatus = ref<'connected' | 'connecting' | 'reconnecting' | 'disconnected'>('disconnected')
+  const activeChannels = ref<Set<string>>(new Set())
+  const theme = ref<'light' | 'dark'>(localStorage.getItem('theme') as 'light' | 'dark' || 'dark')
+  
+  // UI State
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
+  const showServerModal = ref(false)
+  const showChannelModal = ref(false)
+  const showInviteModal = ref(false)
+  const showSettingsModal = ref(false)
 
   // Getters
-  const currentUserId = computed(() => {
-    const authStore = useAuthStore()
-    return authStore.currentUser?.id || 0
+  const sortedServers = computed(() => servers.value.slice().sort((a, b) => a.name.localeCompare(b.name)))
+  
+  const currentChannelMessages = computed(() => {
+    if (!currentChannel.value) return []
+    return messages.value.get(currentChannel.value.id) || []
   })
-
-  const sortedMessages = computed(() => {
-    return [...messages.value].sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    )
-  })
-
+  
   const currentChannelTypingUsers = computed(() => {
     if (!currentChannel.value) return []
-    const channelTyping = typingUsers.value.get(currentChannel.value.id)
-    if (!channelTyping) return []
-    
-    return Array.from(channelTyping)
-      .filter(userId => userId !== currentUserId.value)
-      .map(userId => members.value.find(m => m.userId === userId))
-      .filter(Boolean)
+    const users = typingUsers.value.get(currentChannel.value.id) || []
+    // Remove expired typing indicators (older than 3 seconds)
+    const now = Date.now()
+    return users.filter(u => now - u.timestamp < 3000)
   })
 
-  // Server Actions
-  const fetchServers = async (): Promise<void> => {
+  const isUserOnline = computed(() => (userId: string) => onlineUsers.value.has(userId))
+
+  // Actions
+  async function loadServers() {
+    isLoading.value = true
     try {
-      loading.value.servers = true
       servers.value = await serverService.getServers()
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to load servers'))
     } finally {
-      loading.value.servers = false
+      isLoading.value = false
     }
   }
 
-  const fetchServer = async (serverId: EntityId): Promise<void> => {
+  async function selectServer(serverId: string) {
+    if (currentServer.value?.id === serverId) return
+    
+    isLoading.value = true
     try {
-      const server = await serverService.getServer(serverId)
-      currentServer.value = server
-      await fetchMembers(serverId)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to load server'))
+      currentServer.value = await serverService.getServer(serverId)
+      currentChannel.value = null
+      
+      // Auto-select first text channel if available
+      const firstTextChannel = currentServer.value.channels
+        .filter(c => c.type === 'Text')
+        .sort((a, b) => a.position - b.position)[0]
+      
+      if (firstTextChannel) {
+        await selectChannel(firstTextChannel.id)
+      }
+    } finally {
+      isLoading.value = false
     }
   }
 
-  const createServer = async (data: CreateServerRequestDto): Promise<ServerDetailDto> => {
-    try {
-      const server = await serverService.createServer(data)
-      servers.value.push(server)
-      return server
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to create server'))
+  async function selectChannel(channelId: string) {
+    if (currentChannel.value?.id === channelId) return
+    
+    // Leave previous channel
+    if (currentChannel.value) {
+      await signalrService.leaveChannel(currentChannel.value.id)
+      activeChannels.value.delete(currentChannel.value.id)
     }
-  }
-
-  const joinServer = async (serverId: EntityId): Promise<void> => {
-    try {
-      await serverService.joinServer(serverId)
-      await fetchServers()
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to join server'))
-    }
-  }
-
-  // Channel Actions
-  const fetchChannel = async (channelId: EntityId): Promise<void> => {
+    
+    isLoading.value = true
     try {
       currentChannel.value = await channelService.getChannel(channelId)
-      await signalRService.joinChannel(channelId)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to load channel'))
-    }
-  }
-
-  const createChannel = async (serverId: EntityId, data: CreateChannelRequestDto): Promise<void> => {
-    try {
-      const channel = await serverService.createChannel(serverId, data)
-      if (currentServer.value && currentServer.value.id === serverId) {
-        currentServer.value.channels.push(channel)
-        currentServer.value.channels.sort((a, b) => a.position - b.position)
-      }
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to create channel'))
-    }
-  }
-
-  // Message Actions
-  const fetchMessages = async (channelId: EntityId, before?: EntityId): Promise<void> => {
-    try {
-      loading.value.messages = true
-      const newMessages = await messageService.getMessages(channelId, before, 50)
       
-      if (before) {
-        messages.value.unshift(...newMessages)
-      } else {
-        messages.value = newMessages
+      // Load messages if not cached
+      if (!messages.value.has(channelId)) {
+        const response = await messageService.getMessages(channelId, { pageSize: 50 })
+        messages.value.set(channelId, response.items.reverse())
+      }
+      
+      // Join channel for real-time updates
+      await signalrService.joinChannel(channelId)
+      activeChannels.value.add(channelId)
+      
+      // Mark as read
+      await channelService.markAsRead(channelId)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function sendMessage(content: string, attachmentUrls?: string[]) {
+    if (!currentChannel.value) return
+    
+    const tempId = `temp-${Date.now()}`
+    const tempMessage: Message = {
+      id: tempId,
+      channelId: currentChannel.value.id,
+      authorId: 'current-user',
+      author: {} as User, // Will be populated by real response
+      content,
+      attachmentUrls,
+      createdAt: new Date().toISOString(),
+      isEdited: false,
+      isPinned: false,
+      mentions: []
+    }
+    
+    // Optimistically add message
+    const channelMessages = messages.value.get(currentChannel.value.id) || []
+    messages.value.set(currentChannel.value.id, [...channelMessages, tempMessage])
+    
+    try {
+      const message = await messageService.sendMessage(currentChannel.value.id, { content, attachmentUrls })
+      
+      // Replace temp message with real one
+      const updatedMessages = messages.value.get(currentChannel.value.id) || []
+      const index = updatedMessages.findIndex(m => m.id === tempId)
+      if (index !== -1) {
+        updatedMessages[index] = message
+        messages.value.set(currentChannel.value.id, [...updatedMessages])
       }
     } catch (error) {
-      throw new Error(handleError(error, 'Failed to load messages'))
-    } finally {
-      loading.value.messages = false
+      // Remove temp message on error
+      const updatedMessages = (messages.value.get(currentChannel.value.id) || [])
+        .filter(m => m.id !== tempId)
+      messages.value.set(currentChannel.value.id, updatedMessages)
+      throw error
     }
   }
 
-  const fetchMoreMessages = async (channelId: EntityId, beforeMessageId: EntityId): Promise<void> => {
-    if (loading.value.messages) return
-    await fetchMessages(channelId, beforeMessageId)
-  }
-
-  const sendMessage = async (channelId: EntityId, data: CreateMessageRequestDto): Promise<void> => {
-    try {
-      await messageService.sendMessage(channelId, data)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to send message'))
-    }
-  }
-
-  const editMessage = async (channelId: EntityId, messageId: EntityId, data: UpdateMessageRequestDto): Promise<void> => {
-    try {
-      await messageService.updateMessage(channelId, messageId, data)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to edit message'))
-    }
-  }
-
-  const deleteMessage = async (channelId: EntityId, messageId: EntityId): Promise<void> => {
-    try {
-      await messageService.deleteMessage(channelId, messageId)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to delete message'))
-    }
-  }
-
-  // Member Actions
-  const fetchMembers = async (serverId: EntityId): Promise<void> => {
-    try {
-      loading.value.members = true
-      members.value = await serverService.getMembers(serverId)
-    } catch (error) {
-      throw new Error(handleError(error, 'Failed to load members'))
-    } finally {
-      loading.value.members = false
-    }
-  }
-
-  // SignalR Event Handlers
-  const handleReceiveMessage = (message: MessageDto): void => {
-    if (currentChannel.value && message.channelId === currentChannel.value.id) {
-      const existingIndex = messages.value.findIndex(m => m.id === message.id)
-      if (existingIndex === -1) {
-        messages.value.push(message)
+  // SignalR event handlers
+  function handleNewMessage(message: Message) {
+    const channelMessages = messages.value.get(message.channelId) || []
+    messages.value.set(message.channelId, [...channelMessages, message])
+    
+    // Update last message timestamp for channel
+    if (currentServer.value) {
+      const channel = currentServer.value.channels.find(c => c.id === message.channelId)
+      if (channel) {
+        channel.lastMessageAt = message.createdAt
+        if (currentChannel.value?.id !== message.channelId) {
+          channel.unreadCount = (channel.unreadCount || 0) + 1
+        }
       }
     }
   }
 
-  const handleMessageUpdated = (message: MessageDto): void => {
-    const index = messages.value.findIndex(m => m.id === message.id)
+  function handleMessageUpdate(message: Message) {
+    const channelMessages = messages.value.get(message.channelId) || []
+    const index = channelMessages.findIndex(m => m.id === message.id)
     if (index !== -1) {
-      messages.value[index] = message
+      channelMessages[index] = message
+      messages.value.set(message.channelId, [...channelMessages])
     }
   }
 
-  const handleMessageDeleted = (payload: MessageDeletedPayload): void => {
-    const index = messages.value.findIndex(m => m.id === payload.messageId)
-    if (index !== -1) {
-      messages.value.splice(index, 1)
+  function handleMessageDelete(messageId: string, channelId: string) {
+    const channelMessages = messages.value.get(channelId) || []
+    messages.value.set(channelId, channelMessages.filter(m => m.id !== messageId))
+  }
+
+  function updateUserPresence(userId: string, isOnline: boolean, lastSeenAt: string) {
+    if (isOnline) {
+      onlineUsers.value.add(userId)
+    } else {
+      onlineUsers.value.delete(userId)
+    }
+    
+    // Update user in server members if present
+    if (currentServer.value) {
+      const member = currentServer.value.members.find(m => m.userId === userId)
+      if (member?.user) {
+        member.user.isOnline = isOnline
+        member.user.lastSeenAt = lastSeenAt
+      }
     }
   }
 
-  const handleUserOnline = (userId: EntityId): void => {
-    onlineUsers.value.add(userId)
-  }
-
-  const handleUserOffline = (userId: EntityId): void => {
-    onlineUsers.value.delete(userId)
-  }
-
-  const handleUserTyping = (channelId: EntityId, userId: EntityId): void => {
-    if (!typingUsers.value.has(channelId)) {
-      typingUsers.value.set(channelId, new Set())
+  function addTypingUser(indicator: TypingIndicator) {
+    const channelTyping = typingUsers.value.get(indicator.channelId) || []
+    const existing = channelTyping.find(u => u.userId === indicator.userId)
+    
+    if (existing) {
+      existing.timestamp = Date.now()
+    } else {
+      channelTyping.push({ ...indicator, timestamp: Date.now() })
     }
-    typingUsers.value.get(channelId)!.add(userId)
-
-    setTimeout(() => {
-      handleUserStoppedTyping(channelId, userId)
-    }, 5000)
+    
+    typingUsers.value.set(indicator.channelId, [...channelTyping])
   }
 
-  const handleUserStoppedTyping = (channelId: EntityId, userId: EntityId): void => {
-    const channelTyping = typingUsers.value.get(channelId)
-    if (channelTyping) {
-      channelTyping.delete(userId)
-    }
+  function removeTypingUser(userId: string, channelId: string) {
+    const channelTyping = typingUsers.value.get(channelId) || []
+    typingUsers.value.set(channelId, channelTyping.filter(u => u.userId !== userId))
   }
 
-  const handleServerCreated = (server: ServerDetailDto): void => {
+  function setConnectionStatus(status: typeof connectionStatus.value) {
+    connectionStatus.value = status
+  }
+
+  function getActiveChannels(): string[] {
+    return Array.from(activeChannels.value)
+  }
+
+  // Server management
+  async function createServer(name: string, description?: string, iconUrl?: string) {
+    const server = await serverService.createServer({ name, description, iconUrl })
     servers.value.push(server)
+    await selectServer(server.id)
   }
 
-  const handleServerUpdated = (server: ServerDetailDto): void => {
-    const index = servers.value.findIndex(s => s.id === server.id)
-    if (index !== -1) {
-      servers.value[index] = { ...servers.value[index], ...server }
-    }
-    if (currentServer.value && currentServer.value.id === server.id) {
-      currentServer.value = { ...currentServer.value, ...server }
-    }
-  }
-
-  const handleServerDeleted = (serverId: EntityId): void => {
+  async function leaveServer(serverId: string) {
+    await serverService.leaveServer(serverId)
     servers.value = servers.value.filter(s => s.id !== serverId)
     if (currentServer.value?.id === serverId) {
       currentServer.value = null
       currentChannel.value = null
-      messages.value = []
-      members.value = []
     }
   }
 
-  const handleUserJoinedServer = (payload: UserServerPayload): void => {
-    if (currentServer.value?.id === payload.serverId) {
-      fetchMembers(payload.serverId)
+  async function deleteMessage(messageId: string) {
+    if (!currentChannel.value) return
+    
+    await messageService.deleteMessage(messageId)
+    const channelMessages = messages.value.get(currentChannel.value.id) || []
+    messages.value.set(currentChannel.value.id, channelMessages.filter(m => m.id !== messageId))
+  }
+
+  async function refreshServer(serverId: string) {
+    if (currentServer.value?.id === serverId) {
+      currentServer.value = await serverService.getServer(serverId)
     }
   }
 
-  const handleUserLeftServer = (payload: UserServerPayload): void => {
-    if (currentServer.value?.id === payload.serverId) {
-      members.value = members.value.filter(m => m.userId !== payload.userId)
+  function handleServerDeleted(serverId: string) {
+    servers.value = servers.value.filter(s => s.id !== serverId)
+    if (currentServer.value?.id === serverId) {
+      currentServer.value = null
+      currentChannel.value = null
     }
   }
 
-  const handleUserKickedFromServer = (payload: UserServerPayload): void => {
-    handleUserLeftServer(payload)
-    if (payload.userId === currentUserId.value) {
-      servers.value = servers.value.filter(s => s.id !== payload.serverId)
-      if (currentServer.value?.id === payload.serverId) {
-        currentServer.value = null
-        currentChannel.value = null
-        messages.value = []
-        members.value = []
-      }
+  async function refreshChannels(serverId: string) {
+    if (currentServer.value?.id === serverId) {
+      currentServer.value.channels = await channelService.getChannels(serverId)
     }
   }
 
-  const handleUserBannedFromServer = (payload: UserServerPayload): void => {
-    handleUserKickedFromServer(payload)
-  }
-
-  const handleChannelCreated = (channel: ChannelDetailDto): void => {
+  async function refreshChannel(channelId: string) {
+    const channel = await channelService.getChannel(channelId)
     if (currentServer.value) {
-      currentServer.value.channels.push(channel)
-      currentServer.value.channels.sort((a, b) => a.position - b.position)
-    }
-  }
-
-  const handleChannelUpdated = (channel: ChannelDetailDto): void => {
-    if (currentServer.value) {
-      const index = currentServer.value.channels.findIndex(c => c.id === channel.id)
+      const index = currentServer.value.channels.findIndex(c => c.id === channelId)
       if (index !== -1) {
         currentServer.value.channels[index] = channel
       }
     }
-    if (currentChannel.value?.id === channel.id) {
+    if (currentChannel.value?.id === channelId) {
       currentChannel.value = channel
     }
   }
 
-  const handleChannelDeleted = (payload: ChannelDeletedPayload): void => {
-    if (currentServer.value) {
-      currentServer.value.channels = currentServer.value.channels.filter(c => c.id !== payload.channelId)
+  function handleChannelDeleted(serverId: string, channelId: string) {
+    if (currentServer.value?.id === serverId) {
+      currentServer.value.channels = currentServer.value.channels.filter(c => c.id !== channelId)
     }
-    if (currentChannel.value?.id === payload.channelId) {
+    if (currentChannel.value?.id === channelId) {
       currentChannel.value = null
-      messages.value = []
+      messages.value.delete(channelId)
+      typingUsers.value.delete(channelId)
+      activeChannels.value.delete(channelId)
     }
   }
 
-  const handleRoleCreated = (role: RoleDto): void => {
-    if (currentServer.value) {
-      currentServer.value.roles.push(role)
-      currentServer.value.roles.sort((a, b) => b.position - a.position)
+  function handleUserJoinedServer(serverId: string, userId: string) {
+    if (currentServer.value?.id === serverId) {
+      refreshServer(serverId)
     }
   }
 
-  const handleRoleUpdated = (role: RoleDto): void => {
-    if (currentServer.value) {
-      const index = currentServer.value.roles.findIndex(r => r.id === role.id)
-      if (index !== -1) {
-        currentServer.value.roles[index] = role
-      }
+  function handleUserLeftServer(serverId: string, userId: string) {
+    if (currentServer.value?.id === serverId) {
+      currentServer.value.members = currentServer.value.members.filter(m => m.userId !== userId)
     }
   }
 
-  const handleRoleDeleted = (roleId: EntityId): void => {
-    if (currentServer.value) {
-      currentServer.value.roles = currentServer.value.roles.filter(r => r.id !== roleId)
-    }
+  // Utility functions
+  function showError(message: string) {
+    error.value = message
+    setTimeout(() => error.value = null, 5000)
   }
 
-  const handleMemberRolesUpdated = (payload: { serverId: EntityId; userId: EntityId; roles: RoleDto[] }): void => {
-    if (currentServer.value?.id === payload.serverId) {
-      const memberIndex = members.value.findIndex(m => m.userId === payload.userId)
-      if (memberIndex !== -1) {
-        members.value[memberIndex].roles = payload.roles
-      }
-    }
+  function getErrorMessage(code: string): string {
+    return errorMessages[code] || 'An unexpected error occurred'
   }
 
-  const handleEmojiCreated = (emoji: EmojiDto): void => {
-    // Handle emoji creation if needed
-    console.log('Emoji created:', emoji)
+  function toggleTheme() {
+    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('theme', theme.value)
+    document.documentElement.setAttribute('data-theme', theme.value)
   }
 
-  const handleEmojiDeleted = (payload: { serverId: EntityId; emojiId: EntityId }): void => {
-    // Handle emoji deletion if needed
-    console.log('Emoji deleted:', payload)
-  }
-
-  const handleReactionAdded = (payload: { channelId: EntityId; messageId: EntityId; emojiId: string; userId: EntityId }): void => {
-    const message = messages.value.find(m => m.id === payload.messageId)
-    if (message) {
-      const existingReaction = message.reactions.find(r => r.emojiId === payload.emojiId)
-      if (existingReaction) {
-        existingReaction.count++
-        if (payload.userId === currentUserId.value) {
-          existingReaction.me = true
-        }
-      } else {
-        message.reactions.push({
-          emojiId: payload.emojiId,
-          count: 1,
-          me: payload.userId === currentUserId.value
-        })
-      }
-    }
-  }
-
-  const handleReactionRemoved = (payload: { channelId: EntityId; messageId: EntityId; emojiId: string; userId: EntityId }): void => {
-    const message = messages.value.find(m => m.id === payload.messageId)
-    if (message) {
-      const reactionIndex = message.reactions.findIndex(r => r.emojiId === payload.emojiId)
-      if (reactionIndex !== -1) {
-        const reaction = message.reactions[reactionIndex]
-        reaction.count--
-        if (payload.userId === currentUserId.value) {
-          reaction.me = false
-        }
-        if (reaction.count <= 0) {
-          message.reactions.splice(reactionIndex, 1)
-        }
-      }
-    }
-  }
-
-  const handleUserUpdated = (user: UserDto): void => {
-    // Update user in members list if they're in current server
-    const memberIndex = members.value.findIndex(m => m.userId === user.id)
-    if (memberIndex !== -1) {
-      members.value[memberIndex] = { ...members.value[memberIndex], ...user }
-    }
-    
-    // Update message authors
-    messages.value.forEach(message => {
-      if (message.author.id === user.id) {
-        message.author = { ...message.author, ...user }
-      }
-    })
-  }
-
-  const handleUserJoinedVoice = (payload: { channelId: EntityId; userId: EntityId }): void => {
-    if (!voiceChannelUsers.value.has(payload.channelId)) {
-      voiceChannelUsers.value.set(payload.channelId, new Set())
-    }
-    voiceChannelUsers.value.get(payload.channelId)!.add(payload.userId)
-  }
-
-  const handleUserLeftVoice = (payload: { channelId: EntityId; userId: EntityId }): void => {
-    const channelUsers = voiceChannelUsers.value.get(payload.channelId)
-    if (channelUsers) {
-      channelUsers.delete(payload.userId)
-    }
-  }
-
-  const handleAllUsersInChannel = (payload: { channelId: EntityId; userIds: EntityId[] }): void => {
-    voiceChannelUsers.value.set(payload.channelId, new Set(payload.userIds))
-  }
-
-  const handleUserStartedScreenShare = (payload: { userId: EntityId; channelId: EntityId }): void => {
-    // Handle screen share start
-    console.log('User started screen share:', payload)
-  }
-
-  const handleUserStoppedScreenShare = (payload: { userId: EntityId; channelId: EntityId }): void => {
-    // Handle screen share stop
-    console.log('User stopped screen share:', payload)
-  }
-
-  // Clear state
-  const clearCurrentServer = (): void => {
-    currentServer.value = null
-    currentChannel.value = null
-    messages.value = []
-    members.value = []
-  }
-
-  const clearCurrentChannel = (): void => {
-    currentChannel.value = null
-    messages.value = []
-  }
+  // Initialize theme
+  document.documentElement.setAttribute('data-theme', theme.value)
 
   return {
     // State
-    servers: readonly(servers),
-    currentServer: readonly(currentServer),
-    currentChannel: readonly(currentChannel),
-    messages: readonly(messages),
-    members: readonly(members),
-    loading: readonly(loading),
-    onlineUsers: readonly(onlineUsers),
+    servers,
+    currentServer,
+    currentChannel,
+    messages,
+    typingUsers,
+    onlineUsers,
+    connectionStatus,
+    theme,
+    isLoading,
+    error,
+    showServerModal,
+    showChannelModal,
+    showInviteModal,
+    showSettingsModal,
     
     // Getters
-    currentUserId,
-    sortedMessages,
+    sortedServers,
+    currentChannelMessages,
     currentChannelTypingUsers,
+    isUserOnline,
     
     // Actions
-    fetchServers,
-    fetchServer,
-    createServer,
-    joinServer,
-    fetchChannel,
-    createChannel,
-    fetchMessages,
-    fetchMoreMessages,
+    loadServers,
+    selectServer,
+    selectChannel,
     sendMessage,
-    editMessage,
-    deleteMessage,
-    fetchMembers,
-    clearCurrentServer,
-    clearCurrentChannel,
-    
-    // SignalR Event Handlers
-    handleReceiveMessage,
-    handleMessageUpdated,
-    handleMessageDeleted,
-    handleUserOnline,
-    handleUserOffline,
-    handleUserTyping,
-    handleUserStoppedTyping,
-    handleServerCreated,
-    handleServerUpdated,
+    createServer,
+    handleNewMessage,
+    handleMessageUpdate,
+    handleMessageDelete,
+    updateUserPresence,
+    addTypingUser,
+    removeTypingUser,
+    setConnectionStatus,
+    getActiveChannels,
+    refreshServer,
     handleServerDeleted,
+    refreshChannels,
+    refreshChannel,
+    handleChannelDeleted,
     handleUserJoinedServer,
     handleUserLeftServer,
-    handleUserKickedFromServer,
-    handleUserBannedFromServer,
-    handleChannelCreated,
-    handleChannelUpdated,
-    handleChannelDeleted,
-    handleRoleCreated,
-    handleRoleUpdated,
-    handleRoleDeleted,
-    handleMemberRolesUpdated,
-    handleEmojiCreated,
-    handleEmojiDeleted,
-    handleReactionAdded,
-    handleReactionRemoved,
-    handleUserUpdated,
-    handleUserJoinedVoice,
-    handleUserLeftVoice,
-    handleAllUsersInChannel,
-    handleUserStartedScreenShare,
-    handleUserStoppedScreenShare
+    showError,
+    getErrorMessage,
+    toggleTheme
   }
 })

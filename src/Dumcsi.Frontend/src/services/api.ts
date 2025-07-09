@@ -1,80 +1,69 @@
-import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import type { ApiResponse } from '@/types'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/auth'
+import { useAppStore } from '@/stores/app'
 import { router } from '@/router'
 
-// Create axios instance
-export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+const API_BASE_URL = '/api'
 
-// Request interceptor to add auth token
-apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('token')
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
+class ApiClient {
+  private instance: AxiosInstance
 
-// Response interceptor for global error handling
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const authStore = useAuthStore()
-      await authStore.logout()
-      if (router.currentRoute.value.name !== 'login') {
-        router.push('/login')
+  constructor() {
+    this.instance = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 15000,
+      headers: {
+        'Content-Type': 'application/json'
       }
-    }
-    return Promise.reject(error)
-  }
-)
-
-// Helper function to handle API responses
-export const handleApiResponse = <T>(response: AxiosResponse<ApiResponse<T>>): T => {
-  if (!response.data.isSuccess) {
-    throw new Error(response.data.message || 'API request failed')
-  }
-  return response.data.data
-}
-
-// Generic API functions
-export const api = {
-  get: async <T>(url: string): Promise<T> => {
-    const response = await apiClient.get<ApiResponse<T>>(url)
-    return handleApiResponse(response)
-  },
-  
-  post: async <T>(url: string, data?: any): Promise<T> => {
-    const response = await apiClient.post<ApiResponse<T>>(url, data)
-    return handleApiResponse(response)
-  },
-  
-  put: async <T>(url: string, data?: any): Promise<T> => {
-    const response = await apiClient.put<ApiResponse<T>>(url, data)
-    return handleApiResponse(response)
-  },
-  
-  delete: async <T>(url: string): Promise<T> => {
-    const response = await apiClient.delete<ApiResponse<T>>(url)
-    return handleApiResponse(response)
-  },
-  
-  upload: async <T>(url: string, file: File): Promise<T> => {
-    const formData = new FormData()
-    formData.append('file', file)
-    const response = await apiClient.post<ApiResponse<T>>(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
     })
-    return handleApiResponse(response)
+
+    this.setupInterceptors()
+  }
+
+  private setupInterceptors() {
+    // Request interceptor
+    this.instance.interceptors.request.use(
+      (config: InternalAxiosRequestConfig) => {
+        const authStore = useAuthStore()
+        if (authStore.token) {
+          config.headers.Authorization = `Bearer ${authStore.token}`
+        }
+        return config
+      },
+      (error) => {
+        return Promise.reject(error)
+      }
+    )
+
+    // Response interceptor
+    this.instance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const appStore = useAppStore()
+        
+        if (error.response?.status === 401) {
+          const authStore = useAuthStore()
+          authStore.logout()
+          router.push('/login')
+          appStore.showError('Session expired. Please login again.')
+        } else if (error.response?.data?.code) {
+          // Handle backend error codes
+          const errorMessage = appStore.getErrorMessage(error.response.data.code)
+          appStore.showError(errorMessage)
+        } else if (error.message === 'Network Error') {
+          appStore.showError('Network error. Please check your connection.')
+        } else {
+          appStore.showError('An unexpected error occurred.')
+        }
+
+        return Promise.reject(error)
+      }
+    )
+  }
+
+  get api() {
+    return this.instance
   }
 }
+
+export default new ApiClient().api

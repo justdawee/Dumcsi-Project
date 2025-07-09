@@ -1,162 +1,225 @@
 <template>
-  <div class="flex flex-col flex-1 bg-discord-gray-700">
-    <!-- Channel Header -->
-    <div class="px-4 py-3 border-b border-discord-gray-600 flex items-center">
-      <Hash class="w-5 h-5 text-discord-gray-400 mr-2" />
-      <h2 class="text-white font-semibold">{{ currentChannel?.name }}</h2>
-      <div class="flex-1"></div>
-      <button
-        v-if="currentChannelTypingUsers.length > 0"
-        class="text-discord-gray-400 text-sm"
-      >
-        {{ typingText }}
-      </button>
-    </div>
-
-    <!-- Messages -->
-    <div
-      ref="messagesContainer"
-      class="flex-1 overflow-y-auto px-4 py-4 space-y-4"
-      @scroll="debouncedScrollHandler"
-    >
-      <div v-if="loading.messages" class="flex justify-center">
-        <Loader2 class="w-6 h-6 animate-spin text-discord-gray-400" />
+  <div class="flex-1 flex flex-col bg-[var(--bg-primary)]">
+    <!-- Channel header -->
+    <div class="h-14 px-4 flex items-center justify-between border-b border-[var(--bg-hover)] flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <Hash class="w-5 h-5 text-[var(--text-secondary)]" />
+        <h3 class="text-lg font-semibold text-[var(--text-primary)]">{{ appStore.currentChannel?.name }}</h3>
+        <span v-if="appStore.currentChannel?.description" class="text-sm text-[var(--text-secondary)] hidden md:block">
+          {{ appStore.currentChannel.description }}
+        </span>
       </div>
       
-      <MessageItem
-        v-for="message in sortedMessages"
-        :key="message.id"
-        :message="message"
-        @edit="handleEditMessage"
-        @delete="handleDeleteMessage"
-      />
-      
-      <div v-if="sortedMessages.length === 0 && !loading.messages" class="text-center text-discord-gray-400 py-8">
-        No messages yet. Start the conversation!
+      <div class="flex items-center gap-2">
+        <button class="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors text-[var(--text-secondary)]">
+          <Search class="w-5 h-5" />
+        </button>
+        <button
+          @click="showMemberList = !showMemberList"
+          :class="[
+            'p-2 rounded-lg transition-colors text-[var(--text-secondary)]',
+            showMemberList ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'hover:bg-[var(--bg-hover)]'
+          ]"
+        >
+          <Users class="w-5 h-5" />
+        </button>
       </div>
     </div>
 
-    <!-- Message Input -->
-    <div class="p-4">
-      <MessageInput
-        v-if="canSendMessages"
-        :channel-id="currentChannel?.id"
-        @send="handleSendMessage"
-      />
-      <div v-else class="text-center text-discord-gray-400 py-4">
-        You don't have permission to send messages in this channel.
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Messages area -->
+      <div class="flex-1 flex flex-col">
+        <!-- Messages list -->
+        <div
+          ref="messagesContainer"
+          class="flex-1 overflow-y-auto custom-scrollbar px-4 py-4"
+          @scroll="handleScroll"
+        >
+          <div v-if="isLoadingMessages" class="flex justify-center py-4">
+            <Loader2 class="w-6 h-6 animate-spin text-[var(--text-secondary)]" />
+          </div>
+          
+          <div v-else-if="appStore.currentChannelMessages.length === 0" class="flex flex-col items-center justify-center h-full text-center">
+            <div class="w-20 h-20 bg-[var(--bg-secondary)] rounded-full flex items-center justify-center mb-4">
+              <Hash class="w-10 h-10 text-[var(--text-secondary)]" />
+            </div>
+            <h3 class="text-xl font-semibold text-[var(--text-primary)] mb-2">
+              Welcome to #{{ appStore.currentChannel?.name }}!
+            </h3>
+            <p class="text-[var(--text-secondary)] max-w-md">
+              This is the beginning of the #{{ appStore.currentChannel?.name }} channel.
+              <span v-if="appStore.currentChannel?.description" class="block mt-2">
+                {{ appStore.currentChannel.description }}
+              </span>
+            </p>
+          </div>
+          
+          <div v-else class="space-y-4">
+            <MessageGroup
+              v-for="(group, index) in messageGroups"
+              :key="group[0].id"
+              :messages="group"
+              :showDate="shouldShowDate(index)"
+              @edit="handleEditMessage"
+              @delete="handleDeleteMessage"
+              @reply="handleReplyMessage"
+            />
+          </div>
+        </div>
+
+        <!-- Typing indicators -->
+        <div v-if="appStore.currentChannelTypingUsers.length > 0" class="px-4 py-2 text-sm text-[var(--text-secondary)]">
+          <span class="inline-flex items-center gap-1">
+            <span class="flex gap-1">
+              <span class="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+              <span class="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+              <span class="w-1.5 h-1.5 bg-[var(--text-secondary)] rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+            </span>
+            {{ typingText }}
+          </span>
+        </div>
+
+        <!-- Message input -->
+        <MessageInput
+          :channel="appStore.currentChannel!"
+          :replyTo="replyingTo"
+          @cancelReply="replyingTo = null"
+        />
       </div>
+
+      <!-- Member list sidebar -->
+      <Transition name="slide-right">
+        <ServerMemberList v-if="showMemberList" />
+      </Transition>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { Hash, Loader2 } from 'lucide-vue-next'
+import { ref, computed, watch, nextTick } from 'vue'
+import { Hash, Search, Users, Loader2 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
-import { useToast } from '@/composables/useToast'
-import MessageItem from '@/components/channel/MessageItem.vue'
+import MessageGroup from '@/components/channel/MessageGroup.vue'
 import MessageInput from '@/components/channel/MessageInput.vue'
-import { Permission, type CreateMessageRequestDto, type UpdateMessageRequestDto, type EntityId } from '@/types'
+import ServerMemberList from '@/components/server/ServerMemberList.vue'
+import type { Message } from '@/types'
 
-const route = useRoute()
 const appStore = useAppStore()
-const { addToast } = useToast()
 
 const messagesContainer = ref<HTMLElement>()
+const showMemberList = ref(true)
+const isLoadingMessages = ref(false)
+const replyingTo = ref<Message | null>(null)
 
-const currentChannel = computed(() => appStore.currentChannel)
-const sortedMessages = computed(() => appStore.sortedMessages)
-const currentChannelTypingUsers = computed(() => appStore.currentChannelTypingUsers)
-const loading = computed(() => appStore.loading)
+const messageGroups = computed(() => {
+  const groups: Message[][] = []
+  let currentGroup: Message[] = []
+  let lastAuthorId: string | null = null
+  let lastTimestamp = 0
 
-const canSendMessages = computed(() => {
-  if (!appStore.currentServer) return false
-  return (appStore.currentServer.currentUserPermissions & Permission.SendMessages) !== 0
+  appStore.currentChannelMessages.forEach(message => {
+    const messageTime = new Date(message.createdAt).getTime()
+    const timeDiff = messageTime - lastTimestamp
+    
+    // Group messages by same author within 5 minutes
+    if (message.authorId === lastAuthorId && timeDiff < 5 * 60 * 1000) {
+      currentGroup.push(message)
+    } else {
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup)
+      }
+      currentGroup = [message]
+      lastAuthorId = message.authorId
+    }
+    
+    lastTimestamp = messageTime
+  })
+
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup)
+  }
+
+  return groups
 })
 
 const typingText = computed(() => {
-  const users = currentChannelTypingUsers.value
-  if (users.length === 0) return ''
-  if (users.length === 1) return `${users[0]?.username} is typing...`
-  if (users.length === 2) return `${users[0]?.username} and ${users[1]?.username} are typing...`
-  return `${users[0]?.username} and ${users.length - 1} others are typing...`
+  const users = appStore.currentChannelTypingUsers
+  if (users.length === 1) {
+    return `${users[0].username} is typing...`
+  } else if (users.length === 2) {
+    return `${users[0].username} and ${users[1].username} are typing...`
+  } else if (users.length > 2) {
+    return `${users[0].username} and ${users.length - 1} others are typing...`
+  }
+  return ''
 })
 
-const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
+function shouldShowDate(index: number): boolean {
+  if (index === 0) return true
+  
+  const currentGroup = messageGroups.value[index]
+  const previousGroup = messageGroups.value[index - 1]
+  
+  const currentDate = new Date(currentGroup[0].createdAt).toDateString()
+  const previousDate = new Date(previousGroup[previousGroup.length - 1].createdAt).toDateString()
+  
+  return currentDate !== previousDate
+}
+
+function handleScroll() {
+  // Implement infinite scroll for loading older messages
+  if (!messagesContainer.value || isLoadingMessages.value) return
+  
+  const { scrollTop } = messagesContainer.value
+  if (scrollTop === 0) {
+    // Load more messages when scrolled to top
+    // TODO: Implement pagination
+  }
+}
+
+function handleEditMessage(message: Message) {
+  // TODO: Implement message editing
+  console.log('Edit message:', message)
+}
+
+function handleDeleteMessage(message: Message) {
+  if (confirm('Are you sure you want to delete this message?')) {
+    appStore.deleteMessage(message.id)
+  }
+}
+
+function handleReplyMessage(message: Message) {
+  replyingTo.value = message
+}
+
+// Auto-scroll to bottom when new messages arrive
+watch(() => appStore.currentChannelMessages.length, async () => {
   await nextTick()
   if (messagesContainer.value) {
-    messagesContainer.value.scrollTo({
-      top: messagesContainer.value.scrollHeight,
-      behavior,
-    })
-  }
-}
-
-const loadChannelData = async (channelId: EntityId) => {
-  await appStore.fetchChannel(channelId)
-  await appStore.fetchMessages(channelId)
-  await scrollToBottom()
-}
-
-const loadMoreMessages = async () => {
-  if (!currentChannel.value || loading.value.messages || sortedMessages.value.length === 0) return
-
-  const oldestMessageId = sortedMessages.value[0].id
-  const oldScrollHeight = messagesContainer.value?.scrollHeight ?? 0
-
-  await appStore.fetchMoreMessages(currentChannel.value.id, oldestMessageId)
-
-  await nextTick()
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight - oldScrollHeight
-  }
-}
-
-const debouncedScrollHandler = (() => {
-  let timeoutId: ReturnType<typeof setTimeout>
-  return () => {
-    clearTimeout(timeoutId)
-    timeoutId = setTimeout(() => {
-      if (messagesContainer.value && messagesContainer.value.scrollTop < 100) {
-        loadMoreMessages()
-      }
-    }, 200)
-  }
-})()
-
-const handleSendMessage = async (payload: CreateMessageRequestDto) => {
-  if (!currentChannel.value) return
-  try {
-    await appStore.sendMessage(currentChannel.value.id, payload)
-    await scrollToBottom('smooth')
-  } catch {
-    addToast({ type: 'danger', message: 'Failed to send message.' })
-  }
-}
-
-const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessageRequestDto }) => {
-  appStore.editMessage(currentChannel.value!.id, payload.messageId, payload.content)
-    .catch(() => addToast({ type: 'danger', message: 'Failed to edit message.' }))
-}
-
-const handleDeleteMessage = (messageId: EntityId) => {
-  appStore.deleteMessage(currentChannel.value!.id, messageId)
-    .catch(() => addToast({ type: 'danger', message: 'Failed to delete message.' }))
-}
-
-onMounted(() => {
-  const channelId = parseInt(route.params.channelId as string, 10)
-  if (channelId) {
-    loadChannelData(channelId)
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 })
 
-watch(() => route.params.channelId, (newId) => {
-  const newChannelId = newId ? parseInt(newId as string, 10) : null
-  if (newChannelId && newChannelId !== currentChannel.value?.id) {
-    loadChannelData(newChannelId)
+// Scroll to bottom on channel change
+watch(() => appStore.currentChannel?.id, async () => {
+  await nextTick()
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
-}, { immediate: true })
+})
 </script>
+
+<style scoped>
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.2s ease;
+}
+
+.slide-right-enter-from {
+  transform: translateX(100%);
+}
+
+.slide-right-leave-to {
+  transform: translateX(100%);
+}
+</style>

@@ -1,91 +1,158 @@
-import * as signalR from '@microsoft/signalr'
-import { useAppStore } from '@/stores/app'
+import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/composables/useToast'
-import { registerSignalREventHandlers } from './signalrHandlers'
-import type { EntityId } from '@/types'
+import { useAppStore } from '@/stores/app'
+import type { Message, TypingIndicator, UserPresence } from '@/types'
 
 class SignalRService {
-  private connection: signalR.HubConnection | null = null
-  private reconnectInterval: ReturnType<typeof setTimeout> | null = null
-  private readonly maxReconnectAttempts = 5
-  private reconnectAttempts = 0
+  private connection: HubConnection | null = null
+  private reconnectInterval: number | null = null
 
-  private createConnection(): void {
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
-        accessTokenFactory: () => {
-          const token = localStorage.getItem('token')
-          return token || ''
-        }
+  async initialize(): Promise<void> {
+    const authStore = useAuthStore()
+    
+    if (!authStore.token) {
+      throw new Error('No authentication token available')
+    }
+
+    this.connection = new HubConnectionBuilder()
+      .withUrl('/chathub', {
+        accessTokenFactory: () => authStore.token || ''
       })
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: (retryContext) => {
-          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
-            return null
-          }
-          return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000)
-        }
-      })
-      .configureLogging(signalR.LogLevel.Warning)
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .configureLogging(LogLevel.Warning)
       .build()
+
+    this.setupEventHandlers()
+    
+    try {
+      await this.connection.start()
+      console.log('SignalR connected')
+    } catch (error) {
+      console.error('SignalR connection failed:', error)
+      this.scheduleReconnect()
+    }
   }
 
   private setupEventHandlers(): void {
     if (!this.connection) return
 
     const appStore = useAppStore()
-    const { addToast } = useToast()
 
+    // Message events
+    this.connection.on('ReceiveMessage', (message: Message) => {
+      appStore.handleNewMessage(message)
+    })
+
+    this.connection.on('MessageUpdated', (message: Message) => {
+      appStore.handleMessageUpdate(message)
+    })
+
+    this.connection.on('MessageDeleted', (messageId: string, channelId: string) => {
+      appStore.handleMessageDelete(messageId, channelId)
+    })
+
+    // User presence events
+    this.connection.on('UserIsOnline', (presence: UserPresence) => {
+      appStore.updateUserPresence(presence.userId, true, presence.lastSeenAt)
+    })
+
+    this.connection.on('UserIsOffline', (presence: UserPresence) => {
+      appStore.updateUserPresence(presence.userId, false, presence.lastSeenAt)
+    })
+
+    // Typing indicators
+    this.connection.on('UserTyping', (indicator: TypingIndicator) => {
+      appStore.addTypingUser(indicator)
+    })
+
+    this.connection.on('UserStoppedTyping', (indicator: TypingIndicator) => {
+      appStore.removeTypingUser(indicator.userId, indicator.channelId)
+    })
+
+    // Server events
+    this.connection.on('ServerUpdated', (serverId: string) => {
+      appStore.refreshServer(serverId)
+    })
+
+    this.connection.on('ServerDeleted', (serverId: string) => {
+      appStore.handleServerDeleted(serverId)
+    })
+
+    this.connection.on('UserJoinedServer', (serverId: string, userId: string) => {
+      appStore.handleUserJoinedServer(serverId, userId)
+    })
+
+    this.connection.on('UserLeftServer', (serverId: string, userId: string) => {
+      appStore.handleUserLeftServer(serverId, userId)
+    })
+
+    // Channel events
+    this.connection.on('ChannelCreated', (serverId: string, channelId: string) => {
+      appStore.refreshChannels(serverId)
+    })
+
+    this.connection.on('ChannelUpdated', (channelId: string) => {
+      appStore.refreshChannel(channelId)
+    })
+
+    this.connection.on('ChannelDeleted', (serverId: string, channelId: string) => {
+      appStore.handleChannelDeleted(serverId, channelId)
+    })
+
+    // Connection lifecycle
     this.connection.onreconnecting(() => {
-      console.log('SignalR: Reconnecting...')
-      addToast({
-        type: 'warning',
-        message: 'Connection lost. Reconnecting...',
-        duration: 3000
-      })
+      appStore.setConnectionStatus('reconnecting')
     })
 
     this.connection.onreconnected(() => {
-      console.log('SignalR: Reconnected')
-      this.reconnectAttempts = 0
-      addToast({
-        type: 'success',
-        message: 'Connection restored',
-        duration: 2000
-      })
+      appStore.setConnectionStatus('connected')
+      this.rejoinChannels()
     })
 
     this.connection.onclose(() => {
-      console.log('SignalR: Connection closed')
-      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        this.handleConnectionClosed()
-      }
+      appStore.setConnectionStatus('disconnected')
+      this.scheduleReconnect()
     })
-
-    registerSignalREventHandlers(this.connection, appStore)
   }
 
-  async initialize(): Promise<void> {
-    if (this.connection && this.connection.state !== signalR.HubConnectionState.Disconnected) {
-      return
-    }
-    
-    if (!this.connection) {
-      this.createConnection()
-      this.setupEventHandlers()
-    }
-    
-    this.reconnectAttempts = 0
+  private scheduleReconnect(): void {
+    if (this.reconnectInterval) return
 
-    try {
-      await this.connection!.start()
-      console.log('SignalR: Connected')
-    } catch (error) {
-      console.error('SignalR: Failed to connect initially', error)
-      this.reconnectAttempts = this.maxReconnectAttempts
-      this.handleConnectionClosed()
+    this.reconnectInterval = window.setInterval(async () => {
+      try {
+        await this.initialize()
+        if (this.reconnectInterval) {
+          clearInterval(this.reconnectInterval)
+          this.reconnectInterval = null
+        }
+      } catch (error) {
+        console.error('Reconnection attempt failed:', error)
+      }
+    }, 30000)
+  }
+
+  private async rejoinChannels(): Promise<void> {
+    const appStore = useAppStore()
+    const activeChannels = appStore.getActiveChannels()
+    
+    for (const channelId of activeChannels) {
+      await this.joinChannel(channelId)
     }
+  }
+
+  async joinChannel(channelId: string): Promise<void> {
+    if (!this.connection) throw new Error('SignalR not connected')
+    await this.connection.invoke('JoinChannel', channelId)
+  }
+
+  async leaveChannel(channelId: string): Promise<void> {
+    if (!this.connection) throw new Error('SignalR not connected')
+    await this.connection.invoke('LeaveChannel', channelId)
+  }
+
+  async sendTypingIndicator(channelId: string): Promise<void> {
+    if (!this.connection) throw new Error('SignalR not connected')
+    await this.connection.invoke('SendTypingIndicator', channelId)
   }
 
   async stop(): Promise<void> {
@@ -93,92 +160,16 @@ class SignalRService {
       clearInterval(this.reconnectInterval)
       this.reconnectInterval = null
     }
-
+    
     if (this.connection) {
-      try {
-        await this.connection.stop()
-        console.log('SignalR: Connection stopped successfully.')
-      } catch (error) {
-        console.error('SignalR: Error stopping connection', error)
-      }
+      await this.connection.stop()
+      this.connection = null
     }
   }
 
-  private handleConnectionClosed(): void {
-    const authStore = useAuthStore()
-    
-    if (!authStore.isAuthenticated) {
-      return
-    }
-
-    const { addToast } = useToast()
-    
-    addToast({
-      type: 'danger',
-      title: 'Connection Failed',
-      message: 'Unable to establish real-time connection. Please refresh the page.',
-      duration: 0
-    })
-  }
-
-  async sendTypingIndicator(channelId: EntityId): Promise<void> {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      try {
-        await this.connection.invoke('SendTypingIndicator', channelId.toString())
-      } catch (error) {
-        console.error('Failed to send typing indicator:', error)
-      }
-    }
-  }
-
-  async joinChannel(channelId: EntityId): Promise<void> {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      try {
-        await this.connection.invoke('JoinChannel', channelId.toString())
-      } catch (error) {
-        console.error('Failed to join channel:', error)
-      }
-    }
-  }
-
-  async leaveChannel(channelId: EntityId): Promise<void> {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      try {
-        await this.connection.invoke('LeaveChannel', channelId.toString())
-      } catch (error) {
-        console.error('Failed to leave channel:', error)
-      }
-    }
-  }
-
-  async joinVoiceChannel(channelId: EntityId): Promise<void> {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      try {
-        await this.connection.invoke('JoinVoiceChannel', channelId.toString())
-      } catch (error) {
-        console.error('Failed to join voice channel:', error)
-        throw error
-      }
-    }
-  }
-
-  async leaveVoiceChannel(channelId: EntityId): Promise<void> {
-    if (this.connection?.state === signalR.HubConnectionState.Connected) {
-      try {
-        await this.connection.invoke('LeaveVoiceChannel', channelId.toString())
-      } catch (error) {
-        console.error('Failed to leave voice channel:', error)
-      }
-    }
-  }
-
-  get isConnected(): boolean {
-    return this.connection?.state === signalR.HubConnectionState.Connected
-  }
-
-  get connectionState(): signalR.HubConnectionState | null {
-    return this.connection?.state || null
+  isConnected(): boolean {
+    return this.connection?.state === 'Connected'
   }
 }
 
-export const signalRService = new SignalRService()
+export default new SignalRService()

@@ -1,77 +1,73 @@
-import { api } from './api'
-import type { 
-  ServerListItemDto, 
-  ServerDetailDto, 
-  CreateServerRequestDto, 
-  UpdateServerRequestDto,
-  ServerMemberDto,
-  EntityId,
-  ChannelListItemDto,
-  CreateChannelRequestDto
-} from '@/types'
+import api from './api'
+import type { Server, ServerDetails, CreateServerDto, UpdateServerDto, ServerMember, CreateInviteDto, Invite } from '@/types'
 
 export const serverService = {
-  async getServers(): Promise<ServerListItemDto[]> {
-    return api.get<ServerListItemDto[]>('/server')
+  async getServers(): Promise<Server[]> {
+    const { data } = await api.get<Server[]>('/servers')
+    return data
   },
 
-  async getPublicServers(): Promise<ServerListItemDto[]> {
-    return api.get<ServerListItemDto[]>('/server/public')
+  async getServer(serverId: string): Promise<ServerDetails> {
+    const { data } = await api.get<ServerDetails>(`/servers/${serverId}`)
+    return data
   },
 
-  async getServer(id: EntityId): Promise<ServerDetailDto> {
-    return api.get<ServerDetailDto>(`/server/${id}`)
+  async createServer(serverData: CreateServerDto): Promise<Server> {
+    const { data } = await api.post<Server>('/servers', serverData)
+    return data
   },
 
-  async createServer(data: CreateServerRequestDto): Promise<ServerDetailDto> {
-    return api.post<ServerDetailDto>('/server', data)
+  async updateServer(serverId: string, updates: UpdateServerDto): Promise<Server> {
+    const { data } = await api.put<Server>(`/servers/${serverId}`, updates)
+    return data
   },
 
-  async updateServer(id: EntityId, data: UpdateServerRequestDto): Promise<ServerDetailDto> {
-    return api.put<ServerDetailDto>(`/server/${id}`, data)
+  async deleteServer(serverId: string): Promise<void> {
+    await api.delete(`/servers/${serverId}`)
   },
 
-  async deleteServer(id: EntityId): Promise<void> {
-    return api.delete<void>(`/server/${id}`)
+  async joinServer(inviteCode: string): Promise<Server> {
+    const { data } = await api.post<Server>(`/servers/join/${inviteCode}`)
+    return data
   },
 
-  async joinServer(id: EntityId): Promise<void> {
-    return api.post<void>(`/server/${id}/join`)
+  async leaveServer(serverId: string): Promise<void> {
+    await api.post(`/servers/${serverId}/leave`)
   },
 
-  async leaveServer(id: EntityId): Promise<void> {
-    return api.post<void>(`/server/${id}/leave`)
+  async getServerMembers(serverId: string): Promise<ServerMember[]> {
+    const { data } = await api.get<ServerMember[]>(`/servers/${serverId}/members`)
+    return data
   },
 
-  async getMembers(id: EntityId): Promise<ServerMemberDto[]> {
-    return api.get<ServerMemberDto[]>(`/server/${id}/members`)
+  async kickMember(serverId: string, userId: string): Promise<void> {
+    await api.delete(`/servers/${serverId}/members/${userId}`)
   },
 
-  async kickMember(serverId: EntityId, memberId: EntityId): Promise<void> {
-    return api.delete<void>(`/server/${serverId}/members/${memberId}`)
+  async banMember(serverId: string, userId: string, reason?: string): Promise<void> {
+    await api.post(`/servers/${serverId}/bans/${userId}`, { reason })
   },
 
-  async banMember(serverId: EntityId, memberId: EntityId): Promise<void> {
-    return api.post<void>(`/server/${serverId}/members/${memberId}/ban`)
+  async unbanMember(serverId: string, userId: string): Promise<void> {
+    await api.delete(`/servers/${serverId}/bans/${userId}`)
   },
 
-  async unbanMember(serverId: EntityId, userId: EntityId): Promise<void> {
-    return api.delete<void>(`/server/${serverId}/bans/${userId}`)
+  async updateMemberRole(serverId: string, userId: string, roleId: string): Promise<ServerMember> {
+    const { data } = await api.put<ServerMember>(`/servers/${serverId}/members/${userId}/role`, { roleId })
+    return data
   },
 
-  async getChannels(id: EntityId): Promise<ChannelListItemDto[]> {
-    return api.get<ChannelListItemDto[]>(`/server/${id}/channels`)
+  async createInvite(inviteData: CreateInviteDto): Promise<Invite> {
+    const { data } = await api.post<Invite>('/invites', inviteData)
+    return data
   },
 
-  async createChannel(serverId: EntityId, data: CreateChannelRequestDto): Promise<ChannelListItemDto> {
-    return api.post<ChannelListItemDto>(`/server/${serverId}/channels`, data)
+  async getServerInvites(serverId: string): Promise<Invite[]> {
+    const { data } = await api.get<Invite[]>(`/servers/${serverId}/invites`)
+    return data
   },
 
-  async uploadIcon(serverId: EntityId, file: File): Promise<void> {
-    return api.upload<void>(`/server/${serverId}/icon`, file)
-  },
-
-  async deleteIcon(serverId: EntityId): Promise<void> {
-    return api.delete<void>(`/server/${serverId}/icon`)
+  async revokeInvite(inviteCode: string): Promise<void> {
+    await api.delete(`/invites/${inviteCode}`)
   }
 }

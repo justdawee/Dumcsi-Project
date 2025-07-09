@@ -1,42 +1,48 @@
-import { api } from './api'
-import type { 
-  MessageDto, 
-  CreateMessageRequestDto, 
-  UpdateMessageRequestDto,
-  AttachmentDto,
-  EntityId 
-} from '@/types'
+import api from './api'
+import type { Message, CreateMessageDto, UpdateMessageDto, PaginatedResponse, PaginationParams } from '@/types'
 
 export const messageService = {
-  async getMessages(channelId: EntityId, before?: EntityId, limit: number = 50): Promise<MessageDto[]> {
-    const params = new URLSearchParams()
-    params.append('limit', limit.toString())
-    if (before) params.append('before', before.toString())
-    
-    return api.get<MessageDto[]>(`/channels/${channelId}/messages?${params}`)
+  async getMessages(channelId: string, params?: PaginationParams): Promise<PaginatedResponse<Message>> {
+    const { data } = await api.get<PaginatedResponse<Message>>(`/messages/channel/${channelId}`, { params })
+    return data
   },
 
-  async sendMessage(channelId: EntityId, data: CreateMessageRequestDto): Promise<MessageDto> {
-    return api.post<MessageDto>(`/channels/${channelId}/messages`, data)
+  async getMessage(messageId: string): Promise<Message> {
+    const { data } = await api.get<Message>(`/messages/${messageId}`)
+    return data
   },
 
-  async updateMessage(channelId: EntityId, messageId: EntityId, data: UpdateMessageRequestDto): Promise<MessageDto> {
-    return api.put<MessageDto>(`/channels/${channelId}/messages/${messageId}`, data)
+  async sendMessage(channelId: string, messageData: CreateMessageDto): Promise<Message> {
+    const { data } = await api.post<Message>(`/messages/channel/${channelId}`, messageData)
+    return data
   },
 
-  async deleteMessage(channelId: EntityId, messageId: EntityId): Promise<void> {
-    return api.delete<void>(`/channels/${channelId}/messages/${messageId}`)
+  async updateMessage(messageId: string, updates: UpdateMessageDto): Promise<Message> {
+    const { data } = await api.put<Message>(`/messages/${messageId}`, updates)
+    return data
   },
 
-  async uploadAttachment(channelId: EntityId, file: File): Promise<AttachmentDto> {
-    return api.upload<AttachmentDto>(`/channels/${channelId}/attachments`, file)
+  async deleteMessage(messageId: string): Promise<void> {
+    await api.delete(`/messages/${messageId}`)
   },
 
-  async addReaction(channelId: EntityId, messageId: EntityId, emojiId: string): Promise<void> {
-    return api.post<void>(`/channels/${channelId}/messages/${messageId}/reactions/${emojiId}`)
+  async pinMessage(messageId: string): Promise<void> {
+    await api.post(`/messages/${messageId}/pin`)
   },
 
-  async removeReaction(channelId: EntityId, messageId: EntityId, emojiId: string): Promise<void> {
-    return api.delete<void>(`/channels/${channelId}/messages/${messageId}/reactions/${emojiId}`)
+  async unpinMessage(messageId: string): Promise<void> {
+    await api.delete(`/messages/${messageId}/pin`)
+  },
+
+  async getPinnedMessages(channelId: string): Promise<Message[]> {
+    const { data } = await api.get<Message[]>(`/messages/channel/${channelId}/pinned`)
+    return data
+  },
+
+  async searchMessages(serverId: string, query: string, params?: PaginationParams): Promise<PaginatedResponse<Message>> {
+    const { data } = await api.get<PaginatedResponse<Message>>(`/messages/server/${serverId}/search`, { 
+      params: { ...params, q: query }
+    })
+    return data
   }
 }

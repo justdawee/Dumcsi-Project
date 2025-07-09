@@ -1,89 +1,102 @@
 <template>
-  <div class="flex-1 flex items-center justify-center bg-discord-gray-700">
-    <div class="text-center max-w-md">
-      <div class="mb-8">
-        <MessageSquare class="w-16 h-16 text-discord-gray-400 mx-auto mb-4" />
-        <h1 class="text-2xl font-bold text-white mb-2">
-          Welcome to Dumcsi!
-        </h1>
-        <p class="text-discord-gray-400">
-          Select a server from the sidebar to start chatting, or create a new one.
-        </p>
+  <div class="flex-1 flex items-center justify-center bg-[var(--bg-primary)]">
+    <div class="text-center max-w-md px-4">
+      <div class="w-32 h-32 bg-[var(--accent-primary)]/10 rounded-3xl mx-auto mb-6 flex items-center justify-center">
+        <MessageSquarePlus class="w-16 h-16 text-[var(--accent-primary)]" />
       </div>
       
-      <div v-if="servers.length === 0" class="space-y-4">
-        <BaseButton @click="showCreateModal = true">
-          Create Your First Server
-        </BaseButton>
-        
-        <div class="text-sm text-discord-gray-400">
-          or join a server with an invite link
+      <h1 class="text-3xl font-bold text-[var(--text-primary)] mb-4">
+        Welcome to Dumcsi!
+      </h1>
+      
+      <p class="text-lg text-[var(--text-secondary)] mb-8">
+        {{ greeting }}
+      </p>
+
+      <div class="space-y-4">
+        <button
+          @click="appStore.showServerModal = true"
+          class="w-full px-6 py-4 bg-[var(--accent-primary)] text-white rounded-xl hover:bg-[var(--accent-primary)]/90 transition-colors font-semibold flex items-center justify-center gap-3"
+        >
+          <Plus class="w-5 h-5" />
+          Create a Server
+        </button>
+
+        <div class="relative">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-[var(--bg-hover)]"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-2 bg-[var(--bg-primary)] text-[var(--text-secondary)]">or</span>
+          </div>
         </div>
+
+        <button
+          @click="showJoinModal = true"
+          class="w-full px-6 py-4 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-xl hover:bg-[var(--bg-hover)] transition-colors font-semibold flex items-center justify-center gap-3"
+        >
+          <UserPlus class="w-5 h-5" />
+          Join a Server
+        </button>
       </div>
-      
-      <div v-else class="space-y-4">
-        <h2 class="text-lg font-semibold text-white">Your Servers</h2>
-        <div class="grid gap-3">
+
+      <div v-if="appStore.servers.length > 0" class="mt-12">
+        <p class="text-sm text-[var(--text-secondary)] mb-4">Your servers:</p>
+        <div class="grid grid-cols-2 gap-3">
           <button
-            v-for="server in servers"
+            v-for="server in appStore.servers.slice(0, 4)"
             :key="server.id"
-            class="p-4 bg-discord-gray-600 hover:bg-discord-gray-500 rounded-lg transition-colors text-left"
-            @click="navigateToServer(server.id)"
+            @click="selectServer(server.id)"
+            class="p-4 bg-[var(--bg-secondary)] rounded-xl hover:bg-[var(--bg-hover)] transition-colors text-left"
           >
-            <div class="flex items-center space-x-3">
-              <div v-if="server.icon" class="w-12 h-12 rounded-full overflow-hidden">
-                <img :src="server.icon" :alt="server.name" class="w-full h-full object-cover" />
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-[var(--bg-tertiary)] rounded-xl flex items-center justify-center flex-shrink-0">
+                <img v-if="server.iconUrl" :src="server.iconUrl" alt="" class="w-full h-full rounded-xl object-cover" />
+                <span v-else class="text-sm font-semibold text-[var(--text-primary)]">
+                  {{ server.name.substring(0, 2).toUpperCase() }}
+                </span>
               </div>
-              <div v-else class="w-12 h-12 bg-discord-blurple rounded-full flex items-center justify-center">
-                <span class="text-white font-semibold">{{ server.name.charAt(0) }}</span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="font-medium text-white truncate">{{ server.name }}</h3>
-                <p class="text-sm text-discord-gray-400">{{ server.memberCount }} members</p>
+              <div class="min-w-0">
+                <p class="font-medium text-[var(--text-primary)] truncate">{{ server.name }}</p>
+                <p class="text-xs text-[var(--text-secondary)]">{{ server.memberCount }} members</p>
               </div>
             </div>
           </button>
         </div>
       </div>
     </div>
-    
-    <!-- Create Server Modal -->
-    <CreateServerModal
-      v-if="showCreateModal"
-      @close="showCreateModal = false"
-      @created="handleServerCreated"
-    />
+
+    <!-- Join server modal -->
+    <JoinServerModal v-if="showJoinModal" @close="showJoinModal = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { MessageSquare } from 'lucide-vue-next'
+import { MessageSquarePlus, Plus, UserPlus } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
-import { useToast } from '@/composables/useToast'
-import BaseButton from '@/components/common/BaseButton.vue'
-import CreateServerModal from '@/components/modals/CreateServerModal.vue'
-import type { EntityId, ServerDetailDto } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import JoinServerModal from '@/components/modals/JoinServerModal.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
-const { addToast } = useToast()
+const authStore = useAuthStore()
 
-const showCreateModal = ref(false)
+const showJoinModal = ref(false)
 
-const servers = computed(() => appStore.servers)
+const greeting = computed(() => {
+  if (!authStore.user) return 'Select a server to start chatting'
+  
+  const hour = new Date().getHours()
+  const name = authStore.user.username
+  
+  if (hour < 12) return `Good morning, ${name}! Select a server to start chatting`
+  if (hour < 18) return `Good afternoon, ${name}! Select a server to start chatting`
+  return `Good evening, ${name}! Select a server to start chatting`
+})
 
-const navigateToServer = (serverId: EntityId) => {
-  router.push(`/app/servers/${serverId}`)
-}
-
-const handleServerCreated = (server: ServerDetailDto) => {
-  showCreateModal.value = false
-  navigateToServer(server.id)
-  addToast({
-    type: 'success',
-    message: `Server "${server.name}" created successfully!`
-  })
+function selectServer(serverId: string) {
+  router.push(`/servers/${serverId}`)
 }
 </script>

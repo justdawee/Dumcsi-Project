@@ -1,64 +1,71 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center">
-    <div class="absolute inset-0 bg-black/50" @click="$emit('close')"></div>
-    
-    <div class="relative bg-discord-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-semibold text-white">Create a server</h2>
-        <button
-          class="text-discord-gray-400 hover:text-white transition-colors"
-          @click="$emit('close')"
-        >
-          <X class="w-5 h-5" />
-        </button>
-      </div>
-      
-      <form @submit.prevent="handleSubmit" class="space-y-4">
-        <BaseInput
-          id="name"
-          v-model="form.name"
-          label="Server Name"
-          placeholder="Enter server name"
-          required
-          :error="errors.name"
-        />
-        
-        <BaseInput
-          id="description"
-          v-model="form.description"
-          label="Description (optional)"
-          placeholder="What's your server about?"
-          :error="errors.description"
-        />
-        
-        <div class="flex items-center space-x-3">
-          <input
-            id="public"
-            v-model="form.public"
-            type="checkbox"
-            class="w-4 h-4 text-discord-blurple bg-discord-gray-700 border-discord-gray-600 rounded focus:ring-discord-blurple"
-          />
-          <label for="public" class="text-sm text-discord-gray-300">
-            Make server public (anyone can join)
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" @click.self="emit('close')">
+    <div class="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <h2 class="text-2xl font-bold text-[var(--text-primary)] mb-2">Create a Server</h2>
+      <p class="text-[var(--text-secondary)] mb-6">Give your new server a personality with a name and an icon. You can always change it later.</p>
+
+      <form @submit.prevent="handleCreate" class="space-y-4">
+        <div>
+          <label for="serverName" class="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+            Server Name
           </label>
+          <input
+            id="serverName"
+            v-model="form.name"
+            type="text"
+            required
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-transparent rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent"
+            placeholder="My Awesome Server"
+          />
         </div>
-        
-        <div class="flex space-x-3 pt-4">
-          <BaseButton
+
+        <div>
+          <label for="serverDescription" class="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+            Description (optional)
+          </label>
+          <textarea
+            id="serverDescription"
+            v-model="form.description"
+            rows="3"
+            class="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-transparent rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent resize-none"
+            placeholder="What's your server about?"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+            Server Icon (optional)
+          </label>
+          <div class="flex items-center space-x-4">
+            <div class="w-20 h-20 bg-[var(--bg-tertiary)] rounded-2xl flex items-center justify-center overflow-hidden">
+              <img v-if="form.iconUrl" :src="form.iconUrl" alt="Server icon" class="w-full h-full object-cover" />
+              <ImageIcon v-else class="w-8 h-8 text-[var(--text-secondary)]" />
+            </div>
+            <input
+              v-model="form.iconUrl"
+              type="url"
+              class="flex-1 px-4 py-3 bg-[var(--bg-tertiary)] border border-transparent rounded-xl text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent"
+              placeholder="https://example.com/icon.png"
+            />
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4">
+          <button
             type="button"
-            variant="ghost"
-            @click="$emit('close')"
-            class="flex-1"
+            @click="emit('close')"
+            class="px-4 py-2 text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-xl transition-colors"
           >
             Cancel
-          </BaseButton>
-          <BaseButton
+          </button>
+          <button
             type="submit"
-            :loading="loading"
-            class="flex-1"
+            :disabled="!form.name || isLoading"
+            class="px-6 py-2 bg-[var(--accent-primary)] text-white rounded-xl hover:bg-[var(--accent-primary)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
+            <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
             Create Server
-          </BaseButton>
+          </button>
         </div>
       </form>
     </div>
@@ -66,74 +73,34 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { X } from 'lucide-vue-next'
+import { ref, reactive } from 'vue'
+import { ImageIcon, Loader2 } from 'lucide-vue-next'
 import { useAppStore } from '@/stores/app'
-import { useToast } from '@/composables/useToast'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
-import type { CreateServerRequestDto, ServerDetailDto } from '@/types'
 
 const emit = defineEmits<{
   close: []
-  created: [server: ServerDetailDto]
 }>()
 
 const appStore = useAppStore()
-const { addToast } = useToast()
+const isLoading = ref(false)
 
-const loading = ref(false)
-
-const form = reactive<CreateServerRequestDto>({
+const form = reactive({
   name: '',
   description: '',
-  public: false
+  iconUrl: ''
 })
 
-const errors = reactive({
-  name: '',
-  description: ''
-})
+async function handleCreate() {
+  if (!form.name) return
 
-const clearErrors = () => {
-  errors.name = ''
-  errors.description = ''
-}
-
-const validateForm = (): boolean => {
-  clearErrors()
-  let isValid = true
-
-  if (!form.name.trim()) {
-    errors.name = 'Server name is required'
-    isValid = false
-  } else if (form.name.length < 3) {
-    errors.name = 'Server name must be at least 3 characters'
-    isValid = false
-  }
-
-  if (form.description && form.description.length > 500) {
-    errors.description = 'Description cannot exceed 500 characters'
-    isValid = false
-  }
-
-  return isValid
-}
-
-const handleSubmit = async () => {
-  if (!validateForm()) return
-
+  isLoading.value = true
   try {
-    loading.value = true
-    const server = await appStore.createServer(form)
-    emit('created', server)
+    await appStore.createServer(form.name, form.description || undefined, form.iconUrl || undefined)
+    emit('close')
   } catch (error) {
-    addToast({
-      type: 'danger',
-      message: error instanceof Error ? error.message : 'Failed to create server'
-    })
+    // Error handled by app store
   } finally {
-    loading.value = false
+    isLoading.value = false
   }
 }
 </script>

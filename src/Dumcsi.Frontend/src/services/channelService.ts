@@ -1,20 +1,36 @@
-import { api } from './api'
-import type { 
-  ChannelDetailDto, 
-  UpdateChannelRequestDto,
-  EntityId 
-} from '@/types'
+import api from './api'
+import type { Channel, CreateChannelDto, UpdateChannelDto } from '@/types'
 
 export const channelService = {
-  async getChannel(id: EntityId): Promise<ChannelDetailDto> {
-    return api.get<ChannelDetailDto>(`/channels/${id}`)
+  async getChannels(serverId: string): Promise<Channel[]> {
+    const { data } = await api.get<Channel[]>(`/channels/server/${serverId}`)
+    return data
   },
 
-  async updateChannel(id: EntityId, data: UpdateChannelRequestDto): Promise<ChannelDetailDto> {
-    return api.put<ChannelDetailDto>(`/channels/${id}`, data)
+  async getChannel(channelId: string): Promise<Channel> {
+    const { data } = await api.get<Channel>(`/channels/${channelId}`)
+    return data
   },
 
-  async deleteChannel(id: EntityId): Promise<void> {
-    return api.delete<void>(`/channels/${id}`)
+  async createChannel(channelData: CreateChannelDto): Promise<Channel> {
+    const { data } = await api.post<Channel>('/channels', channelData)
+    return data
+  },
+
+  async updateChannel(channelId: string, updates: UpdateChannelDto): Promise<Channel> {
+    const { data } = await api.put<Channel>(`/channels/${channelId}`, updates)
+    return data
+  },
+
+  async deleteChannel(channelId: string): Promise<void> {
+    await api.delete(`/channels/${channelId}`)
+  },
+
+  async reorderChannels(serverId: string, channelOrders: { channelId: string; position: number }[]): Promise<void> {
+    await api.put(`/channels/server/${serverId}/reorder`, { channelOrders })
+  },
+
+  async markAsRead(channelId: string): Promise<void> {
+    await api.post(`/channels/${channelId}/read`)
   }
 }
