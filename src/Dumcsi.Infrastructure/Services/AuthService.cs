@@ -37,6 +37,7 @@ public class AuthService(IDbContextFactory<DumcsiDbContext> dbContextFactory, IJ
         var user = new User
         {
             Username = request.Username,
+            GlobalNickname = request.Username, // Default is the same as username
             Email = request.Email,
             PasswordHash = passwordHash,
             CreatedAt = SystemClock.Instance.GetCurrentInstant()
