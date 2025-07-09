@@ -93,7 +93,7 @@ import { ref, reactive } from 'vue'
 import { Hash, Volume2, Megaphone, Loader2 } from 'lucide-vue-next'
 import { channelService } from '@/services/channelService'
 import { useAppStore } from '@/stores/app'
-import { ChannelType } from '@/types'
+import { type ChannelType } from '@/types'
 
 const emit = defineEmits<{
   close: []

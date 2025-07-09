@@ -105,7 +105,10 @@ const rememberMe = ref(false)
 
 async function handleLogin() {
   try {
-    await authStore.login(form)
+    await authStore.login({
+      usernameOrEmail: form.email,
+      password: form.password,
+    })
     const redirect = router.currentRoute.value.query.redirect as string
     router.push(redirect || '/')
   } catch (error) {
