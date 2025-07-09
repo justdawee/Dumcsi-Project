@@ -120,11 +120,11 @@ const currentChannelId = computed(() => {
 })
 
 const textChannels = computed(() => 
-  currentServer.value?.channels.filter(c => c.type === ChannelType.Text) || []
+  currentServer.value?.channels.filter((c: { type: ChannelType }) => c.type === ChannelType.Text) || []
 )
 
 const voiceChannels = computed(() => 
-  currentServer.value?.channels.filter(c => c.type === ChannelType.Voice) || []
+  currentServer.value?.channels.filter((c: { type: ChannelType }) => c.type === ChannelType.Voice) || []
 )
 
 const showMemberList = computed(() => !!currentChannelId.value)
