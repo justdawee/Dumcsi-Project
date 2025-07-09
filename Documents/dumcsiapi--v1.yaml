@@ -1,0 +1,1319 @@
+openapi: 3.1.1
+info:
+  title: Dumcsi.Api | v1
+  version: 1.0.0
+servers:
+  - url: http://localhost:5230/
+paths:
+  /api/server/{serverId}/audit-logs:
+    get:
+      tags:
+        - AuditLog
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: page
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 50
+      responses:
+        "200":
+          description: OK
+  /api/Auth/register:
+    post:
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/Auth/login:
+    post:
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/LoginRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/Auth/refresh:
+    post:
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/channels/{id}:
+    get:
+      tags:
+        - Channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+    patch:
+      tags:
+        - Channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateChannelRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/emojis:
+    get:
+      tags:
+        - Emoji
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Emoji
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              allOf:
+                - type: object
+                  properties:
+                    name:
+                      type: string
+                - type: object
+                  properties:
+                    ContentType:
+                      type: string
+                    ContentDisposition:
+                      type: string
+                    Headers:
+                      type: object
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
+                    Length:
+                      pattern: ^-?(?:0|[1-9]\d*)$
+                      type:
+                        - integer
+                        - string
+                      format: int64
+                    Name:
+                      type: string
+                    FileName:
+                      type: string
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/emojis/{emojiId}:
+    delete:
+      tags:
+        - Emoji
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: emojiId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/invites/{inviteCode}:
+    get:
+      tags:
+        - Invite
+      parameters:
+        - name: inviteCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Invite
+      parameters:
+        - name: inviteCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/channels/{channelId}/messages:
+    post:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    get:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: before
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 50
+      responses:
+        "200":
+          description: OK
+  /api/channels/{channelId}/messages/{messageId}/context:
+    get:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 50
+      responses:
+        "200":
+          description: OK
+  /api/channels/{channelId}/messages/{messageId}:
+    patch:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMessageRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMessageRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateMessageRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/channels/{channelId}/attachments:
+    post:
+      tags:
+        - Message
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  $ref: "#/components/schemas/IFormFile"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/channels/{channelId}/messages/{messageId}/reactions/{emoji}:
+    put:
+      tags:
+        - Reaction
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: emoji
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Reaction
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: emoji
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/roles:
+    get:
+      tags:
+        - Role
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Role
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/roles/{roleId}:
+    patch:
+      tags:
+        - Role
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Role
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/roles/members/{memberId}/roles:
+    put:
+      tags:
+        - Role
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRolesRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRolesRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateMemberRolesRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/server:
+    get:
+      tags:
+        - Server
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Server
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServerRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/CreateServerRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/CreateServerRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}:
+    get:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+    put:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServerRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServerRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateServerRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}/members:
+    get:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}/invite:
+    post:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}/leave:
+    post:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}/channels:
+    get:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequestDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequestDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequestDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/server/public:
+    get:
+      tags:
+        - Server
+      responses:
+        "200":
+          description: OK
+  /api/server/{id}/join:
+    post:
+      tags:
+        - Server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/server/{serverId}/icon:
+    post:
+      tags:
+        - Server
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  $ref: "#/components/schemas/IFormFile"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Server
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+      responses:
+        "200":
+          description: OK
+  /api/user/me:
+    get:
+      tags:
+        - User
+      responses:
+        "200":
+          description: OK
+    put:
+      tags:
+        - User
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - User
+      responses:
+        "200":
+          description: OK
+  /api/user/me/change-password:
+    post:
+      tags:
+        - User
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordDto"
+          text/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordDto"
+          application/*+json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordDto"
+        required: true
+      responses:
+        "200":
+          description: OK
+  /api/user/me/avatar:
+    post:
+      tags:
+        - User
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  $ref: "#/components/schemas/IFormFile"
+        required: true
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - User
+      responses:
+        "200":
+          description: OK
+  /api/user/search:
+    get:
+      tags:
+        - User
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+components:
+  schemas:
+    ChangePasswordDto:
+      required:
+        - currentPassword
+        - newPassword
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          maxLength: 100
+          minLength: 6
+          type: string
+    ChannelType:
+      type: integer
+    CreateChannelRequestDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          minLength: 1
+          pattern: ^[a-z0-9-]{1,100}$
+          type: string
+        description:
+          maxLength: 1024
+          minLength: 0
+          type:
+            - "null"
+            - string
+        type:
+          $ref: "#/components/schemas/ChannelType"
+    CreateInviteRequestDto:
+      type: object
+      properties:
+        expiresInHours:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int32
+        maxUses:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        isTemporary:
+          type: boolean
+    CreateMessageRequestDto:
+      required:
+        - content
+      type: object
+      properties:
+        content:
+          maxLength: 4000
+          minLength: 0
+          type: string
+        tts:
+          type: boolean
+        attachmentIds:
+          type:
+            - "null"
+            - array
+          items:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        mentionedUserIds:
+          type:
+            - "null"
+            - array
+          items:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        mentionedRoleIds:
+          type:
+            - "null"
+            - array
+          items:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+    CreateRoleRequestDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          type: string
+        color:
+          type: string
+        permissions:
+          $ref: "#/components/schemas/Permission"
+        isHoisted:
+          type: boolean
+        isMentionable:
+          type: boolean
+    CreateServerRequestDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          minLength: 3
+          type: string
+        description:
+          maxLength: 500
+          type:
+            - "null"
+            - string
+        public:
+          type: boolean
+    IFormFile:
+      type: string
+      format: binary
+    LoginRequestDto:
+      required:
+        - usernameOrEmail
+      type: object
+      properties:
+        usernameOrEmail:
+          type: string
+        password:
+          maxLength: 20
+          minLength: 6
+          type: string
+    NullableOfPermission:
+      type:
+        - "null"
+        - integer
+    Permission:
+      type: integer
+    RefreshTokenRequestDto:
+      required:
+        - refreshToken
+      type: object
+      properties:
+        refreshToken:
+          type: string
+    RegisterRequestDto:
+      required:
+        - username
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          maxLength: 20
+          minLength: 6
+          type: string
+        email:
+          type: string
+    UpdateChannelRequestDto:
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          minLength: 1
+          pattern: ^[a-z0-9-]{1,100}$
+          type:
+            - "null"
+            - string
+        description:
+          maxLength: 1024
+          minLength: 0
+          type:
+            - "null"
+            - string
+        position:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int32
+    UpdateMemberRolesRequestDto:
+      required:
+        - roleIds
+      type: object
+      properties:
+        roleIds:
+          type: array
+          items:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+    UpdateMessageRequestDto:
+      required:
+        - content
+      type: object
+      properties:
+        content:
+          maxLength: 4000
+          minLength: 0
+          type: string
+    UpdateRoleRequestDto:
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          type:
+            - "null"
+            - string
+        color:
+          type:
+            - "null"
+            - string
+        permissions:
+          $ref: "#/components/schemas/NullableOfPermission"
+        position:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int32
+        isHoisted:
+          type:
+            - "null"
+            - boolean
+        isMentionable:
+          type:
+            - "null"
+            - boolean
+    UpdateServerRequestDto:
+      required:
+        - name
+      type: object
+      properties:
+        name:
+          maxLength: 100
+          type: string
+        description:
+          maxLength: 500
+          type:
+            - "null"
+            - string
+        public:
+          type: boolean
+        icon:
+          type: string
+          format: uri
+    UpdateUserProfileDto:
+      required:
+        - username
+        - email
+      type: object
+      properties:
+        username:
+          maxLength: 50
+          minLength: 3
+          type: string
+        email:
+          type: string
+        globalNickname:
+          maxLength: 100
+          minLength: 0
+          type:
+            - "null"
+            - string
+        avatar:
+          type: string
+          format: uri
+tags:
+  - name: AuditLog
+  - name: Auth
+  - name: Channel
+  - name: Emoji
+  - name: Invite
+  - name: Message
+  - name: Reaction
+  - name: Role
+  - name: Server
+  - name: User

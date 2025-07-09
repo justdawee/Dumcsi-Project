@@ -1,0 +1,33 @@
+Felhasználói & Jelenléti Események:
+- UserIsOnline(userId): Felhasználó belépett.
+- UserIsOffline(userId): Felhasználó kilépett.
+- UserUpdated(userDto): Felhasználó profilja (név, avatar stb.) megváltozott.
+
+Szerver & Tagsági Események:
+- ServerUpdated(serverDto): Szerver adatai (név, ikon) változtak.
+- ServerDeleted(serverId): Szerver törölve lett.
+- UserJoinedServer(payload): Új tag csatlakozott a szerverhez.
+- UserLeftServer(payload): Egy tag elhagyta a szervert.
+
+Csatorna & Szerepkör Események:
+- ChannelUpdated(channelDto): Csatorna adatai megváltoztak.
+- ChannelDeleted(payload): Csatorna törölve lett.
+- RoleCreated(roleDto) / RoleUpdated(roleDto) / RoleDeleted(roleId): Szerepkör változások.
+- MemberRolesUpdated(payload): Egy tag szerepkörei megváltoztak.
+
+Üzenet & Interakció Események:
+- ReceiveMessage(messageDto): Új üzenet érkezett.
+- MessageUpdated(messageDto): Egy üzenetet szerkesztettek.
+- MessageDeleted(payload): Egy üzenetet töröltek.
+- ReactionAdded(payload) / ReactionRemoved(payload): Reakciók változása.
+- EmojiCreated(emojiDto) / EmojiDeleted(payload): Custom emojik változása.
+
+WebRTC Jelzések (Voice/Video/Screen Share):
+- Join/LeaveVoiceChannel
+- UserJoined/LeftVoice
+- AllUsersInChannel
+- ReceiveOffer
+- ReceiveAnswer
+- ReceiveIceCandidate
+- UserStartedScreenShare
+- UserStoppedScreenShare

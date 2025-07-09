@@ -84,30 +84,26 @@ export const useAppStore = defineStore('app', () => {
   async function selectChannel(channelId: string) {
     if (currentChannel.value?.id === channelId) return
     
-    // Leave previous channel
-    if (currentChannel.value) {
-      await signalrService.leaveChannel(currentChannel.value.id)
-      activeChannels.value.delete(currentChannel.value.id)
-    }
-    
-    isLoading.value = true
     try {
       currentChannel.value = await channelService.getChannel(channelId)
       
-      // Load messages if not cached
-      if (!messages.value.has(channelId)) {
-        const response = await messageService.getMessages(channelId, { pageSize: 50 })
-        messages.value.set(channelId, response.items.reverse())
+      // Leave previous channel
+      if (activeChannels.value.size > 0) {
+        for (const oldChannelId of activeChannels.value) {
+          await signalrService.leaveChannel(oldChannelId)
+        }
+        activeChannels.value.clear()
       }
       
-      // Join channel for real-time updates
+      // Join new channel
       await signalrService.joinChannel(channelId)
       activeChannels.value.add(channelId)
       
-      // Mark as read
-      await channelService.markAsRead(channelId)
-    } finally {
-      isLoading.value = false
+      // Load messages
+      await loadChannelMessages(channelId)
+    } catch (error) {
+      console.error('Failed to select channel:', error)
+      currentChannel.value = null
     }
   }
 

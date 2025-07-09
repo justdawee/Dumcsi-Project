@@ -8,33 +8,29 @@
       </div>
 
       <!-- Invite details -->
-      <div v-else-if="invite" class="bg-[var(--bg-secondary)] rounded-2xl p-8 shadow-xl">
+      <div v-else-if="inviteInfo" class="bg-[var(--bg-secondary)] rounded-2xl p-8 shadow-xl">
         <div class="text-center mb-6">
           <div class="w-20 h-20 bg-[var(--bg-tertiary)] rounded-2xl mx-auto mb-4 flex items-center justify-center">
-            <img v-if="invite.server.iconUrl" :src="invite.server.iconUrl" alt="" class="w-full h-full rounded-2xl object-cover" />
+            <img v-if="inviteInfo.server.icon" :src="inviteInfo.server.icon" alt="" class="w-full h-full rounded-2xl object-cover" />
             <span v-else class="text-2xl font-bold text-[var(--text-primary)]">
-              {{ invite.server.name.substring(0, 2).toUpperCase() }}
+              {{ inviteInfo.server.name.substring(0, 2).toUpperCase() }}
             </span>
           </div>
           
           <h2 class="text-2xl font-bold text-[var(--text-primary)] mb-2">
             You've been invited to join
           </h2>
-          <h3 class="text-xl text-[var(--text-primary)]">{{ invite.server.name }}</h3>
+          <h3 class="text-xl text-[var(--text-primary)]">{{ inviteInfo.server.name }}</h3>
           
           <div class="flex items-center justify-center gap-4 mt-4 text-sm text-[var(--text-secondary)]">
             <span class="flex items-center gap-1">
               <Users class="w-4 h-4" />
-              {{ invite.server.memberCount }} members
-            </span>
-            <span class="flex items-center gap-1">
-              <User class="w-4 h-4" />
-              Invited by {{ invite.inviter.username }}
+              {{ inviteInfo.server.memberCount }} members
             </span>
           </div>
 
-          <p v-if="invite.server.description" class="mt-4 text-[var(--text-secondary)]">
-            {{ invite.server.description }}
+          <p v-if="inviteInfo.server.description" class="mt-4 text-[var(--text-secondary)]">
+            {{ inviteInfo.server.description }}
           </p>
         </div>
 
@@ -80,10 +76,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Loader2, Users, User, AlertCircle } from 'lucide-vue-next'
+import { Loader2, Users, AlertCircle } from 'lucide-vue-next'
 import { serverService } from '@/services/serverService'
 import { useAppStore } from '@/stores/app'
-import type { Invite } from '@/types'
+import api from '@/services/api'
+
+interface InviteInfo {
+  code: string
+  server: {
+    id: number
+    name: string
+    icon: string | null
+    memberCount: number
+    description: string | null
+  }
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -91,7 +98,7 @@ const appStore = useAppStore()
 
 const isLoading = ref(true)
 const isJoining = ref(false)
-const invite = ref<Invite | null>(null)
+const inviteInfo = ref<InviteInfo | null>(null)
 
 onMounted(async () => {
   const code = route.params.code as string
@@ -101,10 +108,11 @@ onMounted(async () => {
   }
 
   try {
-    // In a real app, we'd have an endpoint to get invite details
-    // For now, we'll try to join directly
-    isLoading.value = false
+    const { data } = await api.get<{ data: InviteInfo }>(`/invites/${code}`)
+    inviteInfo.value = data.data
   } catch (error) {
+    // Error handled by interceptor
+  } finally {
     isLoading.value = false
   }
 })
@@ -115,9 +123,9 @@ async function joinServer() {
 
   isJoining.value = true
   try {
-    const server = await serverService.joinServer(code)
+    const result = await serverService.joinServer(code)
     await appStore.loadServers()
-    router.push(`/servers/${server.id}`)
+    router.push(`/app/servers/${result.serverId}`)
   } catch (error) {
     // Error handled by API interceptor
   } finally {
@@ -126,6 +134,6 @@ async function joinServer() {
 }
 
 function goHome() {
-  router.push('/')
+  router.push('/app')
 }
 </script>

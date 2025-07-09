@@ -1,73 +1,88 @@
 import api from './api'
-import type { Server, ServerDetails, CreateServerDto, UpdateServerDto, ServerMember, CreateInviteDto, Invite } from '@/types'
+import type { Server, ServerDetails, CreateServerDto, UpdateServerDto, ServerMember, CreateInviteDto } from '@/types'
 
 export const serverService = {
   async getServers(): Promise<Server[]> {
-    const { data } = await api.get<Server[]>('/servers')
-    return data
+    const { data } = await api.get<{ data: Server[] }>('/server')
+    return data.data
   },
 
   async getServer(serverId: string): Promise<ServerDetails> {
-    const { data } = await api.get<ServerDetails>(`/servers/${serverId}`)
-    return data
+    const { data } = await api.get<{ data: ServerDetails }>(`/server/${serverId}`)
+    return data.data
   },
 
   async createServer(serverData: CreateServerDto): Promise<Server> {
-    const { data } = await api.post<Server>('/servers', serverData)
-    return data
+    const { data } = await api.post<{ data: Server }>('/server', serverData)
+    return data.data
   },
 
   async updateServer(serverId: string, updates: UpdateServerDto): Promise<Server> {
-    const { data } = await api.put<Server>(`/servers/${serverId}`, updates)
-    return data
+    const { data } = await api.put<{ data: Server }>(`/server/${serverId}`, updates)
+    return data.data
   },
 
   async deleteServer(serverId: string): Promise<void> {
-    await api.delete(`/servers/${serverId}`)
+    await api.delete(`/server/${serverId}`)
   },
 
-  async joinServer(inviteCode: string): Promise<Server> {
-    const { data } = await api.post<Server>(`/servers/join/${inviteCode}`)
-    return data
+  async joinServer(inviteCode: string): Promise<{ serverId: number; serverName: string }> {
+    const { data } = await api.post<{ data: { serverId: number; serverName: string } }>(`/invites/${inviteCode}`)
+    return data.data
   },
 
   async leaveServer(serverId: string): Promise<void> {
-    await api.post(`/servers/${serverId}/leave`)
+    await api.post(`/server/${serverId}/leave`)
   },
 
   async getServerMembers(serverId: string): Promise<ServerMember[]> {
-    const { data } = await api.get<ServerMember[]>(`/servers/${serverId}/members`)
-    return data
+    const { data } = await api.get<{ data: ServerMember[] }>(`/server/${serverId}/members`)
+    return data.data
   },
 
   async kickMember(serverId: string, userId: string): Promise<void> {
-    await api.delete(`/servers/${serverId}/members/${userId}`)
+    await api.delete(`/server/${serverId}/members/${userId}`)
   },
 
   async banMember(serverId: string, userId: string, reason?: string): Promise<void> {
-    await api.post(`/servers/${serverId}/bans/${userId}`, { reason })
+    await api.post(`/server/${serverId}/members/${userId}/ban`, { reason })
   },
 
   async unbanMember(serverId: string, userId: string): Promise<void> {
-    await api.delete(`/servers/${serverId}/bans/${userId}`)
+    await api.delete(`/server/${serverId}/bans/${userId}`)
   },
 
-  async updateMemberRole(serverId: string, userId: string, roleId: string): Promise<ServerMember> {
-    const { data } = await api.put<ServerMember>(`/servers/${serverId}/members/${userId}/role`, { roleId })
-    return data
+  async updateMemberRoles(serverId: string, userId: string, roleIds: string[]): Promise<void> {
+    await api.put(`/server/${serverId}/members/${userId}/roles`, { roleIds })
   },
 
-  async createInvite(inviteData: CreateInviteDto): Promise<Invite> {
-    const { data } = await api.post<Invite>('/invites', inviteData)
-    return data
+  async createInvite(inviteData: CreateInviteDto): Promise<{ code: string }> {
+    const { data } = await api.post<{ data: { code: string } }>(`/server/${inviteData.serverId}/invite`, {
+      expiresInHours: inviteData.expiresInHours,
+      maxUses: inviteData.maxUses,
+      //isTemporary: inviteData.isTemporary
+    })
+    return data.data
   },
 
-  async getServerInvites(serverId: string): Promise<Invite[]> {
-    const { data } = await api.get<Invite[]>(`/servers/${serverId}/invites`)
-    return data
+  async getServerInvites(serverId: string): Promise<any[]> {
+    const { data } = await api.get<{ data: any[] }>(`/server/${serverId}/invites`)
+    return data.data
   },
 
-  async revokeInvite(inviteCode: string): Promise<void> {
-    await api.delete(`/invites/${inviteCode}`)
+  async revokeInvite(serverId: string, inviteCode: string): Promise<void> {
+    await api.delete(`/server/${serverId}/invite/${inviteCode}`)
+  },
+
+  async uploadServerIcon(serverId: string, file: File): Promise<void> {
+    const formData = new FormData()
+    formData.append('file', file)
+    await api.post(`/server/${serverId}/icon`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  async deleteServerIcon(serverId: string): Promise<void> {
+    await api.delete(`/server/${serverId}/icon`)
   }
 }

@@ -22,8 +22,8 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const { data } = await api.get<User>('/auth/me')
-    return data
+    const { data } = await api.get<{ data: User }>('/user/me')
+    return data.data
   },
 
   async verifyEmail(token: string): Promise<void> {
