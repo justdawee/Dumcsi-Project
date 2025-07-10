@@ -8,7 +8,9 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
+    vueDevTools({
+      launchEditor: "webstorm"
+    }),
     tailwindcss(),
   ],
   resolve: {
