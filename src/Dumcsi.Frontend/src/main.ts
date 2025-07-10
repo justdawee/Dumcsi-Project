@@ -15,6 +15,7 @@ app.use(router);
 const authStore = useAuthStore();
 let signalRInitialized = false;
 
+// Initialize Pinia store
 router.isReady().then(async () => {
   if (authStore.token) {
     try {
@@ -31,6 +32,7 @@ router.isReady().then(async () => {
   app.mount('#app');
 });
 
+// Handle authentication state changes
 let authStateTimeout: ReturnType<typeof setTimeout> | null = null;
 authStore.$subscribe((_, state) => {
   if (authStateTimeout) clearTimeout(authStateTimeout);
@@ -50,13 +52,14 @@ authStore.$subscribe((_, state) => {
   }, 100);
 });
 
+// Reinitialize SignalR when the app becomes visible
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated && !signalRService.isConnected) {
     signalRService.initialize();
   }
 });
 
-// Cleanup on app unmount
+// Clean up SignalR connection on app unload
 window.addEventListener('beforeunload', () => {
   if (signalRService.isConnected) {
     signalRService.stop();
