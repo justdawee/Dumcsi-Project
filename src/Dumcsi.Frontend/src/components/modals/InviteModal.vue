@@ -71,12 +71,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Copy } from 'lucide-vue-next';
-import type { ServerDetailDto } from '@/services/types';
+import type { ServerListItem } from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const props = defineProps<{
   modelValue: boolean;
-  server: ServerDetailDto | null;
+  server: ServerListItem | null;
   inviteCode?: string;
 }>();
 

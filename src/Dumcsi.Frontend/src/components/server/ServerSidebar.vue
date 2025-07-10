@@ -138,7 +138,7 @@ import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
-import type { ServerListItemDto } from '@/services/types';
+import type { ServerListItem } from '@/services/types';
 
 // --- State ---
 const route = useRoute();
@@ -149,7 +149,7 @@ const { addToast } = useToast();
 interface MenuItem { label: string; icon: Component; action: () => void; danger?: boolean; }
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const serverMenuItems = ref<MenuItem[]>([]);
-const selectedServer = ref<ServerListItemDto | null>(null);
+const selectedServer = ref<ServerListItem | null>(null);
 
 const showCreateModal = ref(false);
 const isInviteModalOpen = ref(false);
@@ -169,11 +169,11 @@ const isHome = computed(() => route.name === 'ServerSelect');
 const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
 
 // --- Methods ---
-const handleInvite = async (server: ServerListItemDto) => {
+const handleInvite = async (server: ServerListItem) => {
     try {
         const response = await serverService.generateInvite(server.id);
         selectedServer.value = server;
-        generatedInviteCode.value = response.inviteCode;
+        generatedInviteCode.value = response.code;
         isInviteModalOpen.value = true;
     } catch (error) {
         addToast({ 
@@ -183,21 +183,19 @@ const handleInvite = async (server: ServerListItemDto) => {
     }
 };
 
-const handleCreateChannel = (server: ServerListItemDto) => {
-    // Ha nem az aktív szerverre kattintottunk, először navigáljunk oda
+const handleCreateChannel = (server: ServerListItem) => {
     if (currentServerId.value !== server.id) {
         router.push({ name: 'Server', params: { serverId: server.id } });
     }
-    // Majd nyissuk meg a modális ablakot
     appStore.openCreateChannelModal(server.id);
 };
 
-const handleEditServer = (server: ServerListItemDto) => {
+const handleEditServer = (server: ServerListItem) => {
     selectedServer.value = server;
     isEditServerModalOpen.value = true;
 };
 
-const handleLeaveServer = (server: ServerListItemDto) => {
+const handleLeaveServer = (server: ServerListItem) => {
     selectedServer.value = server;
     isLeaveConfirmOpen.value = true;
 };
@@ -218,7 +216,7 @@ const confirmLeaveServer = async () => {
     if (currentServerId.value === serverToLeave.id) {
       router.push({ name: 'ServerSelect' });
     }
-    appStore.fetchServers(); // Frissítjük a szerverlistát
+    appStore.fetchServers();
   } catch (error: any) {
     addToast({
       message: 'Server owner cannot leave the server.',
@@ -228,11 +226,11 @@ const confirmLeaveServer = async () => {
   } finally {
     isLeaving.value = false;
     isLeaveConfirmOpen.value = false;
-    selectedServer.value = null; // A kiválasztott szerver resetelése
+    selectedServer.value = null;
   }
 };
 
-const openServerMenu = (event: MouseEvent, server: ServerListItemDto) => {
+const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   serverMenuItems.value = [
     { label: 'Invite', icon: UserPlus, action: () => handleInvite(server) },
     { label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server) },
@@ -243,7 +241,6 @@ const openServerMenu = (event: MouseEvent, server: ServerListItemDto) => {
 };
 
 const showTooltip = (e: MouseEvent, text: string) => {
-  // Clear any existing timeout
   if (tooltipTimeout) {
     clearTimeout(tooltipTimeout);
   }

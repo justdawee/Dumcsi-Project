@@ -57,20 +57,20 @@ import { ref, reactive, watch } from 'vue';
 import { Loader2 } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import { useToast } from '@/composables/useToast';
-import type { ServerListItemDto, UpdateServerRequestDto } from '@/services/types';
+import type { ServerListItem, UpdateServerRequest } from '@/services/types';
 
 const { addToast } = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
   modelValue: boolean;
-  server: ServerListItemDto | null;
+  server: ServerListItem | null;
 }>();
 
 const emit = defineEmits(['close', 'server-updated']);
 
 // --- State ---
-const form = reactive<UpdateServerRequestDto>({
+const form = reactive<UpdateServerRequest>({
   name: '',
   description: '',
   icon: '',
@@ -88,20 +88,28 @@ watch(() => props.server, (newServer) => {
   if (newServer) {
     form.name = newServer.name;
     form.description = newServer.description || '';
-    form.icon = newServer.icon || '';
-    form.public = newServer.public;
+    form.icon = newServer.icon || ''; 
+    form.public = newServer.public; 
   }
 }, { immediate: true });
 
 const handleUpdateServer = async () => {
   if (!props.server) return;
   isLoading.value = true;
-  addToast({
-    type: 'success',
-    message: 'Successfully updated server settings.',
-  });
+  
+  const payload: UpdateServerRequest = {
+    name: form.name,
+    description: form.description,
+    icon: form.icon || null,
+    public: form.public,
+  };
+
   try {
-    await serverService.updateServer(props.server.id, form);
+    await serverService.updateServer(props.server.id, payload);
+    addToast({
+      type: 'success',
+      message: 'Successfully updated server settings.',
+    });
     emit('server-updated');
     closeModal();
   } catch (err: any) {

@@ -161,13 +161,14 @@ export interface ServerMemberDto {
 export interface ServerListItem {
   id: EntityId;
   name: string;
-  iconUrl: string | null;
+  icon: string | null;
   memberCount: number;
   isOwner: boolean;
+  description: string | null; // A leírásra szükség van a modális ablakban
+  public: boolean;
 }
 
 export interface ServerDetails extends ServerListItem {
-  description: string | null;
   ownerId: EntityId;
   permissions: Permission;
   channels: ChannelListItem[];
@@ -366,6 +367,43 @@ export interface RoleDto {
   isMentionable: boolean;
 }
 
+/**
+ * =================================================================
+ * INVITE TÍPUSOK
+ * =================================================================
+ */
+
+// --- View Model (UI & Store számára) ---
+export interface InviteInfo {
+  code: string;
+  server: {
+    id: EntityId;
+    name: string;
+    iconUrl: string | null;
+    memberCount: number;
+    description: string | null;
+  };
+}
+
+// --- API Payload (Request) ---
+export interface CreateInviteRequest {
+  expiresInHours?: number | null;
+  maxUses?: number;
+  isTemporary?: boolean;
+}
+
+// --- API Response (Nyers adat a backendtől) ---
+export interface InviteInfoDto {
+  code: string;
+  server: {
+    id: EntityId;
+    name: string;
+    icon: string | null;
+    memberCount: number;
+    description: string | null;
+  };
+}
+
 
 /**
  * =================================================================
@@ -395,4 +433,3 @@ export interface UserTypingPayload {
   channelId: EntityId;
   userId: EntityId;
 }
-
