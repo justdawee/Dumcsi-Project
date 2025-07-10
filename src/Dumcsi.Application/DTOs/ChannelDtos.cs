@@ -9,6 +9,7 @@ public class ChannelDtos
     public class ChannelListItemDto
     {
         public long Id { get; set; }
+        public long ServerId { get; set; }
         public string Name { get; set; } = string.Empty;
         public ChannelType Type { get; set; }
         public int Position { get; set; }

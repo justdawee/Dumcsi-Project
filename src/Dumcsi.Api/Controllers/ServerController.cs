@@ -411,6 +411,7 @@ public class ServerController(
         var channelDto = new ChannelDtos.ChannelListItemDto
         {
             Id = channel.Id,
+            ServerId = channel.ServerId,
             Name = channel.Name,
             Type = channel.Type,
             Position = channel.Position
