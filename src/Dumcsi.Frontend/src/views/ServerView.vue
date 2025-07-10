@@ -33,6 +33,7 @@ import CreateChannelModal from '@/components/channel/CreateChannelModal.vue';
 const route = useRoute()
 const appStore = useAppStore()
 
+// Load server data when the component is mounted or when the serverId changes
 const loadServer = async (serverId: number) => {
   try {
     await appStore.fetchServer(serverId);
@@ -41,12 +42,14 @@ const loadServer = async (serverId: number) => {
   }
 };
 
+// Handle channel creation event
 const handleChannelCreated = () => {
     if (appStore.createChannelForServerId) {
         appStore.fetchServer(appStore.createChannelForServerId);
     }
 }
 
+// Load server data on initial mount
 onMounted(() => {
   const serverId = parseInt(route.params.serverId as string, 10);
   if (serverId) {
@@ -54,6 +57,7 @@ onMounted(() => {
   }
 });
 
+// Watch for changes in the serverId route parameter and load the server accordingly
 watch(() => route.params.serverId, (newServerId) => {
   if (newServerId) {
     loadServer(parseInt(newServerId as string, 10));

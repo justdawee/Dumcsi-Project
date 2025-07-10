@@ -15,8 +15,8 @@ import ToastContainer from '@/components/ui/ToastContainer.vue';
 const authStore = useAuthStore()
 const authCheckPending = ref(true)
 
+// Initialize SignalR connection
 onMounted(async () => {
-  // Wait for initial auth check to complete
   if (authStore.token) {
     await authStore.checkAuth()
   }
