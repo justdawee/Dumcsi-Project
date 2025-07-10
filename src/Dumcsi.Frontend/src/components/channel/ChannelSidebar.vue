@@ -127,7 +127,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import channelService from '@/services/channelService';
-import { Permission, type ServerDetailDto, type ChannelListItemDto } from '@/services/types';
+import {Permission, type ServerDetailDto, type ChannelListItemDto, ChannelType} from '@/services/types';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 
 // --- Props & Store ---
@@ -161,7 +161,6 @@ const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type 
 
 const canManageChannels = computed(() => {
   if (!props.server) return false;
-  // Use bitwise AND to check for the ManageChannels permission.
   return (props.server.currentUserPermissions & Permission.ManageChannels) !== 0;
 });
 
@@ -229,7 +228,7 @@ const handleChannelDeleted = (deletedChannelId: number) => {
 @reference "@/style.css";
 
 .bg-gray-850 {
-  background-color: --color-discord-800;
+  background-color: #1e2939;
 }
 
 .channel-item {
