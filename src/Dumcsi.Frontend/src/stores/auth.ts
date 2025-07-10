@@ -1,105 +1,178 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { authService } from '@/services/authService'
-import type { User, LoginDto, RegisterDto } from '@/types'
-import { router } from '@/router'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import router from '@/router';
+import { RouteNames } from '@/router';
+import { useAppStore } from './app';
+import authService from '@/services/authService';
+import userService from '@/services/userService';
+import { signalRService } from '@/services/signalrService';
+import { jwtDecode } from 'jwt-decode';
+import type { 
+  JwtPayload, 
+  LoginRequestDto, 
+  RegisterRequestDto, 
+  UserProfileDto,
+  TokenResponseDto,
+  RefreshTokenRequestDto
+} from '@/services/types';
+import { getDisplayMessage } from '@/services/errorHandler';
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('token'))
-  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'))
-  const user = ref<User | null>(null)
-  const isLoading = ref(false)
+  const token = ref<string | null>(localStorage.getItem('token'));
+  const refreshToken = ref<string | null>(localStorage.getItem('refreshToken'));
+  const user = ref<UserProfileDto | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
+  const isAuthenticated = computed(() => !!token.value && !!user.value);
 
-  async function login(credentials: LoginDto) {
-    isLoading.value = true
-    try {
-      const response = await authService.login(credentials)
-      setAuthData(response.token, response.refreshToken, response.user)
-      await router.push('/')
-    } finally {
-      isLoading.value = false
+  const clearError = () => {
+    error.value = null;
+  };
+
+  const setTokens = (tokens: TokenResponseDto | null) => {
+    if (tokens) {
+      token.value = tokens.accessToken;
+      refreshToken.value = tokens.refreshToken;
+      localStorage.setItem('token', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+    } else {
+      token.value = null;
+      refreshToken.value = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     }
-  }
+  };
 
-  async function register(userData: RegisterDto) {
-    isLoading.value = true
+  const fetchUserProfile = async () => {
     try {
-      const response = await authService.register(userData)
-      setAuthData(response.token, response.refreshToken, response.user)
-      await router.push('/')
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  async function logout() {
-    try {
-      await authService.logout()
+      const profile = await userService.getProfile();
+      user.value = profile;
+      return profile;
     } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      clearAuthData()
-      await router.push('/login')
+      console.error('Failed to fetch user profile:', error);
+      throw error;
     }
-  }
+  };
 
-  async function fetchCurrentUser() {
-    if (!token.value) return
-    
-    try {
-      user.value = await authService.getCurrentUser()
-    } catch (error) {
-      clearAuthData()
-      throw error
-    }
-  }
-
-  async function refreshAccessToken() {
+  const refreshAccessToken = async () => {
     if (!refreshToken.value) {
-      clearAuthData()
-      throw new Error('No refresh token available')
+      throw new Error('No refresh token available');
     }
 
     try {
-      const response = await authService.refreshToken(refreshToken.value)
-      setAuthData(response.token, response.refreshToken, response.user)
+      const payload: RefreshTokenRequestDto = {
+        refreshToken: refreshToken.value
+      };
+      const tokens = await authService.refresh(payload);
+      setTokens(tokens);
+      return tokens;
     } catch (error) {
-      clearAuthData()
-      throw error
+      console.error('Failed to refresh token:', error);
+      await logout();
+      throw error;
     }
-  }
+  };
 
-  function setAuthData(accessToken: string, refreshTkn: string, userData: User) {
-    token.value = accessToken
-    refreshToken.value = refreshTkn
-    user.value = userData
-    
-    localStorage.setItem('token', accessToken)
-    localStorage.setItem('refreshToken', refreshTkn)
-  }
+  const checkAuth = async () => {
+    if (!token.value) {
+      user.value = null;
+      return;
+    }
 
-  function clearAuthData() {
-    token.value = null
-    refreshToken.value = null
-    user.value = null
-    
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-  }
+    try {
+      const payload = jwtDecode<JwtPayload>(token.value);
+      const isExpired = Date.now() >= payload.exp * 1000;
+
+      if (isExpired) {
+        // Try to refresh the token
+        try {
+          await refreshAccessToken();
+          // Retry with new token
+          await fetchUserProfile();
+        } catch {
+          await logout();
+        }
+      } else {
+        if (!user.value) {
+          await fetchUserProfile();
+        }
+      }
+    } catch (e) {
+      console.error("Invalid token found, logging out.", e);
+      await logout();
+    }
+  };
+  
+  const login = async (credentials: LoginRequestDto) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const tokens = await authService.login(credentials);
+      setTokens(tokens);
+      
+      await fetchUserProfile();
+
+      const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+      await router.push(redirectPath || { name: RouteNames.SERVER_SELECT });
+    } catch (err: any) {
+      error.value = getDisplayMessage(err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const register = async (userData: RegisterRequestDto) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      await authService.register(userData);
+      await router.push({ 
+        name: RouteNames.LOGIN, 
+        query: { 
+          registered: 'true',
+          username: userData.username
+        } 
+      });
+    } catch (err: any) {
+      error.value = getDisplayMessage(err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  const logout = async () => {
+    await signalRService.stop();
+    setTokens(null);
+    user.value = null;
+    useAppStore().$reset();
+    if (router.currentRoute.value.name !== RouteNames.LOGIN) {
+      await router.push({ name: RouteNames.LOGIN });
+    }
+  };
+
+  const updateUserData = (updates: Partial<UserProfileDto>) => {
+    if (user.value) {
+      user.value = { ...user.value, ...updates };
+    }
+  };
 
   return {
     token,
     refreshToken,
     user,
-    isLoading,
+    loading,
+    error,
     isAuthenticated,
+    clearError,
     login,
     register,
     logout,
-    fetchCurrentUser,
+    checkAuth,
+    fetchUserProfile,
+    updateUserData,
     refreshAccessToken,
-    clearAuthData
-  }
-})
+  };
+});

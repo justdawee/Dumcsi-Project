@@ -1,88 +1,138 @@
-import api from './api'
-import type { Server, ServerDetails, CreateServerDto, UpdateServerDto, ServerMember, CreateInviteDto } from '@/types'
+import api from './api';
+import type { 
+  ServerListItemDto, 
+  CreateServerRequestDto, 
+  ServerDetailDto, 
+  ServerMemberDto, 
+  ChannelListItemDto, 
+  CreateChannelRequestDto, 
+  UpdateServerRequestDto,
+  InviteInfoDto,
+  CreateInviteRequestDto,
+  ApiResponse,
+  EntityId
+} from './types';
 
-export const serverService = {
-  async getServers(): Promise<Server[]> {
-    const { data } = await api.get<{ data: Server[] }>('/server')
-    return data.data
+const serverService = {
+  async getServers(): Promise<ServerListItemDto[]> {
+    const response = await api.get<ApiResponse<ServerListItemDto[]>>('/server');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async getServer(serverId: string): Promise<ServerDetails> {
-    const { data } = await api.get<{ data: ServerDetails }>(`/server/${serverId}`)
-    return data.data
+  async createServer(payload: CreateServerRequestDto): Promise<{ serverId: EntityId; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>('/server', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async createServer(serverData: CreateServerDto): Promise<Server> {
-    const { data } = await api.post<{ data: Server }>('/server', serverData)
-    return data.data
+  async getServer(id: EntityId): Promise<ServerDetailDto> {
+    const response = await api.get<ApiResponse<ServerDetailDto>>(`/server/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async updateServer(serverId: string, updates: UpdateServerDto): Promise<Server> {
-    const { data } = await api.put<{ data: Server }>(`/server/${serverId}`, updates)
-    return data.data
+  async deleteServer(id: EntityId): Promise<{ message: string }> {
+    const response = await api.delete<ApiResponse<{ message: string }>>(`/server/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async deleteServer(serverId: string): Promise<void> {
-    await api.delete(`/server/${serverId}`)
+  async getServerMembers(id: EntityId): Promise<ServerMemberDto[]> {
+    const response = await api.get<ApiResponse<ServerMemberDto[]>>(`/server/${id}/members`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async joinServer(inviteCode: string): Promise<{ serverId: number; serverName: string }> {
-    const { data } = await api.post<{ data: { serverId: number; serverName: string } }>(`/invites/${inviteCode}`)
-    return data.data
+  async joinServer(inviteCode: string): Promise<{ serverId: EntityId; serverName: string; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; serverName: string; message: string }>>(
+      '/server/join', 
+      { inviteCode }
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async leaveServer(serverId: string): Promise<void> {
-    await api.post(`/server/${serverId}/leave`)
+  async leaveServer(id: EntityId): Promise<{ message: string }> {
+    const response = await api.post<ApiResponse<{ message: string }>>(`/server/${id}/leave`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async getServerMembers(serverId: string): Promise<ServerMember[]> {
-    const { data } = await api.get<{ data: ServerMember[] }>(`/server/${serverId}/members`)
-    return data.data
+  async generateInvite(id: EntityId, payload?: CreateInviteRequestDto): Promise<{ inviteCode: string; message: string }> {
+    const response = await api.post<ApiResponse<{ inviteCode: string; message: string }>>(
+      `/server/${id}/invite`, 
+      payload || {}
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async kickMember(serverId: string, userId: string): Promise<void> {
-    await api.delete(`/server/${serverId}/members/${userId}`)
+  async getInviteInfo(inviteCode: string): Promise<InviteInfoDto> {
+    const response = await api.get<ApiResponse<InviteInfoDto>>(`/invite/${inviteCode}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async banMember(serverId: string, userId: string, reason?: string): Promise<void> {
-    await api.post(`/server/${serverId}/members/${userId}/ban`, { reason })
+  async getServerChannels(id: EntityId): Promise<ChannelListItemDto[]> {
+    const response = await api.get<ApiResponse<ChannelListItemDto[]>>(`/server/${id}/channels`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async unbanMember(serverId: string, userId: string): Promise<void> {
-    await api.delete(`/server/${serverId}/bans/${userId}`)
+  async createChannel(serverId: EntityId, payload: CreateChannelRequestDto): Promise<ChannelListItemDto> {
+    const response = await api.post<ApiResponse<ChannelListItemDto>>(
+      `/server/${serverId}/channels`, 
+      payload
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async updateMemberRoles(serverId: string, userId: string, roleIds: string[]): Promise<void> {
-    await api.put(`/server/${serverId}/members/${userId}/roles`, { roleIds })
+  async updateServer(id: EntityId, payload: UpdateServerRequestDto): Promise<void> {
+    const response = await api.put<ApiResponse<void>>(`/server/${id}`, payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 
-  async createInvite(inviteData: CreateInviteDto): Promise<{ code: string }> {
-    const { data } = await api.post<{ data: { code: string } }>(`/server/${inviteData.serverId}/invite`, {
-      expiresInHours: inviteData.expiresInHours,
-      maxUses: inviteData.maxUses,
-      //isTemporary: inviteData.isTemporary
-    })
-    return data.data
+  async getPublicServers(): Promise<ServerListItemDto[]> {
+    const response = await api.get<ApiResponse<ServerListItemDto[]>>('/server/public');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async getServerInvites(serverId: string): Promise<any[]> {
-    const { data } = await api.get<{ data: any[] }>(`/server/${serverId}/invites`)
-    return data.data
+  async joinPublicServer(serverId: EntityId): Promise<{ serverId: EntityId; message: string }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>(`/server/${serverId}/join`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
+};
 
-  async revokeInvite(serverId: string, inviteCode: string): Promise<void> {
-    await api.delete(`/server/${serverId}/invite/${inviteCode}`)
-  },
-
-  async uploadServerIcon(serverId: string, file: File): Promise<void> {
-    const formData = new FormData()
-    formData.append('file', file)
-    await api.post(`/server/${serverId}/icon`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-  },
-
-  async deleteServerIcon(serverId: string): Promise<void> {
-    await api.delete(`/server/${serverId}/icon`)
-  }
-}
+export default serverService;

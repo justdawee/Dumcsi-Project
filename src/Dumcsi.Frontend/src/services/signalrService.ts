@@ -1,175 +1,170 @@
-import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
-import { useAuthStore } from '@/stores/auth'
-import { useAppStore } from '@/stores/app'
-import type { Message, TypingIndicator, UserPresence } from '@/types'
+import * as signalR from '@microsoft/signalr';
+import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
+import { useToast } from '@/composables/useToast';
+import { registerSignalREventHandlers } from './signalrHandlers';
+import type { EntityId } from '@/services/types';
 
 class SignalRService {
-  private connection: HubConnection | null = null
-  private reconnectInterval: number | null = null
+  private connection: signalR.HubConnection | null = null;
+  private reconnectInterval: ReturnType<typeof setTimeout> | null = null;
+  private readonly maxReconnectAttempts = 5;
+  private reconnectAttempts = 0;
 
-  async initialize(): Promise<void> {
-    const authStore = useAuthStore()
-    
-    if (!authStore.token) {
-      throw new Error('No authentication token available')
-    }
+  constructor() {
+    // A kapcsolat az initialize() metódusban jön létre
+  }
 
-    this.connection = new HubConnectionBuilder()
-      .withUrl('http://localhost:5230/chathub', {
-        accessTokenFactory: () => authStore.token || ''
+  private createConnection(): void {
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
+        accessTokenFactory: () => {
+          const token = localStorage.getItem('token');
+          return token || '';
+        }
       })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(LogLevel.Warning)
-      .build()
-
-    this.setupEventHandlers()
-    
-    try {
-      await this.connection.start()
-      console.log('SignalR connected')
-    } catch (error) {
-      console.error('SignalR connection failed:', error)
-      this.scheduleReconnect()
-    }
+      .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: (retryContext) => {
+          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
+            return null; // Újracsatlakozás leállítása
+          }
+          return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
+        }
+      })
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
   }
 
   private setupEventHandlers(): void {
-    if (!this.connection) return
+    if (!this.connection) return;
 
-    const appStore = useAppStore()
+    const appStore = useAppStore();
+    const { addToast } = useToast();
 
-    // Message events
-    this.connection.on('ReceiveMessage', (message: Message) => {
-      appStore.handleNewMessage(message)
-    })
-
-    this.connection.on('MessageUpdated', (message: Message) => {
-      appStore.handleMessageUpdate(message)
-    })
-
-    this.connection.on('MessageDeleted', (messageId: string, channelId: string) => {
-      appStore.handleMessageDelete(messageId, channelId)
-    })
-
-    // User presence events
-    this.connection.on('UserIsOnline', (presence: UserPresence) => {
-      appStore.updateUserPresence(presence.userId, true, presence.lastSeenAt)
-    })
-
-    this.connection.on('UserIsOffline', (presence: UserPresence) => {
-      appStore.updateUserPresence(presence.userId, false, presence.lastSeenAt)
-    })
-
-    // Typing indicators
-    this.connection.on('UserTyping', (indicator: TypingIndicator) => {
-      appStore.addTypingUser(indicator)
-    })
-
-    this.connection.on('UserStoppedTyping', (indicator: TypingIndicator) => {
-      appStore.removeTypingUser(indicator.userId, indicator.channelId)
-    })
-
-    // Server events
-    this.connection.on('ServerUpdated', (serverId: string) => {
-      appStore.refreshServer(serverId)
-    })
-
-    this.connection.on('ServerDeleted', (serverId: string) => {
-      appStore.handleServerDeleted(serverId)
-    })
-
-    this.connection.on('UserJoinedServer', (serverId: string, userId: string) => {
-      appStore.handleUserJoinedServer(serverId, userId)
-    })
-
-    this.connection.on('UserLeftServer', (serverId: string, userId: string) => {
-      appStore.handleUserLeftServer(serverId, userId)
-    })
-
-    // Channel events
-    this.connection.on('ChannelCreated', (serverId: string, channelId: string) => {
-      appStore.refreshChannels(serverId)
-    })
-
-    this.connection.on('ChannelUpdated', (channelId: string) => {
-      appStore.refreshChannel(channelId)
-    })
-
-    this.connection.on('ChannelDeleted', (serverId: string, channelId: string) => {
-      appStore.handleChannelDeleted(serverId, channelId)
-    })
-
-    // Connection lifecycle
+    // Kapcsolat életciklus eseményei
     this.connection.onreconnecting(() => {
-      appStore.setConnectionStatus('reconnecting')
-    })
+      console.log('SignalR: Reconnecting...');
+      addToast({
+        type: 'warning',
+        message: 'Connection lost. Reconnecting...',
+        duration: 3000
+      });
+    });
 
     this.connection.onreconnected(() => {
-      appStore.setConnectionStatus('connected')
-      this.rejoinChannels()
-    })
+      console.log('SignalR: Reconnected');
+      this.reconnectAttempts = 0;
+      addToast({
+        type: 'success',
+        message: 'Connection restored',
+        duration: 2000
+      });
+    });
 
     this.connection.onclose(() => {
-      appStore.setConnectionStatus('disconnected')
-      this.scheduleReconnect()
-    })
-  }
-
-  private scheduleReconnect(): void {
-    if (this.reconnectInterval) return
-
-    this.reconnectInterval = window.setInterval(async () => {
-      try {
-        await this.initialize()
-        if (this.reconnectInterval) {
-          clearInterval(this.reconnectInterval)
-          this.reconnectInterval = null
-        }
-      } catch (error) {
-        console.error('Reconnection attempt failed:', error)
+      console.log('SignalR: Connection closed');
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.handleConnectionClosed();
       }
-    }, 30000)
+    });
+
+    registerSignalREventHandlers(this.connection, appStore);
   }
 
-  private async rejoinChannels(): Promise<void> {
-    const appStore = useAppStore()
-    const activeChannels = appStore.getActiveChannels()
-    
-    for (const channelId of activeChannels) {
-      await this.joinChannel(channelId)
+  async initialize(): Promise<void> {
+    if (this.connection && this.connection.state !== signalR.HubConnectionState.Disconnected) {
+        return;
     }
-  }
+    
+    if (!this.connection) {
+      this.createConnection();
+      this.setupEventHandlers();
+    }
+    
+    this.reconnectAttempts = 0;
 
-  async joinChannel(channelId: string): Promise<void> {
-    if (!this.connection) throw new Error('SignalR not connected')
-    await this.connection.invoke('JoinChannel', channelId)
-  }
-
-  async leaveChannel(channelId: string): Promise<void> {
-    if (!this.connection) throw new Error('SignalR not connected')
-    await this.connection.invoke('LeaveChannel', channelId)
-  }
-
-  async sendTypingIndicator(channelId: string): Promise<void> {
-    if (!this.connection) throw new Error('SignalR not connected')
-    await this.connection.invoke('SendTypingIndicator', channelId)
+    try {
+      await this.connection!.start();
+      console.log('SignalR: Connected');
+    } catch (error) {
+      console.error('SignalR: Failed to connect initially', error);
+      this.reconnectAttempts = this.maxReconnectAttempts; // Megakadályozzuk a további próbálkozást
+      this.handleConnectionClosed();
+    }
   }
 
   async stop(): Promise<void> {
     if (this.reconnectInterval) {
-      clearInterval(this.reconnectInterval)
-      this.reconnectInterval = null
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
     }
-    
+
     if (this.connection) {
-      await this.connection.stop()
-      this.connection = null
+      try {
+        await this.connection.stop();
+        console.log('SignalR: Connection stopped successfully.');
+      } catch (error) {
+        console.error('SignalR: Error stopping connection', error);
+      }
     }
   }
 
-  isConnected(): boolean {
-    return this.connection?.state === 'Connected'
+  private handleConnectionClosed(): void {
+    const authStore = useAuthStore();
+    
+    if (!authStore.isAuthenticated) {
+      return;
+    }
+
+    const { addToast } = useToast();
+    
+    addToast({
+      type: 'danger',
+      title: 'Connection Failed',
+      message: 'Unable to establish real-time connection. Please refresh the page.',
+      duration: 0 // Nem tűnik el automatikusan
+    });
+  }
+
+  // Nyilvános metódusok üzenetek küldéséhez
+  async sendTypingIndicator(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('SendTypingIndicator', channelId.toString());
+      } catch (error) {
+        console.error('Failed to send typing indicator:', error);
+      }
+    }
+  }
+
+  async joinVoiceChannel(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('JoinVoiceChannel', channelId.toString());
+      } catch (error) {
+        console.error('Failed to join voice channel:', error);
+        throw error;
+      }
+    }
+  }
+
+  async leaveVoiceChannel(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('LeaveVoiceChannel', channelId.toString());
+      } catch (error) {
+        console.error('Failed to leave voice channel:', error);
+      }
+    }
+  }
+
+  get isConnected(): boolean {
+    return this.connection?.state === signalR.HubConnectionState.Connected;
+  }
+
+  get connectionState(): signalR.HubConnectionState | null {
+    return this.connection?.state || null;
   }
 }
 
-export default new SignalRService()
+export const signalRService = new SignalRService();

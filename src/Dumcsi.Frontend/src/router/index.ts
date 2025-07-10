@@ -1,93 +1,113 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import type { RouteRecordRaw } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
-const routes: RouteRecordRaw[] = [
+export const RouteNames = {
+  // Guest routes
+  LOGIN: 'Login',
+  REGISTER: 'Register',
+  
+  // Authenticated routes
+  APP: 'App', // Main application layout
+  SERVER_SELECT: 'ServerSelect',
+  SERVER: 'Server',
+  CHANNEL: 'Channel',
+  USER_SETTINGS: 'UserSettings',
+};
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean;
+    requiresGuest?: boolean;
+  }
+}
+
+const routes: readonly RouteRecordRaw[] = [
   {
-    path: '/login',
-    name: 'login',
-    component: () => import('@/views/LoginView.vue'),
+    path: '/auth/login',
+    name: RouteNames.LOGIN,
+    component: () => import('@/views/auth/LoginView.vue'),
     meta: { requiresGuest: true }
   },
   {
-    path: '/register',
-    name: 'register',
-    component: () => import('@/views/RegisterView.vue'),
+    path: '/auth/register',
+    name: RouteNames.REGISTER,
+    component: () => import('@/views/auth/RegisterView.vue'),
     meta: { requiresGuest: true }
   },
   {
-    path: '/invite/:code',
-    name: 'invite',
-    component: () => import('@/views/InviteView.vue'),
-    meta: { requiresAuth: true }
+    // Redirect /auth to the login page by default.
+    path: '/auth',
+    redirect: { name: RouteNames.LOGIN }
   },
   {
-    path: '/app',
-    name: 'app',
+    path: '/',
     component: () => import('@/views/AppView.vue'),
     meta: { requiresAuth: true },
     children: [
       {
         path: '',
-        name: 'server-select',
+        name: RouteNames.APP, // Moved name here
+        component: () => import('@/views/ServerSelectView.vue')
+      },
+      {
+        path: 'servers',
+        name: RouteNames.SERVER_SELECT,
         component: () => import('@/views/ServerSelectView.vue')
       },
       {
         path: 'servers/:serverId',
-        name: 'server',
+        name: RouteNames.SERVER,
         component: () => import('@/views/ServerView.vue'),
         children: [
           {
             path: 'channels/:channelId',
-            name: 'channel',
+            name: RouteNames.CHANNEL,
             component: () => import('@/views/ChannelView.vue')
           }
         ]
       },
       {
         path: 'settings/profile',
-        name: 'profile-settings',
-        component: () => import('@/views/ProfileSettingsView.vue')
+        name: RouteNames.USER_SETTINGS,
+        component: () => import('@/views/settings/ProfileSettingsView.vue')
       }
     ]
-  },
-  {
-    path: '/',
-    redirect: '/app'
-  },
-  {
-    path: '/:pathMatch(.*)*',
-    name: 'not-found',
-    component: () => import('@/views/NotFoundView.vue')
   }
-]
+  // Optional: Add a 404 catch-all route
+  //{
+  //  path: '/:pathMatch(.*)*',
+  //  name: 'NotFound',
+  //  component: () => import('@/views/NotFoundView.vue') // You would need to create this component
+  //}
+];
 
-export const router = createRouter({
-  history: createWebHistory(),
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
-})
+});
 
-// Navigation guards
-router.beforeEach(async (to, from, next) => {
-  const authStore = useAuthStore()
-  
-  // Initialize auth on first navigation
-  if (!authStore.isAuthenticated && localStorage.getItem('token')) {
+router.beforeEach(async (to, _from, next) => {
+  const authStore = useAuthStore();
+  // If the user has a token but no user data, check auth to populate user
+  if (authStore.token && !authStore.user) {
     try {
-      await authStore.initializeAuth()
-    } catch {
-      // Auth initialization failed, continue to route handling
+      await authStore.checkAuth();
+    } catch (error) {
+      // Token invalid, auth store will handle cleanup
     }
   }
 
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const requiresGuest = to.matched.some(record => record.meta.requiresGuest)
+  const isAuthenticated = authStore.isAuthenticated;
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
 
-  if (requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (requiresGuest && authStore.isAuthenticated) {
-    next('/app')
+  if (requiresAuth && !isAuthenticated) {
+    next({ name: RouteNames.LOGIN, query: { redirect: to.fullPath } });
+  } else if (requiresGuest && isAuthenticated) {
+    next({ name: RouteNames.SERVER_SELECT });
   } else {
-    next()
+    next();
   }
-})
+});
+
+export default router;

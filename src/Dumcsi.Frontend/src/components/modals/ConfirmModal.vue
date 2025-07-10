@@ -1,95 +1,124 @@
 <template>
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" @click.self="handleCancel">
-    <div class="bg-[var(--bg-secondary)] rounded-2xl w-full max-w-md p-6 shadow-2xl">
-      <div class="flex items-start gap-4">
-        <div
-          :class="[
-            'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
-            variant === 'danger' ? 'bg-red-500/10' : 'bg-[var(--accent-primary)]/10'
-          ]"
-        >
-          <component
-            :is="iconComponent"
-            :class="[
-              'w-6 h-6',
-              variant === 'danger' ? 'text-red-500' : 'text-[var(--accent-primary)]'
-            ]"
-          />
+  <Transition name="modal-fade">
+    <div
+      v-if="modelValue"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+      @click.self="$emit('update:modelValue', false)"
+    >
+      <div class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+        <div class="flex items-start space-x-2.5">
+          <div :class="['flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full', intentClasses.iconContainer]">
+            <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true" />
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold leading-6 text-white" id="modal-title">{{ title }}</h3>
+            <div class="mt-2">
+              <p class="text-sm text-gray-400 whitespace-pre-line">
+                {{ message }}
+              </p>
+              
+              <div v-if="$slots.content || contentDetails" class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-h-40 overflow-y-auto scrollbar-thin">
+                  <slot name="content">
+                      <p v-if="contentDetails" class="text-sm text-gray-300 italic whitespace-pre-wrap break-words">"{{ contentDetails }}"</p>
+                  </slot>
+              </div>
+              </div>
+          </div>
         </div>
-
-        <div class="flex-1">
-          <h3 class="text-lg font-semibold text-[var(--text-primary)] mb-2">
-            {{ title }}
-          </h3>
-          <p class="text-[var(--text-secondary)]">
-            {{ message }}
-          </p>
+        
+        <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+          <button
+            type="button"
+            :class="['w-full sm:w-auto', intentClasses.button, { 'opacity-50 cursor-wait': isLoading }]"
+            :disabled="isLoading"
+            @click="$emit('confirm')"
+          >
+            <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2" />
+            {{ confirmText }}
+          </button>
+          <button
+            type="button"
+            class="w-full sm:w-auto mt-3 sm:mt-0 btn-secondary"
+            :disabled="isLoading"
+            @click="$emit('update:modelValue', false)"
+          >
+            {{ cancelText }}
+          </button>
         </div>
-      </div>
-
-      <div class="flex justify-end gap-3 mt-6">
-        <button
-          @click="handleCancel"
-          class="px-4 py-2 text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-xl transition-colors"
-        >
-          {{ cancelText }}
-        </button>
-        <button
-          @click="handleConfirm"
-          :disabled="isLoading"
-          :class="[
-            'px-6 py-2 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center',
-            variant === 'danger'
-              ? 'bg-red-500 text-white hover:bg-red-600'
-              : 'bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-primary)]/90'
-          ]"
-        >
-          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
-          {{ confirmText }}
-        </button>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { AlertCircle, Info, Loader2 } from 'lucide-vue-next'
+import { computed } from 'vue';
+import type { Component } from 'vue';
+import { AlertTriangle, Loader2, CheckCircle2, Info } from 'lucide-vue-next';
 
-interface Props {
-  title: string
-  message: string
-  confirmText?: string
-  cancelText?: string
-  variant?: 'info' | 'danger'
-  isLoading?: boolean
-}
-
-const props = withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<{
+  modelValue: boolean;
+  title?: string;
+  message?: string;
+  confirmText?: string;
+  cancelText?: string;
+  isLoading?: boolean;
+  intent?: 'danger' | 'success' | 'warning' | 'info';
+  contentDetails?: string | null;
+}>(), {
+  title: 'Are you sure?',
+  message: 'This action cannot be undone.',
   confirmText: 'Confirm',
   cancelText: 'Cancel',
-  variant: 'info',
-  isLoading: false
-})
+  isLoading: false,
+  intent: 'danger',
+  contentDetails: null,
+});
 
-const emit = defineEmits<{
-  confirm: []
-  cancel: []
-}>()
+defineEmits(['update:modelValue', 'confirm']);
 
-const iconComponent = computed(() => {
-  return props.variant === 'danger' ? AlertCircle : Info
-})
-
-function handleConfirm() {
-  if (!props.isLoading) {
-    emit('confirm')
+const intentClasses = computed(() => {
+  switch (props.intent) {
+    case 'success':
+      return {
+        icon: CheckCircle2 as Component,
+        iconContainer: 'bg-green-500/20',
+        iconColor: 'text-green-400',
+        button: 'btn-success'
+      };
+    case 'warning':
+      return {
+        icon: AlertTriangle as Component,
+        iconContainer: 'bg-yellow-500/20',
+        iconColor: 'text-yellow-400',
+        button: 'btn-warning'
+      };
+    case 'info':
+      return {
+        icon: Info as Component,
+        iconContainer: 'bg-blue-500/20',
+        iconColor: 'text-blue-400',
+        button: 'btn-info'
+      };
+    case 'danger':
+    default:
+      return {
+        icon: AlertTriangle as Component,
+        iconContainer: 'bg-red-500/20',
+        iconColor: 'text-red-400',
+        button: 'btn-danger'
+      };
   }
-}
-
-function handleCancel() {
-  if (!props.isLoading) {
-    emit('cancel')
-  }
-}
+});
 </script>
+
+<style scoped>
+/* A stílusok most már a globális style.css-ből fognak érkezni */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+</style>

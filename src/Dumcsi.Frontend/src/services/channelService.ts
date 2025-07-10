@@ -1,36 +1,51 @@
-import api from './api'
-import type { Channel, CreateChannelDto, UpdateChannelDto } from '@/types'
+import api from './api';
+import type { 
+  ChannelDetailDto, 
+  UpdateChannelRequestDto,
+  CreateChannelRequestDto,
+  ChannelListItemDto,
+  ApiResponse,
+  EntityId
+} from './types';
 
-export const channelService = {
-  async getChannels(serverId: string): Promise<Channel[]> {
-    const { data } = await api.get<{ data: Channel[] }>(`/server/${serverId}/channels`)
-    return data.data
+const channelService = {
+  async getChannel(id: EntityId): Promise<ChannelDetailDto> {
+    const response = await api.get<ApiResponse<ChannelDetailDto>>(`/channels/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async getChannel(channelId: string): Promise<Channel> {
-    const { data } = await api.get<{ data: Channel }>(`/channels/${channelId}`)
-    return data.data
+  async getChannels(): Promise<ChannelListItemDto[]> {
+    const response = await api.get<ApiResponse<ChannelListItemDto[]>>('/channels');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async createChannel(channelData: CreateChannelDto): Promise<Channel> {
-    const { data } = await api.post<{ data: Channel }>('/channels', channelData)
-    return data.data
+  async createChannel(payload: CreateChannelRequestDto): Promise<ChannelDetailDto> {
+    const response = await api.post<ApiResponse<ChannelDetailDto>>('/channels', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async updateChannel(channelId: string, updates: UpdateChannelDto): Promise<Channel> {
-    const { data } = await api.put<{ data: Channel }>(`/channels/${channelId}`, updates)
-    return data.data
+  async updateChannel(id: EntityId, payload: UpdateChannelRequestDto): Promise<void> {
+    const response = await api.patch<ApiResponse<void>>(`/channels/${id}`, payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 
-  async deleteChannel(channelId: string): Promise<void> {
-    await api.delete(`/channels/${channelId}`)
+  async deleteChannel(id: EntityId): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>(`/channels/${id}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
+};
 
-  async reorderChannels(serverId: string, channelOrders: { channelId: string; position: number }[]): Promise<void> {
-    await api.put(`/server/${serverId}/channels/reorder`, { channelOrders })
-  },
-
-  async markAsRead(channelId: string): Promise<void> {
-    await api.post(`/channels/${channelId}/read`)
-  }
-}
+export default channelService;

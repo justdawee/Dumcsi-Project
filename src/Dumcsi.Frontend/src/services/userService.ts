@@ -1,50 +1,60 @@
-import api from './api'
-import type { User, UpdateProfileDto, DirectMessage } from '@/types'
+import api from './api';
+import type { 
+  UserProfileDto, 
+  UpdateUserProfileDto, 
+  ChangePasswordDto,
+  ApiResponse,
+  EntityId
+} from './types';
 
-export const userService = {
-  async getUser(userId: string): Promise<User> {
-    const { data } = await api.get<User>(`/users/${userId}`)
-    return data
+const userService = {
+  async getProfile(): Promise<UserProfileDto> {
+    const response = await api.get<ApiResponse<UserProfileDto>>('/user/me');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async updateProfile(updates: UpdateProfileDto): Promise<User> {
-    const { data } = await api.put<User>('/users/profile', updates)
-    return data
+  async updateProfile(payload: UpdateUserProfileDto): Promise<UserProfileDto> {
+    const response = await api.put<ApiResponse<UserProfileDto>>('/user/me', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
-    await api.put('/users/password', { currentPassword, newPassword })
+  async changePassword(payload: ChangePasswordDto): Promise<void> {
+    const response = await api.post<ApiResponse<void>>('/user/me/change-password', payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 
-  async deleteAccount(password: string): Promise<void> {
-    await api.delete('/users/account', { data: { password } })
+  async deleteAccount(): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>('/user/me');
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
   },
 
-  async searchUsers(query: string): Promise<User[]> {
-    const { data } = await api.get<User[]>('/users/search', { params: { q: query } })
-    return data
+  async searchUsers(query: string): Promise<UserProfileDto[]> {
+    const response = await api.get<ApiResponse<UserProfileDto[]>>('/user/search', {
+      params: { query }
+    });
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
 
-  async blockUser(userId: string): Promise<void> {
-    await api.post(`/users/${userId}/block`)
+  async getUser(userId: EntityId): Promise<UserProfileDto> {
+    const response = await api.get<ApiResponse<UserProfileDto>>(`/user/${userId}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
   },
+};
 
-  async unblockUser(userId: string): Promise<void> {
-    await api.delete(`/users/${userId}/block`)
-  },
-
-  async getBlockedUsers(): Promise<User[]> {
-    const { data } = await api.get<User[]>('/users/blocked')
-    return data
-  },
-
-  async getDirectMessages(): Promise<DirectMessage[]> {
-    const { data } = await api.get<DirectMessage[]>('/users/direct-messages')
-    return data
-  },
-
-  async createDirectMessage(userId: string): Promise<DirectMessage> {
-    const { data } = await api.post<DirectMessage>(`/users/${userId}/direct-message`)
-    return data
-  }
-}
+export default userService;

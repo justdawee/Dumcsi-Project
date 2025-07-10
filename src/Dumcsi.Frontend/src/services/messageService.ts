@@ -1,48 +1,58 @@
-import api from './api'
-import type { Message, CreateMessageDto, UpdateMessageDto, PaginatedResponse, PaginationParams } from '@/types'
+import api from './api';
+import type { 
+  MessageDto, 
+  CreateMessageRequestDto, 
+  UpdateMessageRequestDto,
+  ApiResponse,
+  EntityId
+} from './types';
 
-export const messageService = {
-  async getMessages(channelId: string, params?: PaginationParams): Promise<PaginatedResponse<Message>> {
-    const { data } = await api.get<PaginatedResponse<Message>>(`/messages/channel/${channelId}`, { params })
-    return data
-  },
-
-  async getMessage(messageId: string): Promise<Message> {
-    const { data } = await api.get<Message>(`/messages/${messageId}`)
-    return data
-  },
-
-  async sendMessage(channelId: string, messageData: CreateMessageDto): Promise<Message> {
-    const { data } = await api.post<Message>(`/messages/channel/${channelId}`, messageData)
-    return data
-  },
-
-  async updateMessage(messageId: string, updates: UpdateMessageDto): Promise<Message> {
-    const { data } = await api.put<Message>(`/messages/${messageId}`, updates)
-    return data
-  },
-
-  async deleteMessage(messageId: string): Promise<void> {
-    await api.delete(`/messages/${messageId}`)
-  },
-
-  async pinMessage(messageId: string): Promise<void> {
-    await api.post(`/messages/${messageId}/pin`)
-  },
-
-  async unpinMessage(messageId: string): Promise<void> {
-    await api.delete(`/messages/${messageId}/pin`)
-  },
-
-  async getPinnedMessages(channelId: string): Promise<Message[]> {
-    const { data } = await api.get<Message[]>(`/messages/channel/${channelId}/pinned`)
-    return data
-  },
-
-  async searchMessages(serverId: string, query: string, params?: PaginationParams): Promise<PaginatedResponse<Message>> {
-    const { data } = await api.get<PaginatedResponse<Message>>(`/messages/server/${serverId}/search`, { 
-      params: { ...params, q: query }
-    })
-    return data
-  }
+interface GetMessagesParams {
+  before?: EntityId;
+  limit?: number;
 }
+
+const messageService = {
+  async getMessages(channelId: EntityId, params?: GetMessagesParams): Promise<MessageDto[]> {
+    const response = await api.get<ApiResponse<MessageDto[]>>(
+      `/channels/${channelId}/messages`, 
+      { params }
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  async sendMessage(channelId: EntityId, payload: CreateMessageRequestDto): Promise<MessageDto> {
+    const response = await api.post<ApiResponse<MessageDto>>(
+      `/channels/${channelId}/messages`, 
+      payload
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  async editMessage(channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequestDto): Promise<void> {
+    const response = await api.patch<ApiResponse<void>>(
+      `/channels/${channelId}/messages/${messageId}`, 
+      payload
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  async deleteMessage(channelId: EntityId, messageId: EntityId): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>(
+      `/channels/${channelId}/messages/${messageId}`
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+};
+
+export default messageService;

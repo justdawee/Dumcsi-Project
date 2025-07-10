@@ -1,325 +1,317 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { serverService } from '@/services/serverService'
-import { channelService } from '@/services/channelService'
-import { messageService } from '@/services/messageService'
-import { userService } from '@/services/userService'
-import signalrService from '@/services/signalrService'
-import type { Server, ServerDetails, Channel, Message, User, TypingIndicator, PaginatedResponse } from '@/types'
-import { errorMessages } from '@/locales/en'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import type {
+  ServerListItemDto,
+  ServerDetailDto,
+  ChannelDetailDto,
+  MessageDto,
+  ServerMemberDto,
+  CreateServerRequestDto,
+  UpdateServerRequestDto,
+  CreateChannelRequestDto,
+  UpdateChannelRequestDto,
+  CreateMessageRequestDto,
+  UpdateMessageRequestDto,
+  EntityId,
+  UserProfileDto,
+  ChannelListItemDto,
+  CreateInviteRequestDto,
+} from '@/services/types';
 
-interface TypingUser extends TypingIndicator {
-  timestamp: number
-}
+import serverService from '@/services/serverService';
+import channelService from '@/services/channelService';
+import messageService from '@/services/messageService';
+import router from '@/router';
+import { useToast } from '@/composables/useToast';
+import { useAuthStore } from './auth';
 
 export const useAppStore = defineStore('app', () => {
   // State
-  const servers = ref<Server[]>([])
-  const currentServer = ref<ServerDetails | null>(null)
-  const currentChannel = ref<Channel | null>(null)
-  const messages = ref<Map<string, Message[]>>(new Map())
-  const typingUsers = ref<Map<string, TypingUser[]>>(new Map())
-  const onlineUsers = ref<Set<string>>(new Set())
-  const connectionStatus = ref<'connected' | 'connecting' | 'reconnecting' | 'disconnected'>('disconnected')
-  const activeChannels = ref<Set<string>>(new Set())
-  const theme = ref<'light' | 'dark'>(localStorage.getItem('theme') as 'light' | 'dark' || 'dark')
+  const servers = ref<ServerListItemDto[]>([]);
+  const currentServer = ref<ServerDetailDto | null>(null);
+  const currentChannel = ref<ChannelDetailDto | null>(null);
+  const messages = ref<MessageDto[]>([]);
+  const members = ref<ServerMemberDto[]>([]);
+  const onlineUsers = ref<Set<EntityId>>(new Set());
+  const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map());
+  const voiceChannelUsers = ref<Map<EntityId, UserProfileDto[]>>(new Map());
+  const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
   
-  // UI State
-  const isLoading = ref(false)
-  const error = ref<string | null>(null)
-  const showServerModal = ref(false)
-  const showChannelModal = ref(false)
-  const showInviteModal = ref(false)
-  const showSettingsModal = ref(false)
+  const isCreateChannelModalOpen = ref(false);
+  const createChannelForServerId = ref<EntityId | null>(null);
 
-  // Getters
-  const sortedServers = computed(() => servers.value.slice().sort((a, b) => a.name.localeCompare(b.name)))
-  
-  const currentChannelMessages = computed(() => {
-    if (!currentChannel.value) return []
-    return messages.value.get(currentChannel.value.id) || []
-  })
-  
-  const currentChannelTypingUsers = computed(() => {
-    if (!currentChannel.value) return []
-    const users = typingUsers.value.get(currentChannel.value.id) || []
-    // Remove expired typing indicators (older than 3 seconds)
-    const now = Date.now()
-    return users.filter(u => now - u.timestamp < 3000)
-  })
+  const loading = ref({
+    servers: false,
+    server: false,
+    channel: false,
+    messages: false,
+    members: false,
+  });
 
-  const isUserOnline = computed(() => (userId: string) => onlineUsers.value.has(userId))
+  const error = ref<string | null>(null);
+  const { addToast } = useToast();
 
-  // Actions
-  async function loadServers() {
-    isLoading.value = true
+  // Computed
+  const currentUserId = computed(() => {
+    const authStore = useAuthStore();
+    return authStore.user?.id || null;
+  });
+
+  // Helper for API calls
+  const handleApiCall = async <T>(
+    loadingKey: keyof typeof loading.value,
+    apiCall: () => Promise<T>
+  ): Promise<T | null> => {
+    loading.value[loadingKey] = true;
+    error.value = null;
     try {
-      servers.value = await serverService.getServers()
+      return await apiCall();
+    } catch (err: any) {
+      error.value = err.message || 'An error occurred';
+      console.error(err);
+      addToast({
+        type: 'danger',
+        message: error.value || 'An unknown error occurred',
+      });
+      return null;
     } finally {
-      isLoading.value = false
+      loading.value[loadingKey] = false;
     }
-  }
+  };
 
-  async function selectServer(serverId: string) {
-    if (currentServer.value?.id === serverId) return
-    
-    isLoading.value = true
-    try {
-      currentServer.value = await serverService.getServer(serverId)
-      currentChannel.value = null
-      
-      // Auto-select first text channel if available
-      const firstTextChannel = currentServer.value.channels
-        .filter(c => c.type === 'Text')
-        .sort((a, b) => a.position - b.position)[0]
-      
-      if (firstTextChannel) {
-        await selectChannel(firstTextChannel.id)
-      }
-    } finally {
-      isLoading.value = false
-    }
-  }
+  // Server Actions
+  const fetchServers = async () => {
+    const result = await handleApiCall('servers', () => serverService.getServers());
+    if (result) servers.value = result;
+  };
 
-  async function selectChannel(channelId: string) {
-    if (currentChannel.value?.id === channelId) return
-    
-    try {
-      currentChannel.value = await channelService.getChannel(channelId)
-      
-      // Leave previous channel
-      if (activeChannels.value.size > 0) {
-        for (const oldChannelId of activeChannels.value) {
-          await signalrService.leaveChannel(oldChannelId)
-        }
-        activeChannels.value.clear()
-      }
-      
-      // Join new channel
-      await signalrService.joinChannel(channelId)
-      activeChannels.value.add(channelId)
-      
-      // Load messages
-      await loadChannelMessages(channelId)
-    } catch (error) {
-      console.error('Failed to select channel:', error)
-      currentChannel.value = null
+  const fetchServer = async (serverId: EntityId) => {
+    const result = await handleApiCall('server', () => serverService.getServer(serverId));
+    if (result) {
+      currentServer.value = result;
+      await fetchServerMembers(serverId);
     }
-  }
+  };
 
-  async function sendMessage(content: string, attachmentUrls?: string[]) {
-    if (!currentChannel.value) return
-    
-    const tempId = `temp-${Date.now()}`
-    const tempMessage: Message = {
-      id: tempId,
-      channelId: currentChannel.value.id,
-      authorId: 'current-user',
-      author: {} as User, // Will be populated by real response
-      content,
-      attachmentUrls,
-      createdAt: new Date().toISOString(),
-      isEdited: false,
-      isPinned: false,
-      mentions: []
-    }
-    
-    // Optimistically add message
-    const channelMessages = messages.value.get(currentChannel.value.id) || []
-    messages.value.set(currentChannel.value.id, [...channelMessages, tempMessage])
-    
-    try {
-      const message = await messageService.sendMessage(currentChannel.value.id, { content, attachmentUrls })
-      
-      // Replace temp message with real one
-      const updatedMessages = messages.value.get(currentChannel.value.id) || []
-      const index = updatedMessages.findIndex(m => m.id === tempId)
-      if (index !== -1) {
-        updatedMessages[index] = message
-        messages.value.set(currentChannel.value.id, [...updatedMessages])
-      }
-    } catch (error) {
-      // Remove temp message on error
-      const updatedMessages = (messages.value.get(currentChannel.value.id) || [])
-        .filter(m => m.id !== tempId)
-      messages.value.set(currentChannel.value.id, updatedMessages)
-      throw error
-    }
-  }
+  const fetchServerMembers = async (serverId: EntityId) => {
+    const result = await handleApiCall('members', () => serverService.getServerMembers(serverId));
+    if (result) members.value = result;
+  };
 
-  // SignalR event handlers
-  function handleNewMessage(message: Message) {
-    const channelMessages = messages.value.get(message.channelId) || []
-    messages.value.set(message.channelId, [...channelMessages, message])
-    
-    // Update last message timestamp for channel
+  const createServer = async (payload: CreateServerRequestDto) => {
+    const result = await serverService.createServer(payload);
+    await fetchServers();
+    await router.push(`/servers/${result.serverId}`);
+    return result;
+  };
+
+  const updateServer = async (serverId: EntityId, payload: UpdateServerRequestDto) => {
+    await serverService.updateServer(serverId, payload);
+    await fetchServer(serverId);
+    await fetchServers();
+  };
+
+  const deleteServer = async (serverId: EntityId) => {
+    await serverService.deleteServer(serverId);
+    await fetchServers();
+    await router.push('/servers');
+  };
+
+  const leaveServer = async (serverId: EntityId) => {
+    await serverService.leaveServer(serverId);
+    await fetchServers();
+    await router.push('/servers');
+  };
+
+  const generateInvite = async (serverId: EntityId, payload?: CreateInviteRequestDto) => {
+    return await serverService.generateInvite(serverId, payload);
+  };
+
+  // Channel Actions
+  const fetchChannel = async (channelId: EntityId) => {
+    const result = await handleApiCall('channel', () => channelService.getChannel(channelId));
+    if (result) {
+      currentChannel.value = result;
+      await fetchMessages(channelId);
+    }
+  };
+
+  const createChannel = async (serverId: EntityId, payload: CreateChannelRequestDto) => {
+    const result = await serverService.createChannel(serverId, payload);
+    await fetchServer(serverId);
+    return result;
+  };
+
+  const updateChannel = async (channelId: EntityId, payload: UpdateChannelRequestDto) => {
+    await channelService.updateChannel(channelId, payload);
+    if (currentChannel.value?.id === channelId) {
+      await fetchChannel(channelId);
+    }
     if (currentServer.value) {
-      const channel = currentServer.value.channels.find(c => c.id === message.channelId)
-      if (channel) {
-        channel.lastMessageAt = message.createdAt
-        if (currentChannel.value?.id !== message.channelId) {
-          channel.unreadCount = (channel.unreadCount || 0) + 1
-        }
+      await fetchServer(currentServer.value.id);
+    }
+  };
+
+  const deleteChannel = async (channelId: EntityId) => {
+    await channelService.deleteChannel(channelId);
+    if (currentServer.value) {
+      await fetchServer(currentServer.value.id);
+      const firstChannel = currentServer.value.channels?.[0];
+      if (firstChannel) {
+        await router.push(`/servers/${currentServer.value.id}/channels/${firstChannel.id}`);
+      } else {
+        await router.push(`/servers/${currentServer.value.id}`);
       }
     }
-  }
+  };
 
-  function handleMessageUpdate(message: Message) {
-    const channelMessages = messages.value.get(message.channelId) || []
-    const index = channelMessages.findIndex(m => m.id === message.id)
+  // Message Actions
+  const fetchMessages = async (channelId: EntityId, before?: EntityId) => {
+    const result = await handleApiCall('messages', () => 
+      messageService.getMessages(channelId, { before, limit: 50 })
+    );
+    if (result) {
+      if (before) {
+        messages.value = [...result, ...messages.value];
+      } else {
+        messages.value = result;
+      }
+    }
+  };
+
+  const fetchMoreMessages = async (channelId: EntityId, before?: EntityId) => {
+    const result = await handleApiCall('messages', () => 
+      messageService.getMessages(channelId, { before, limit: 50 })
+    );
+    if (result) {
+      messages.value = [...messages.value, ...result];
+    }
+  };
+
+  const sendMessage = async (channelId: EntityId, payload: CreateMessageRequestDto) => {
+    const result = await messageService.sendMessage(channelId, payload);
+    messages.value.push(result);
+    return result;
+  };
+
+  const editMessage = async (channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequestDto) => {
+    await messageService.editMessage(channelId, messageId, payload);
+    const messageIndex = messages.value.findIndex(m => m.id === messageId);
+    if (messageIndex !== -1) {
+      messages.value[messageIndex] = {
+        ...messages.value[messageIndex],
+        content: payload.content,
+        editedTimestamp: new Date().toISOString(),
+      };
+    }
+  };
+
+  const deleteMessage = async (channelId: EntityId, messageId: EntityId) => {
+    await messageService.deleteMessage(channelId, messageId);
+    messages.value = messages.value.filter(m => m.id !== messageId);
+  };
+
+  // SignalR Event Handlers
+  const addMessage = (message: MessageDto) => {
+    if (currentChannel.value?.id === message.channelId) {
+      messages.value.push(message);
+    }
+  };
+
+  const updateMessage = (message: MessageDto) => {
+    const index = messages.value.findIndex(m => m.id === message.id);
     if (index !== -1) {
-      channelMessages[index] = message
-      messages.value.set(message.channelId, [...channelMessages])
+      messages.value[index] = message;
     }
-  }
+  };
 
-  function handleMessageDelete(messageId: string, channelId: string) {
-    const channelMessages = messages.value.get(channelId) || []
-    messages.value.set(channelId, channelMessages.filter(m => m.id !== messageId))
-  }
-
-  function updateUserPresence(userId: string, isOnline: boolean, lastSeenAt: string) {
-    if (isOnline) {
-      onlineUsers.value.add(userId)
-    } else {
-      onlineUsers.value.delete(userId)
-    }
-    
-    // Update user in server members if present
-    if (currentServer.value) {
-      const member = currentServer.value.members.find(m => m.userId === userId)
-      if (member?.user) {
-        member.user.isOnline = isOnline
-        member.user.lastSeenAt = lastSeenAt
-      }
-    }
-  }
-
-  function addTypingUser(indicator: TypingIndicator) {
-    const channelTyping = typingUsers.value.get(indicator.channelId) || []
-    const existing = channelTyping.find(u => u.userId === indicator.userId)
-    
-    if (existing) {
-      existing.timestamp = Date.now()
-    } else {
-      channelTyping.push({ ...indicator, timestamp: Date.now() })
-    }
-    
-    typingUsers.value.set(indicator.channelId, [...channelTyping])
-  }
-
-  function removeTypingUser(userId: string, channelId: string) {
-    const channelTyping = typingUsers.value.get(channelId) || []
-    typingUsers.value.set(channelId, channelTyping.filter(u => u.userId !== userId))
-  }
-
-  function setConnectionStatus(status: typeof connectionStatus.value) {
-    connectionStatus.value = status
-  }
-
-  function getActiveChannels(): string[] {
-    return Array.from(activeChannels.value)
-  }
-
-  // Server management
-  async function createServer(name: string, description?: string, iconUrl?: string) {
-    const server = await serverService.createServer({ name, description, iconUrl })
-    servers.value.push(server)
-    await selectServer(server.id)
-  }
-
-  async function leaveServer(serverId: string) {
-    await serverService.leaveServer(serverId)
-    servers.value = servers.value.filter(s => s.id !== serverId)
-    if (currentServer.value?.id === serverId) {
-      currentServer.value = null
-      currentChannel.value = null
-    }
-  }
-
-  async function deleteMessage(messageId: string) {
-    if (!currentChannel.value) return
-    
-    await messageService.deleteMessage(messageId)
-    const channelMessages = messages.value.get(currentChannel.value.id) || []
-    messages.value.set(currentChannel.value.id, channelMessages.filter(m => m.id !== messageId))
-  }
-
-  async function refreshServer(serverId: string) {
-    if (currentServer.value?.id === serverId) {
-      currentServer.value = await serverService.getServer(serverId)
-    }
-  }
-
-  function handleServerDeleted(serverId: string) {
-    servers.value = servers.value.filter(s => s.id !== serverId)
-    if (currentServer.value?.id === serverId) {
-      currentServer.value = null
-      currentChannel.value = null
-    }
-  }
-
-  async function refreshChannels(serverId: string) {
-    if (currentServer.value?.id === serverId) {
-      currentServer.value.channels = await channelService.getChannels(serverId)
-    }
-  }
-
-  async function refreshChannel(channelId: string) {
-    const channel = await channelService.getChannel(channelId)
-    if (currentServer.value) {
-      const index = currentServer.value.channels.findIndex(c => c.id === channelId)
-      if (index !== -1) {
-        currentServer.value.channels[index] = channel
-      }
-    }
+  const removeMessage = (channelId: EntityId, messageId: EntityId) => {
     if (currentChannel.value?.id === channelId) {
-      currentChannel.value = channel
+      messages.value = messages.value.filter(m => m.id !== messageId);
     }
-  }
+  };
 
-  function handleChannelDeleted(serverId: string, channelId: string) {
-    if (currentServer.value?.id === serverId) {
-      currentServer.value.channels = currentServer.value.channels.filter(c => c.id !== channelId)
+  const setUserOnline = (userId: EntityId) => {
+    onlineUsers.value.add(userId);
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      //member.isOnline = true;
     }
-    if (currentChannel.value?.id === channelId) {
-      currentChannel.value = null
-      messages.value.delete(channelId)
-      typingUsers.value.delete(channelId)
-      activeChannels.value.delete(channelId)
+  };
+
+  const setUserOffline = (userId: EntityId) => {
+    onlineUsers.value.delete(userId);
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      //member.isOnline = false;
     }
-  }
+  };
 
-  function handleUserJoinedServer(serverId: string, userId: string) {
-    if (currentServer.value?.id === serverId) {
-      refreshServer(serverId)
+  const addTypingUser = (channelId: EntityId, userId: EntityId) => {
+    if (!typingUsers.value.has(channelId)) {
+      typingUsers.value.set(channelId, new Set());
     }
-  }
+    typingUsers.value.get(channelId)!.add(userId);
+  };
 
-  function handleUserLeftServer(serverId: string, userId: string) {
-    if (currentServer.value?.id === serverId) {
-      currentServer.value.members = currentServer.value.members.filter(m => m.userId !== userId)
+  const removeTypingUser = (channelId: EntityId, userId: EntityId) => {
+    typingUsers.value.get(channelId)?.delete(userId);
+  };
+
+  const getTypingUsersInChannel = (channelId: EntityId): EntityId[] => {
+    return Array.from(typingUsers.value.get(channelId) || []);
+  };
+
+  const updateServerInfo = (server: Partial<ServerDetailDto>) => {
+    if (currentServer.value && currentServer.value.id === server.id) {
+      currentServer.value = { ...currentServer.value, ...server };
     }
-  }
+    const serverIndex = servers.value.findIndex(s => s.id === server.id);
+    if (serverIndex !== -1) {
+      servers.value[serverIndex] = { ...servers.value[serverIndex], ...server };
+    }
+  };
 
-  // Utility functions
-  function showError(message: string) {
-    error.value = message
-    setTimeout(() => error.value = null, 5000)
-  }
+  const addUserToVoiceChannel = (channelId: EntityId, user: UserProfileDto) => {
+    if (!voiceChannelUsers.value.has(channelId)) {
+      voiceChannelUsers.value.set(channelId, []);
+    }
+    const users = voiceChannelUsers.value.get(channelId)!;
+    if (!users.find(u => u.id === user.id)) {
+      users.push(user);
+    }
+  };
 
-  function getErrorMessage(code: string): string {
-    return errorMessages[code] || 'An unexpected error occurred'
-  }
+  const removeUserFromVoiceChannel = (channelId: EntityId, userId: EntityId) => {
+    const users = voiceChannelUsers.value.get(channelId);
+    if (users) {
+      voiceChannelUsers.value.set(
+        channelId,
+        users.filter(u => u.id !== userId)
+      );
+    }
+  };
 
-  function toggleTheme() {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark'
-    localStorage.setItem('theme', theme.value)
-    document.documentElement.setAttribute('data-theme', theme.value)
-  }
+  const setUserScreenShare = (channelId: EntityId, userId: EntityId, isSharing: boolean) => {
+    if (!screenShares.value.has(channelId)) {
+      screenShares.value.set(channelId, new Set());
+    }
+    if (isSharing) {
+      screenShares.value.get(channelId)!.add(userId);
+    } else {
+      screenShares.value.get(channelId)!.delete(userId);
+    }
+  };
 
-  // Initialize theme
-  document.documentElement.setAttribute('data-theme', theme.value)
+  const openCreateChannelModal = (serverId: EntityId) => {
+    createChannelForServerId.value = serverId;
+    isCreateChannelModalOpen.value = true;
+  };
+
+  const closeCreateChannelModal = () => {
+    isCreateChannelModalOpen.value = false;
+    createChannelForServerId.value = null;
+  };
 
   return {
     // State
@@ -327,46 +319,72 @@ export const useAppStore = defineStore('app', () => {
     currentServer,
     currentChannel,
     messages,
-    typingUsers,
+    members,
     onlineUsers,
-    connectionStatus,
-    theme,
-    isLoading,
+    typingUsers,
+    voiceChannelUsers,
+    screenShares,
+    loading,
     error,
-    showServerModal,
-    showChannelModal,
-    showInviteModal,
-    showSettingsModal,
-    
-    // Getters
-    sortedServers,
-    currentChannelMessages,
-    currentChannelTypingUsers,
-    isUserOnline,
-    
-    // Actions
-    loadServers,
-    selectServer,
-    selectChannel,
-    sendMessage,
+    isCreateChannelModalOpen,
+    createChannelForServerId,
+
+    // Computed
+    currentUserId,
+
+    // Server Actions
+    fetchServers,
+    fetchServer,
+    fetchServerMembers,
     createServer,
-    handleNewMessage,
-    handleMessageUpdate,
-    handleMessageDelete,
-    updateUserPresence,
+    updateServer,
+    deleteServer,
+    leaveServer,
+    generateInvite,
+
+    // Channel Actions
+    fetchChannel,
+    createChannel,
+    updateChannel,
+    deleteChannel,
+
+    // Message Actions
+    fetchMessages,
+    fetchMoreMessages,
+    sendMessage,
+    editMessage,
+    deleteMessage,
+
+    // SignalR Event Handlers
+    addMessage,
+    updateMessage,
+    removeMessage,
+    setUserOnline,
+    setUserOffline,
     addTypingUser,
     removeTypingUser,
-    setConnectionStatus,
-    getActiveChannels,
-    refreshServer,
-    handleServerDeleted,
-    refreshChannels,
-    refreshChannel,
-    handleChannelDeleted,
-    handleUserJoinedServer,
-    handleUserLeftServer,
-    showError,
-    getErrorMessage,
-    toggleTheme
-  }
-})
+    getTypingUsersInChannel,
+    updateServerInfo,
+    addUserToVoiceChannel,
+    removeUserFromVoiceChannel,
+    setUserScreenShare,
+
+    // Modal Actions
+    openCreateChannelModal,
+    closeCreateChannelModal,
+
+    // Reset
+    $reset: () => {
+      servers.value = [];
+      currentServer.value = null;
+      currentChannel.value = null;
+      messages.value = [];
+      members.value = [];
+      onlineUsers.value.clear();
+      typingUsers.value.clear();
+      voiceChannelUsers.value.clear();
+      screenShares.value.clear();
+      error.value = null;
+    },
+  };
+});
