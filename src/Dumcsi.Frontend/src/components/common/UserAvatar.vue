@@ -1,30 +1,30 @@
 <template>
-  <div 
-    :class="[
-      'relative flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden',
-      sizeClasses,
+  <div
+      :class="[
+      'relative flex-shrink-0 flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden',
       className
     ]"
-    :style="{ backgroundColor: !avatarUrl && user ? getUserColor(userId) : undefined }"
+      :style="[
+        dynamicStyles,
+        { backgroundColor: !avatarUrl && user ? getUserColor(userId) : undefined }
+    ]"
   >
-    <img 
-      v-if="avatarUrl && !imageError" 
-      :src="avatarUrl" 
-      :alt="displayName"
-      class="w-full h-full object-cover"
-      @error="handleImageError"
+    <img
+        v-if="avatarUrl && !imageError"
+        :src="avatarUrl"
+        :alt="displayName"
+        class="w-full h-full object-cover"
+        @error="handleImageError"
     />
-    <span v-else :class="textSizeClass">
+    <span v-else :style="{ fontSize: textSize }">
       {{ initials }}
     </span>
-    
+
     <!-- Online indicator -->
-    <div 
-      v-if="showOnlineIndicator && isOnline"
-      :class="[
-        'absolute border-gray-800 bg-green-500 rounded-full',
-        onlineIndicatorClasses
-      ]"
+    <div
+        v-if="showOnlineIndicator && isOnline"
+        class="absolute bg-green-500 rounded-full"
+        :style="onlineIndicatorStyles"
     />
   </div>
 </template>
@@ -33,11 +33,11 @@
 import { ref, computed } from 'vue';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { useAppStore } from '@/stores/app';
-import type { UserDto, UserProfile, UserSearchResult, ServerMemberDto } from '@/services/types';
+import type { UserProfileDto, ServerMemberDto } from '@/services/types';
 
 // Props
 const props = withDefaults(defineProps<{
-  user?: UserDto | UserProfile | UserSearchResult | ServerMemberDto | null;
+  user?: UserProfileDto | ServerMemberDto | null;
   avatarUrl?: string | null;
   username?: string;
   userId?: number;
@@ -53,15 +53,34 @@ const props = withDefaults(defineProps<{
 const parsedSize = computed(() => {
   if (typeof props.size === 'string') {
     const sizeMap: Record<string, number> = {
-      'xs': 24,
-      'sm': 32,
-      'md': 40,
-      'lg': 48,
-      'xl': 56
+      'xs': 24, 'sm': 32, 'md': 40, 'lg': 48, 'xl': 56, '2xl': 64, '3xl': 80, '4xl': 128
     };
     return sizeMap[props.size] || 40;
   }
   return props.size;
+});
+
+const dynamicStyles = computed(() => ({
+  width: `${parsedSize.value}px`,
+  height: `${parsedSize.value}px`,
+}));
+
+const textSize = computed(() => {
+  // A betűméret arányos az avatar méretével
+  return `${Math.max(12, parsedSize.value / 2.5)}px`;
+});
+
+const onlineIndicatorStyles = computed(() => {
+  const indicatorSize = Math.max(8, parsedSize.value / 4.5);
+  const borderSize = Math.max(2, indicatorSize / 4);
+  const offset = indicatorSize / 5;
+  return {
+    width: `${indicatorSize}px`,
+    height: `${indicatorSize}px`,
+    bottom: `${offset}px`,
+    right: `${offset}px`,
+    border: `${borderSize}px solid #18191c` // Feltételezve, hogy a háttér sötét
+  };
 });
 
 // Composables
@@ -80,31 +99,7 @@ const initials = computed(() => {
   if (props.user) {
     return getInitials(props.user);
   }
-  return getInitials({ username: displayName.value } as UserDto);
-});
-
-const sizeClasses = computed(() => {
-  const size = parsedSize.value;
-  if (size <= 24) return 'w-6 h-6';
-  if (size <= 32) return 'w-8 h-8';
-  if (size <= 40) return 'w-10 h-10';
-  if (size <= 48) return 'w-12 h-12';
-  return 'w-14 h-14';
-});
-
-const textSizeClass = computed(() => {
-  const size = parsedSize.value;
-  if (size <= 24) return 'text-xs';
-  if (size <= 32) return 'text-sm';
-  if (size <= 40) return 'text-base';
-  return 'text-lg';
-});
-
-const onlineIndicatorClasses = computed(() => {
-  const size = parsedSize.value;
-  if (size <= 32) return 'w-2 h-2 bottom-0 right-0 border';
-  if (size <= 40) return 'w-3 h-3 bottom-0 right-0 border-2';
-  return 'w-4 h-4 bottom-1 right-1 border-2';
+  return getInitials({ username: displayName.value } as UserProfileDto);
 });
 
 // Methods
