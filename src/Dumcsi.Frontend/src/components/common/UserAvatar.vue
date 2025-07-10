@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { useAppStore } from '@/stores/app';
 import type { UserProfileDto, ServerMemberDto } from '@/services/types';
@@ -89,6 +89,12 @@ const { getUserColor, getInitials } = useUserDisplay();
 
 // State
 const imageError = ref(false);
+
+watch(() => props.avatarUrl, (newUrl, oldUrl) => {
+  if (newUrl !== oldUrl) {
+    imageError.value = false;
+  }
+});
 
 // Computed
 const displayName = computed(() => props.username || props.user?.username || 'Unknown');

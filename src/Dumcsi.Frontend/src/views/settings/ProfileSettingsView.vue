@@ -170,7 +170,6 @@
 
 <script setup lang="ts">
 import {ref, computed, onMounted, reactive} from 'vue';
-import {useRouter} from 'vue-router';
 import {useAuthStore} from '@/stores/auth';
 import {useToast} from '@/composables/useToast';
 import userService from '@/services/userService';
@@ -181,19 +180,18 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type {UpdateUserProfileRequest, ChangePasswordRequest, UserProfileDto} from '@/services/types';
 
 // Composables
-const router = useRouter();
 const authStore = useAuthStore();
 const {addToast} = useToast();
 
 // State
 const loading = ref(false);
 const avatarUploading = ref(false);
-const uploadProgress = ref(0);
 const changingPassword = ref(false);
 const deletingAccount = ref(false);
 const showDeleteConfirm = ref(false);
 const fileInput = ref<HTMLInputElement>();
 const previewAvatar = ref<string | null>(null);
+const selectedAvatarFile = ref<File | null>(null);
 
 // Form state
 const originalProfile = reactive<Partial<UserProfileDto>>({});
@@ -212,7 +210,7 @@ const passwordForm = reactive<ChangePasswordRequest & { confirmPassword: '' }>({
 // Computed
 const hasChanges = computed(() => {
   return profileForm.globalNickname !== (originalProfile.globalNickname || '') ||
-      profileForm.avatar !== (originalProfile.avatar || '');
+      !!selectedAvatarFile.value;
 });
 
 const passwordError = computed(() => {
@@ -252,10 +250,11 @@ const resetProfileForm = () => {
     URL.revokeObjectURL(previewAvatar.value);
     previewAvatar.value = null;
   }
+  selectedAvatarFile.value = null;
   Object.assign(profileForm, originalProfile);
 };
 
-const handleAvatarSelect = async (event: Event) => {
+const handleAvatarSelect = (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
@@ -265,24 +264,18 @@ const handleAvatarSelect = async (event: Event) => {
     }
     if (file.size > 5 * 1024 * 1024) throw new Error('Image must be less than 5MB.');
 
+    if (previewAvatar.value) {
+      URL.revokeObjectURL(previewAvatar.value);
+    }
+
     previewAvatar.value = URL.createObjectURL(file);
-    avatarUploading.value = true;
-    uploadProgress.value = 0;
-
-    const response = await uploadService.uploadAvatar(file, {
-      onProgress: (progress) => {
-        uploadProgress.value = progress;
-      }
-    });
-
-    profileForm.avatar = response.url;
+    selectedAvatarFile.value = file;
 
   } catch (error: any) {
-    addToast({type: 'danger', message: error.message || 'Failed to upload avatar'});
-    resetProfileForm();
+    addToast({type: 'danger', message: error.message || 'Failed to select avatar'});
+    previewAvatar.value = null;
+    selectedAvatarFile.value = null;
   } finally {
-    avatarUploading.value = false;
-    uploadProgress.value = 0;
     if (fileInput.value) fileInput.value.value = '';
   }
 };
@@ -291,12 +284,21 @@ const handleUpdateProfile = async () => {
   if (!hasChanges.value) return;
 
   loading.value = true;
+  avatarUploading.value = true;
+
   try {
+    let newAvatarUrl = profileForm.avatar;
+
+    if (selectedAvatarFile.value) {
+      const response = await uploadService.uploadAvatar(selectedAvatarFile.value);
+      newAvatarUrl = response.url;
+    }
+
     const payload: UpdateUserProfileRequest = {
       username: profileForm.username,
       email: profileForm.email,
       globalNickname: profileForm.globalNickname || null,
-      avatar: profileForm.avatar || null
+      avatar: newAvatarUrl || null
     };
 
     await userService.updateProfile(payload);
@@ -307,12 +309,14 @@ const handleUpdateProfile = async () => {
       URL.revokeObjectURL(previewAvatar.value);
       previewAvatar.value = null;
     }
+    selectedAvatarFile.value = null;
 
     addToast({type: 'success', message: 'Profile updated successfully'});
   } catch (error: any) {
     addToast({type: 'danger', message: error.message || 'Failed to update profile'});
   } finally {
     loading.value = false;
+    avatarUploading.value = false;
   }
 };
 
