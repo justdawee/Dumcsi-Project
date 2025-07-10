@@ -178,6 +178,7 @@ import {Camera, Loader2, UserCircle} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type {UpdateUserProfileRequest, ChangePasswordRequest, UserProfileDto} from '@/services/types';
+import {getDisplayMessage} from "@/services/errorHandler.ts";
 
 // Composables
 const authStore = useAuthStore();
@@ -260,9 +261,11 @@ const handleAvatarSelect = (event: Event) => {
 
   try {
     if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      throw new Error('Please select a valid image file.');
+      throw {response: {data: {error: {code: 'AVATAR_INVALID_FILE_TYPE'}}}};
     }
-    if (file.size > 5 * 1024 * 1024) throw new Error('Image must be less than 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      throw {response: {data: {error: {code: 'AVATAR_FILE_TOO_LARGE'}}}};
+    }
 
     if (previewAvatar.value) {
       URL.revokeObjectURL(previewAvatar.value);
@@ -272,7 +275,7 @@ const handleAvatarSelect = (event: Event) => {
     selectedAvatarFile.value = file;
 
   } catch (error: any) {
-    addToast({type: 'danger', message: error.message || 'Failed to select avatar'});
+    addToast({type: 'danger', message: getDisplayMessage(error)});
     previewAvatar.value = null;
     selectedAvatarFile.value = null;
   } finally {
