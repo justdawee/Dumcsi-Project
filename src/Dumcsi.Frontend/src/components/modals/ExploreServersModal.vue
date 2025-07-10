@@ -73,17 +73,20 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import serverService from '@/services/serverService';
-import type { ServerListItemDto } from '@/services/types';
+import type { ServerListItem } from '@/services/types';
 import { Loader2 } from 'lucide-vue-next';
 
 // --- Props & Emits ---
+const props = defineProps<{
+  modelValue: boolean;
+}>();
 const emit = defineEmits(['update:modelValue']);
 
 // --- State ---
 const router = useRouter();
 const appStore = useAppStore();
 const { addToast } = useToast();
-const servers = ref<ServerListItemDto[]>([]);
+const servers = ref<ServerListItem[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const joiningState = reactive<Record<number, boolean>>({});
@@ -99,10 +102,12 @@ const closeModal = () => {
 
 const fetchPublicServers = async () => {
   loading.value = true;
+  error.value = null; // Hiba resetelése újratöltéskor
   try {
-    const response = await serverService.getPublicServers();
-    servers.value = response;
+    // A serverService már a helyes, letisztult ServerListItem[]-et adja vissza
+    servers.value = await serverService.getPublicServers();
   } catch (err: any) {
+    error.value = 'Failed to load servers.';
     addToast({
       type: 'danger',
       message: 'Failed to fetch public servers.'
@@ -112,7 +117,7 @@ const fetchPublicServers = async () => {
   }
 };
 
-const joinServer = async (server: ServerListItemDto) => {
+const joinServer = async (server: ServerListItem) => {
   if (isMember(server.id).value) {
     router.push(`/servers/${server.id}`);
     closeModal();
@@ -123,6 +128,10 @@ const joinServer = async (server: ServerListItemDto) => {
   try {
     const result = await appStore.joinPublicServer(server.id);
     if (result?.serverId) {
+      addToast({
+        type: 'success',
+        message: `Successfully joined ${server.name}.`
+      });
       router.push(`/servers/${result.serverId}`);
       closeModal();
     }
@@ -132,10 +141,6 @@ const joinServer = async (server: ServerListItemDto) => {
       message: 'Failed to join server.'
     });
   } finally {
-    addToast({
-      type: 'success',
-      message: `Successfully joined ${server.name}.`
-    });
     joiningState[server.id] = false;
   }
 };
@@ -149,7 +154,3 @@ onMounted(() => {
   fetchPublicServers();
 });
 </script>
-
-<style scoped>
-@reference "@/style.css";
-</style>

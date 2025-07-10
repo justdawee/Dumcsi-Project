@@ -23,7 +23,6 @@
 
       <!-- Create Server Tab -->
       <form v-if="activeTab === 'create'" @submit.prevent="handleCreateServer" class="space-y-4">
-        <!-- ... (a create fül tartalma változatlan) ... -->
         <div>
           <label class="block text-sm font-medium text-gray-300 mb-2">
             Server Name
@@ -129,7 +128,7 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import { Loader2 } from 'lucide-vue-next';
-import type { CreateServerRequestDto } from '@/services/types';
+import type { CreateServerRequest } from '@/services/types';
 
 const emit = defineEmits(['close']);
 const router = useRouter();
@@ -140,7 +139,7 @@ const activeTab = ref<'create' | 'join'>('create');
 const loading = ref(false);
 const error = ref('');
 
-const createForm = ref<CreateServerRequestDto>({
+const createForm = ref<CreateServerRequest>({
   name: '',
   description: '',
   public: false

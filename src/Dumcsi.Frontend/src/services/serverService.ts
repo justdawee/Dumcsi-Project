@@ -166,8 +166,7 @@ const serverService = {
    */
   async joinServer(inviteCode: string): Promise<{ serverId: EntityId; serverName: string; message: string }> {
     const response = await api.post<ApiResponse<{ serverId: EntityId; serverName: string; message: string }>>(
-      '/server/join', 
-      { inviteCode }
+      `/invites/${inviteCode}`
     );
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
