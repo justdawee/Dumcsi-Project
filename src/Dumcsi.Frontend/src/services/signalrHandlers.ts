@@ -3,14 +3,14 @@ import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import type {
   MessageDto,
-  UserDto,
-  ServerDto,
-  ChannelDto,
+  UserProfileDto,
+  ServerListItemDto,
+  ChannelListItemDto,
   MessageDeletedPayload,
   UserServerPayload,
   ChannelDeletedPayload,
   EntityId
-} from '@/services/types';
+} from './types';
 
 // A store típusának definiálása a jobb típusbiztonság érdekében
 type AppStore = ReturnType<typeof useAppStore>;
@@ -37,7 +37,7 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
   });
 
   // Felhasználó események
-  connection.on('UserUpdated', (user: UserDto) => {
+  connection.on('UserUpdated', (user: UserProfileDto) => {
     store.handleUserUpdated(user);
   });
 
@@ -58,11 +58,13 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
   });
 
   // Szerver események
+  /* NOT USED
   connection.on('ServerCreated', (server: ServerDto) => {
     store.handleServerCreated(server);
   });
+  */
 
-  connection.on('ServerUpdated', (server: ServerDto) => {
+  connection.on('ServerUpdated', (server: ServerListItemDto) => {
     store.handleServerUpdated(server);
   });
 
@@ -103,11 +105,11 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
   });
 
   // Csatorna események
-  connection.on('ChannelCreated', (serverId: EntityId, channel: ChannelDto) => {
+  connection.on('ChannelCreated', (serverId: EntityId, channel: ChannelListItemDto) => {
     store.handleChannelCreated(serverId, channel);
   });
 
-  connection.on('ChannelUpdated', (channel: ChannelDto) => {
+  connection.on('ChannelUpdated', (channel: ChannelListItemDto) => {
     store.handleChannelUpdated(channel);
   });
 
@@ -116,7 +118,7 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
   });
 
   // Hangcsatorna események
-  connection.on('UserJoinedVoiceChannel', (channelId: EntityId, user: UserDto) => {
+  connection.on('UserJoinedVoiceChannel', (channelId: EntityId, user: UserProfileDto) => {
     store.handleUserJoinedVoiceChannel(channelId, user);
   });
 

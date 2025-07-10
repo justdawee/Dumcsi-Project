@@ -200,6 +200,11 @@ export interface RoleDto {
   isMentionable: boolean;
 }
 
+export interface UserServerPayload {
+  user: UserProfileDto;
+  serverId: EntityId;
+}
+
 // --- Channel DTOs ---
 export interface ChannelListItemDto {
   id: EntityId;
@@ -225,6 +230,11 @@ export interface UpdateChannelRequestDto {
   position?: number | null;
 }
 
+export interface ChannelDeletedPayload {
+  serverId: EntityId;
+  channelId: EntityId;
+}
+
 // --- Message DTOs ---
 export interface MessageDto {
   id: EntityId;
@@ -248,8 +258,14 @@ export interface CreateMessageRequestDto {
   mentionedRoleIds?: EntityId[] | null;
 }
 
+// might not work with backend -> backend uses MapMessageToDto function
 export interface UpdateMessageRequestDto {
   content: string;
+}
+
+export interface MessageDeletedPayload {
+  channelId: EntityId;
+  messageId: EntityId;
 }
 
 export interface ReactionDto {
