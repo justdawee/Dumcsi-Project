@@ -416,6 +416,8 @@ public class ServerController(
             Position = channel.Position
         };
         
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("ChannelCreated", channelDto, cancellationToken: cancellationToken);
+        
         return CreatedAtAction(nameof(GetChannels), new { id }, ApiResponse<ChannelDtos.ChannelListItemDto>.Success(channelDto, "Channel created successfully."));
     }
     
