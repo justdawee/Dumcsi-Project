@@ -1,4 +1,19 @@
-// --- Enums (from backend) ---
+/**
+ * =================================================================
+ * KÖZÖS ALAP TÍPUSOK ÉS ENUMOK
+ * =================================================================
+ * Ezek a típusok a teljes alkalmazásban konzisztensek.
+ */
+
+export type EntityId = number;
+export type ISODateString = string;
+
+export enum ChannelType {
+  Text = 0,
+  Voice = 1
+}
+
+// A backend Permission enum-ja, ez a jogosultságkezelés alapja.
 export enum Permission {
   None = 0,
   ViewChannels = 1 << 0,
@@ -25,96 +40,95 @@ export enum Permission {
   Administrator = 1 << 31
 }
 
-export enum ChannelType {
-  Text = 0,
-  Voice = 1
+/**
+ * =================================================================
+ * API VÁLASZ WRAPPER
+ * =================================================================
+ * Minden API hívás ezt a struktúrát követi.
+ */
+export interface ApiResponse<T = any> {
+  isSuccess: boolean;
+  data: T;
+  message: string;
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
-export enum AuditLogTargetType {
-  Server = 0,
-  Channel = 1,
-  User = 2,
-  Role = 3,
-  Invite = 4,
-  Message = 5,
-  Emoji = 6
+
+/**
+ * =================================================================
+ * AUTHENTICATION TÍPUSOK
+ * =================================================================
+ */
+
+// --- API Payloads (Request) ---
+export interface LoginRequest {
+  usernameOrEmail: string;
+  password: string;
 }
 
-export enum AuditLogActionType {
-  // Server actions
-  ServerCreated = 0,
-  ServerUpdated = 1,
-  ServerDeleted = 2,
-  
-  // Channel actions
-  ChannelCreated = 10,
-  ChannelUpdated = 11,
-  ChannelDeleted = 12,
-  
-  // Member actions
-  ServerMemberJoined = 20,
-  ServerMemberLeft = 21,
-  ServerMemberKicked = 22,
-  ServerMemberBanned = 23,
-  ServerMemberUnbanned = 24,
-  ServerMemberRolesUpdated = 25,
-  
-  // Role actions
-  RoleCreated = 30,
-  RoleUpdated = 31,
-  RoleDeleted = 32,
-  
-  // Message actions
-  MessageDeleted = 40,
-  MessageBulkDeleted = 41,
-  
-  // Emoji actions
-  EmojiCreated = 50,
-  EmojiUpdated = 51,
-  EmojiDeleted = 52,
-  
-  // Invite actions
-  InviteCreated = 60,
-  InviteDeleted = 61
-}
-
-// --- Type Aliases ---
-export type EntityId = number; // Backend uses long, which maps to number in TS
-export type ISODateString = string; // For Instant type from backend
-
-// --- Auth DTOs ---
-export interface RegisterRequestDto {
+export interface RegisterRequest {
   username: string;
   password: string;
   email: string;
 }
 
-export interface LoginRequestDto {
-  usernameOrEmail: string;
-  password: string;
-}
-
-export interface RefreshTokenRequestDto {
+export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+// --- API Responses ---
 export interface TokenResponseDto {
   accessToken: string;
   refreshToken: string;
 }
 
-// --- Result DTOs ---
-export interface Result {
-  isSuccess: boolean;
-  error: string | null;
-  isFailure?: boolean;
+// --- Frontend segédtípusok ---
+export interface JwtPayload {
+  sub: string;
+  username: string;
+  exp: number;
 }
 
-export interface ResultT<T> extends Result {
-  value: T | null;
+/**
+ * =================================================================
+ * USER TÍPUSOK
+ * =================================================================
+ */
+
+// --- View Models (UI & Store számára) ---
+export interface UserProfile {
+  id: EntityId;
+  username: string;
+  globalNickname: string | null;
+  avatarUrl: string | null;
 }
 
-// --- User DTOs ---
+export interface ServerMember {
+  userId: EntityId;
+  username: string;
+  serverNickname: string | null;
+  avatarUrl: string | null;
+  roles: Role[];
+  isOnline: boolean;
+}
+
+// --- API Payloads (Request) ---
+export interface UpdateUserProfileRequest {
+  username: string;
+  email: string;
+  globalNickname: string | null;
+  avatar: string | null;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+// --- API Responses (Nyers adatok a backendtől) ---
 export interface UserProfileDto {
   id: EntityId;
   username: string;
@@ -125,19 +139,56 @@ export interface UserProfileDto {
   verified: boolean | null;
 }
 
-export interface UpdateUserProfileDto {
+export interface ServerMemberDto {
+  userId: EntityId;
   username: string;
-  email: string;
-  globalNickname: string | null;
+  serverNickname: string | null;
   avatar: string | null;
+  roles: RoleDto[];
+  joinedAt: ISODateString;
+  deafened: boolean;
+  muted: boolean;
 }
 
-export interface ChangePasswordDto {
-  currentPassword: string;
-  newPassword: string;
+
+/**
+ * =================================================================
+ * SERVER TÍPUSOK
+ * =================================================================
+ */
+
+// --- View Models (UI & Store számára) ---
+export interface ServerListItem {
+  id: EntityId;
+  name: string;
+  iconUrl: string | null;
+  memberCount: number;
+  isOwner: boolean;
 }
 
-// --- Server DTOs ---
+export interface ServerDetails extends ServerListItem {
+  description: string | null;
+  ownerId: EntityId;
+  permissions: Permission;
+  channels: ChannelListItem[];
+  roles: Role[];
+}
+
+// --- API Payloads (Request) ---
+export interface CreateServerRequest {
+  name: string;
+  description?: string | null;
+  public: boolean;
+}
+
+export interface UpdateServerRequest {
+  name: string;
+  description: string | null;
+  public: boolean;
+  icon: string | null;
+}
+
+// --- API Responses (Nyers adatok a backendtől) ---
 export interface ServerListItemDto {
   id: EntityId;
   name: string;
@@ -148,12 +199,6 @@ export interface ServerListItemDto {
   isOwner: boolean;
   public: boolean;
   createdAt: ISODateString;
-}
-
-export interface CreateServerRequestDto {
-  name: string;
-  description?: string | null;
-  public: boolean;
 }
 
 export interface ServerDetailDto {
@@ -172,40 +217,38 @@ export interface ServerDetailDto {
   roles: RoleDto[];
 }
 
-export interface ServerMemberDto {
-  userId: EntityId;
-  username: string;
-  serverNickname: string | null;
-  avatar: string | null;
-  roles: RoleDto[];
-  joinedAt: ISODateString;
-  deafened: boolean;
-  muted: boolean;
-}
 
-export interface UpdateServerRequestDto {
-  name: string;
-  description: string | null;
-  public: boolean;
-  icon: string | null;
-}
+/**
+ * =================================================================
+ * CHANNEL TÍPUSOK
+ * =================================================================
+ */
 
-export interface RoleDto {
+// --- View Models (UI & Store számára) ---
+export interface ChannelListItem {
   id: EntityId;
   name: string;
-  color: string;
-  position: number;
-  permissions: Permission;
-  isHoisted: boolean;
-  isMentionable: boolean;
+  type: ChannelType;
 }
 
-export interface UserServerPayload {
-  user: UserProfileDto;
-  serverId: EntityId;
+export interface ChannelDetails extends ChannelListItem {
+  description: string | null;
 }
 
-// --- Channel DTOs ---
+// --- API Payloads (Request) ---
+export interface CreateChannelRequest {
+  name: string;
+  description?: string | null;
+  type: ChannelType;
+}
+
+export interface UpdateChannelRequest {
+  name?: string | null;
+  description?: string | null;
+  position?: number | null;
+}
+
+// --- API Responses (Nyers adatok a backendtől) ---
 export interface ChannelListItemDto {
   id: EntityId;
   name: string;
@@ -213,29 +256,57 @@ export interface ChannelListItemDto {
   position: number;
 }
 
-export interface CreateChannelRequestDto {
-  name: string;
-  description?: string | null;
-  type: ChannelType;
-}
-
 export interface ChannelDetailDto extends ChannelListItemDto {
   description: string | null;
   createdAt: ISODateString;
 }
 
-export interface UpdateChannelRequestDto {
-  name?: string | null;
-  description?: string | null;
-  position?: number | null;
-}
 
-export interface ChannelDeletedPayload {
-  serverId: EntityId;
+/**
+ * =================================================================
+ * MESSAGE TÍPUSOK
+ * =================================================================
+ */
+
+// --- View Models (UI & Store számára) ---
+export interface Message {
+  id: EntityId;
   channelId: EntityId;
+  author: UserProfile;
+  content: string;
+  timestamp: ISODateString;
+  editedTimestamp: ISODateString | null;
+  attachments: Attachment[];
+  reactions: Reaction[];
 }
 
-// --- Message DTOs ---
+export interface Attachment {
+  id: EntityId;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  contentType: string | null;
+}
+
+export interface Reaction {
+  emojiId: string;
+  count: number;
+  isMine: boolean;
+}
+
+// --- API Payloads (Request) ---
+export interface CreateMessageRequest {
+  content: string;
+  attachmentIds?: EntityId[];
+  mentionedUserIds?: EntityId[];
+  mentionedRoleIds?: EntityId[];
+}
+
+export interface UpdateMessageRequest {
+  content: string;
+}
+
+// --- API Responses (Nyers adatok a backendtől) ---
 export interface MessageDto {
   id: EntityId;
   channelId: EntityId;
@@ -250,30 +321,6 @@ export interface MessageDto {
   reactions: ReactionDto[];
 }
 
-export interface CreateMessageRequestDto {
-  content: string;
-  tts?: boolean;
-  attachmentIds?: EntityId[] | null;
-  mentionedUserIds?: EntityId[] | null;
-  mentionedRoleIds?: EntityId[] | null;
-}
-
-// might not work with backend -> backend uses MapMessageToDto function
-export interface UpdateMessageRequestDto {
-  content: string;
-}
-
-export interface MessageDeletedPayload {
-  channelId: EntityId;
-  messageId: EntityId;
-}
-
-export interface ReactionDto {
-  emojiId: string;
-  count: number;
-  me: boolean;
-}
-
 export interface AttachmentDto {
   id: EntityId;
   fileName: string;
@@ -286,97 +333,66 @@ export interface AttachmentDto {
   waveform: string | null;
 }
 
-// --- Role DTOs ---
-export interface CreateRoleRequestDto {
-  name: string;
-  color?: string;
-  permissions?: Permission;
-  isHoisted?: boolean;
-  isMentionable?: boolean;
+export interface ReactionDto {
+  emojiId: string;
+  count: number;
+  me: boolean;
 }
 
-export interface UpdateRoleRequestDto {
-  name?: string | null;
-  color?: string | null;
-  permissions?: Permission | null;
-  position?: number | null;
-  isHoisted?: boolean | null;
-  isMentionable?: boolean | null;
-}
 
-export interface UpdateMemberRolesRequestDto {
-  roleIds: EntityId[];
-}
+/**
+ * =================================================================
+ * ROLE TÍPUSOK
+ * =================================================================
+ */
 
-// --- Invite DTOs ---
-export interface CreateInviteRequestDto {
-  expiresInHours?: number | null;
-  maxUses?: number;
-  isTemporary?: boolean;
-}
-
-export interface InviteInfoDto {
-  code: string;
-  server: {
-    id: EntityId;
-    name: string;
-    icon: string | null;
-    memberCount: number;
-    description: string | null;
-  };
-}
-
-// --- Emoji DTOs ---
-export interface EmojiDto {
+// --- View Models (UI & Store számára) ---
+export interface Role {
   id: EntityId;
   name: string;
-  imageUrl: string;
+  color: string;
+  position: number;
+  permissions: Permission;
 }
 
-export interface CreateEmojiRequestDto {
-  name: string;
-  imageUrl: string;
-}
-
-export interface UpdateEmojiRequestDto {
-  name: string;
-}
-
-// --- Audit Log DTOs ---
-export interface AuditLogEntryDto {
+// --- API Responses (Nyers adatok a backendtől) ---
+export interface RoleDto {
   id: EntityId;
-  executorId: EntityId;
-  executorUsername: string;
-  targetId: EntityId | null;
-  targetType: AuditLogTargetType | null;
-  actionType: AuditLogActionType;
-  changes: string | null; // JSON string from backend
-  reason: string | null;
-  createdAt: ISODateString;
+  name: string;
+  color: string;
+  position: number;
+  permissions: Permission;
+  isHoisted: boolean;
+  isMentionable: boolean;
 }
 
-// --- API Response Wrapper ---
-export interface ApiResponse<T = any> {
-  isSuccess: boolean;
-  data: T;
-  message: string;
+
+/**
+ * =================================================================
+ * SIGNALR EVENT PAYLOADS
+ * =================================================================
+ * Ezek a típusok írják le a valós idejű események adatstruktúráját.
+ */
+
+export interface MessageDeletedPayload {
+  messageId: EntityId;
+  channelId: EntityId;
 }
 
-// --- Additional types for frontend usage ---
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
+export interface UserServerPayload {
+  userId: EntityId;
+  serverId: EntityId;
+  serverName?: string;
+  user?: UserProfileDto; // Opcionális, ha a backend küldi az új tag adatait
 }
 
-export interface JwtPayload {
-  sub: string;
-  username: string;
-  exp: number;
+export interface ChannelDeletedPayload {
+  channelId: EntityId;
+  serverId: EntityId;
 }
 
-export interface UserSearchResult {
-  id: EntityId;
-  username: string;
-  globalNickname: string | null;
-  avatar: string | null;
+export interface UserTypingPayload {
+  channelId: EntityId;
+  userId: EntityId;
 }
+
