@@ -1,8 +1,8 @@
 import api from './api';
 import type { 
   MessageDto, 
-  CreateMessageRequestDto, 
-  UpdateMessageRequestDto,
+  CreateMessageRequest,
+  UpdateMessageRequest,
   ApiResponse,
   EntityId
 } from './types';
@@ -24,7 +24,7 @@ const messageService = {
     return response.data.data;
   },
 
-  async sendMessage(channelId: EntityId, payload: CreateMessageRequestDto): Promise<MessageDto> {
+  async sendMessage(channelId: EntityId, payload: CreateMessageRequest): Promise<MessageDto> {
     const response = await api.post<ApiResponse<MessageDto>>(
       `/channels/${channelId}/messages`, 
       payload
@@ -35,7 +35,7 @@ const messageService = {
     return response.data.data;
   },
 
-  async editMessage(channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequestDto): Promise<void> {
+  async editMessage(channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequest): Promise<void> {
     const response = await api.patch<ApiResponse<void>>(
       `/channels/${channelId}/messages/${messageId}`, 
       payload
