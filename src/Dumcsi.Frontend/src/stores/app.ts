@@ -14,7 +14,6 @@ import type {
   UpdateMessageRequestDto,
   EntityId,
   UserProfileDto,
-  ChannelListItemDto,
   CreateInviteRequestDto,
 } from '@/services/types';
 
