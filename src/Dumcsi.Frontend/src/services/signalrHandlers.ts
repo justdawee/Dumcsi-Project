@@ -82,11 +82,11 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
 
   connection.on('UserKickedFromServer', (payload: UserServerPayload) => {
     store.handleUserKickedFromServer(payload);
-    if (payload.userId === store.currentUserId) {
+    if (payload.user.id === store.currentUserId) {
       addToast({
         type: 'warning',
         title: 'Kicked from Server',
-        message: `You have been kicked from ${payload.serverName || 'the server'}`,
+        message: `You have been kicked from a server`,
         duration: 5000
       });
     }
@@ -94,11 +94,11 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
 
   connection.on('UserBannedFromServer', (payload: UserServerPayload) => {
     store.handleUserBannedFromServer(payload);
-    if (payload.userId === store.currentUserId) {
+    if (payload.user.id === store.currentUserId) {
       addToast({
         type: 'danger',
         title: 'Banned from Server',
-        message: `You have been banned from ${payload.serverName || 'the server'}`,
+        message: `You have been banned from a server`,
         duration: 5000
       });
     }
