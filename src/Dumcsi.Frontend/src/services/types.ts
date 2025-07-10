@@ -252,6 +252,7 @@ export interface UpdateChannelRequest {
 // --- API Responses (Nyers adatok a backendtől) ---
 export interface ChannelListItemDto {
   id: EntityId;
+  serverId: EntityId;
   name: string;
   type: ChannelType;
   position: number;

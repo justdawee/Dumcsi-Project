@@ -45,6 +45,7 @@
           <ServerAvatar
             :icon-url="server.icon"
             :server-name="server.name"
+            :server-id="server.id"
           />
         </RouterLink>
       </div>

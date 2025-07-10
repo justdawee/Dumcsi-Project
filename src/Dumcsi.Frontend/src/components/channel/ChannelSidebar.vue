@@ -1,12 +1,12 @@
 <template>
-  <div class="w-60 bg-gray-850 flex flex-col h-full overflow-hidden">
-    <div class="px-4 h-14 border-b border-r border-gray-700 shadow-xs flex-shrink-0 flex items-center">
+  <div class="w-60 bg-gray-900 flex flex-col h-full overflow-hidden">
+    <div class="px-4 h-14 border-b border-l border-r border-gray-700 shadow-xs flex-shrink-0 flex items-center">
       <h2 class="font-semibold text-white truncate">
         {{ server?.name || 'Loading...' }}
       </h2>
     </div>
     
-    <div class="flex-1 overflow-y-auto border-r border-gray-700 shadow-xs scrollbar-thin min-h-0">
+    <div class="flex-1 overflow-y-auto border-l border-r border-gray-700 shadow-xs scrollbar-thin min-h-0">
       <div v-if="loading" class="flex items-center justify-center py-8">
         <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
       </div>
@@ -73,7 +73,7 @@
     </div>
     
     <!-- User info section -->
-    <div class="px-2 py-2 bg-gray-900 border-t border-r border-gray-700">
+    <div class="px-2 py-2 bg-gray-900 border-t border-l border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
           :avatar-url="authStore.user?.avatar"

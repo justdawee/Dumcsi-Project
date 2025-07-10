@@ -6,6 +6,7 @@
     <div v-if="showHeader" class="flex items-start gap-3 mb-1">
       <UserAvatar
         :user="message.author" :size="40"
+        :avatar-url="message.author.avatar"
       />
       
       <div>
