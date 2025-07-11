@@ -1,5 +1,5 @@
 <template>
-  <div class="w-60 bg-gray-900 flex flex-col h-full overflow-hidden">
+  <div class="w-60 bg-gray-950 flex flex-col h-full overflow-hidden">
     <div class="px-4 h-14 border-b border-l border-r border-gray-700 shadow-xs flex-shrink-0 flex items-center">
       <h2 class="font-semibold text-white truncate">
         {{ server?.name || 'Loading...' }}
@@ -73,7 +73,7 @@
     </div>
     
     <!-- User info section -->
-    <div class="px-2 py-2 bg-gray-900 border-t border-l border-r border-gray-700">
+    <div class="px-2 py-2 bg-gray-950 border-t border-l border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
           :avatar-url="authStore.user?.avatar"

@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-screen bg-gray-900">
     <!-- Channel Header -->
-    <div class="flex items-center justify-between px-4 h-14 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+    <div class="flex items-center justify-between px-4 h-14 bg-gray-900 border-b border-gray-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
         <h2 class="text-lg font-semibold text-white truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
@@ -49,7 +49,7 @@
         </div>
       </div>
 
-      <div v-if="isMemberListOpen" class="w-60 bg-gray-800 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
+      <div v-if="isMemberListOpen" class="w-60 bg-gray-900 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
         <h3 class="font-semibold text-white mb-4">Members - {{ members.length }}</h3>
         <div v-if="appStore.loading.members" class="flex justify-center items-center h-full">
           <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
