@@ -1,6 +1,6 @@
 <template>
   <div
-      class="w-12 h-12 rounded-3xl flex items-center justify-center text-white font-bold transition-all duration-200 hover:rounded-2xl overflow-hidden"
+      class="w-12 h-12 flex items-center justify-center text-white font-bold transition-all duration-200 overflow-hidden"
       :style="{ backgroundColor: (!icon || imageError) ? backgroundColor : undefined }"
   >
     <img

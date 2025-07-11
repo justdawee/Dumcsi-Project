@@ -7,7 +7,7 @@
       @mouseleave="hideTooltip"
     >
       <div 
-        class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-white rounded-r-lg transition-all duration-200 origin-center h-2" 
+        class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-white rounded-r-lg transition-all duration-200 origin-center h-2"
         :class="isHome ? 'h-10' : 'scale-y-0 group-hover:h-5 group-hover:scale-y-100'"
       ></div>
       <RouterLink
@@ -58,7 +58,7 @@
       >
         <button
           @click="showCreateModal = true"
-          class="add-icon"
+          class="server-icon"
         >
           <Plus class="w-6 h-6" />
         </button>
@@ -275,13 +275,6 @@ onUnmounted(() => {
 @reference "@/style.css";
 
 .server-icon {
-  @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
-         bg-gray-700 text-gray-400 transition-all duration-200
-         hover:rounded-[16px] hover:bg-primary hover:text-white
-         cursor-pointer overflow-hidden;
-}
-
-.add-icon {
   @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
          bg-gray-700 text-gray-400 transition-all duration-200
          hover:rounded-[16px] hover:bg-primary hover:text-white
