@@ -7,7 +7,7 @@
     />
     
     <!-- Channel Content or Server Welcome -->
-    <div class="flex-1 bg-gray-800 overflow-hidden">
+    <div class="flex-1 bg-gray-900 overflow-hidden">
       <RouterView v-if="$route.params.channelId" />
       <ServerWelcome v-else :server="appStore.currentServer" />
     </div>

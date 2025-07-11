@@ -84,7 +84,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="flex items-end gap-2 bg-gray-700/80 rounded-lg p-2">
+    <div class="flex items-end gap-2 bg-gray-800/80 rounded-lg p-2">
       <input ref="fileInput" type="file" multiple class="hidden" @change="onFileSelected"/>
 
       <button

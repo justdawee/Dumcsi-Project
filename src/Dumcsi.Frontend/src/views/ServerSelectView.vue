@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex flex-col bg-gray-800">
+  <div class="flex-1 flex flex-col bg-gray-900">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
       <h1 class="text-2xl font-bold text-white">Your Servers</h1>
