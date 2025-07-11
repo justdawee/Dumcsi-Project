@@ -37,7 +37,7 @@
           />
         </div>
 
-        <div class="px-4 pb-4 pt-2 border-t border-gray-700/50">
+        <div class="px-4 pb-4">
           <MessageInput
               v-if="currentChannel && permissions.sendMessages"
               :channel="currentChannel"
