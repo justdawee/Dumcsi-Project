@@ -1,10 +1,12 @@
 <template>
-  <div 
-    class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
-    :class="{ 'mt-4': showHeader }"
+  <div
+      class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
+      :class="showHeader ? 'mt-4' : '-mt-4'"
   >
-    <div v-if="showHeader" class="flex items-start gap-3 mb-1">
+    <!-- With Header (new user message or certain time passed) -->
+    <div v-if="showHeader" class="flex items-start gap-3">
       <UserAvatar
+          class="mt-1"
         :user="message.author" :size="40"
         :avatar-url="message.author.avatar"
       />
@@ -28,7 +30,7 @@
         </div>
       </div>
     </div>
-    
+    <!-- Without Header (continuous message) -->
     <div v-else class="flex items-start gap-3 group">
       <div class="w-10 shrink-0 text-right">
         <span class="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition">
