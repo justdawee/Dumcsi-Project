@@ -33,8 +33,10 @@ export class SignalRService {
     }
 
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5230/api'
+      const hubBase = apiUrl.replace(/\/api$/, '')
       this.connection = new signalR.HubConnectionBuilder()
-          .withUrl('/hubs/chat', {
+          .withUrl(`${hubBase}/chathub`, {
             accessTokenFactory: () => authStore.token || ''
           })
           .withAutomaticReconnect({
