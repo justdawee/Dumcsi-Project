@@ -1,108 +1,215 @@
 import * as signalR from '@microsoft/signalr';
-import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
+import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
-import { registerSignalREventHandlers } from './signalrHandlers';
-import type { EntityId } from '@/services/types';
+import type {
+  MessageDto,
+  UserProfileDto,
+  ChannelListItemDto,
+  EntityId,
+  MessageDeletedPayload,
+  ChannelDeletedPayload,
+  UserServerPayload,
+  ServerListItemDto
+} from './types';
 
-class SignalRService {
+export class SignalRService {
   private connection: signalR.HubConnection | null = null;
-  private reconnectInterval: ReturnType<typeof setTimeout> | null = null;
-  private readonly maxReconnectAttempts = 5;
   private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 2000;
 
-  constructor() {
-    // A kapcsolat az initialize() metódusban jön létre
-  }
+  async initialize(): Promise<void> {
+    const authStore = useAuthStore();
 
-  private createConnection(): void {
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/chathub`, {
-        accessTokenFactory: () => {
-          const token = localStorage.getItem('token');
-          return token || '';
-        }
-      })
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: (retryContext) => {
-          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
-            return null; // Újracsatlakozás leállítása
-          }
-          return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-        }
-      })
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
+    if (!authStore.token) {
+      console.error('SignalR: No auth token available');
+      return;
+    }
+
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      console.log('SignalR: Already connected');
+      return;
+    }
+
+    try {
+      this.connection = new signalR.HubConnectionBuilder()
+          .withUrl('/hubs/chat', {
+            accessTokenFactory: () => authStore.token || ''
+          })
+          .withAutomaticReconnect({
+            nextRetryDelayInMilliseconds: (retryContext) => {
+              if (retryContext.previousRetryCount === this.maxReconnectAttempts) {
+                return null;
+              }
+              return Math.min(this.reconnectDelay * Math.pow(2, retryContext.previousRetryCount), 30000);
+            }
+          })
+          .configureLogging(signalR.LogLevel.Information)
+          .build();
+
+      this.setupEventHandlers();
+
+      await this.connection.start();
+      console.log('SignalR: Connected successfully');
+
+      this.reconnectAttempts = 0;
+    } catch (error) {
+      console.error('SignalR: Failed to start connection', error);
+      this.handleConnectionClosed();
+    }
   }
 
   private setupEventHandlers(): void {
     if (!this.connection) return;
 
     const appStore = useAppStore();
-    const { addToast } = useToast();
 
-    // Kapcsolat életciklus eseményei
-    this.connection.onreconnecting(() => {
-      console.log('SignalR: Reconnecting...');
+    // Message events
+    this.connection.on('ReceiveMessage', (message: MessageDto) => {
+      console.log('SignalR: Received message', message);
+      appStore.handleReceiveMessage(message);
+    });
+
+    this.connection.on('MessageUpdated', (message: MessageDto) => {
+      console.log('SignalR: Message updated', message);
+      appStore.handleMessageUpdated(message);
+    });
+
+    this.connection.on('MessageDeleted', (payload: MessageDeletedPayload) => {
+      console.log('SignalR: Message deleted', payload);
+      appStore.handleMessageDeleted(payload);
+    });
+
+    // Channel events
+    this.connection.on('ChannelCreated', (serverId: EntityId, channel: ChannelListItemDto) => {
+      console.log('SignalR: Channel created', channel);
+      appStore.handleChannelCreated(serverId, channel);
+    });
+
+    this.connection.on('ChannelUpdated', (channel: ChannelListItemDto) => {
+      console.log('SignalR: Channel updated', channel);
+      appStore.handleChannelUpdated(channel);
+    });
+
+    this.connection.on('ChannelDeleted', (payload: ChannelDeletedPayload) => {
+      console.log('SignalR: Channel deleted', payload);
+      appStore.handleChannelDeleted(payload);
+    });
+
+    // User events
+    this.connection.on('UserUpdated', (user: UserProfileDto) => {
+      console.log('SignalR: User updated', user);
+      appStore.handleUserUpdated(user);
+    });
+
+    this.connection.on('UserOnline', (userId: EntityId) => {
+      console.log('SignalR: User online', userId);
+      appStore.handleUserOnline(userId);
+    });
+
+    this.connection.on('UserOffline', (userId: EntityId) => {
+      console.log('SignalR: User offline', userId);
+      appStore.handleUserOffline(userId);
+    });
+
+    // Typing indicator
+    this.connection.on('UserTyping', (channelId: EntityId, userId: EntityId) => {
+      console.log('SignalR: User typing', { channelId, userId });
+      appStore.handleUserTyping(channelId, userId);
+    });
+
+    this.connection.on('UserStoppedTyping', (channelId: EntityId, userId: EntityId) => {
+      console.log('SignalR: User stopped typing', { channelId, userId });
+      appStore.handleUserStoppedTyping(channelId, userId);
+    });
+
+    // Voice channel events
+    this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId, user: UserProfileDto) => {
+      console.log('SignalR: User joined voice channel', { channelId, user });
+      appStore.handleUserJoinedVoiceChannel(channelId, user);
+    });
+
+    this.connection.on('UserLeftVoiceChannel', (channelId: EntityId, userId: EntityId) => {
+      console.log('SignalR: User left voice channel', { channelId, userId });
+      appStore.handleUserLeftVoiceChannel(channelId, userId);
+    });
+
+    this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {
+      console.log('SignalR: User started screen share', { channelId, userId });
+      appStore.handleUserStartedScreenShare(channelId, userId);
+    });
+
+    this.connection.on('UserStoppedScreenShare', (channelId: EntityId, userId: EntityId) => {
+      console.log('SignalR: User stopped screen share', { channelId, userId });
+      appStore.handleUserStoppedScreenShare(channelId, userId);
+    });
+
+    // Server events
+    this.connection.on('ServerUpdated', (server: ServerListItemDto) => {
+      console.log('SignalR: Server updated', server);
+      appStore.handleServerUpdated(server);
+    });
+
+    this.connection.on('ServerDeleted', (serverId: EntityId) => {
+      console.log('SignalR: Server deleted', serverId);
+      appStore.handleServerDeleted(serverId);
+    });
+
+    this.connection.on('UserJoinedServer', (payload: UserServerPayload) => {
+      console.log('SignalR: User joined server', payload);
+      appStore.handleUserJoinedServer(payload);
+    });
+
+    this.connection.on('UserLeftServer', (payload: UserServerPayload) => {
+      console.log('SignalR: User left server', payload);
+      appStore.handleUserLeftServer(payload);
+    });
+
+    this.connection.on('UserKickedFromServer', (payload: UserServerPayload) => {
+      console.log('SignalR: User kicked from server', payload);
+      appStore.handleUserKickedFromServer(payload);
+    });
+
+    this.connection.on('UserBannedFromServer', (payload: UserServerPayload) => {
+      console.log('SignalR: User banned from server', payload);
+      appStore.handleUserBannedFromServer(payload);
+    });
+
+    // Connection events
+    this.connection.onclose((error) => {
+      console.log('SignalR: Connection closed', error);
+      this.handleConnectionClosed();
+    });
+
+    this.connection.onreconnecting((error) => {
+      console.log('SignalR: Reconnecting...', error);
+      const { addToast } = useToast();
       addToast({
         type: 'warning',
-        message: 'Connection lost. Reconnecting...',
+        title: 'Connection Lost',
+        message: 'Attempting to reconnect...',
+        duration: 5000
+      });
+    });
+
+    this.connection.onreconnected((connectionId) => {
+      console.log('SignalR: Reconnected', connectionId);
+      const { addToast } = useToast();
+      addToast({
+        type: 'success',
+        title: 'Connected',
+        message: 'Connection restored.',
         duration: 3000
       });
     });
-
-    this.connection.onreconnected(() => {
-      console.log('SignalR: Reconnected');
-      this.reconnectAttempts = 0;
-      addToast({
-        type: 'success',
-        message: 'Connection restored',
-        duration: 2000
-      });
-    });
-
-    this.connection.onclose(() => {
-      console.log('SignalR: Connection closed');
-      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          this.handleConnectionClosed();
-      }
-    });
-
-    registerSignalREventHandlers(this.connection, appStore);
-  }
-
-  async initialize(): Promise<void> {
-    if (this.connection && this.connection.state !== signalR.HubConnectionState.Disconnected) {
-        return;
-    }
-    
-    if (!this.connection) {
-      this.createConnection();
-      this.setupEventHandlers();
-    }
-    
-    this.reconnectAttempts = 0;
-
-    try {
-      await this.connection!.start();
-      console.log('SignalR: Connected');
-    } catch (error) {
-      console.error('SignalR: Failed to connect initially', error);
-      this.reconnectAttempts = this.maxReconnectAttempts; // Megakadályozzuk a további próbálkozást
-      this.handleConnectionClosed();
-    }
   }
 
   async stop(): Promise<void> {
-    if (this.reconnectInterval) {
-      clearInterval(this.reconnectInterval);
-      this.reconnectInterval = null;
-    }
-
     if (this.connection) {
       try {
         await this.connection.stop();
-        console.log('SignalR: Connection stopped successfully.');
+        console.log('SignalR: Connection stopped');
       } catch (error) {
         console.error('SignalR: Error stopping connection', error);
       }
@@ -111,13 +218,13 @@ class SignalRService {
 
   private handleConnectionClosed(): void {
     const authStore = useAuthStore();
-    
+
     if (!authStore.isAuthenticated) {
       return;
     }
 
     const { addToast } = useToast();
-    
+
     addToast({
       type: 'danger',
       title: 'Connection Failed',

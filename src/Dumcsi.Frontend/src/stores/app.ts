@@ -1,35 +1,33 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import {defineStore} from 'pinia';
+import {computed, ref} from 'vue';
 import type {
-  ServerListItem,       // View Model típus
-  ServerDetails,        // View Model típus
-  ServerMember,         // View Model típus
-  ServerListItemDto,    // Dto típus SignalR-hoz
-  //ServerDetailDto,      // Dto típus SignalR-hoz
-  //ServerMemberDto,      // Dto típus SignalR-hoz
+  ChannelDeletedPayload,
   ChannelDetailDto,
   ChannelListItemDto,
-  MessageDto,
-  CreateServerRequest,  // Javítva (nincs Dto végződés)
-  UpdateServerRequest,  // Javítva
-  CreateChannelRequest, // Javítva
-  UpdateChannelRequest, // Javítva
-  CreateMessageRequest, // Javítva
-  UpdateMessageRequest, // Javítva
+  CreateChannelRequest,
+  CreateInviteRequest,
+  CreateMessageRequest,
+  CreateServerRequest,
   EntityId,
-  UserProfileDto,
-  CreateInviteRequest,  // Javítva
   MessageDeletedPayload,
+  MessageDto,
+  ServerDetails,
+  ServerListItem,
+  ServerListItemDto,
+  ServerMember,
+  UpdateChannelRequest,
+  UpdateMessageRequest,
+  UpdateServerRequest,
+  UserProfileDto,
   UserServerPayload,
-  ChannelDeletedPayload,
 } from '@/services/types';
 
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
 import router from '@/router';
-import { useToast } from '@/composables/useToast';
-import { useAuthStore } from './auth';
+import {useToast} from '@/composables/useToast';
+import {useAuthStore} from './auth';
 
 export const useAppStore = defineStore('app', () => {
   // State
@@ -192,11 +190,7 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const sendMessage = async (channelId: EntityId, payload: CreateMessageRequest) => {
-    const result = await messageService.sendMessage(channelId, payload);
-    if (currentChannel.value?.id === channelId) {
-      messages.value.push(result);
-    }
-    return result;
+    return await messageService.sendMessage(channelId, payload);
   };
 
   const updateMessage = async (channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequest) => {
@@ -226,21 +220,34 @@ export const useAppStore = defineStore('app', () => {
     messages.value = messages.value.filter(m => m.id !== payload.messageId);
   };
 
-  const handleChannelCreated = (channel: ChannelListItemDto) => {
-    if (currentServer.value?.id === channel.serverId) {
+
+  const handleReceiveMessage = (message: MessageDto) => {
+    if (currentChannel.value?.id === message.channelId) {
+      messages.value.push(message);
+    }
+  };
+
+  const handleChannelCreated = (serverId: EntityId, channel: ChannelListItemDto) => {
+    if (currentServer.value?.id === serverId) {
       currentServer.value.channels.push(channel);
     }
   };
 
-  const handleChannelUpdated = (channel: ChannelDetailDto) => {
+  const handleChannelUpdated = (channel: ChannelListItemDto) => {
     if (currentServer.value) {
       const index = currentServer.value.channels.findIndex(ch => ch.id === channel.id);
       if (index !== -1) {
-        currentServer.value.channels[index] = channel;
+        // Konvertáljuk a megfelelő típusra
+        currentServer.value.channels[index] = {
+          id: channel.id,
+          name: channel.name,
+          type: channel.type
+        };
       }
     }
+    // Ha ez az aktuális csatorna, frissítsük
     if (currentChannel.value?.id === channel.id) {
-      currentChannel.value = channel;
+      fetchChannel(channel.id);
     }
   };
 
@@ -281,6 +288,52 @@ export const useAppStore = defineStore('app', () => {
 
   const handleUserStoppedTyping = (channelId: EntityId, userId: EntityId) => {
     typingUsers.value.get(channelId)?.delete(userId);
+  };
+
+  const handleUserPresenceChanged = (userId: EntityId, isOnline: boolean) => {
+    if (isOnline) {
+      onlineUsers.value.add(userId);
+    } else {
+      onlineUsers.value.delete(userId);
+    }
+
+    // Update member online status
+    const member = members.value.find(m => m.userId === userId);
+    if (member) {
+      member.isOnline = isOnline;
+    }
+  };
+
+  const handleUserKickedFromServer = (payload: UserServerPayload) => {
+    if (payload.userId === currentUserId.value && currentServer.value?.id === payload.serverId) {
+      servers.value = servers.value.filter(s => s.id !== payload.serverId);
+      router.push('/servers');
+      addToast({
+        type: 'warning',
+        title: 'Kicked from Server',
+        message: 'You have been kicked from the server.',
+        duration: 5000
+      });
+    } else if (currentServer.value?.id === payload.serverId) {
+      currentServer.value.memberCount--;
+      members.value = members.value.filter(m => m.userId !== payload.userId);
+    }
+  };
+
+  const handleUserBannedFromServer = (payload: UserServerPayload) => {
+    if (payload.userId === currentUserId.value && currentServer.value?.id === payload.serverId) {
+      servers.value = servers.value.filter(s => s.id !== payload.serverId);
+      router.push('/servers');
+      addToast({
+        type: 'danger',
+        title: 'Banned from Server',
+        message: 'You have been banned from the server.',
+        duration: 5000
+      });
+    } else if (currentServer.value?.id === payload.serverId) {
+      currentServer.value.memberCount--;
+      members.value = members.value.filter(m => m.userId !== payload.userId);
+    }
   };
 
   const handleServerUpdated = (serverDto: ServerListItemDto) => {
@@ -371,14 +424,14 @@ export const useAppStore = defineStore('app', () => {
     screenShares.value.get(channelId)?.delete(userId);
   };
 
-  const handleScreenShareStarted = (channelId: EntityId, userId: EntityId) => {
+  const handleUserStartedScreenShare = (channelId: EntityId, userId: EntityId) => {
     if (!screenShares.value.has(channelId)) {
       screenShares.value.set(channelId, new Set());
     }
     screenShares.value.get(channelId)!.add(userId);
   };
 
-  const handleScreenShareStopped = (channelId: EntityId, userId: EntityId) => {
+  const handleUserStoppedScreenShare = (channelId: EntityId, userId: EntityId) => {
     screenShares.value.get(channelId)?.delete(userId);
   };
 
@@ -453,6 +506,7 @@ export const useAppStore = defineStore('app', () => {
     handleMessageCreated,
     handleMessageUpdated,
     handleMessageDeleted,
+    handleReceiveMessage,
     handleChannelCreated,
     handleChannelUpdated,
     handleChannelDeleted,
@@ -461,14 +515,17 @@ export const useAppStore = defineStore('app', () => {
     handleUserOffline,
     handleUserTyping,
     handleUserStoppedTyping,
+    handleUserPresenceChanged,
+    handleUserKickedFromServer,
+    handleUserBannedFromServer,
     handleServerUpdated,
     handleServerDeleted,
     handleUserJoinedServer,
     handleUserLeftServer,
     handleUserJoinedVoiceChannel,
     handleUserLeftVoiceChannel,
-    handleScreenShareStarted,
-    handleScreenShareStopped,
+    handleUserStartedScreenShare,
+    handleUserStoppedScreenShare,
 
     // Helpers
     getTypingUsersInChannel,

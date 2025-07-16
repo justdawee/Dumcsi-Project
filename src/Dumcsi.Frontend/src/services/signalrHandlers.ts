@@ -82,7 +82,7 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
 
   connection.on('UserKickedFromServer', (payload: UserServerPayload) => {
     store.handleUserKickedFromServer(payload);
-    if (payload.user.id === store.currentUserId) {
+    if (payload.user!.id === store.currentUserId) {
       addToast({
         type: 'warning',
         title: 'Kicked from Server',
@@ -94,7 +94,7 @@ export function registerSignalREventHandlers(connection: HubConnection, store: A
 
   connection.on('UserBannedFromServer', (payload: UserServerPayload) => {
     store.handleUserBannedFromServer(payload);
-    if (payload.user.id === store.currentUserId) {
+    if (payload.user!.id === store.currentUserId) {
       addToast({
         type: 'danger',
         title: 'Banned from Server',
