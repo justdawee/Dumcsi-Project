@@ -77,7 +77,9 @@ public class ServerController(
             CreatedAt = server.CreatedAt
         };
 
-        await chatHubContext.Clients.All.SendAsync("ServerCreated", serverDto, cancellationToken);
+        await chatHubContext.Clients
+            .User(server.OwnerId.ToString())
+            .SendAsync("ServerCreated", serverDto, cancellationToken);
 
         return OkResponse(new { ServerId = server.Id }, "Server created successfully.");
     }
