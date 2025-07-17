@@ -69,6 +69,15 @@ public class ChatHub(IPresenceService presenceService) : Hub
         }
     }
     
+    public async Task StopTypingIndicator(string channelId)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            await Clients.OthersInGroup(channelId).SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
+        }
+    }
+    
     // --- Voice Chat Metódusok ---
 
     public async Task JoinVoiceChannel(string channelId)
