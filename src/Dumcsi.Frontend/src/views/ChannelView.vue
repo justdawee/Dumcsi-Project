@@ -73,7 +73,7 @@
             <div v-if="canManageMember(member.userId).value" class="flex gap-1">
               <button
                   v-if="permissions.kickMembers"
-                  @click="kickMember(member.userId)"
+                  @click="kickMember()"
                   class="p-1 text-gray-400 hover:text-red-400 transition"
                   title="Kick Member"
               >
@@ -81,7 +81,7 @@
               </button>
               <button
                   v-if="permissions.banMembers"
-                  @click="banMember(member.userId)"
+                  @click="banMember()"
                   class="p-1 text-gray-400 hover:text-red-500 transition"
                   title="Ban Member"
               >
@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
@@ -107,6 +107,7 @@ import { Hash, Users, Loader2, UserX, Ban } from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import { signalRService } from '@/services/signalrService';
 import {
   type CreateMessageRequest,
   type UpdateMessageRequest,
@@ -143,7 +144,17 @@ const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
 };
 
 const loadChannelData = async (channelId: EntityId) => {
+  const previousId = appStore.currentChannel?.id;
+  if (signalRService.isConnected && previousId && previousId !== channelId) {
+    await signalRService.leaveChannel(previousId);
+  }
+
   await appStore.fetchChannel(channelId);
+
+  if (signalRService.isConnected) {
+    await signalRService.joinChannel(channelId);
+  }
+
   await scrollToBottom();
 };
 
@@ -175,12 +186,12 @@ const handleDeleteMessage = (messageId: EntityId) => {
       .catch(() => addToast({ type: 'danger', message: 'Failed to delete message.' }));
 };
 
-const kickMember = async (userId: EntityId) => {
+const kickMember = async () => {
   // TODO: Implement kick member
   addToast({ type: 'info', message: 'Kick member functionality coming soon!' });
 };
 
-const banMember = async (userId: EntityId) => {
+const banMember = async () => {
   // TODO: Implement ban member
   addToast({ type: 'info', message: 'Ban member functionality coming soon!' });
 };
@@ -191,6 +202,13 @@ onMounted(() => {
   const channelId = parseInt(route.params.channelId as string, 10);
   if (channelId) {
     loadChannelData(channelId);
+  }
+});
+
+onUnmounted(() => {
+  const id = currentChannel.value?.id;
+  if (id && signalRService.isConnected) {
+    signalRService.leaveChannel(id);
   }
 });
 

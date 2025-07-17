@@ -261,6 +261,26 @@ export class SignalRService {
     }
   }
 
+  async joinChannel(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('JoinChannel', channelId.toString());
+      } catch (error) {
+        console.error('Failed to join channel:', error);
+      }
+    }
+  }
+
+  async leaveChannel(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('LeaveChannel', channelId.toString());
+      } catch (error) {
+        console.error('Failed to leave channel:', error);
+      }
+    }
+  }
+
   async joinVoiceChannel(channelId: EntityId): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {

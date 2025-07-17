@@ -63,7 +63,22 @@ public class ServerController(
         }
 
         var server = await serverSetupService.CreateNewServerAsync(user, request.Name, request.Description, request.Public, cancellationToken);
-        
+
+        var serverDto = new ServerDtos.ServerListItemDto
+        {
+            Id = server.Id,
+            Name = server.Name,
+            Description = server.Description,
+            Icon = server.Icon,
+            MemberCount = 1,
+            OwnerId = server.OwnerId,
+            IsOwner = true,
+            Public = server.Public,
+            CreatedAt = server.CreatedAt
+        };
+
+        await chatHubContext.Clients.All.SendAsync("ServerCreated", serverDto, cancellationToken);
+
         return OkResponse(new { ServerId = server.Id }, "Server created successfully.");
     }
 
