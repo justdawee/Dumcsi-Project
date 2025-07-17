@@ -11,6 +11,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
     // Memóriában tároljuk, hogy melyik csatornában (string) kik vannak (ConnectionId lista)
     // TODO: Redis cache használata a jobb teljesítmény érdekében, ha nagyobb terhelés várható
     private static readonly ConcurrentDictionary<string, List<string>> VoiceChannelUsers = new();
+    private static readonly ConcurrentDictionary<string, HashSet<long>> TypingUsers = new();
 
     // --- Online/Offline állapotok kezelése ---
     public override async Task OnConnectedAsync()
@@ -48,14 +49,39 @@ public class ChatHub(IPresenceService presenceService) : Hub
     }
     
     // --- Text Chat Metódusok ---
-    public async Task JoinChannel(string channelId)
+    public async Task<IReadOnlyList<long>> JoinChannel(string channelId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, channelId);
+
+        if (TypingUsers.TryGetValue(channelId, out var users))
+        {
+            lock (users)
+            {
+                return users.ToList();
+            }
+        }
+
+        return Array.Empty<long>();
     }
 
     public async Task LeaveChannel(string channelId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, channelId);
+
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            if (TypingUsers.TryGetValue(channelId, out var users))
+            {
+                lock (users)
+                {
+                    if (users.Remove(userIdLong) && users.Count == 0)
+                    {
+                        TypingUsers.TryRemove(channelId, out _);
+                    }
+                }
+            }
+        }
     }
     
     public async Task SendTypingIndicator(string channelId)
@@ -63,8 +89,13 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
+            var users = TypingUsers.GetOrAdd(channelId, _ => new HashSet<long>());
+            lock (users)
+            {
+                users.Add(userIdLong);
+            }
+
             // Értesítjük a csatorna többi tagját (a küldőt kivéve), hogy a felhasználó gépel.
-            // A kliens oldali app.ts a "UserTyping" eseményt várja.
             await Clients.OthersInGroup(channelId).SendAsync("UserTyping", long.Parse(channelId), userIdLong);
         }
     }
@@ -74,6 +105,17 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
+            if (TypingUsers.TryGetValue(channelId, out var users))
+            {
+                lock (users)
+                {
+                    if (users.Remove(userIdLong) && users.Count == 0)
+                    {
+                        TypingUsers.TryRemove(channelId, out _);
+                    }
+                }
+            }
+
             await Clients.OthersInGroup(channelId).SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
         }
     }
