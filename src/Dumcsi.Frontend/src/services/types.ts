@@ -56,7 +56,6 @@ export interface ApiResponse<T = any> {
   };
 }
 
-
 /**
  * =================================================================
  * AUTHENTICATION TÍPUSOK
@@ -64,18 +63,18 @@ export interface ApiResponse<T = any> {
  */
 
 // --- API Payloads (Request) ---
-export interface LoginRequest {
+export interface LoginRequestDto {
   usernameOrEmail: string;
   password: string;
 }
 
-export interface RegisterRequest {
+export interface RegisterRequestDto {
   username: string;
   password: string;
   email: string;
 }
 
-export interface RefreshTokenRequest {
+export interface RefreshTokenRequestDto {
   refreshToken: string;
 }
 
@@ -116,14 +115,14 @@ export interface ServerMember {
 }
 
 // --- API Payloads (Request) ---
-export interface UpdateUserProfileRequest {
+export interface UpdateUserProfileDto {
   username: string;
   email: string;
   globalNickname: string | null;
   avatar: string | null;
 }
 
-export interface ChangePasswordRequest {
+export interface ChangePasswordDto {
   currentPassword: string;
   newPassword: string;
 }
@@ -150,7 +149,6 @@ export interface ServerMemberDto {
   muted: boolean;
 }
 
-
 /**
  * =================================================================
  * SERVER TÍPUSOK
@@ -164,7 +162,7 @@ export interface ServerListItem {
   icon: string | null;
   memberCount: number;
   isOwner: boolean;
-  description: string | null; // A leírásra szükség van a modális ablakban
+  description: string | null;
   public: boolean;
 }
 
@@ -218,7 +216,6 @@ export interface ServerDetailDto {
   roles: RoleDto[];
 }
 
-
 /**
  * =================================================================
  * CHANNEL TÍPUSOK
@@ -262,7 +259,6 @@ export interface ChannelDetailDto extends ChannelListItemDto {
   description: string | null;
   createdAt: ISODateString;
 }
-
 
 /**
  * =================================================================
@@ -341,7 +337,6 @@ export interface ReactionDto {
   me: boolean;
 }
 
-
 /**
  * =================================================================
  * ROLE TÍPUSOK
@@ -393,7 +388,7 @@ export interface CreateInviteRequest {
   isTemporary?: boolean;
 }
 
-// --- API Response (Nyers adat a backendtől) ---
+// --- API Responses ---
 export interface InviteInfoDto {
   code: string;
   server: {
@@ -405,6 +400,11 @@ export interface InviteInfoDto {
   };
 }
 
+export interface CreateInviteResponse {
+  code: string;
+  expiresAt: ISODateString | null;
+  maxUses: number | null;
+}
 
 /**
  * =================================================================
@@ -422,7 +422,7 @@ export interface UserServerPayload {
   userId: EntityId;
   serverId: EntityId;
   serverName?: string;
-  user?: UserProfileDto; // Opcionális, ha a backend küldi az új tag adatait
+  user?: UserProfileDto;
 }
 
 export interface ChannelDeletedPayload {
@@ -433,4 +433,32 @@ export interface ChannelDeletedPayload {
 export interface UserTypingPayload {
   channelId: EntityId;
   userId: EntityId;
+}
+
+/**
+ * =================================================================
+ * UPLOAD TÍPUSOK
+ * =================================================================
+ */
+
+export interface UploadResponse {
+  id: EntityId;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  contentType: string;
+}
+
+export interface UploadOptions {
+  onProgress?: (progress: number) => void;
+}
+
+/**
+ * =================================================================
+ * JOIN SERVER RESPONSE
+ * =================================================================
+ */
+
+export interface JoinServerResponse {
+  serverId: EntityId;
 }

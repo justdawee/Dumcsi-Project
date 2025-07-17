@@ -1,14 +1,15 @@
 import api from './api';
-import type { 
-  ChannelDetailDto, 
-  UpdateChannelRequestDto,
-  CreateChannelRequestDto,
-  ChannelListItemDto,
+import type {
+  ChannelDetailDto,
+  UpdateChannelRequest,
   ApiResponse,
   EntityId
 } from './types';
 
 const channelService = {
+  /**
+   * Lekéri egy csatorna részletes adatait.
+   */
   async getChannel(id: EntityId): Promise<ChannelDetailDto> {
     const response = await api.get<ApiResponse<ChannelDetailDto>>(`/channels/${id}`);
     if (!response.data.isSuccess) {
@@ -17,29 +18,19 @@ const channelService = {
     return response.data.data;
   },
 
-  async getChannels(): Promise<ChannelListItemDto[]> {
-    const response = await api.get<ApiResponse<ChannelListItemDto[]>>('/channels');
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return response.data.data;
-  },
-
-  async createChannel(payload: CreateChannelRequestDto): Promise<ChannelDetailDto> {
-    const response = await api.post<ApiResponse<ChannelDetailDto>>('/channels', payload);
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return response.data.data;
-  },
-
-  async updateChannel(id: EntityId, payload: UpdateChannelRequestDto): Promise<void> {
+  /**
+   * Frissíti egy csatorna adatait.
+   */
+  async updateChannel(id: EntityId, payload: UpdateChannelRequest): Promise<void> {
     const response = await api.patch<ApiResponse<void>>(`/channels/${id}`, payload);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
   },
 
+  /**
+   * Törli a csatornát.
+   */
   async deleteChannel(id: EntityId): Promise<void> {
     const response = await api.delete<ApiResponse<void>>(`/channels/${id}`);
     if (!response.data.isSuccess) {

@@ -1,6 +1,6 @@
 import api from './api';
 import type {
-  // Új, letisztult View Modellek importálása
+  // View Modellek
   ServerListItem,
   ServerDetails,
   ServerMember,
@@ -8,21 +8,23 @@ import type {
   CreateServerRequest,
   UpdateServerRequest,
   CreateChannelRequest,
-  
-  // Nyers API DTO-k importálása (csak a service belső működéséhez)
+
+  // DTO-k (nyers API válaszok)
   ServerListItemDto,
   ServerDetailDto,
   ServerMemberDto,
   ChannelListItemDto,
   RoleDto,
+  CreateInviteResponse,
 
-  // Egyéb szükséges típusok
+  // Egyéb típusok
   ApiResponse,
   EntityId,
   Role,
   InviteInfo,
   InviteInfoDto,
   CreateInviteRequest,
+  JoinServerResponse,
 } from './types';
 
 // =================================================================
@@ -100,7 +102,6 @@ function toInviteInfo(dto: InviteInfoDto): InviteInfo {
   };
 }
 
-
 // =================================================================
 // REFAKTORÁLT SERVER SERVICE
 // =================================================================
@@ -120,8 +121,8 @@ const serverService = {
   /**
    * Létrehoz egy új szervert.
    */
-  async createServer(payload: CreateServerRequest): Promise<{ serverId: EntityId; message: string }> {
-    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>('/server', payload);
+  async createServer(payload: CreateServerRequest): Promise<{ serverId: EntityId }> {
+    const response = await api.post<ApiResponse<{ serverId: EntityId }>>('/server', payload);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
@@ -129,10 +130,10 @@ const serverService = {
   },
 
   /**
-   * Lekéri egy szerver részletes adatait, és `ServerDetails` modellé alakítja.
+   * Lekéri egy szerver részletes adatait.
    */
-  async getServer(id: EntityId): Promise<ServerDetails> {
-    const response = await api.get<ApiResponse<ServerDetailDto>>(`/server/${id}`);
+  async getServer(serverId: EntityId): Promise<ServerDetails> {
+    const response = await api.get<ApiResponse<ServerDetailDto>>(`/server/${serverId}`);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
@@ -140,21 +141,40 @@ const serverService = {
   },
 
   /**
-   * Töröl egy szervert.
+   * Frissíti egy szerver adatait.
    */
-  async deleteServer(id: EntityId): Promise<{ message: string }> {
-    const response = await api.delete<ApiResponse<{ message: string }>>(`/server/${id}`);
+  async updateServer(serverId: EntityId, payload: UpdateServerRequest): Promise<void> {
+    const response = await api.patch<ApiResponse<void>>(`/server/${serverId}`, payload);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
-    return response.data.data;
   },
 
   /**
-   * Lekéri egy szerver tagjainak listáját, és `ServerMember` modellekké alakítja.
+   * Törli a szervert (csak tulajdonos).
    */
-  async getServerMembers(id: EntityId): Promise<ServerMember[]> {
-    const response = await api.get<ApiResponse<ServerMemberDto[]>>(`/server/${id}/members`);
+  async deleteServer(serverId: EntityId): Promise<void> {
+    const response = await api.delete<ApiResponse<void>>(`/server/${serverId}`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  /**
+   * Kilép a szerverből.
+   */
+  async leaveServer(serverId: EntityId): Promise<void> {
+    const response = await api.post<ApiResponse<void>>(`/server/${serverId}/leave`);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  /**
+   * Lekéri a szerver tagjait.
+   */
+  async getServerMembers(serverId: EntityId): Promise<ServerMember[]> {
+    const response = await api.get<ApiResponse<ServerMemberDto[]>>(`/server/${serverId}/members`);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
@@ -162,11 +182,23 @@ const serverService = {
   },
 
   /**
-   * Csatlakozás szerverhez meghívó kóddal.
+   * Létrehoz egy új csatornát a szerveren.
    */
-  async joinServer(inviteCode: string): Promise<{ serverId: EntityId; serverName: string; message: string }> {
-    const response = await api.post<ApiResponse<{ serverId: EntityId; serverName: string; message: string }>>(
-      `/invites/${inviteCode}`
+  async createChannel(serverId: EntityId, payload: CreateChannelRequest): Promise<{ channelId: EntityId }> {
+    const response = await api.post<ApiResponse<{ channelId: EntityId }>>(`/server/${serverId}/channels`, payload);
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+    return response.data.data;
+  },
+
+  /**
+   * Létrehoz egy meghívót a szerverhez.
+   */
+  async generateInvite(serverId: EntityId, payload?: CreateInviteRequest): Promise<CreateInviteResponse> {
+    const response = await api.post<ApiResponse<CreateInviteResponse>>(
+        `/server/${serverId}/invites`,
+        payload || {}
     );
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
@@ -175,35 +207,10 @@ const serverService = {
   },
 
   /**
-   * Szerver elhagyása.
+   * Lekéri a meghívó információit.
    */
-  async leaveServer(id: EntityId): Promise<{ message: string }> {
-    const response = await api.post<ApiResponse<{ message: string }>>(`/server/${id}/leave`);
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return response.data.data;
-  },
-
-  /**
-   * Meghívó kód generálása.
-   */
-  async generateInvite(id: EntityId, payload?: CreateInviteRequest): Promise<{ code: string; message: string }> {
-    const response = await api.post<ApiResponse<{ code: string; message: string }>>(
-      `/server/${id}/invite`, 
-      payload || {}
-    );
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return response.data.data; 
-  },
-
-  /**
-   * Meghívó információinak lekérése.
-   */
-  async getInviteInfo(code: string): Promise<InviteInfo> {
-    const response = await api.get<ApiResponse<InviteInfoDto>>(`/invite/${code}`);
+  async getInviteInfo(inviteCode: string): Promise<InviteInfo> {
+    const response = await api.get<ApiResponse<InviteInfoDto>>(`/invites/${inviteCode}`);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
@@ -211,43 +218,28 @@ const serverService = {
   },
 
   /**
-   * Szerver csatornáinak lekérése.
+   * Csatlakozás szerverhez meghívó kóddal.
    */
-  async getServerChannels(id: EntityId): Promise<ChannelListItem[]> {
-    const response = await api.get<ApiResponse<ChannelListItemDto[]>>(`/server/${id}/channels`);
+  async joinServer(inviteCode: string): Promise<JoinServerResponse> {
+    const response = await api.post<ApiResponse<JoinServerResponse>>(`/invites/${inviteCode}`);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
-    return response.data.data.map(toChannelListItem);
+    return response.data.data;
   },
 
   /**
-   * Új csatorna létrehozása egy szerveren.
+   * Csatlakozás nyilvános szerverhez.
    */
-  async createChannel(serverId: EntityId, payload: CreateChannelRequest): Promise<ChannelListItem> {
-    const response = await api.post<ApiResponse<ChannelListItemDto>>(
-      `/server/${serverId}/channels`, 
-      payload
-    );
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return toChannelListItem(response.data.data);
-  },
-
-  /**
-   * Szerver adatainak frissítése.
-   */
-  async updateServer(id: EntityId, payload: UpdateServerRequest): Promise<void> {
-    const response = await api.put<ApiResponse<void>>(`/server/${id}`, payload);
-    console.log('Update server response:', response.data);
+  async joinPublicServer(serverId: EntityId): Promise<void> {
+    const response = await api.post<ApiResponse<void>>(`/server/${serverId}/join`);
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
   },
 
   /**
-   * Nyilvános szerverek listájának lekérése.
+   * Nyilvános szerverek listázása.
    */
   async getPublicServers(): Promise<ServerListItem[]> {
     const response = await api.get<ApiResponse<ServerListItemDto[]>>('/server/public');
@@ -255,17 +247,6 @@ const serverService = {
       throw new Error(response.data.message);
     }
     return response.data.data.map(toServerListItem);
-  },
-
-  /**
-   * Csatlakozás nyilvános szerverhez.
-   */
-  async joinPublicServer(serverId: EntityId): Promise<{ serverId: EntityId; message: string }> {
-    const response = await api.post<ApiResponse<{ serverId: EntityId; message: string }>>(`/server/${serverId}/join`);
-    if (!response.data.isSuccess) {
-      throw new Error(response.data.message);
-    }
-    return response.data.data;
   },
 };
 

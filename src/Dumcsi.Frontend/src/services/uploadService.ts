@@ -1,85 +1,82 @@
 import api from './api';
-import type {AxiosError, AxiosProgressEvent} from 'axios';
-import type {ApiResponse, EntityId} from './types';
+import type {
+    ApiResponse,
+    EntityId,
+    UploadOptions,
+    UploadResponse
+} from './types';
+import type { AxiosError, AxiosProgressEvent } from 'axios';
 
-interface UploadOptions {
-    onProgress?: (progress: number) => void;
-}
-
-export interface UploadResponse {
-    id?: EntityId;
-    url: string;
-    fileName?: string;
-    fileSize?: number;
-}
-
-class UploadError extends Error {
+/**
+ * Egyedi hiba osztály a feltöltési hibák kezelésére.
+ */
+export class UploadError extends Error {
     constructor(public code: string, message: string) {
         super(message);
         this.name = 'UploadError';
     }
 }
 
+/**
+ * Service fájlfeltöltések kezelésére.
+ * Kezeli az avatar, szerver ikon, emoji és üzenet melléklet feltöltéseket.
+ */
 class UploadService {
-    // Maximum file sizes (in bytes)
-    private readonly MAX_AVATAR_SIZE = 10 * 1024 * 1024; // 10MB
-    private readonly MAX_SERVER_ICON_SIZE = 10 * 1024 * 1024; // 10MB
-    private readonly MAX_EMOJI_SIZE = 2 * 1024 * 1024; // 2MB
+    // Maximális fájlméretek
+    private readonly MAX_AVATAR_SIZE = 8 * 1024 * 1024; // 8MB
+    private readonly MAX_SERVER_ICON_SIZE = 8 * 1024 * 1024; // 8MB
+    private readonly MAX_EMOJI_SIZE = 256 * 1024; // 256KB
     private readonly MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024; // 50MB
 
-    // Allowed file types
-    private readonly ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    private readonly ALLOWED_ATTACHMENT_TYPES = [
-        ...this.ALLOWED_IMAGE_TYPES,
-        'application/pdf',
-        'text/plain',
-        'application/zip',
-        'application/x-zip-compressed',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'video/mp4',
-        'video/webm',
-        'audio/mpeg',
-        'audio/wav',
-        'audio/webm'
-    ];
+    // Elfogadott képformátumok
+    private readonly ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
     /**
-     * Központi hibakezelő, ami a hibákat az errorHandler által értelmezhető formátumba csomagolja.
-     * Ez utánozza az Axios által dobott hibaobjektum struktúráját.
-     * @param errorData A hibaadat, ami lehet egy teljes ApiResponse vagy csak egy hibakód.
+     * Ellenőrzi, hogy a fájl kép-e.
      */
-    private handleError(errorData: Partial<ApiResponse> | { code: string }) {
-        let apiResponse: ApiResponse;
+    isImage(file: File): boolean {
+        return this.ACCEPTED_IMAGE_TYPES.includes(file.type);
+    }
 
-        if ('code' in errorData) {
-            // Kliens oldali validációs hibákhoz, ahol csak egy hibakódunk van.
-            apiResponse = {
-                isSuccess: false,
-                data: null,
-                message: '',
-                error: {
-                    code: errorData.code,
-                    message: '' // Az üzenetet az en.ts fájlból fogja kikeresni az errorHandler.
-                }
-            };
-        } else {
-            // Szerver oldali hibákhoz, ahol a teljes ApiResponse objektum rendelkezésre áll.
-            apiResponse = errorData as ApiResponse;
+    /**
+     * Létrehoz egy előnézeti URL-t a fájlhoz.
+     */
+    generatePreviewUrl(file: File): string {
+        return URL.createObjectURL(file);
+    }
+
+    /**
+     * Felszabadít egy előnézeti URL-t.
+     */
+    revokePreviewUrl(url: string): void {
+        URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Ellenőrzi a fájl érvényességét (méret és típus).
+     */
+    private validateImage(file: File, maxSize: number): void {
+        if (!this.isImage(file)) {
+            throw new UploadError('INVALID_FILE_TYPE', 'Only JPEG, PNG, GIF and WebP images are allowed');
         }
+        if (file.size > maxSize) {
+            const maxSizeMB = Math.round(maxSize / 1024 / 1024);
+            throw new UploadError('FILE_TOO_LARGE', `File size must be less than ${maxSizeMB}MB`);
+        }
+    }
 
-        throw {response: {data: apiResponse}};
+    /**
+     * ApiResponse hiba objektumot UploadError-rá alakít.
+     */
+    private throwUploadError(errorResponse: ApiResponse): never {
+        throw new UploadError(
+            errorResponse.error?.code || 'UNKNOWN_ERROR',
+            errorResponse.error?.message || errorResponse.message || 'Upload failed'
+        );
     }
 
     /**
      * Univerzális privát metódus a fájlfeltöltések kezelésére.
-     * @param endpoint A cél API végpont.
-     * @param file A feltöltendő fájl.
-     * @param formDataAppender Opcionális függvény további adatok FormData-hoz adásához.
-     * @param options Feltöltési opciók, mint pl. a progress callback.
-     * @returns A szerver válasza a feltöltésről.
      */
     private async upload(
         endpoint: string,
@@ -120,74 +117,71 @@ class UploadService {
         }
     }
 
-    private throwUploadError(errorResponse: ApiResponse): never {
-        throw new UploadError(
-            errorResponse.error?.code || 'UNKNOWN_ERROR',
-            errorResponse.error?.message || errorResponse.message || 'Upload failed'
-        );
-    }
-
     // --- NYILVÁNOS METÓDUSOK ---
 
+    /**
+     * Feltölt egy avatar képet.
+     */
     async uploadAvatar(file: File, options?: UploadOptions): Promise<UploadResponse> {
         this.validateImage(file, this.MAX_AVATAR_SIZE);
         return this.upload('/user/me/avatar', file, undefined, options);
     }
 
+    /**
+     * Feltölt egy szerver ikon képet.
+     */
     async uploadServerIcon(serverId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
         this.validateImage(file, this.MAX_SERVER_ICON_SIZE);
         return this.upload(`/server/${serverId}/icon`, file, undefined, options);
     }
 
+    /**
+     * Feltölt egy egyedi emoji képet.
+     */
     async uploadEmoji(serverId: EntityId, file: File, emojiName: string, options?: UploadOptions): Promise<UploadResponse> {
         this.validateImage(file, this.MAX_EMOJI_SIZE);
-        return this.upload(`/server/${serverId}/emojis`, file, (fd) => fd.append('name', emojiName), options);
+
+        return this.upload(
+            `/server/${serverId}/emojis`,
+            file,
+            (formData) => {
+                formData.append('name', emojiName);
+            },
+            options
+        );
     }
 
+    /**
+     * Feltölt egy üzenet mellékletet.
+     */
     async uploadAttachment(channelId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
-        this.validateAttachment(file);
+        if (file.size > this.MAX_ATTACHMENT_SIZE) {
+            throw new UploadError('FILE_TOO_LARGE', 'File size must be less than 50MB');
+        }
+
         return this.upload(`/channels/${channelId}/attachments`, file, undefined, options);
     }
 
-    // --- VALIDÁCIÓ ÉS SEGÉDFÜGGVÉNYEK ---
-
-    private validateImage(file: File, maxSize: number): void {
-        if (!this.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            this.handleError({code: 'AVATAR_INVALID_FILE_TYPE'});
-        }
-        if (file.size > maxSize) {
-            this.handleError({code: 'AVATAR_FILE_TOO_LARGE'});
-        }
-    }
-
-    private validateAttachment(file: File): void {
-        if (!this.ALLOWED_ATTACHMENT_TYPES.includes(file.type)) {
-            this.handleError({code: 'ATTACHMENT_INVALID_FILE_TYPE'});
-        }
-        if (file.size > this.MAX_ATTACHMENT_SIZE) {
-            this.handleError({code: 'ATTACHMENT_FILE_TOO_LARGE'}); // Ehhez is kellhet új kód.
+    /**
+     * Törli a felhasználó avatar képét.
+     */
+    async deleteAvatar(): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>('/user/me/avatar');
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
         }
     }
 
-    generatePreviewUrl(file: File): string {
-        return URL.createObjectURL(file);
-    }
-
-    revokePreviewUrl(url: string): void {
-        URL.revokeObjectURL(url);
-    }
-
-    isImage(file: File): boolean {
-        return this.ALLOWED_IMAGE_TYPES.includes(file.type);
-    }
-
-    formatFileSize(bytes: number): string {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    /**
+     * Törli a szerver ikon képét.
+     */
+    async deleteServerIcon(serverId: EntityId): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>(`/server/${serverId}/icon`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
     }
 }
 
-export default new UploadService();
+// Singleton instance
+export const uploadService = new UploadService();
