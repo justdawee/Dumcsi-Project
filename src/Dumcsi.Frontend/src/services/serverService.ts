@@ -234,11 +234,14 @@ const serverService = {
   /**
    * Csatlakozás nyilvános szerverhez.
    */
-  async joinPublicServer(serverId: EntityId): Promise<void> {
-    const response = await api.post<ApiResponse<void>>(`/server/${serverId}/join`);
+  async joinPublicServer(serverId: EntityId): Promise<JoinServerResponse> {
+    const response = await api.post<ApiResponse<JoinServerResponse>>(
+        `/server/${serverId}/join`
+    );
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
+    return response.data.data;
   },
 
   /**

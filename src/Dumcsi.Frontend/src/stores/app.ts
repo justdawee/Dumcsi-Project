@@ -133,11 +133,15 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const joinServerWithInvite = async (inviteCode: string) => {
-    return await serverService.joinServer(inviteCode);
+    const result = await serverService.joinServer(inviteCode);
+    await fetchServers();
+    return result;
   };
 
   const joinPublicServer = async (serverId: EntityId) => {
-    return await serverService.joinPublicServer(serverId);
+    const result = await serverService.joinPublicServer(serverId);
+    await fetchServers();
+    return result;
   };
 
   // Channel Actions
