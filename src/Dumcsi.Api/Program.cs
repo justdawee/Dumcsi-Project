@@ -34,7 +34,13 @@ builder.Services.AddControllers() // Kontroller alapú API engedélyezése
 
 builder.Services.AddOpenApi(); // OpenAPI dokumentáció engedélyezése
 
-builder.Services.AddSignalR(); // SignalR engedélyezése
+builder.Services
+    .AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        var nodaSettings = DateTimeZoneProviders.Tzdb;
+        options.PayloadSerializerOptions.ConfigureForNodaTime(nodaSettings);
+    }); // SignalR engedélyezése NodaTime támogatással
 
 // Entity Framework Core DbContext regisztrálása
 builder.Services
