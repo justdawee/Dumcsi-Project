@@ -187,12 +187,10 @@ const handleDeleteMessage = (messageId: EntityId) => {
 };
 
 const kickMember = async () => {
-  // TODO: Implement kick member
   addToast({ type: 'info', message: 'Kick member functionality coming soon!' });
 };
 
 const banMember = async () => {
-  // TODO: Implement ban member
   addToast({ type: 'info', message: 'Ban member functionality coming soon!' });
 };
 

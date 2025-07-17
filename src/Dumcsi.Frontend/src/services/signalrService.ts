@@ -261,6 +261,16 @@ export class SignalRService {
     }
   }
 
+  async stopTypingIndicator(channelId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('StopTypingIndicator', channelId.toString());
+      } catch (error) {
+        console.error('Failed to send stop typing indicator:', error);
+      }
+    }
+  }
+
   async joinChannel(channelId: EntityId): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {

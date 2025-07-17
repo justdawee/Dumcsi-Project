@@ -31,9 +31,19 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
 
   // --- Methods ---
 
+  const stopTypingIndicator = () => {
+    if (typingTimeout.value) {
+      clearTimeout(typingTimeout.value);
+      typingTimeout.value = undefined;
+    }
+    lastTypingNotification.value = 0;
+    if (signalRService.isConnected) {
+      signalRService.stopTypingIndicator(channelId.value);
+    }
+  };
+
   const sendTypingIndicator = () => {
     const now = Date.now();
-    // Only send if it has been more than 2 seconds since the last notification
     if (now - lastTypingNotification.value > 2000) {
       lastTypingNotification.value = now;
       if (signalRService.isConnected) {
@@ -41,14 +51,12 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
       }
     }
 
-    // Clear any existing timeout
     if (typingTimeout.value) {
       clearTimeout(typingTimeout.value);
     }
 
-    // Set a new timeout to consider typing stopped after 3 seconds of inactivity
     typingTimeout.value = setTimeout(() => {
-      lastTypingNotification.value = 0;
+      stopTypingIndicator();
     }, 3000);
   };
 
@@ -58,10 +66,12 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
     if (typingTimeout.value) {
       clearTimeout(typingTimeout.value);
     }
+    stopTypingIndicator();
   });
 
   return {
     typingIndicatorText,
     sendTypingIndicator,
+    stopTypingIndicator,
   };
 }

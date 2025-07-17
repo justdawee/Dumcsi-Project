@@ -133,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import {ref, computed, nextTick, toRef} from 'vue';
+import {ref, computed, nextTick, toRef, onUnmounted} from 'vue';
 import {useAppStore} from '@/stores/app';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import uploadService from '@/services/uploadService';
@@ -187,7 +187,8 @@ const {
 
 const {
   typingIndicatorText,
-  sendTypingIndicator
+  sendTypingIndicator,
+  stopTypingIndicator
 } = useTypingIndicator(channelIdRef);
 
 
@@ -213,6 +214,9 @@ const handleInput = () => {
   adjustTextareaHeight();
   checkForMentions();
   sendTypingIndicator();
+  if (messageContent.value.length === 0) {
+    stopTypingIndicator();
+  }
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -254,6 +258,7 @@ const handleSend = async () => {
     messageContent.value = '';
     clearAttachments();
     clearMentions();
+    stopTypingIndicator();
 
     nextTick(() => adjustTextareaHeight());
   } catch (error) {
@@ -262,6 +267,10 @@ const handleSend = async () => {
     isSending.value = false;
   }
 };
+
+onUnmounted(() => {
+  stopTypingIndicator();
+});
 </script>
 <style scoped>
 @reference "@/style.css";
