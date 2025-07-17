@@ -48,6 +48,17 @@ public class ChatHub(IPresenceService presenceService) : Hub
         await base.OnDisconnectedAsync(exception);
     }
     
+    // --- Server Csoportok ---
+    public async Task JoinServer(string serverId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, serverId);
+    }
+
+    public async Task LeaveServer(string serverId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, serverId);
+    }
+    
     // --- Text Chat Metódusok ---
     public async Task<IReadOnlyList<long>> JoinChannel(string channelId)
     {
