@@ -37,7 +37,7 @@
           />
         </div>
 
-        <div class="px-4 pb-4">
+        <div class="relative px-4 pb-6">
           <MessageInput
               v-if="currentChannel && permissions.sendMessages"
               :channel="currentChannel"
@@ -46,6 +46,15 @@
           <div v-else-if="!permissions.sendMessages" class="text-center text-gray-400 text-sm py-2">
             You do not have permission to send messages in this channel.
           </div>
+          <Transition name="typing-fade">
+            <div
+                v-if="typingIndicatorText"
+                class="typing-indicator text-xs text-gray-400 italic absolute left-4 bottom-1"
+            >
+              <span class="typing-dots"><span></span><span></span><span></span></span>
+              {{ typingIndicatorText }}
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -103,6 +112,7 @@ import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import { usePermissions } from '@/composables/usePermissions';
 import { debounce } from '@/utils/helpers';
+import { useTypingIndicator } from '@/composables/useTypingIndicator';
 import { Hash, Users, Loader2, UserX, Ban } from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
@@ -118,6 +128,10 @@ const route = useRoute();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const { addToast } = useToast();
+
+// Typing indicator text for the current channel using the composable
+const channelIdRef = computed<EntityId>(() => currentChannel.value?.id ?? 0);
+const { typingIndicatorText } = useTypingIndicator(channelIdRef);
 
 // Permission composable használata
 const { permissions, canManageMember } = usePermissions();
@@ -225,5 +239,55 @@ watch(() => route.params.channelId, (newId) => {
 }
 .animate-slide-in {
   animation: slideIn 0.2s ease-out;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.typing-dots {
+  display: flex;
+  margin-right: 4px;
+}
+
+.typing-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin-right: 2px;
+  background-color: currentColor;
+  border-radius: 50%;
+  opacity: 0.2;
+  animation: typing-dot 1.2s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-dot {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.typing-fade-enter-active,
+.typing-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.typing-fade-enter-from,
+.typing-fade-leave-to {
+  opacity: 0;
 }
 </style>

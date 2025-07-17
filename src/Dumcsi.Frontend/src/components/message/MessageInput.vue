@@ -78,11 +78,6 @@
       </div>
     </div>
 
-    <!-- Typing Indicator -->
-    <div v-if="typingIndicatorText" class="absolute -top-6 left-1 text-xs text-gray-400 italic transition-opacity">
-      {{ typingIndicatorText }}
-    </div>
-
     <!-- Input Area -->
     <div class="flex items-end gap-2 bg-gray-800/80 rounded-lg p-2">
       <input ref="fileInput" type="file" multiple class="hidden" @change="onFileSelected"/>
@@ -186,7 +181,6 @@ const {
 } = useMentions(messageContent, messageInput);
 
 const {
-  typingIndicatorText,
   sendTypingIndicator,
   stopTypingIndicator
 } = useTypingIndicator(channelIdRef);
