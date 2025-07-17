@@ -271,14 +271,36 @@ export class SignalRService {
     }
   }
 
-  async joinChannel(channelId: EntityId): Promise<void> {
+  async joinServer(serverId: EntityId): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {
-        await this.connection.invoke('JoinChannel', channelId.toString());
+        await this.connection.invoke('JoinServer', serverId.toString());
+      } catch (error) {
+        console.error('Failed to join server:', error);
+      }
+    }
+  }
+
+  async leaveServer(serverId: EntityId): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        await this.connection.invoke('LeaveServer', serverId.toString());
+      } catch (error) {
+        console.error('Failed to leave server:', error);
+      }
+    }
+  }
+
+  async joinChannel(channelId: EntityId): Promise<EntityId[]> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      try {
+        const result = await this.connection.invoke<EntityId[]>('JoinChannel', channelId.toString());
+        return result || [];
       } catch (error) {
         console.error('Failed to join channel:', error);
       }
     }
+    return [];
   }
 
   async leaveChannel(channelId: EntityId): Promise<void> {

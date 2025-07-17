@@ -301,6 +301,14 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const setTypingUsers = (channelId: EntityId, userIds: EntityId[]) => {
+    if (userIds.length === 0) {
+      typingUsers.value.delete(channelId);
+    } else {
+      typingUsers.value.set(channelId, new Set(userIds));
+    }
+  };
+
   const handleServerCreated = (server: ServerListItemDto) => {
     servers.value.push({
       id: server.id,
@@ -350,12 +358,28 @@ export const useAppStore = defineStore('app', () => {
         isOnline: onlineUsers.value.has(payload.user.id),
       };
       members.value.push(newMember);
+      if (currentServer.value) {
+        currentServer.value.memberCount += 1;
+      }
+    }
+
+    const serverItem = servers.value.find(s => s.id === payload.serverId);
+    if (serverItem) {
+      serverItem.memberCount += 1;
     }
   };
 
   const handleUserLeftServer = (payload: UserServerPayload) => {
     if (currentServer.value?.id === payload.serverId) {
       members.value = members.value.filter(m => m.userId !== payload.userId);
+      if (currentServer.value && currentServer.value.memberCount > 0) {
+        currentServer.value.memberCount -= 1;
+      }
+    }
+
+    const serverItem = servers.value.find(s => s.id === payload.serverId);
+    if (serverItem && serverItem.memberCount > 0) {
+      serverItem.memberCount -= 1;
     }
   };
 
@@ -514,6 +538,7 @@ export const useAppStore = defineStore('app', () => {
     handleUserOffline,
     handleUserTyping,
     handleUserStoppedTyping,
+    setTypingUsers,
     handleServerCreated,
     handleServerUpdated,
     handleServerDeleted,

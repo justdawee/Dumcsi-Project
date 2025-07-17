@@ -168,7 +168,8 @@ const loadChannelData = async (channelId: EntityId) => {
   await appStore.fetchChannel(channelId);
 
   if (signalRService.isConnected) {
-    await signalRService.joinChannel(channelId);
+    const typingIds = await signalRService.joinChannel(channelId);
+    appStore.setTypingUsers(channelId, typingIds);
   }
 
   await scrollToBottom();
