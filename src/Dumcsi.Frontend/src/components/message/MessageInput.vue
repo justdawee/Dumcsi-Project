@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import {ref, computed, nextTick, toRef, onUnmounted} from 'vue';
+import {ref, computed, nextTick, onUnmounted} from 'vue';
 import {useAppStore} from '@/stores/app';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import uploadService from '@/services/uploadService';
@@ -158,7 +158,8 @@ const isSending = ref(false);
 // --- Composables Initialization ---
 const appStore = useAppStore();
 const {getDisplayName} = useUserDisplay();
-const channelIdRef = toRef(props.channel, 'id');
+// track the channel id reactively even when the channel object changes
+const channelIdRef = computed(() => props.channel.id);
 
 const {
   attachments,

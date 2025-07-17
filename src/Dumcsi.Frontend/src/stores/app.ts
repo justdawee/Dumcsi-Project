@@ -283,6 +283,7 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const handleUserTyping = (channelId: EntityId, userId: EntityId) => {
+    if (currentChannel.value?.id !== channelId) return;
     if (!typingUsers.value.has(channelId)) {
       typingUsers.value.set(channelId, new Set());
     }
@@ -290,6 +291,7 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const handleUserStoppedTyping = (channelId: EntityId, userId: EntityId) => {
+    if (currentChannel.value?.id !== channelId) return;
     const channelTypingUsers = typingUsers.value.get(channelId);
     if (channelTypingUsers) {
       channelTypingUsers.delete(userId);

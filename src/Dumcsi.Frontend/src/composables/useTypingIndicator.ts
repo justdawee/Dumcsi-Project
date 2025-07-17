@@ -1,4 +1,4 @@
-import { ref, onUnmounted, computed, type Ref } from 'vue';
+import { ref, onUnmounted, computed, type Ref, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { signalRService } from '@/services/signalrService';
 import { useUserDisplay } from './useUserDisplay';
@@ -31,14 +31,14 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
 
   // --- Methods ---
 
-  const stopTypingIndicator = () => {
+  const stopTypingIndicator = (id: EntityId = channelId.value) => {
     if (typingTimeout.value) {
       clearTimeout(typingTimeout.value);
       typingTimeout.value = undefined;
     }
     lastTypingNotification.value = 0;
     if (signalRService.isConnected) {
-      signalRService.stopTypingIndicator(channelId.value);
+      signalRService.stopTypingIndicator(id);
     }
   };
 
@@ -67,6 +67,13 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
       clearTimeout(typingTimeout.value);
     }
     stopTypingIndicator();
+  });
+
+  watch(channelId, (_newId, oldId) => {
+    if (oldId !== undefined) {
+      stopTypingIndicator(oldId);
+      appStore.typingUsers.delete(oldId);
+    }
   });
 
   return {

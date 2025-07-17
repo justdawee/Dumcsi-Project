@@ -130,7 +130,9 @@ const appStore = useAppStore();
 const { addToast } = useToast();
 
 // Typing indicator text for the current channel using the composable
-const channelIdRef = computed<EntityId>(() => currentChannel.value?.id ?? 0);
+const channelIdRef = computed<EntityId>(
+    () => appStore.currentChannel?.id ?? 0
+);
 const { typingIndicatorText } = useTypingIndicator(channelIdRef);
 
 // Permission composable használata
