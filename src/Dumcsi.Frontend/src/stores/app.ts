@@ -367,6 +367,34 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
+  const handleUserJoinedVoiceChannel = (channelId: EntityId, user: UserProfileDto) => {
+    const users = voiceChannelUsers.value.get(channelId) || [];
+    voiceChannelUsers.value.set(channelId, [...users, user]);
+  };
+
+  const handleUserLeftVoiceChannel = (channelId: EntityId, userId: EntityId) => {
+    const users = voiceChannelUsers.value.get(channelId);
+    if (!users) return;
+    voiceChannelUsers.value.set(channelId, users.filter(u => u.id !== userId));
+  };
+
+  const handleUserStartedScreenShare = (channelId: EntityId, userId: EntityId) => {
+    if (!screenShares.value.has(channelId)) {
+      screenShares.value.set(channelId, new Set());
+    }
+    screenShares.value.get(channelId)!.add(userId);
+  };
+
+  const handleUserStoppedScreenShare = (channelId: EntityId, userId: EntityId) => {
+    const users = screenShares.value.get(channelId);
+    if (!users) return;
+    users.delete(userId);
+    if (users.size === 0) {
+      screenShares.value.delete(channelId);
+    }
+  };
+
+
   const openCreateChannelModal = (serverId: EntityId) => {
     createChannelForServerId.value = serverId;
     isCreateChannelModalOpen.value = true;
@@ -441,6 +469,10 @@ export const useAppStore = defineStore('app', () => {
     handleChannelCreated,
     handleChannelUpdated,
     handleChannelDeleted,
+    handleUserJoinedVoiceChannel,
+    handleUserLeftVoiceChannel,
+    handleUserStartedScreenShare,
+    handleUserStoppedScreenShare,
 
     // Reset
     $reset: () => {

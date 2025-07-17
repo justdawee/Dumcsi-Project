@@ -105,7 +105,7 @@ const props = defineProps({
   serverId: Number
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'channel-created'])
 const router = useRouter()
 const appStore = useAppStore()
 const { addToast } = useToast()
@@ -125,14 +125,14 @@ const handleCreateChannel = async () => {
   
   try {
     const response = await appStore.createChannel(props.serverId, form.value)
+    emit('channel-created', response)
     emit('close')
     
-    addToast({ 
+    addToast({
       message: `Channel #${response.name} created successfully.`,
-      type: 'success' 
-    });
+      type: 'success'
+    })
 
-    // Navigate to the new channel if it's a text channel
     if (form.value.type === 0) {
       router.push(`/servers/${props.serverId}/channels/${response.id}`)
     }

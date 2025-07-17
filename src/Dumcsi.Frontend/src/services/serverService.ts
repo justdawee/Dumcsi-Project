@@ -184,12 +184,15 @@ const serverService = {
   /**
    * Létrehoz egy új csatornát a szerveren.
    */
-  async createChannel(serverId: EntityId, payload: CreateChannelRequest): Promise<{ channelId: EntityId }> {
-    const response = await api.post<ApiResponse<{ channelId: EntityId }>>(`/server/${serverId}/channels`, payload);
+  async createChannel(serverId: EntityId, payload: CreateChannelRequest): Promise<ChannelListItem> {
+    const response = await api.post<ApiResponse<ChannelListItemDto>>(
+        `/server/${serverId}/channels`,
+        payload,
+    );
     if (!response.data.isSuccess) {
       throw new Error(response.data.message);
     }
-    return response.data.data;
+    return toChannelListItem(response.data.data);
   },
 
   /**
@@ -197,7 +200,7 @@ const serverService = {
    */
   async generateInvite(serverId: EntityId, payload?: CreateInviteRequest): Promise<CreateInviteResponse> {
     const response = await api.post<ApiResponse<CreateInviteResponse>>(
-        `/server/${serverId}/invites`,
+        `/server/${serverId}/invite`,
         payload || {}
     );
     if (!response.data.isSuccess) {
