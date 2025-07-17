@@ -184,4 +184,5 @@ class UploadService {
 }
 
 // Singleton instance
-export const uploadService = new UploadService();
+const uploadService = new UploadService();
+export default uploadService;

@@ -19,7 +19,7 @@ import type {
   UpdateServerRequest,
   UserProfileDto,
   UserServerPayload,
-  UserTypingPayload,
+  //UserTypingPayload,
 } from '@/services/types';
 
 import serverService from '@/services/serverService';
