@@ -19,6 +19,7 @@ import type {
   UpdateServerRequest,
   UserProfileDto,
   UserServerPayload,
+  ReactionPayload,
   //UserTypingPayload,
 } from '@/services/types';
 
@@ -202,6 +203,14 @@ export const useAppStore = defineStore('app', () => {
     messages.value = messages.value.filter(m => m.id !== messageId);
   };
 
+  const addReaction = async (channelId: EntityId, messageId: EntityId, emoji: string) => {
+    await messageService.addReaction(channelId, messageId, emoji);
+  };
+
+  const removeReaction = async (channelId: EntityId, messageId: EntityId, emoji: string) => {
+    await messageService.removeReaction(channelId, messageId, emoji);
+  };
+
   // SignalR Event Handlers
   const handleReceiveMessage = (message: MessageDto) => {
     if (currentChannel.value?.id === message.channelId) {
@@ -218,6 +227,35 @@ export const useAppStore = defineStore('app', () => {
 
   const handleMessageDeleted = (payload: MessageDeletedPayload) => {
     messages.value = messages.value.filter(m => m.id !== payload.messageId);
+  };
+
+  const handleReactionAdded = (payload: ReactionPayload) => {
+    const message = messages.value.find(m => m.id === payload.messageId);
+    if (!message) return;
+    const reaction = message.reactions.find(r => r.emojiId === payload.emojiId);
+    if (reaction) {
+      reaction.count += 1;
+      if (payload.userId === currentUserId.value) reaction.me = true;
+    } else {
+      message.reactions.push({
+        emojiId: payload.emojiId,
+        count: 1,
+        me: payload.userId === currentUserId.value,
+      });
+    }
+  };
+
+  const handleReactionRemoved = (payload: ReactionPayload) => {
+    const message = messages.value.find(m => m.id === payload.messageId);
+    if (!message) return;
+    const index = message.reactions.findIndex(r => r.emojiId === payload.emojiId);
+    if (index === -1) return;
+    const reaction = message.reactions[index];
+    reaction.count -= 1;
+    if (payload.userId === currentUserId.value) reaction.me = false;
+    if (reaction.count <= 0) {
+      message.reactions.splice(index, 1);
+    }
   };
 
   const handleUserUpdated = (user: UserProfileDto) => {
@@ -259,6 +297,18 @@ export const useAppStore = defineStore('app', () => {
         typingUsers.value.delete(channelId);
       }
     }
+  };
+
+  const handleServerCreated = (server: ServerListItemDto) => {
+    servers.value.push({
+      id: server.id,
+      name: server.name,
+      icon: server.icon,
+      memberCount: server.memberCount,
+      isOwner: server.isOwner,
+      description: server.description,
+      public: server.public,
+    });
   };
 
   const handleServerUpdated = (server: ServerListItemDto) => {
@@ -450,6 +500,8 @@ export const useAppStore = defineStore('app', () => {
     sendMessage,
     updateMessage,
     deleteMessage,
+    addReaction,
+    removeReaction,
 
     // SignalR Event Handlers
     handleReceiveMessage,
@@ -460,6 +512,7 @@ export const useAppStore = defineStore('app', () => {
     handleUserOffline,
     handleUserTyping,
     handleUserStoppedTyping,
+    handleServerCreated,
     handleServerUpdated,
     handleServerDeleted,
     handleUserJoinedServer,
@@ -469,6 +522,8 @@ export const useAppStore = defineStore('app', () => {
     handleChannelCreated,
     handleChannelUpdated,
     handleChannelDeleted,
+    handleReactionAdded,
+    handleReactionRemoved,
     handleUserJoinedVoiceChannel,
     handleUserLeftVoiceChannel,
     handleUserStartedScreenShare,

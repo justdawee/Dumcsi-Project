@@ -5,17 +5,17 @@ import { useToast } from '@/composables/useToast';
 import type {
   MessageDto,
   UserProfileDto,
-  ChannelListItemDto,
   EntityId,
   MessageDeletedPayload,
   ChannelDeletedPayload,
   UserServerPayload,
-  ServerListItemDto
+  ServerListItemDto,
+  ReactionPayload, ChannelDetailDto
 } from './types';
 
 export class SignalRService {
   private connection: signalR.HubConnection | null = null;
-  private reconnectAttempts = 0;
+  reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 2000;
 
@@ -83,13 +83,23 @@ export class SignalRService {
       appStore.handleMessageDeleted(payload);
     });
 
-    // Channel events
-    this.connection.on('ChannelCreated', (serverId: EntityId, channel: ChannelListItemDto) => {
-      console.log('SignalR: Channel created', channel);
-      appStore.handleChannelCreated(serverId, channel);
+    this.connection.on('ReactionAdded', (payload: ReactionPayload) => {
+      console.log('SignalR: Reaction added', payload);
+      appStore.handleReactionAdded(payload);
     });
 
-    this.connection.on('ChannelUpdated', (channel: ChannelListItemDto) => {
+    this.connection.on('ReactionRemoved', (payload: ReactionPayload) => {
+      console.log('SignalR: Reaction removed', payload);
+      appStore.handleReactionRemoved(payload);
+    });
+
+    // Channel events
+    this.connection.on('ChannelCreated', (channel: ChannelDetailDto) => {
+      console.log('SignalR: Channel created', channel);
+      appStore.handleChannelCreated(channel);
+    });
+
+    this.connection.on('ChannelUpdated', (channel: ChannelDetailDto) => {
       console.log('SignalR: Channel updated', channel);
       appStore.handleChannelUpdated(channel);
     });
@@ -148,6 +158,11 @@ export class SignalRService {
     });
 
     // Server events
+    this.connection.on('ServerCreated', (server: ServerListItemDto) => {
+      console.log('SignalR: Server created', server);
+      appStore.handleServerCreated(server);
+    });
+
     this.connection.on('ServerUpdated', (server: ServerListItemDto) => {
       console.log('SignalR: Server updated', server);
       appStore.handleServerUpdated(server);

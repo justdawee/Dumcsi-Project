@@ -430,6 +430,14 @@ export interface ChannelDeletedPayload {
   serverId: EntityId;
 }
 
+export interface ReactionPayload {
+  channelId: EntityId;
+  messageId: EntityId;
+  emojiId: string;
+  userId: EntityId;
+}
+
+
 export interface UserTypingPayload {
   channelId: EntityId;
   userId: EntityId;

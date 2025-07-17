@@ -53,6 +53,26 @@ const messageService = {
       throw new Error(response.data.message);
     }
   },
+
+  async addReaction(channelId: EntityId, messageId: EntityId, emoji: string): Promise<void> {
+    const encoded = encodeURIComponent(emoji);
+    const response = await api.put<ApiResponse<void>>(
+        `/channels/${channelId}/messages/${messageId}/reactions/${encoded}`
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
+
+  async removeReaction(channelId: EntityId, messageId: EntityId, emoji: string): Promise<void> {
+    const encoded = encodeURIComponent(emoji);
+    const response = await api.delete<ApiResponse<void>>(
+        `/channels/${channelId}/messages/${messageId}/reactions/${encoded}`
+    );
+    if (!response.data.isSuccess) {
+      throw new Error(response.data.message);
+    }
+  },
 };
 
 export default messageService;
