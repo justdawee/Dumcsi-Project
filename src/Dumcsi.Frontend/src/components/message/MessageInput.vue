@@ -38,7 +38,7 @@
             <File class="w-6 h-6 text-gray-400 flex-shrink-0"/>
             <div class="flex flex-col min-w-0">
               <span class="text-sm text-gray-300 truncate">{{ attachment.file.name }}</span>
-              <span class="text-xs text-gray-500">{{ uploadService.formatFileSize(attachment.file.size) }}</span>
+              <span class="text-xs text-gray-500">{{ formatFileSize(attachment.file.size) }}</span>
             </div>
           </div>
           <!-- Remove Button -->
@@ -131,7 +131,7 @@
 import {ref, computed, nextTick, onUnmounted} from 'vue';
 import {useAppStore} from '@/stores/app';
 import {useUserDisplay} from '@/composables/useUserDisplay';
-import uploadService from '@/services/uploadService';
+import { formatFileSize } from '@/utils/helpers';
 
 // Import the new composables
 import {useAttachments} from '@/composables/useAttachments';

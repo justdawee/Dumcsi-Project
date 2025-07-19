@@ -89,7 +89,7 @@ const handleGenerateInvite = async () => {
   generatingInvite.value = true;
   try {
     const response = await serverService.generateInvite(props.server.id);
-    generatedInviteCode.value = response.data.code;
+    generatedInviteCode.value = response.code;
     isInviteModalOpen.value = true;
   } catch (error) {
     addToast({

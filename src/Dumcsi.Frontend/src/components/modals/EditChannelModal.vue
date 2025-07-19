@@ -1,11 +1,12 @@
 <template>
   <Transition name="modal-fade">
     <div
-      v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
-      @click.self="closeModal"
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        @click.self="closeModal"
     >
-      <div class="w-full max-w-md transform rounded-2xl bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+      <div
+          class="w-full max-w-md transform rounded-2xl bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-700/50">
         <!-- Fejléc -->
         <div class="p-6">
           <h3 class="text-xl font-bold text-white">Edit Channel</h3>
@@ -16,21 +17,22 @@
         <form @submit.prevent="handleUpdateChannel">
           <div class="p-6 space-y-4 border-y border-gray-700/50">
             <div>
-              <label for="channel-name" class="form-label">Channel Name</label>
-              <input v-model="form.name" type="text" id="channel-name" class="form-input" required />
+              <label class="form-label" for="channel-name">Channel Name</label>
+              <input id="channel-name" v-model="form.name" class="form-input" required type="text"/>
             </div>
             <div>
-              <label for="channel-description" class="form-label">Description (Optional)</label>
-              <textarea v-model="form.description" id="channel-description" rows="3" class="form-input resize-none"></textarea>
+              <label class="form-label" for="channel-description">Description (Optional)</label>
+              <textarea id="channel-description" v-model="form.description" class="form-input resize-none"
+                        rows="3"></textarea>
             </div>
             <p v-if="error" class="form-error">{{ error }}</p>
           </div>
 
           <!-- Műveleti gombok -->
           <div class="p-6 flex justify-end gap-3">
-            <button type="button" @click="closeModal" class="btn-secondary">Cancel</button>
-            <button type="submit" :disabled="isLoading" class="btn-primary inline-flex items-center">
-              <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2" />
+            <button class="btn-secondary" type="button" @click="closeModal">Cancel</button>
+            <button :disabled="isLoading" class="btn-primary inline-flex items-center" type="submit">
+              <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2"/>
               Save Changes
             </button>
           </div>
@@ -38,15 +40,15 @@
 
         <!-- Danger Zone a törléshez -->
         <div class="p-6 border-t border-gray-700/50 bg-gray-900/40 rounded-b-2xl">
-           <div class="flex items-center justify-between">
-              <div>
-                <p class="font-medium text-red-400">Delete Channel</p>
-                <p class="text-sm text-gray-400">This action cannot be undone.</p>
-              </div>
-              <button @click="isConfirmDeleteOpen = true" class="btn-danger flex-shrink-0">
-                Delete
-              </button>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium text-red-400">Delete Channel</p>
+              <p class="text-sm text-gray-400">This action cannot be undone.</p>
             </div>
+            <button class="btn-danger flex-shrink-0" @click="isConfirmDeleteOpen = true">
+              Delete
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -54,30 +56,30 @@
 
   <!-- Megerősítő modális ablak a törléshez -->
   <ConfirmModal
-    v-model="isConfirmDeleteOpen"
-    title="Delete Channel"
-    :message="`Are you sure you want to delete the channel #${channel?.name}? This is permanent.`"
-    confirm-text="Delete Channel"
-    :is-loading="isDeleting"
-    @confirm="handleDeleteChannel"
-    intent="danger"
+      v-model="isConfirmDeleteOpen"
+      :is-loading="isDeleting"
+      :message="`Are you sure you want to delete the channel #${channel?.name}? This is permanent.`"
+      confirm-text="Delete Channel"
+      intent="danger"
+      title="Delete Channel"
+      @confirm="handleDeleteChannel"
   />
 </template>
 
-<script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
-import { Loader2 } from 'lucide-vue-next';
+<script lang="ts" setup>
+import {ref, reactive, watch} from 'vue';
+import {Loader2} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import channelService from '@/services/channelService';
-import { useToast } from '@/composables/useToast';
-import type { ChannelListItemDto, UpdateChannelRequestDto } from '@/services/types';
+import {useToast} from '@/composables/useToast';
+import type {ChannelDetailDto, UpdateChannelRequest} from '@/services/types';
 
-const { addToast } = useToast();
+const {addToast} = useToast();
 
 // --- Props & Emits ---
 const props = defineProps<{
   modelValue: boolean;
-  channel: ChannelListItemDto | null;
+  channel: ChannelDetailDto | null;
 }>();
 
 const emit = defineEmits<{
@@ -87,7 +89,7 @@ const emit = defineEmits<{
 }>();
 
 // --- State ---
-const form = reactive<Partial<UpdateChannelRequestDto>>({ name: '', description: '' });
+const form = reactive<Partial<UpdateChannelRequest>>({name: '', description: ''});
 const isLoading = ref(false);
 const isDeleting = ref(false);
 const error = ref('');
@@ -103,15 +105,15 @@ watch(() => props.channel, (newChannel) => {
     form.name = newChannel.name;
     form.description = newChannel.description || '';
   }
-}, { immediate: true });
+}, {immediate: true});
 
 const handleUpdateChannel = async () => {
   if (!props.channel) return;
   isLoading.value = true;
   addToast({
-      type: 'success',
-      message: 'Channel updated successfully.',
-    });
+    type: 'success',
+    message: 'Channel updated successfully.',
+  });
   try {
     await channelService.updateChannel(props.channel.id, {
       name: form.name,
@@ -138,9 +140,9 @@ const handleDeleteChannel = async () => {
   if (!props.channel) return;
   isDeleting.value = true;
   addToast({
-      type: 'success',
-      message: 'Channel deleted successfully.',
-    });
+    type: 'success',
+    message: 'Channel deleted successfully.',
+  });
   try {
     await channelService.deleteChannel(props.channel.id);
     emit('channel-deleted', props.channel.id);

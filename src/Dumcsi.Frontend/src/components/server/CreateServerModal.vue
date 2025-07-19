@@ -189,7 +189,7 @@ const handleJoinServer = async () => {
       router.push({ name: 'Server', params: { serverId: result.serverId } });
       addToast({
         type: 'success',
-        message: `Successfully joined ${result.serverName}.`
+        message: 'Successfully joined the server.'
       });
     }
   } catch (err: any) {

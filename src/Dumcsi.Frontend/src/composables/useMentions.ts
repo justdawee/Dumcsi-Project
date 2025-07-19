@@ -2,12 +2,12 @@ import { ref, nextTick, type Ref } from 'vue';
 import { debounce } from 'lodash';
 import userService from '@/services/userService';
 import { useUserDisplay } from './useUserDisplay';
-import type { UserSearchResult, EntityId } from '@/services/types';
+import type { UserProfileDto, EntityId } from '@/services/types';
 
 export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLTextAreaElement | undefined>) {
   // --- State ---
   const showMentionSuggestions = ref(false);
-  const mentionSuggestions = ref<UserSearchResult[]>([]);
+  const mentionSuggestions = ref<UserProfileDto[]>([]);
   const currentMentionSearch = ref('');
   const selectedMentionIndex = ref(0);
   const mentionedUserIds = ref<Set<EntityId>>(new Set());
@@ -65,7 +65,7 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
     }
   };
 
-  const selectMention = (user: UserSearchResult) => {
+  const selectMention = (user: UserProfileDto) => {
     if (!messageInput.value) return;
 
     const beforeMention = messageContent.value.substring(0, mentionPosition.value);

@@ -1,6 +1,6 @@
 import { ref, onUnmounted, type Ref } from 'vue';
 import uploadService from '@/services/uploadService';
-import type { UploadResponse } from '@/services/uploadService';
+import type { UploadResponse } from '@/services/types';
 import { useToast } from '@/composables/useToast';
 import type { EntityId } from '@/services/types';
 

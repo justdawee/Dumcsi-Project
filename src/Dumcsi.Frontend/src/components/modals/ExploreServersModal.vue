@@ -77,9 +77,7 @@ import type { ServerListItem } from '@/services/types';
 import { Loader2 } from 'lucide-vue-next';
 
 // --- Props & Emits ---
-const props = defineProps<{
-  modelValue: boolean;
-}>();
+defineProps<{ modelValue: boolean }>();
 const emit = defineEmits(['update:modelValue']);
 
 // --- State ---

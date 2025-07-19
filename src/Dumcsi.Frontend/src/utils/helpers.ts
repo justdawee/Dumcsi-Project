@@ -151,3 +151,17 @@ export const copyToClipboard = async (text: string): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Format a file size in bytes to a human readable string.
+ */
+export const formatFileSize = (size: number): string => {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let idx = 0;
+  let s = size;
+  while (s >= 1024 && idx < units.length - 1) {
+    s /= 1024;
+    idx++;
+  }
+  return `${s.toFixed(1)} ${units[idx]}`;
+};
