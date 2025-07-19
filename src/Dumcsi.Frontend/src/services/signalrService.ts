@@ -10,7 +10,8 @@ import type {
   ChannelDeletedPayload,
   UserServerPayload,
   ServerListItemDto,
-  ReactionPayload, ChannelDetailDto
+  ReactionPayload,
+  ChannelDetailDto
 } from './types';
 
 export class SignalRService {
@@ -125,6 +126,52 @@ export class SignalRService {
       appStore.handleUserOffline(userId);
     });
 
+    // Connection lifecycle events
+    this.connection.onreconnecting(() => {
+      console.log('SignalR: Reconnecting...');
+      appStore.setConnectionState('reconnecting');
+    });
+
+    this.connection.onreconnected(() => {
+      console.log('SignalR: Reconnected');
+      appStore.setConnectionState('connected');
+
+      // Re-join current server and channel after reconnection
+      const currentServerId = appStore.currentServer?.id;
+      const currentChannelId = appStore.currentChannel?.id;
+
+      if (currentServerId) {
+        this.joinServer(currentServerId);
+      }
+
+      if (currentChannelId) {
+        this.joinChannel(currentChannelId);
+      }
+    });
+
+    this.connection.onclose(() => {
+      console.log('SignalR: Connection closed');
+      appStore.setConnectionState('disconnected');
+    });
+
+    this.connection.on('Connected', (onlineUserIds: EntityId[]) => {
+      console.log('SignalR: Received online users on connect', onlineUserIds);
+
+      // Set all online users
+      appStore.onlineUsers = new Set(onlineUserIds);
+
+      // Update member objects if we have them
+      appStore.members.forEach(member => {
+        member.isOnline = appStore.onlineUsers.has(member.userId);
+      });
+
+      // Set own status to online
+      const authStore = useAuthStore();
+      if (authStore.user?.id) {
+        appStore.onlineUsers.add(authStore.user.id);
+      }
+    });
+
     // Typing indicator
     this.connection.on('UserTyping', (channelId: EntityId, userId: EntityId) => {
       console.log('SignalR: User typing', { channelId, userId });
@@ -222,13 +269,60 @@ export class SignalRService {
     });
   }
 
+  async start(): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      console.log('SignalR already connected');
+      return;
+    }
+
+    const authStore = useAuthStore();
+    const appStore = useAppStore();
+
+    if (!authStore.token) {
+      console.error('No auth token available');
+      return;
+    }
+
+    try {
+      // Set connecting state
+      appStore.setConnectionState('connecting');
+
+      await this.initialize();
+      console.log('SignalR connection started');
+
+      // Set connected state
+      appStore.setConnectionState('connected');
+
+      // Add self to online users immediately
+      if (authStore.user?.id) {
+        appStore.onlineUsers.add(authStore.user.id);
+      }
+
+      // Re-join current server/channel if any
+      if (appStore.currentServer?.id) {
+        await this.joinServer(appStore.currentServer.id);
+      }
+
+      if (appStore.currentChannel?.id) {
+        await this.joinChannel(appStore.currentChannel.id);
+      }
+    } catch (error) {
+      console.error('Failed to start SignalR connection:', error);
+      appStore.setConnectionState('disconnected');
+      this.handleConnectionClosed();
+    }
+  }
+
   async stop(): Promise<void> {
     if (this.connection) {
+      const appStore = useAppStore();
+      appStore.setConnectionState('disconnected');
+
       try {
         await this.connection.stop();
-        console.log('SignalR: Connection stopped');
+        console.log('SignalR connection stopped');
       } catch (error) {
-        console.error('SignalR: Error stopping connection', error);
+        console.error('Error stopping SignalR connection:', error);
       }
     }
   }
@@ -250,7 +344,6 @@ export class SignalRService {
     });
   }
 
-  // Nyilvános metódusok üzenetek küldéséhez
   async sendTypingIndicator(channelId: EntityId): Promise<void> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {
@@ -294,8 +387,39 @@ export class SignalRService {
   async joinChannel(channelId: EntityId): Promise<EntityId[]> {
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       try {
-        const result = await this.connection.invoke<EntityId[]>('JoinChannel', channelId.toString());
-        return result || [];
+        const result = await this.connection.invoke<{
+          typingUserIds: EntityId[],
+          onlineUserIds: EntityId[]
+        }>('JoinChannel', channelId.toString());
+
+        if (result) {
+          const appStore = useAppStore();
+
+          // Update typing users
+          appStore.setTypingUsers(channelId, result.typingUserIds || []);
+
+          // Update online users
+          const updatedOnlineUsers = new Set(appStore.onlineUsers);
+          (result.onlineUserIds || []).forEach(id => updatedOnlineUsers.add(id));
+          appStore.onlineUsers = updatedOnlineUsers;
+
+          // Update member online status
+          appStore.members.forEach(member => {
+            member.isOnline = appStore.onlineUsers.has(member.userId);
+          });
+
+          // Ensure self is online
+          const authStore = useAuthStore();
+          if (authStore.user?.id) {
+            appStore.onlineUsers.add(authStore.user.id);
+            const selfMember = appStore.members.find(m => m.userId === authStore.user?.id);
+            if (selfMember) {
+              selfMember.isOnline = true;
+            }
+          }
+
+          return result.typingUserIds || [];
+        }
       } catch (error) {
         console.error('Failed to join channel:', error);
       }

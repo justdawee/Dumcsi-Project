@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import {useAppStore} from "@/stores/app.ts";
+import {signalRService} from "@/services/signalrService.ts";
 
 export const RouteNames = {
   // Guest routes
@@ -88,26 +90,45 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
-  // If the user has a token but no user data, check auth to populate user
+
   if (authStore.token && !authStore.user) {
     try {
       await authStore.checkAuth();
-    } catch (error) {
-      // Token invalid, auth store will handle cleanup
+    } catch (err) {
     }
   }
 
   const isAuthenticated = authStore.isAuthenticated;
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-  const requiresGuest = to.matched.some(record => record.meta.requiresGuest);
+  const requiresAuth   = to.matched.some(r => r.meta.requiresAuth);
+  const requiresGuest  = to.matched.some(r => r.meta.requiresGuest);
 
   if (requiresAuth && !isAuthenticated) {
-    next({ name: RouteNames.LOGIN, query: { redirect: to.fullPath } });
-  } else if (requiresGuest && isAuthenticated) {
-    next({ name: RouteNames.SERVER_SELECT });
-  } else {
-    next();
+    next({
+      name: RouteNames.LOGIN,
+      query: { redirect: to.fullPath }
+    });
+    return;
   }
+
+  if (requiresGuest && isAuthenticated) {
+    next({ name: RouteNames.SERVER_SELECT });
+    return;
+  }
+
+  if (isAuthenticated && authStore.user) {
+    const appStore = useAppStore();
+
+    if (appStore.connectionState !== 'connected' &&
+        appStore.connectionState !== 'connecting') {
+      console.log('Router guard: Starting SignalR…');
+      try {
+        await signalRService.start();
+      } catch (err) {
+        console.error('Router guard: Failed to start SignalR:', err);
+      }
+    }
+  }
+  next();
 });
 
 export default router;

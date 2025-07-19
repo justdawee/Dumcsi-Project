@@ -155,8 +155,23 @@ const isMemberListOpen = ref(true);
 // State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);
 const messages = computed(() => appStore.messages);
-const members = computed(() => appStore.members);
 const channelDescription = computed(() => appStore.currentChannel?.description);
+
+const members = computed(() => {
+  const allMembers = appStore.members;
+  const authStore = useAuthStore();
+  const currentUserId = authStore.user?.id;
+
+  // Ensure self is marked as online
+  if (currentUserId && appStore.connectionState === 'connected') {
+    const selfMember = allMembers.find(m => m.userId === currentUserId);
+    if (selfMember) {
+      selfMember.isOnline = true;
+    }
+  }
+
+  return allMembers;
+});
 
 // --- Core Logic ---
 

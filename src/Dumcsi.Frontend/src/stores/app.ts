@@ -41,9 +41,22 @@ export const useAppStore = defineStore('app', () => {
   const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map());
   const voiceChannelUsers = ref<Map<EntityId, UserProfileDto[]>>(new Map());
   const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
+  const connectionState = ref<'disconnected' | 'connecting' | 'connected' | 'reconnecting'>('disconnected');
 
   const isCreateChannelModalOpen = ref(false);
   const createChannelForServerId = ref<EntityId | null>(null);
+
+  const setConnectionState = (state: 'disconnected' | 'connecting' | 'connected' | 'reconnecting') => {
+    connectionState.value = state;
+
+    // When connected, add self to online users
+    if (state === 'connected') {
+      const authStore = useAuthStore();
+      if (authStore.user?.id) {
+        onlineUsers.value.add(authStore.user.id);
+      }
+    }
+  };
 
   const loading = ref({
     servers: false,
@@ -99,8 +112,29 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const fetchServerMembers = async (serverId: EntityId) => {
-    const result = await handleApiCall('members', () => serverService.getServerMembers(serverId));
-    if (result) members.value = result;
+    const result = await handleApiCall('members', () =>
+        serverService.getServerMembers(serverId)
+    );
+
+    if (result) {
+      members.value = result;
+
+      // Update member objects with current online status
+      members.value.forEach(member => {
+        member.isOnline = onlineUsers.value.has(member.userId);
+      });
+
+      // Ensure self is marked as online
+      const authStore = useAuthStore();
+      const currentUserId = authStore.user?.id;
+      if (currentUserId) {
+        onlineUsers.value.add(currentUserId);
+        const selfMember = members.value.find(m => m.userId === currentUserId);
+        if (selfMember) {
+          selfMember.isOnline = true;
+        }
+      }
+    }
   };
 
   const createServer = async (payload: CreateServerRequest) => {
@@ -274,6 +308,8 @@ export const useAppStore = defineStore('app', () => {
     const updated = new Set(onlineUsers.value);
     updated.add(userId);
     onlineUsers.value = updated;
+
+    // Update member object immediately
     const member = members.value.find(m => m.userId === userId);
     if (member) {
       member.isOnline = true;
@@ -284,6 +320,8 @@ export const useAppStore = defineStore('app', () => {
     const updated = new Set(onlineUsers.value);
     updated.delete(userId);
     onlineUsers.value = updated;
+
+    // Update member object immediately
     const member = members.value.find(m => m.userId === userId);
     if (member) {
       member.isOnline = false;
@@ -504,6 +542,7 @@ export const useAppStore = defineStore('app', () => {
     error,
     isCreateChannelModalOpen,
     createChannelForServerId,
+    connectionState,
 
     // Computed
     currentUserId,
@@ -547,6 +586,7 @@ export const useAppStore = defineStore('app', () => {
     handleUserTyping,
     handleUserStoppedTyping,
     setTypingUsers,
+    setConnectionState,
     handleServerCreated,
     handleServerUpdated,
     handleServerDeleted,
