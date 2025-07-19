@@ -86,12 +86,21 @@ const onlineIndicatorStyles = computed(() => {
   const indicatorSize = Math.max(10, parsedSize.value / 3.2);
   const borderSize = Math.max(2, indicatorSize / 4.5);
   const offset = borderSize;
+  if (props.isTyping) {
+    return {
+      width: `${indicatorSize * 1.8}px`,
+      height: `${indicatorSize}px`,
+      bottom: `${offset}px`,
+      right: `${offset}px`,
+      border: 'none',
+    } as const;
+  }
   return {
     width: `${indicatorSize}px`,
     height: `${indicatorSize}px`,
     bottom: `${offset}px`,
     right: `${offset}px`,
-    border: props.isTyping ? 'none' : `${borderSize}px solid #1e1f22`,
+    border: `${borderSize}px solid #1e1f22`,
   } as const;
 });
 
@@ -154,8 +163,17 @@ const handleImageError = () => {
   animation-delay: 0.4s;
 }
 
+.status-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+
 .status-indicator.typing {
   color: #9ca3af; /* text-gray-400 */
+  background-color: #2f3136;
+  padding: 0 2px;
   border: none !important;
 }
 

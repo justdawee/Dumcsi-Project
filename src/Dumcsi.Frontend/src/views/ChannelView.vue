@@ -68,6 +68,7 @@
             <UserAvatar
                 :avatar-url="member.avatarUrl"
                 :username="member.username"
+                :user-id="member.userId"
                 :size="32"
                 show-online-indicator
                 :is-typing="isTyping(member.userId)"
@@ -257,6 +258,11 @@ watch(() => route.params.channelId, (newId) => {
 .typing-indicator {
   display: flex;
   align-items: center;
+  background-color: #2f3136;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  color: #9ca3af;
+  font-weight: 500;
 }
 
 .typing-dots {

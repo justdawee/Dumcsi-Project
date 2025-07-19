@@ -76,9 +76,10 @@
     <div class="px-2 py-2 bg-gray-950 border-t border-l border-r border-gray-700">
       <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-gray-800 transition">
         <UserAvatar
-          :avatar-url="authStore.user?.avatar"
-          :username="authStore.user?.username || ''"
-          :size="'xs'"
+            :avatar-url="authStore.user?.avatar"
+            :username="authStore.user?.username || ''"
+            :user-id="authStore.user?.id"
+            :size="32"
         />
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">
