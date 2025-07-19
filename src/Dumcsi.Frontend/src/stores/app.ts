@@ -271,7 +271,9 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const handleUserOnline = (userId: EntityId) => {
-    onlineUsers.value.add(userId);
+    const updated = new Set(onlineUsers.value);
+    updated.add(userId);
+    onlineUsers.value = updated;
     const member = members.value.find(m => m.userId === userId);
     if (member) {
       member.isOnline = true;
@@ -279,7 +281,9 @@ export const useAppStore = defineStore('app', () => {
   };
 
   const handleUserOffline = (userId: EntityId) => {
-    onlineUsers.value.delete(userId);
+    const updated = new Set(onlineUsers.value);
+    updated.delete(userId);
+    onlineUsers.value = updated;
     const member = members.value.find(m => m.userId === userId);
     if (member) {
       member.isOnline = false;

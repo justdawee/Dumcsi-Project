@@ -68,7 +68,9 @@
             <UserAvatar
                 :avatar-url="member.avatarUrl"
                 :username="member.username"
-                :size="'sm'"
+                :size="32"
+                show-online-indicator
+                :is-typing="isTyping(member.userId)"
             />
             <div class="flex-1 min-w-0">
               <span class="text-gray-300 font-medium text-sm truncate block">
@@ -134,6 +136,14 @@ const channelIdRef = computed<EntityId>(
     () => appStore.currentChannel?.id ?? 0
 );
 const { typingIndicatorText } = useTypingIndicator(channelIdRef);
+
+const typingUserIds = computed(() => {
+  const id = appStore.currentChannel?.id;
+  return id ? appStore.typingUsers.get(id) || new Set<EntityId>() : new Set<EntityId>();
+});
+
+const isTyping = (userId: EntityId) => typingUserIds.value.has(userId);
+
 
 // Permission composable használata
 const { permissions, canManageMember } = usePermissions();

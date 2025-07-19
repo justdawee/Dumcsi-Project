@@ -20,12 +20,22 @@
       {{ initials }}
     </span>
 
-    <!-- Online indicator -->
+    <!-- Status / typing indicator -->
     <div
-        v-if="showOnlineIndicator && isOnline"
-        class="absolute bg-green-500 rounded-full"
+        v-if="showOnlineIndicator"
+        class="status-indicator absolute flex items-center justify-center pointer-events-none"
+        :class="{ typing: isTyping }"
         :style="onlineIndicatorStyles"
-    />
+    >
+      <template v-if="isTyping">
+        <span class="typing-dots"><span></span><span></span><span></span></span>
+      </template>
+      <span
+          v-else
+          class="status-circle block rounded-full w-full h-full"
+          :class="isOnline ? 'bg-green-500' : 'bg-gray-500'"
+      />
+    </div>
   </div>
 </template>
 
@@ -44,10 +54,12 @@ const props = withDefaults(defineProps<{
   size?: number | string;
   showOnlineIndicator?: boolean;
   className?: string;
+  isTyping?: boolean;
 }>(), {
   size: 40,
   showOnlineIndicator: false,
-  className: 'rounded-full'
+  className: 'rounded-full',
+  isTyping: false
 });
 
 const parsedSize = computed(() => {
@@ -71,16 +83,16 @@ const textSize = computed(() => {
 });
 
 const onlineIndicatorStyles = computed(() => {
-  const indicatorSize = Math.max(8, parsedSize.value / 4.5);
-  const borderSize = Math.max(2, indicatorSize / 4);
-  const offset = indicatorSize / 5;
+  const indicatorSize = Math.max(10, parsedSize.value / 3.2);
+  const borderSize = Math.max(2, indicatorSize / 4.5);
+  const offset = borderSize;
   return {
     width: `${indicatorSize}px`,
     height: `${indicatorSize}px`,
     bottom: `${offset}px`,
     right: `${offset}px`,
-    border: `${borderSize}px solid #18191c` // Feltételezve, hogy a háttér sötét
-  };
+    border: props.isTyping ? 'none' : `${borderSize}px solid #1e1f22`,
+  } as const;
 });
 
 // Composables
@@ -99,7 +111,12 @@ watch(() => props.avatarUrl, (newUrl, oldUrl) => {
 // Computed
 const displayName = computed(() => props.username || props.user?.username || 'Unknown');
 const userId = computed(() => props.userId || (props.user && ('userId' in props.user ? props.user.userId : props.user.id)) || 0);
-const isOnline = computed(() => appStore.onlineUsers.has(userId.value));
+const isOnline = computed(() => {
+  if (props.user && 'isOnline' in props.user && typeof (props.user as any).isOnline === 'boolean') {
+    return (props.user as any).isOnline as boolean;
+  }
+  return appStore.onlineUsers.has(userId.value);
+});
 
 const initials = computed(() => {
   if (props.user) {
@@ -113,3 +130,47 @@ const handleImageError = () => {
   imageError.value = true;
 };
 </script>
+<style scoped>
+.typing-dots {
+  display: flex;
+}
+
+.typing-dots span {
+  display: block;
+  width: 3px;
+  height: 3px;
+  margin: 0 1px;
+  background-color: currentColor;
+  border-radius: 50%;
+  opacity: 0.2;
+  animation: typing-dot 1.2s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.status-indicator.typing {
+  color: #9ca3af; /* text-gray-400 */
+  border: none !important;
+}
+
+.status-circle {
+  border-radius: 50%;
+}
+
+@keyframes typing-dot {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+</style>
