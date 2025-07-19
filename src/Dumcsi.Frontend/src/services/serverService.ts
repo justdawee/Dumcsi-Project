@@ -27,6 +27,8 @@ import type {
     JoinServerResponse,
 } from './types';
 
+import { UserStatus } from './types';
+
 // =================================================================
 // MAPPER FÜGGVÉNYEK
 // Feladatuk a nyers API DTO-k átalakítása tiszta Frontend View Modellekké.
@@ -86,6 +88,7 @@ function toServerMember(dto: ServerMemberDto): ServerMember {
         avatarUrl: dto.avatar,
         roles: dto.roles.map(toRole),
         isOnline: false, // Alapértelmezett érték, a store majd frissíti a SignalR adatok alapján
+        status: UserStatus.Offline,
     };
 }
 

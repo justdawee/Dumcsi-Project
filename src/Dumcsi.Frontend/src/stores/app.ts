@@ -23,6 +23,8 @@ import type {
     //UserTypingPayload,
 } from '@/services/types';
 
+import {UserStatus} from '@/services/types';
+
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
@@ -122,6 +124,7 @@ export const useAppStore = defineStore('app', () => {
             // Update member objects with current online status
             members.value.forEach(member => {
                 member.isOnline = onlineUsers.value.has(member.userId);
+                member.status = member.isOnline ? UserStatus.Online : UserStatus.Offline;
             });
 
             // Ensure self is marked as online
@@ -132,10 +135,12 @@ export const useAppStore = defineStore('app', () => {
                 const selfMember = members.value.find(m => m.userId === currentUserId);
                 if (selfMember) {
                     selfMember.isOnline = true;
+                    selfMember.status = UserStatus.Online;
                 }
             }
         }
     };
+
 
     const createServer = async (payload: CreateServerRequest) => {
         const result = await serverService.createServer(payload);
@@ -313,6 +318,7 @@ export const useAppStore = defineStore('app', () => {
         const member = members.value.find(m => m.userId === userId);
         if (member) {
             member.isOnline = true;
+            member.status = UserStatus.Online;
         }
     };
 
@@ -325,6 +331,7 @@ export const useAppStore = defineStore('app', () => {
         const member = members.value.find(m => m.userId === userId);
         if (member) {
             member.isOnline = false;
+            member.status = UserStatus.Offline;
         }
     };
 
@@ -402,6 +409,7 @@ export const useAppStore = defineStore('app', () => {
                 avatarUrl: payload.user.avatar,
                 roles: [],
                 isOnline: onlineUsers.value.has(payload.user.id),
+                status: onlineUsers.value.has(payload.user.id) ? UserStatus.Online : UserStatus.Offline,
             };
             members.value.push(newMember);
             if (currentServer.value) {

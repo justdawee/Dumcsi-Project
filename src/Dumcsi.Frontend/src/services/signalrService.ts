@@ -11,8 +11,10 @@ import type {
     UserServerPayload,
     ServerListItemDto,
     ReactionPayload,
-    ChannelDetailDto
-} from './types';
+    ChannelDetailDto,
+} from '@/services/types';
+
+import {UserStatus} from '@/services/types'
 
 export class SignalRService {
     private connection: signalR.HubConnection | null = null;
@@ -163,12 +165,18 @@ export class SignalRService {
             // Update member objects if we have them
             appStore.members.forEach(member => {
                 member.isOnline = appStore.onlineUsers.has(member.userId);
+                member.status = member.isOnline ? UserStatus.Online : UserStatus.Offline;
             });
 
             // Set own status to online
             const authStore = useAuthStore();
             if (authStore.user?.id) {
                 appStore.onlineUsers.add(authStore.user.id);
+                const selfMember = appStore.members.find(m => m.userId === authStore.user?.id);
+                if (selfMember) {
+                    selfMember.isOnline = true;
+                    selfMember.status = UserStatus.Online;
+                }
             }
         });
 
@@ -346,8 +354,13 @@ export class SignalRService {
 
     async sendTypingIndicator(channelId: EntityId): Promise<void> {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            const authStore = useAuthStore();
             try {
                 await this.connection.invoke('SendTypingIndicator', channelId.toString());
+                if (authStore.user?.id) {
+                    const appStore = useAppStore();
+                    appStore.handleUserTyping(channelId, authStore.user.id);
+                }
             } catch (error) {
                 console.error('Failed to send typing indicator:', error);
             }
@@ -356,8 +369,13 @@ export class SignalRService {
 
     async stopTypingIndicator(channelId: EntityId): Promise<void> {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            const authStore = useAuthStore();
             try {
                 await this.connection.invoke('StopTypingIndicator', channelId.toString());
+                if (authStore.user?.id) {
+                    const appStore = useAppStore();
+                    appStore.handleUserStoppedTyping(channelId, authStore.user.id);
+                }
             } catch (error) {
                 console.error('Failed to send stop typing indicator:', error);
             }

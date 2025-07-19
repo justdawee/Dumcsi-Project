@@ -13,6 +13,13 @@ export enum ChannelType {
     Voice = 1
 }
 
+export enum UserStatus {
+    Online = 'online',
+    Idle = 'idle',
+    Busy = 'busy',
+    Offline = 'offline',
+}
+
 // A backend Permission enum-ja, ez a jogosultságkezelés alapja.
 export enum Permission {
     None = 0,
@@ -112,6 +119,7 @@ export interface ServerMember {
     avatarUrl: string | null;
     roles: Role[];
     isOnline: boolean;
+    status?: UserStatus;
 }
 
 // --- API Payloads (Request) ---

@@ -42,7 +42,7 @@
         <span class="typing-dot"></span>
       </div>
       <!-- Online indicator -->
-      <div v-else class="online-indicator"></div>
+      <div v-else class="online-indicator" :style="{ backgroundColor: statusColor }"></div>
     </div>
   </div>
 </template>
@@ -50,8 +50,10 @@
 <script lang="ts" setup>
 import {ref, computed} from 'vue';
 import {useUserDisplay} from '@/composables/useUserDisplay';
+import { useStatusColor } from '@/composables/useStatusColor';
 import {useAppStore} from '@/stores/app';
-import type {UserProfileDto, ServerMemberDto} from '@/services/types';
+import { UserStatus } from '@/services/types';
+import type { UserProfileDto, ServerMemberDto } from '@/services/types';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -71,6 +73,7 @@ const props = withDefaults(defineProps<{
 
 // Composables
 const {getUserColor, getInitials} = useUserDisplay();
+const { getStatusColor } = useStatusColor();
 const appStore = useAppStore();
 
 // State
@@ -88,6 +91,13 @@ const userId = computed(() =>
     props.userId || (props.user && ('userId' in props.user ? props.user.userId : props.user.id)) || 0
 );
 
+const userStatus = computed<UserStatus>(() => {
+  if (props.user && 'status' in props.user && (props.user as any).status) {
+    return (props.user as any).status as UserStatus;
+  }
+  return isOnline.value ? UserStatus.Online : UserStatus.Offline;
+});
+
 const isOnline = computed(() => {
   if (props.user && 'isOnline' in props.user && typeof (props.user as any).isOnline === 'boolean') {
     return (props.user as any).isOnline as boolean;
@@ -101,6 +111,8 @@ const initials = computed(() => {
   }
   return getInitials({username: displayName.value} as UserProfileDto);
 });
+
+const statusColor = computed(() => getStatusColor(userStatus.value));
 
 // Calculate status indicator size and position based on avatar size
 const statusIndicatorStyles = computed(() => {
@@ -142,6 +154,7 @@ const statusIndicatorStyles = computed(() => {
     height: props.isTyping ? `${indicatorSize * 0.5}px` : `${indicatorSize}px`,
     bottom: `${indicatorOffset}px`,
     right: `${indicatorOffset}px`,
+    backgroundColor: props.isTyping ? statusColor.value : undefined,
   };
 });
 
@@ -164,25 +177,23 @@ const handleImageError = () => {
 /* Status indicator container */
 .status-indicator {
   position: absolute;
-  background-color: #1e1f22;
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 0 3px #1e1f22;
+  background-color: #1e1f22;
 }
 
 /* Online status */
 .status-online .online-indicator {
   width: 100%;
   height: 100%;
-  background-color: #23a55a;
   border-radius: 50%;
 }
 
 /* Typing indicator */
 .status-typing {
-  background-color: #313338;
   padding: 0 4px;
 }
 
