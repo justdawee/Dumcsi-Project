@@ -12,6 +12,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
     // TODO: Redis cache használata a jobb teljesítmény érdekében, ha nagyobb terhelés várható
     private static readonly ConcurrentDictionary<string, List<string>> VoiceChannelUsers = new();
     private static readonly ConcurrentDictionary<string, HashSet<long>> TypingUsers = new();
+    private static readonly ConcurrentDictionary<string, CancellationTokenSource> TypingTimers = new();
 
     // --- Online/Offline állapotok kezelése ---
     public override async Task OnConnectedAsync()
@@ -36,15 +37,34 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
+            // Clean up typing indicators on disconnect
+            foreach (var kvp in TypingUsers)
+            {
+                if (long.TryParse(userId, out var userIdLong))
+                {
+                    await RemoveTypingUser(kvp.Key, userIdLong);
+                }
+            }
+
+            // Cancel all typing timers for this user
+            var userTimerKeys = TypingTimers.Keys.Where(k => k.EndsWith($":{userId}")).ToList();
+            foreach (var key in userTimerKeys)
+            {
+                if (TypingTimers.TryRemove(key, out var timer))
+                {
+                    timer.Cancel();
+                    timer.Dispose();
+                }
+            }
+
+            // Handle offline status
             var wentOffline = await presenceService.UserDisconnected(userId, Context.ConnectionId);
-            
-            // Csak akkor küldünk értesítést, ha ez volt az utolsó aktív kapcsolata
             if (wentOffline)
             {
-                // Értesítjük az összes többi klienst, hogy ez a user offline lett
                 await Clients.Others.SendAsync("UserOffline", long.Parse(userId));
             }
         }
+        
         await base.OnDisconnectedAsync(exception);
     }
     
@@ -72,7 +92,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             }
         }
 
-        return Array.Empty<long>();
+        return [];
     }
 
     public async Task LeaveChannel(string channelId)
@@ -96,38 +116,82 @@ public class ChatHub(IPresenceService presenceService) : Hub
     }
     
     public async Task SendTypingIndicator(string channelId)
+{
+    var userId = Context.UserIdentifier;
+    if (userId != null && long.TryParse(userId, out var userIdLong))
     {
-        var userId = Context.UserIdentifier;
-        if (userId != null && long.TryParse(userId, out var userIdLong))
+        var timerKey = $"{channelId}:{userId}";
+        
+        if (TypingTimers.TryRemove(timerKey, out var existingTimer))
         {
-            var users = TypingUsers.GetOrAdd(channelId, _ => new HashSet<long>());
-            lock (users)
-            {
-                users.Add(userIdLong);
-            }
-
-            // Értesítjük a csatorna többi tagját (a küldőt kivéve), hogy a felhasználó gépel.
+            existingTimer.Cancel();
+            existingTimer.Dispose();
+        }
+        
+        var users = TypingUsers.GetOrAdd(channelId, _ => new HashSet<long>());
+        bool wasAdded;
+        lock (users)
+        {
+            wasAdded = users.Add(userIdLong);
+        }
+        
+        if (wasAdded)
+        {
             await Clients.OthersInGroup(channelId).SendAsync("UserTyping", long.Parse(channelId), userIdLong);
         }
+        
+        var cts = new CancellationTokenSource();
+        TypingTimers[timerKey] = cts;
+        
+        _ = Task.Delay(5000, cts.Token).ContinueWith(async (_) =>
+        {
+            await RemoveTypingUser(channelId, userIdLong);
+            
+            var pairToRemove = new KeyValuePair<string, CancellationTokenSource>(timerKey, cts);
+            if (((ICollection<KeyValuePair<string, CancellationTokenSource>>)TypingTimers).Remove(pairToRemove))
+            {
+                cts.Dispose();
+            }
+
+        }, TaskContinuationOptions.OnlyOnRanToCompletion);
     }
+}
     
     public async Task StopTypingIndicator(string channelId)
     {
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
-            if (TypingUsers.TryGetValue(channelId, out var users))
+            // Cancel timer
+            var timerKey = $"{channelId}:{userId}";
+            if (TypingTimers.TryRemove(timerKey, out var timer))
             {
-                lock (users)
+                timer.Cancel();
+                timer.Dispose();
+            }
+
+            await RemoveTypingUser(channelId, userIdLong);
+        }
+    }
+    
+    private async Task RemoveTypingUser(string channelId, long userIdLong)
+    {
+        if (TypingUsers.TryGetValue(channelId, out var users))
+        {
+            bool wasRemoved;
+            lock (users)
+            {
+                wasRemoved = users.Remove(userIdLong);
+                if (users.Count == 0)
                 {
-                    if (users.Remove(userIdLong) && users.Count == 0)
-                    {
-                        TypingUsers.TryRemove(channelId, out _);
-                    }
+                    TypingUsers.TryRemove(channelId, out _);
                 }
             }
 
-            await Clients.OthersInGroup(channelId).SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
+            if (wasRemoved)
+            {
+                await Clients.OthersInGroup(channelId).SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
+            }
         }
     }
     
