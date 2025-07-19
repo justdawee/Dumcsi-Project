@@ -1,46 +1,54 @@
 <template>
-  <div
-      :class="[
-      'relative flex-shrink-0 flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden',
-      className
-    ]"
-      :style="[
-        dynamicStyles,
-        { backgroundColor: !avatarUrl && user ? getUserColor(userId) : undefined }
-    ]"
-  >
-    <img
-        v-if="avatarUrl && !imageError"
-        :src="avatarUrl"
-        :alt="displayName"
-        class="w-full h-full object-cover"
-        @error="handleImageError"
-    />
-    <span v-else :style="{ fontSize: textSize }">
-      {{ initials }}
-    </span>
-
-    <!-- Status / typing indicator -->
+  <div class="avatar-wrapper" :style="{ width: `${size}px`, height: `${size}px` }">
     <div
-        v-if="showOnlineIndicator"
-        class="status-indicator absolute flex items-center justify-center pointer-events-none"
-        :class="{ typing: isTyping }"
-        :style="onlineIndicatorStyles"
+        :class="[
+        'avatar-container relative flex-shrink-0 flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden rounded-full',
+        className
+      ]"
+        :style="[
+        {
+          width: `${size}px`,
+          height: `${size}px`,
+          backgroundColor: !avatarUrl && user ? getUserColor(userId) : undefined
+        }
+      ]"
     >
-      <template v-if="isTyping">
-        <span class="typing-dots"><span></span><span></span><span></span></span>
-      </template>
-      <span
-          v-else
-          class="status-circle block rounded-full w-full h-full"
-          :class="isOnline ? 'bg-green-500' : 'bg-gray-500'"
+      <img
+          v-if="avatarUrl && !imageError"
+          :src="avatarUrl"
+          :alt="displayName"
+          class="w-full h-full object-cover"
+          @error="handleImageError"
       />
+      <span v-else :style="{ fontSize: `${size * 0.4}px` }">
+        {{ initials }}
+      </span>
+    </div>
+
+    <!-- Status indicator overlay -->
+    <div
+        v-if="showOnlineIndicator && (isOnline || isTyping)"
+        class="status-indicator"
+        :class="{
+        'status-online': isOnline && !isTyping,
+        'status-typing': isTyping
+      }"
+        :style="statusIndicatorStyles"
+    >
+      <!-- Typing indicator -->
+      <div v-if="isTyping" class="typing-indicator-content">
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      </div>
+      <!-- Online indicator -->
+      <div v-else class="online-indicator"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { useAppStore } from '@/stores/app';
 import type { UserProfileDto, ServerMemberDto } from '@/services/types';
@@ -51,75 +59,35 @@ const props = withDefaults(defineProps<{
   avatarUrl?: string | null;
   username?: string;
   userId?: number;
-  size?: number | string;
+  size?: number;
   showOnlineIndicator?: boolean;
   className?: string;
   isTyping?: boolean;
 }>(), {
   size: 40,
   showOnlineIndicator: false,
-  className: 'rounded-full',
-  isTyping: false
-});
-
-const parsedSize = computed(() => {
-  if (typeof props.size === 'string') {
-    const sizeMap: Record<string, number> = {
-      'xs': 24, 'sm': 32, 'md': 40, 'lg': 48, 'xl': 56, '2xl': 64, '3xl': 80, '4xl': 128
-    };
-    return sizeMap[props.size] || 40;
-  }
-  return props.size;
-});
-
-const dynamicStyles = computed(() => ({
-  width: `${parsedSize.value}px`,
-  height: `${parsedSize.value}px`,
-}));
-
-const textSize = computed(() => {
-  // A betűméret arányos az avatar méretével
-  return `${Math.max(12, parsedSize.value / 2.5)}px`;
-});
-
-const onlineIndicatorStyles = computed(() => {
-  const indicatorSize = Math.max(10, parsedSize.value / 3.2);
-  const borderSize = Math.max(2, indicatorSize / 4.5);
-  const offset = borderSize;
-  if (props.isTyping) {
-    return {
-      width: `${indicatorSize * 1.8}px`,
-      height: `${indicatorSize}px`,
-      bottom: `${offset}px`,
-      right: `${offset}px`,
-      border: 'none',
-    } as const;
-  }
-  return {
-    width: `${indicatorSize}px`,
-    height: `${indicatorSize}px`,
-    bottom: `${offset}px`,
-    right: `${offset}px`,
-    border: `${borderSize}px solid #1e1f22`,
-  } as const;
+  isTyping: false,
 });
 
 // Composables
-const appStore = useAppStore();
 const { getUserColor, getInitials } = useUserDisplay();
+const appStore = useAppStore();
 
 // State
 const imageError = ref(false);
 
-watch(() => props.avatarUrl, (newUrl, oldUrl) => {
-  if (newUrl !== oldUrl) {
-    imageError.value = false;
+// Computed
+const displayName = computed(() => {
+  if (props.user) {
+    return ('serverNickname' in props.user && props.user.serverNickname) || props.user.username;
   }
+  return props.username || 'Unknown';
 });
 
-// Computed
-const displayName = computed(() => props.username || props.user?.username || 'Unknown');
-const userId = computed(() => props.userId || (props.user && ('userId' in props.user ? props.user.userId : props.user.id)) || 0);
+const userId = computed(() =>
+    props.userId || (props.user && ('userId' in props.user ? props.user.userId : props.user.id)) || 0
+);
+
 const isOnline = computed(() => {
   if (props.user && 'isOnline' in props.user && typeof (props.user as any).isOnline === 'boolean') {
     return (props.user as any).isOnline as boolean;
@@ -134,61 +102,132 @@ const initials = computed(() => {
   return getInitials({ username: displayName.value } as UserProfileDto);
 });
 
+// Calculate status indicator size and position based on avatar size
+const statusIndicatorStyles = computed(() => {
+  const avatarSize = props.size;
+  const isSmall = avatarSize <= 32;
+  const isMedium = avatarSize <= 40;
+
+  let indicatorSize;
+  let indicatorOffset;
+
+  if (props.isTyping) {
+    // Typing indicator sizes
+    if (isSmall) {
+      indicatorSize = 16;
+      indicatorOffset = -2;
+    } else if (isMedium) {
+      indicatorSize = 20;
+      indicatorOffset = -3;
+    } else {
+      indicatorSize = 24;
+      indicatorOffset = -4;
+    }
+  } else {
+    // Online indicator sizes
+    if (isSmall) {
+      indicatorSize = 10;
+      indicatorOffset = -2;
+    } else if (isMedium) {
+      indicatorSize = 12;
+      indicatorOffset = -2;
+    } else {
+      indicatorSize = 14;
+      indicatorOffset = -3;
+    }
+  }
+
+  return {
+    width: props.isTyping ? `${indicatorSize}px` : `${indicatorSize}px`,
+    height: props.isTyping ? `${indicatorSize * 0.5}px` : `${indicatorSize}px`,
+    bottom: `${indicatorOffset}px`,
+    right: `${indicatorOffset}px`,
+  };
+});
+
 // Methods
 const handleImageError = () => {
   imageError.value = true;
 };
 </script>
+
 <style scoped>
-.typing-dots {
-  display: flex;
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
 }
 
-.typing-dots span {
-  display: block;
-  width: 3px;
-  height: 3px;
-  margin: 0 1px;
-  background-color: currentColor;
-  border-radius: 50%;
-  opacity: 0.2;
-  animation: typing-dot 1.2s infinite ease-in-out;
+.avatar-container {
+  position: relative;
 }
 
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
+/* Status indicator container */
 .status-indicator {
+  position: absolute;
+  background-color: #1e1f22;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
+  box-shadow: 0 0 0 3px #1e1f22;
 }
 
-.status-indicator.typing {
-  color: #9ca3af; /* text-gray-400 */
-  background-color: #2f3136;
-  padding: 0 2px;
-  border: none !important;
-}
-
-.status-circle {
+/* Online status */
+.status-online .online-indicator {
+  width: 100%;
+  height: 100%;
+  background-color: #23a55a;
   border-radius: 50%;
 }
 
-@keyframes typing-dot {
-  0%, 80%, 100% {
-    opacity: 0.2;
+/* Typing indicator */
+.status-typing {
+  background-color: #313338;
+  padding: 0 4px;
+}
+
+.typing-indicator-content {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+}
+
+.typing-dot {
+  width: 3px;
+  height: 3px;
+  background-color: #b5bac1;
+  border-radius: 50%;
+  animation: typing-animation 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-animation {
+  0%, 60%, 100% {
     transform: translateY(0);
+    opacity: 0.4;
   }
-  40% {
+  30% {
+    transform: translateY(-3px);
     opacity: 1;
-    transform: translateY(-2px);
+  }
+}
+
+/* Responsive sizing */
+@media (max-width: 640px) {
+  .status-indicator {
+    box-shadow: 0 0 0 2px #1e1f22;
   }
 }
 </style>

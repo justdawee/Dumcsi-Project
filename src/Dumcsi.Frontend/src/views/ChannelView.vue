@@ -258,7 +258,6 @@ watch(() => route.params.channelId, (newId) => {
 .typing-indicator {
   display: flex;
   align-items: center;
-  background-color: #2f3136;
   border-radius: 9999px;
   padding: 2px 8px;
   color: #9ca3af;
