@@ -11,8 +11,8 @@
           <UserAvatar
               :avatar-url="authStore.user?.avatar"
               :size="32"
-              :username="authStore.user?.username || ''"
               :user-id="authStore.user?.id"
+              :username="authStore.user?.username || ''"
           />
           <span class="text-white font-medium">{{ authStore.user?.username }}</span>
           <ChevronDown class="w-4 h-4 text-gray-400"/>

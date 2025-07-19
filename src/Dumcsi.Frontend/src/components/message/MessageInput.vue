@@ -11,8 +11,8 @@
           <!-- Image Preview -->
           <div v-if="attachment.url" class="relative">
             <img
-                :src="attachment.url"
                 :alt="attachment.file.name"
+                :src="attachment.url"
                 class="h-20 w-20 object-cover rounded"
             />
             <div v-if="attachment.uploading"
@@ -22,10 +22,11 @@
                   <path class="text-gray-700"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
                         stroke-width="4"></path>
-                  <path class="text-primary"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
-                        :stroke-dasharray="`${attachment.progress}, 100`" stroke-width="4"
-                        stroke-linecap="round"></path>
+                  <path :stroke-dasharray="`${attachment.progress}, 100`"
+                        class="text-primary"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        fill="none" stroke-linecap="round"
+                        stroke-width="4"></path>
                 </svg>
                 <span class="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">{{
                     attachment.progress
@@ -44,9 +45,9 @@
           <!-- Remove Button -->
           <button
               v-if="!attachment.uploading"
-              @click="removeAttachment(index)"
               class="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
               title="Remove file"
+              @click="removeAttachment(index)"
           >
             <X class="w-3.5 h-3.5"/>
           </button>
@@ -63,13 +64,13 @@
         <button
             v-for="(user, index) in mentionSuggestions"
             :key="user.id"
-            @click="selectMention(user)"
             :class="[
             'w-full flex items-center gap-2 p-2 rounded hover:bg-primary/20 transition',
             { 'bg-primary/20': index === selectedMentionIndex }
           ]"
+            @click="selectMention(user)"
         >
-          <UserAvatar :user="user" :size="24"/>
+          <UserAvatar :size="24" :user="user"/>
           <div class="flex-1 text-left">
             <div class="text-sm font-medium text-white">{{ getDisplayName(user) }}</div>
             <div v-if="user.globalNickname" class="text-xs text-gray-400">@{{ user.username }}</div>
@@ -80,13 +81,13 @@
 
     <!-- Input Area -->
     <div class="flex items-end gap-2 bg-gray-800/80 rounded-lg p-2">
-      <input ref="fileInput" type="file" multiple class="hidden" @change="onFileSelected"/>
+      <input ref="fileInput" class="hidden" multiple type="file" @change="onFileSelected"/>
 
       <button
-          @click="fileInput?.click()"
           :disabled="isUploading || attachments.length >= 10"
           class="p-2 text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
           title="Attach files (max 10)"
+          @click="fileInput?.click()"
       >
         <Paperclip class="w-5 h-5"/>
       </button>
@@ -94,31 +95,31 @@
       <textarea
           ref="messageInput"
           v-model="messageContent"
-          @input="handleInput"
-          @keydown="handleKeyDown"
-          :placeholder="`Message #${props.channel.name}`"
           :disabled="isSending || isUploading"
+          :placeholder="`Message #${props.channel.name}`"
+          :style="{ height: textareaHeight }"
           class="
           flex-1 bg-transparent text-gray-100 placeholder-gray-400
           resize-none max-h-[200px] scrollbar-thin outline-none
           focus:outline-none border-none focus:border-none ring-0
           focus:ring-0 focus:ring-offset-0 focus:ring-transparent
           "
-          :style="{ height: textareaHeight }"
           rows="1"
+          @input="handleInput"
+          @keydown="handleKeyDown"
       />
 
       <button
-          @click="handleSend"
-          :disabled="!canSend"
           :class="[
           'p-2 rounded-full transition',
           canSend
             ? 'text-primary bg-primary/20 hover:bg-primary/30'
             : 'text-gray-500 cursor-not-allowed'
         ]"
-          type="button"
+          :disabled="!canSend"
           title="Send Message"
+          type="button"
+          @click="handleSend"
       >
         <Send v-if="!isSending" class="w-5 h-5"/>
         <Loader2 v-else class="w-5 h-5 animate-spin"/>
@@ -127,11 +128,11 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {ref, computed, nextTick, onUnmounted} from 'vue';
 import {useAppStore} from '@/stores/app';
 import {useUserDisplay} from '@/composables/useUserDisplay';
-import { formatFileSize } from '@/utils/helpers';
+import {formatFileSize} from '@/utils/helpers';
 
 // Import the new composables
 import {useAttachments} from '@/composables/useAttachments';

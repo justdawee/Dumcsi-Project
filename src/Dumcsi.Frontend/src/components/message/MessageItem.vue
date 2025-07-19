@@ -1,16 +1,16 @@
 <template>
   <div
-      class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
       :class="showHeader ? 'mt-4' : '-mt-4'"
+      class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
   >
     <!-- With Header (new user message or certain time passed) -->
     <div v-if="showHeader" class="flex items-start gap-3">
       <UserAvatar
+          :avatar-url="message.author.avatar"
+          :size="40" :user="message.author"
           class="mt-1"
-        :user="message.author" :size="40"
-        :avatar-url="message.author.avatar"
       />
-      
+
       <div>
         <div class="flex items-baseline gap-2">
           <span class="font-semibold text-white">{{ getDisplayName(message.author) }}</span>
@@ -22,10 +22,10 @@
             {{ message.content }}
           </p>
           <MessageEdit
-            v-else
-            :initial-content="message.content"
-            @save="handleSave"
-            @cancel="isEditing = false"
+              v-else
+              :initial-content="message.content"
+              @cancel="isEditing = false"
+              @save="handleSave"
           />
         </div>
       </div>
@@ -43,56 +43,56 @@
           {{ message.content }}
         </p>
         <MessageEdit
-          v-else
-          :initial-content="message.content"
-          @save="handleSave"
-          @cancel="isEditing = false"
+            v-else
+            :initial-content="message.content"
+            @cancel="isEditing = false"
+            @save="handleSave"
         />
       </div>
     </div>
-    
-    <div 
-      v-if="!isEditing"
-      class="absolute right-4 -top-3 bg-gray-700 rounded-lg shadow-lg 
+
+    <div
+        v-if="!isEditing"
+        class="absolute right-4 -top-3 bg-gray-700 rounded-lg shadow-lg
              opacity-0 group-hover:opacity-100 transition-opacity flex items-center"
     >
       <button
-        v-if="canEdit"
-        @click="isEditing = true"
-        class="p-1.5 hover:bg-gray-600 rounded-sm transition"
-        title="Edit message"
+          v-if="canEdit"
+          class="p-1.5 hover:bg-gray-600 rounded-sm transition"
+          title="Edit message"
+          @click="isEditing = true"
       >
-        <Edit3 class="w-4 h-4 text-gray-300" />
+        <Edit3 class="w-4 h-4 text-gray-300"/>
       </button>
       <button
-        v-if="canDelete"
-        @click="handleDelete"
-        class="p-1.5 hover:bg-gray-600 rounded-sm transition"
-        title="Delete message"
+          v-if="canDelete"
+          class="p-1.5 hover:bg-gray-600 rounded-sm transition"
+          title="Delete message"
+          @click="handleDelete"
       >
-        <Trash2 class="w-4 h-4 text-gray-300" />
+        <Trash2 class="w-4 h-4 text-gray-300"/>
       </button>
     </div>
   </div>
   <ConfirmModal
-    v-model="isDeleteModalOpen"
-    title="Delete Message"
-    message="Are you sure you want to delete this message? This action cannot be undone."
-    :content-details="message.content"
-    confirm-text="Delete Message"
-    @confirm="confirmDelete"
-    intent="danger"
+      v-model="isDeleteModalOpen"
+      :content-details="message.content"
+      confirm-text="Delete Message"
+      intent="danger"
+      message="Are you sure you want to delete this message? This action cannot be undone."
+      title="Delete Message"
+      @confirm="confirmDelete"
   />
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import { Edit3, Trash2 } from 'lucide-vue-next';
+<script lang="ts" setup>
+import {ref, computed} from 'vue';
+import {Edit3, Trash2} from 'lucide-vue-next';
 import MessageEdit from './MessageEdit.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import type { MessageDto } from '@/services/types';
-import { useUserDisplay } from '@/composables/useUserDisplay';
+import type {MessageDto} from '@/services/types';
+import {useUserDisplay} from '@/composables/useUserDisplay';
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -106,7 +106,7 @@ const emit = defineEmits<{
   (e: 'delete', messageId: number): void;
 }>();
 
-const { getDisplayName } = useUserDisplay();
+const {getDisplayName} = useUserDisplay();
 
 // --- State ---
 const isEditing = ref(false);
@@ -116,11 +116,11 @@ const isDeleteModalOpen = ref(false);
 const showHeader = computed(() => {
   if (!props.previousMessage) return true;
   if (props.previousMessage.author.id !== props.message.author.id) return true;
-  
+
   const prevTime = new Date(props.previousMessage.timestamp);
   const currTime = new Date(props.message.timestamp);
   const diffMinutes = (currTime.getTime() - prevTime.getTime()) / (1000 * 60);
-  
+
   return diffMinutes > 5;
 });
 
@@ -134,14 +134,14 @@ const formatTime = (dateString: string) => {
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
-  
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
-  
+
+  const time = date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: false});
+
   if (isToday) return `Today at ${time}`;
   if (isYesterday) return `Yesterday at ${time}`;
-  
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
     day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
   }) + ` at ${time}`;
@@ -149,11 +149,11 @@ const formatTime = (dateString: string) => {
 
 const formatTimeShort = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
+  return date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: false});
 };
 
 const handleSave = (newContent: string) => {
-  emit('edit', { messageId: props.message.id, content: { content: newContent } });
+  emit('edit', {messageId: props.message.id, content: {content: newContent}});
   isEditing.value = false;
 };
 

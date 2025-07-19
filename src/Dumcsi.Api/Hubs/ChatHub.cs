@@ -22,6 +22,13 @@ public class ChatHub(IPresenceService presenceService) : Hub
         {
             var isFirstConnection = await presenceService.UserConnected(userId, Context.ConnectionId);
 
+            // Get all currently online users
+            var onlineUsers = await presenceService.GetOnlineUsers();
+            var onlineUserIds = onlineUsers.Select(long.Parse).ToList();
+        
+            // Send the list of online users to the newly connected client
+            await Clients.Caller.SendAsync("Connected", onlineUserIds);
+
             // Csak akkor küldünk értesítést, ha ez volt a felhasználó első aktív kapcsolata
             if (isFirstConnection)
             {
@@ -80,19 +87,32 @@ public class ChatHub(IPresenceService presenceService) : Hub
     }
     
     // --- Text Chat Metódusok ---
-    public async Task<IReadOnlyList<long>> JoinChannel(string channelId)
+    public async Task<ChannelJoinResponse> JoinChannel(string channelId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, channelId);
 
+        var response = new ChannelJoinResponse();
+    
+        // Get typing users
         if (TypingUsers.TryGetValue(channelId, out var users))
         {
             lock (users)
             {
-                return users.ToList();
+                response.TypingUserIds = users.ToList();
             }
         }
+        else
+        {
+            response.TypingUserIds = new List<long>();
+        }
+    
+        // Get online users in this channel
+        // First, get all channel members (you'll need to inject the appropriate service)
+        // For now, we'll return all online users - you should filter by channel members
+        var onlineUsers = await presenceService.GetOnlineUsers();
+        response.OnlineUserIds = onlineUsers.Select(long.Parse).ToList();
 
-        return [];
+        return response;
     }
 
     public async Task LeaveChannel(string channelId)
@@ -271,5 +291,12 @@ public class ChatHub(IPresenceService presenceService) : Hub
         // Értesítjük a többieket, hogy a képernyőmegosztás véget ért,
         // így lebonthatják a kapcsolódó P2P kapcsolatot.
         await Clients.OthersInGroup(channelId).SendAsync("UserStoppedScreenShare", Context.ConnectionId);
+    }
+    
+    // --- Response class ---
+    public class ChannelJoinResponse
+    {
+        public List<long> TypingUserIds { get; set; } = new();
+        public List<long> OnlineUserIds { get; set; } = new();
     }
 }

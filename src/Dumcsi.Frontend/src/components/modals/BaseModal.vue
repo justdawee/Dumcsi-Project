@@ -1,49 +1,49 @@
 <template>
   <Teleport to="body">
     <Transition
-      name="modal"
-      @enter="onEnter"
-      @leave="onLeave"
+        name="modal"
+        @enter="onEnter"
+        @leave="onLeave"
     >
-      <div 
-        v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      <div
+          v-if="modelValue"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <!-- Backdrop -->
-        <div 
-          class="absolute inset-0 bg-black bg-opacity-50"
-          @click="handleBackdropClick"
+        <div
+            class="absolute inset-0 bg-black bg-opacity-50"
+            @click="handleBackdropClick"
         />
-        
+
         <!-- Modal Content -->
-        <div 
-          ref="modalContent"
-          :class="[
+        <div
+            ref="modalContent"
+            :class="[
             'relative bg-gray-800 rounded-lg shadow-xl max-h-[90vh] flex flex-col',
             sizeClasses
           ]"
-          @click.stop
+            @click.stop
         >
           <!-- Header -->
           <div class="flex items-center justify-between p-6 pb-4 border-b border-gray-700">
             <h2 class="text-xl font-semibold text-white">{{ title }}</h2>
             <button
-              @click="close"
-              class="p-1 hover:bg-gray-700 rounded-lg transition"
-              :aria-label="closeLabel"
+                :aria-label="closeLabel"
+                class="p-1 hover:bg-gray-700 rounded-lg transition"
+                @click="close"
             >
-              <X class="w-5 h-5 text-gray-400" />
+              <X class="w-5 h-5 text-gray-400"/>
             </button>
           </div>
-          
+
           <!-- Body -->
           <div class="flex-1 overflow-y-auto p-6">
-            <slot />
+            <slot/>
           </div>
-          
+
           <!-- Footer (optional) -->
           <div v-if="$slots.footer" class="p-6 pt-4 border-t border-gray-700">
-            <slot name="footer" />
+            <slot name="footer"/>
           </div>
         </div>
       </div>
@@ -51,9 +51,9 @@
   </Teleport>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { X } from 'lucide-vue-next';
+<script lang="ts" setup>
+import {ref, computed, watch, onMounted, onUnmounted} from 'vue';
+import {X} from 'lucide-vue-next';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -129,13 +129,13 @@ const onLeave = () => {
 // Focus trap
 const trapFocus = (event: KeyboardEvent) => {
   if (!modalContent.value || event.key !== 'Tab') return;
-  
+
   const focusableElements = modalContent.value.querySelectorAll(
-    'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select'
+      'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select'
   );
   const firstFocusable = focusableElements[0] as HTMLElement;
   const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
-  
+
   if (event.shiftKey && document.activeElement === firstFocusable) {
     event.preventDefault();
     lastFocusable?.focus();

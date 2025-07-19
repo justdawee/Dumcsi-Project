@@ -1,5 +1,5 @@
-﻿import { computed, type ComputedRef } from 'vue';
-import { useAppStore } from '@/stores/app';
+﻿import {computed, type ComputedRef} from 'vue';
+import {useAppStore} from '@/stores/app';
 import {Permission, type ServerDetails, type EntityId, type Role} from '@/services/types';
 
 export interface PermissionCheckResult {

@@ -1,134 +1,134 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
+import {createRouter, createWebHistory, type RouteRecordRaw} from 'vue-router';
+import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from "@/stores/app.ts";
 import {signalRService} from "@/services/signalrService.ts";
 
 export const RouteNames = {
-  // Guest routes
-  LOGIN: 'Login',
-  REGISTER: 'Register',
-  
-  // Authenticated routes
-  APP: 'App', // Main application layout
-  SERVER_SELECT: 'ServerSelect',
-  SERVER: 'Server',
-  CHANNEL: 'Channel',
-  USER_SETTINGS: 'UserSettings',
+    // Guest routes
+    LOGIN: 'Login',
+    REGISTER: 'Register',
+
+    // Authenticated routes
+    APP: 'App', // Main application layout
+    SERVER_SELECT: 'ServerSelect',
+    SERVER: 'Server',
+    CHANNEL: 'Channel',
+    USER_SETTINGS: 'UserSettings',
 };
 
 declare module 'vue-router' {
-  interface RouteMeta {
-    requiresAuth?: boolean;
-    requiresGuest?: boolean;
-  }
+    interface RouteMeta {
+        requiresAuth?: boolean;
+        requiresGuest?: boolean;
+    }
 }
 
 const routes: readonly RouteRecordRaw[] = [
-  {
-    path: '/auth/login',
-    name: RouteNames.LOGIN,
-    component: () => import('@/views/auth/LoginView.vue'),
-    meta: { requiresGuest: true }
-  },
-  {
-    path: '/auth/register',
-    name: RouteNames.REGISTER,
-    component: () => import('@/views/auth/RegisterView.vue'),
-    meta: { requiresGuest: true }
-  },
-  {
-    // Redirect /auth to the login page by default.
-    path: '/auth',
-    redirect: { name: RouteNames.LOGIN }
-  },
-  {
-    path: '/',
-    component: () => import('@/views/AppView.vue'),
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: '',
-        name: RouteNames.APP, // Moved name here
-        component: () => import('@/views/ServerSelectView.vue')
-      },
-      {
-        path: 'servers',
-        name: RouteNames.SERVER_SELECT,
-        component: () => import('@/views/ServerSelectView.vue')
-      },
-      {
-        path: 'servers/:serverId',
-        name: RouteNames.SERVER,
-        component: () => import('@/views/ServerView.vue'),
+    {
+        path: '/auth/login',
+        name: RouteNames.LOGIN,
+        component: () => import('@/views/auth/LoginView.vue'),
+        meta: {requiresGuest: true}
+    },
+    {
+        path: '/auth/register',
+        name: RouteNames.REGISTER,
+        component: () => import('@/views/auth/RegisterView.vue'),
+        meta: {requiresGuest: true}
+    },
+    {
+        // Redirect /auth to the login page by default.
+        path: '/auth',
+        redirect: {name: RouteNames.LOGIN}
+    },
+    {
+        path: '/',
+        component: () => import('@/views/AppView.vue'),
+        meta: {requiresAuth: true},
         children: [
-          {
-            path: 'channels/:channelId',
-            name: RouteNames.CHANNEL,
-            component: () => import('@/views/ChannelView.vue')
-          }
+            {
+                path: '',
+                name: RouteNames.APP, // Moved name here
+                component: () => import('@/views/ServerSelectView.vue')
+            },
+            {
+                path: 'servers',
+                name: RouteNames.SERVER_SELECT,
+                component: () => import('@/views/ServerSelectView.vue')
+            },
+            {
+                path: 'servers/:serverId',
+                name: RouteNames.SERVER,
+                component: () => import('@/views/ServerView.vue'),
+                children: [
+                    {
+                        path: 'channels/:channelId',
+                        name: RouteNames.CHANNEL,
+                        component: () => import('@/views/ChannelView.vue')
+                    }
+                ]
+            },
+            {
+                path: 'settings/profile',
+                name: RouteNames.USER_SETTINGS,
+                component: () => import('@/views/settings/ProfileSettingsView.vue')
+            }
         ]
-      },
-      {
-        path: 'settings/profile',
-        name: RouteNames.USER_SETTINGS,
-        component: () => import('@/views/settings/ProfileSettingsView.vue')
-      }
-    ]
-  }
-  // Optional: Add a 404 catch-all route
-  //{
-  //  path: '/:pathMatch(.*)*',
-  //  name: 'NotFound',
-  //  component: () => import('@/views/NotFoundView.vue') // You would need to create this component
-  //}
+    }
+    // Optional: Add a 404 catch-all route
+    //{
+    //  path: '/:pathMatch(.*)*',
+    //  name: 'NotFound',
+    //  component: () => import('@/views/NotFoundView.vue') // You would need to create this component
+    //}
 ];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes
+    history: createWebHistory(import.meta.env.BASE_URL),
+    routes
 });
 
 router.beforeEach(async (to, _from, next) => {
-  const authStore = useAuthStore();
+    const authStore = useAuthStore();
 
-  if (authStore.token && !authStore.user) {
-    try {
-      await authStore.checkAuth();
-    } catch (err) {
+    if (authStore.token && !authStore.user) {
+        try {
+            await authStore.checkAuth();
+        } catch (err) {
+        }
     }
-  }
 
-  const isAuthenticated = authStore.isAuthenticated;
-  const requiresAuth   = to.matched.some(r => r.meta.requiresAuth);
-  const requiresGuest  = to.matched.some(r => r.meta.requiresGuest);
+    const isAuthenticated = authStore.isAuthenticated;
+    const requiresAuth = to.matched.some(r => r.meta.requiresAuth);
+    const requiresGuest = to.matched.some(r => r.meta.requiresGuest);
 
-  if (requiresAuth && !isAuthenticated) {
-    next({
-      name: RouteNames.LOGIN,
-      query: { redirect: to.fullPath }
-    });
-    return;
-  }
-
-  if (requiresGuest && isAuthenticated) {
-    next({ name: RouteNames.SERVER_SELECT });
-    return;
-  }
-
-  if (isAuthenticated && authStore.user) {
-    const appStore = useAppStore();
-
-    if (appStore.connectionState !== 'connected' &&
-        appStore.connectionState !== 'connecting') {
-      console.log('Router guard: Starting SignalR…');
-      try {
-        await signalRService.start();
-      } catch (err) {
-        console.error('Router guard: Failed to start SignalR:', err);
-      }
+    if (requiresAuth && !isAuthenticated) {
+        next({
+            name: RouteNames.LOGIN,
+            query: {redirect: to.fullPath}
+        });
+        return;
     }
-  }
-  next();
+
+    if (requiresGuest && isAuthenticated) {
+        next({name: RouteNames.SERVER_SELECT});
+        return;
+    }
+
+    if (isAuthenticated && authStore.user) {
+        const appStore = useAppStore();
+
+        if (appStore.connectionState !== 'connected' &&
+            appStore.connectionState !== 'connecting') {
+            console.log('Router guard: Starting SignalR…');
+            try {
+                await signalRService.start();
+            } catch (err) {
+                console.error('Router guard: Failed to start SignalR:', err);
+            }
+        }
+    }
+    next();
 });
 
 export default router;

@@ -1,14 +1,14 @@
 <template>
   <div class="w-full">
     <textarea
-      ref="textarea"
-      v-model="content"
-      @keydown.enter.prevent="handleKeyDown"
-      @keydown.escape="$emit('cancel')"
-      class="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded resize-none
+        ref="textarea"
+        v-model="content"
+        :style="{ height: textareaHeight }"
+        class="w-full px-3 py-2 bg-gray-700 text-gray-100 rounded resize-none
              focus:outline-hidden focus:ring-2 focus:ring-primary/50"
-      rows="1"
-      :style="{ height: textareaHeight }"
+        rows="1"
+        @keydown.enter.prevent="handleKeyDown"
+        @keydown.escape="$emit('cancel')"
     />
     <div class="flex items-center gap-2 mt-2 text-xs">
       <span class="text-gray-400">
@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import {ref, onMounted, nextTick} from 'vue'
 
 const props = defineProps({
   initialContent: {

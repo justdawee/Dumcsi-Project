@@ -1,5 +1,5 @@
 <template>
-  <div class="avatar-wrapper" :style="{ width: `${size}px`, height: `${size}px` }">
+  <div :style="{ width: `${size}px`, height: `${size}px` }" class="avatar-wrapper">
     <div
         :class="[
         'avatar-container relative flex-shrink-0 flex items-center justify-center bg-gray-700 text-white font-semibold overflow-hidden rounded-full',
@@ -15,8 +15,8 @@
     >
       <img
           v-if="avatarUrl && !imageError"
-          :src="avatarUrl"
           :alt="displayName"
+          :src="avatarUrl"
           class="w-full h-full object-cover"
           @error="handleImageError"
       />
@@ -28,12 +28,12 @@
     <!-- Status indicator overlay -->
     <div
         v-if="showOnlineIndicator && (isOnline || isTyping)"
-        class="status-indicator"
         :class="{
         'status-online': isOnline && !isTyping,
         'status-typing': isTyping
       }"
         :style="statusIndicatorStyles"
+        class="status-indicator"
     >
       <!-- Typing indicator -->
       <div v-if="isTyping" class="typing-indicator-content">
@@ -47,11 +47,11 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useUserDisplay } from '@/composables/useUserDisplay';
-import { useAppStore } from '@/stores/app';
-import type { UserProfileDto, ServerMemberDto } from '@/services/types';
+<script lang="ts" setup>
+import {ref, computed} from 'vue';
+import {useUserDisplay} from '@/composables/useUserDisplay';
+import {useAppStore} from '@/stores/app';
+import type {UserProfileDto, ServerMemberDto} from '@/services/types';
 
 // Props
 const props = withDefaults(defineProps<{
@@ -70,7 +70,7 @@ const props = withDefaults(defineProps<{
 });
 
 // Composables
-const { getUserColor, getInitials } = useUserDisplay();
+const {getUserColor, getInitials} = useUserDisplay();
 const appStore = useAppStore();
 
 // State
@@ -99,7 +99,7 @@ const initials = computed(() => {
   if (props.user) {
     return getInitials(props.user);
   }
-  return getInitials({ username: displayName.value } as UserProfileDto);
+  return getInitials({username: displayName.value} as UserProfileDto);
 });
 
 // Calculate status indicator size and position based on avatar size

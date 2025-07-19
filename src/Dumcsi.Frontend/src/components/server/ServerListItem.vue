@@ -8,6 +8,7 @@
 </template>
 
 <script setup>
-import { useUserDisplay } from '@/composables/useUserDisplay';
-const { getDisplayName } = useUserDisplay();
+import {useUserDisplay} from '@/composables/useUserDisplay';
+
+const {getDisplayName} = useUserDisplay();
 </script>

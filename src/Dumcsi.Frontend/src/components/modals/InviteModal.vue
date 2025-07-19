@@ -1,22 +1,23 @@
 <template>
   <Transition name="modal-fade">
     <div
-      v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
-      @click.self="closeModal"
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        @click.self="closeModal"
     >
-      <div class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+      <div
+          class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
         <!-- Fejléc -->
         <header class="flex items-center space-x-4 mb-4">
           <UserAvatar
-            v-if="server"
-            :avatar-url="server.icon"
-            :username="server.name"
-            :size="64"
+              v-if="server"
+              :avatar-url="server.icon"
+              :size="64"
+              :username="server.name"
           />
           <div class="min-w-0">
             <p class="text-xs text-gray-400">You are inviting people to</p>
-            <h3 class="text-xl font-bold text-white truncate" :title="server?.name">{{ server?.name }}</h3>
+            <h3 :title="server?.name" class="text-xl font-bold text-white truncate">{{ server?.name }}</h3>
           </div>
         </header>
 
@@ -25,7 +26,7 @@
         </p>
 
         <div>
-          <label for="invite-code" class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="block text-sm font-medium text-gray-300 mb-2" for="invite-code">
             Share this invite code with others
           </label>
 
@@ -35,22 +36,22 @@
 
           <div v-else class="relative flex items-center">
             <input
-              id="invite-code"
-              type="text"
-              :value="inviteCode"
-              readonly
-              class="form-input pr-12 cursor-pointer font-mono tracking-wider"
-              @click="copyToClipboard"
+                id="invite-code"
+                :value="inviteCode"
+                class="form-input pr-12 cursor-pointer font-mono tracking-wider"
+                readonly
+                type="text"
+                @click="copyToClipboard"
             />
             <button
-              @click="copyToClipboard"
-              class="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-gray-600 text-gray-400 hover:text-white transition-colors"
-              aria-label="Copy invite code"
+                aria-label="Copy invite code"
+                class="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-gray-600 text-gray-400 hover:text-white transition-colors"
+                @click="copyToClipboard"
             >
-              <Copy class="w-5 h-5" />
+              <Copy class="w-5 h-5"/>
             </button>
           </div>
-          
+
           <div class="h-5 mt-2">
             <p :class="['text-xs text-green-400 transition-opacity duration-300', copied ? 'opacity-100' : 'opacity-0']">
               ✓ Copied to clipboard!
@@ -59,7 +60,7 @@
         </div>
 
         <div class="mt-4 text-right">
-          <button @click="closeModal" class="btn-secondary">
+          <button class="btn-secondary" @click="closeModal">
             Close
           </button>
         </div>
@@ -68,10 +69,10 @@
   </Transition>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue';
-import { Copy } from 'lucide-vue-next';
-import type { ServerListItem } from '@/services/types';
+<script lang="ts" setup>
+import {ref} from 'vue';
+import {Copy} from 'lucide-vue-next';
+import type {ServerListItem} from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 
 const props = defineProps<{
@@ -108,6 +109,7 @@ const copyToClipboard = async () => {
 .form-input {
   @apply w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition;
 }
+
 .btn-secondary {
   @apply inline-flex justify-center items-center py-2 px-4 bg-gray-700/60 border border-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors duration-200;
 }
@@ -116,16 +118,19 @@ const copyToClipboard = async () => {
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;
 }
+
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
 }
+
 .modal-fade-enter-active .transform,
 .modal-fade-leave-active .transform {
-    transition: all 0.3s ease;
+  transition: all 0.3s ease;
 }
+
 .modal-fade-enter-from .transform,
 .modal-fade-leave-to .transform {
-    transform: scale(0.95);
+  transform: scale(0.95);
 }
 </style>

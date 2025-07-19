@@ -3,16 +3,18 @@
     <!-- Channel Header -->
     <div class="flex items-center justify-between px-4 h-14 bg-gray-900 border-b border-gray-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
-        <Hash class="w-5 h-5 text-gray-400 flex-shrink-0" />
+        <Hash class="w-5 h-5 text-gray-400 flex-shrink-0"/>
         <h2 class="text-lg font-semibold text-white truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
-        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline truncate">{{ channelDescription }}</span>
+        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline truncate">{{
+            channelDescription
+          }}</span>
       </div>
       <button
-          @click="isMemberListOpen = !isMemberListOpen"
           class="p-2 text-gray-400 hover:text-white transition"
           title="Toggle Member List"
+          @click="isMemberListOpen = !isMemberListOpen"
       >
-        <Users class="w-5 h-5" />
+        <Users class="w-5 h-5"/>
       </button>
     </div>
 
@@ -24,16 +26,16 @@
             @scroll="debouncedScrollHandler"
         >
           <div v-if="appStore.loading.messages" class="flex justify-center p-4">
-            <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+            <Loader2 class="w-6 h-6 text-gray-500 animate-spin"/>
           </div>
           <MessageItem
               v-for="(message, index) in messages"
               :key="message.id"
+              :current-user-id="authStore.user?.id"
               :message="message"
               :previous-message="messages[index - 1] || null"
-              :current-user-id="authStore.user?.id"
-              @edit="handleEditMessage"
               @delete="handleDeleteMessage"
+              @edit="handleEditMessage"
           />
         </div>
 
@@ -61,17 +63,17 @@
       <div v-if="isMemberListOpen" class="w-60 bg-gray-900 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
         <h3 class="font-semibold text-white mb-4">Members - {{ members.length }}</h3>
         <div v-if="appStore.loading.members" class="flex justify-center items-center h-full">
-          <Loader2 class="w-6 h-6 text-gray-500 animate-spin" />
+          <Loader2 class="w-6 h-6 text-gray-500 animate-spin"/>
         </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
             <UserAvatar
                 :avatar-url="member.avatarUrl"
-                :username="member.username"
-                :user-id="member.userId"
-                :size="32"
-                show-online-indicator
                 :is-typing="isTyping(member.userId)"
+                :size="32"
+                :user-id="member.userId"
+                :username="member.username"
+                show-online-indicator
             />
             <div class="flex-1 min-w-0">
               <span class="text-gray-300 font-medium text-sm truncate block">
@@ -85,19 +87,19 @@
             <div v-if="canManageMember(member.userId).value" class="flex gap-1">
               <button
                   v-if="permissions.kickMembers"
-                  @click="kickMember()"
                   class="p-1 text-gray-400 hover:text-red-400 transition"
                   title="Kick Member"
+                  @click="kickMember()"
               >
-                <UserX class="w-4 h-4" />
+                <UserX class="w-4 h-4"/>
               </button>
               <button
                   v-if="permissions.banMembers"
-                  @click="banMember()"
                   class="p-1 text-gray-400 hover:text-red-500 transition"
                   title="Ban Member"
+                  @click="banMember()"
               >
-                <Ban class="w-4 h-4" />
+                <Ban class="w-4 h-4"/>
               </button>
             </div>
           </li>
@@ -107,20 +109,20 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useAppStore } from '@/stores/app';
-import { useToast } from '@/composables/useToast';
-import { usePermissions } from '@/composables/usePermissions';
-import { debounce } from '@/utils/helpers';
-import { useTypingIndicator } from '@/composables/useTypingIndicator';
-import { Hash, Users, Loader2, UserX, Ban } from 'lucide-vue-next';
+<script lang="ts" setup>
+import {ref, computed, watch, onMounted, onUnmounted, nextTick} from 'vue';
+import {useRoute} from 'vue-router';
+import {useAuthStore} from '@/stores/auth';
+import {useAppStore} from '@/stores/app';
+import {useToast} from '@/composables/useToast';
+import {usePermissions} from '@/composables/usePermissions';
+import {debounce} from '@/utils/helpers';
+import {useTypingIndicator} from '@/composables/useTypingIndicator';
+import {Hash, Users, Loader2, UserX, Ban} from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import { signalRService } from '@/services/signalrService';
+import {signalRService} from '@/services/signalrService';
 import {
   type CreateMessageRequest,
   type UpdateMessageRequest,
@@ -130,13 +132,13 @@ import {
 const route = useRoute();
 const authStore = useAuthStore();
 const appStore = useAppStore();
-const { addToast } = useToast();
+const {addToast} = useToast();
 
 // Typing indicator text for the current channel using the composable
 const channelIdRef = computed<EntityId>(
     () => appStore.currentChannel?.id ?? 0
 );
-const { typingIndicatorText } = useTypingIndicator(channelIdRef);
+const {typingIndicatorText} = useTypingIndicator(channelIdRef);
 
 const typingUserIds = computed(() => {
   const id = appStore.currentChannel?.id;
@@ -147,7 +149,7 @@ const isTyping = (userId: EntityId) => typingUserIds.value.has(userId);
 
 
 // Permission composable használata
-const { permissions, canManageMember } = usePermissions();
+const {permissions, canManageMember} = usePermissions();
 
 const messagesContainer = ref<HTMLElement | null>(null);
 const isMemberListOpen = ref(true);
@@ -215,26 +217,26 @@ const handleSendMessage = async (payload: CreateMessageRequest) => {
     await appStore.sendMessage(currentChannel.value.id, payload);
     await scrollToBottom('smooth');
   } catch {
-    addToast({ type: 'danger', message: 'Failed to send message.' });
+    addToast({type: 'danger', message: 'Failed to send message.'});
   }
 };
 
 const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessageRequest }) => {
   appStore.updateMessage(currentChannel.value!.id, payload.messageId, payload.content)
-      .catch(() => addToast({ type: 'danger', message: 'Failed to edit message.' }));
+      .catch(() => addToast({type: 'danger', message: 'Failed to edit message.'}));
 };
 
 const handleDeleteMessage = (messageId: EntityId) => {
   appStore.deleteMessage(currentChannel.value!.id, messageId)
-      .catch(() => addToast({ type: 'danger', message: 'Failed to delete message.' }));
+      .catch(() => addToast({type: 'danger', message: 'Failed to delete message.'}));
 };
 
 const kickMember = async () => {
-  addToast({ type: 'info', message: 'Kick member functionality coming soon!' });
+  addToast({type: 'info', message: 'Kick member functionality coming soon!'});
 };
 
 const banMember = async () => {
-  addToast({ type: 'info', message: 'Ban member functionality coming soon!' });
+  addToast({type: 'info', message: 'Ban member functionality coming soon!'});
 };
 
 // --- Lifecycle & Watchers ---
@@ -258,14 +260,19 @@ watch(() => route.params.channelId, (newId) => {
   if (newChannelId && newChannelId !== currentChannel.value?.id) {
     loadChannelData(newChannelId);
   }
-}, { immediate: true });
+}, {immediate: true});
 </script>
 
 <style scoped>
 @keyframes slideIn {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
+
 .animate-slide-in {
   animation: slideIn 0.2s ease-out;
 }

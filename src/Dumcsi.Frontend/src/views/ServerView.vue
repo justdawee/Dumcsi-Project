@@ -1,32 +1,32 @@
 <template>
   <div class="flex-1 flex h-full overflow-hidden">
     <!-- Channel Sidebar -->
-    <ChannelSidebar 
-      :server="appStore.currentServer"
-      :loading="appStore.loading.server"
+    <ChannelSidebar
+        :loading="appStore.loading.server"
+        :server="appStore.currentServer"
     />
-    
+
     <!-- Channel Content or Server Welcome -->
     <div class="flex-1 bg-gray-900 overflow-hidden">
-      <RouterView v-if="$route.params.channelId" />
-      <ServerWelcome v-else :server="appStore.currentServer" />
+      <RouterView v-if="$route.params.channelId"/>
+      <ServerWelcome v-else :server="appStore.currentServer"/>
     </div>
 
     <!-- Create Channel Modal -->
     <CreateChannelModal
-      v-if="appStore.isCreateChannelModalOpen"
-      :server-id="appStore.createChannelForServerId"
-      @close="appStore.closeCreateChannelModal"
-      @channel-created="handleChannelCreated"
+        v-if="appStore.isCreateChannelModalOpen"
+        :server-id="appStore.createChannelForServerId"
+        @close="appStore.closeCreateChannelModal"
+        @channel-created="handleChannelCreated"
     />
   </div>
 </template>
 
-<script setup lang="ts">
-import { watch, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
-import { signalRService } from '@/services/signalrService'
+<script lang="ts" setup>
+import {watch, onMounted, onUnmounted} from 'vue'
+import {useRoute} from 'vue-router'
+import {useAppStore} from '@/stores/app'
+import {signalRService} from '@/services/signalrService'
 import ChannelSidebar from '@/components/channel/ChannelSidebar.vue'
 import ServerWelcome from '@/components/server/ServerWelcome.vue'
 import CreateChannelModal from '@/components/channel/CreateChannelModal.vue';
@@ -54,9 +54,9 @@ const loadServer = async (serverId: number) => {
 
 // Handle channel creation event
 const handleChannelCreated = () => {
-    if (appStore.createChannelForServerId) {
-        appStore.fetchServer(appStore.createChannelForServerId);
-    }
+  if (appStore.createChannelForServerId) {
+    appStore.fetchServer(appStore.createChannelForServerId);
+  }
 }
 
 // Load server data on initial mount

@@ -31,18 +31,18 @@
               <div class="relative group w-32 h-32 flex-shrink-0">
                 <UserAvatar
                     :avatar-url="previewAvatar || profileForm.avatar"
-                    :username="profileForm.username"
                     :size="128"
+                    :username="profileForm.username"
                     class="ring-4 ring-gray-700/50"
                 />
                 <div
                     class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 disabled:cursor-not-allowed"
                 >
                   <button
-                      type="button"
-                      @click="fileInput?.click()"
                       :disabled="avatarUploading"
                       class="w-full h-full flex flex-col items-center justify-center text-white"
+                      type="button"
+                      @click="fileInput?.click()"
                   >
                     <Camera v-if="!avatarUploading" class="w-10 h-10"/>
                     <Loader2 v-else class="w-10 h-10 animate-spin"/>
@@ -51,9 +51,9 @@
                 </div>
                 <input
                     ref="fileInput"
-                    type="file"
                     accept="image/jpeg,image/png,image/gif,image/webp"
                     class="hidden"
+                    type="file"
                     @change="handleAvatarSelect"
                 />
               </div>
@@ -67,17 +67,18 @@
             <!-- Form Fields -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label for="username" class="form-label">Username</label>
-                <input :value="profileForm.username" type="text" id="username" class="form-input-disabled" disabled/>
+                <label class="form-label" for="username">Username</label>
+                <input id="username" :value="profileForm.username" class="form-input-disabled" disabled type="text"/>
               </div>
               <div>
-                <label for="email" class="form-label">Email Address</label>
-                <input :value="profileForm.email" type="email" id="email" class="form-input-disabled" disabled/>
+                <label class="form-label" for="email">Email Address</label>
+                <input id="email" :value="profileForm.email" class="form-input-disabled" disabled type="email"/>
               </div>
               <div class="sm:col-span-2">
-                <label for="globalNickname" class="form-label">Display Name</label>
-                <input v-model="profileForm.globalNickname" type="text" id="globalNickname" class="form-input"
-                       placeholder="How you appear to others"/>
+                <label class="form-label" for="globalNickname">Display Name</label>
+                <input id="globalNickname" v-model="profileForm.globalNickname" class="form-input"
+                       placeholder="How you appear to others"
+                       type="text"/>
               </div>
             </div>
           </div>
@@ -89,10 +90,10 @@
                 You have unsaved changes.
               </p>
             </transition>
-            <button type="button" @click="resetProfileForm" :disabled="!hasChanges || loading" class="btn-secondary">
+            <button :disabled="!hasChanges || loading" class="btn-secondary" type="button" @click="resetProfileForm">
               Cancel
             </button>
-            <button :disabled="!hasChanges || loading" type="submit" class="btn-primary">
+            <button :disabled="!hasChanges || loading" class="btn-primary" type="submit">
               <span v-if="!loading">Save Changes</span>
               <span v-else class="flex items-center">
                 <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5"/>
@@ -113,23 +114,23 @@
           </div>
           <div class="p-6 space-y-6">
             <div>
-              <label for="current-password" class="form-label">Current Password</label>
-              <input v-model="passwordForm.currentPassword" type="password" id="current-password" class="form-input"
-                     required/>
+              <label class="form-label" for="current-password">Current Password</label>
+              <input id="current-password" v-model="passwordForm.currentPassword" class="form-input" required
+                     type="password"/>
             </div>
             <div>
-              <label for="new-password" class="form-label">New Password</label>
-              <input v-model="passwordForm.newPassword" type="password" id="new-password" class="form-input" required/>
+              <label class="form-label" for="new-password">New Password</label>
+              <input id="new-password" v-model="passwordForm.newPassword" class="form-input" required type="password"/>
               <p v-if="passwordError" class="form-error">{{ passwordError }}</p>
             </div>
             <div>
-              <label for="confirm-password" class="form-label">Confirm New Password</label>
-              <input v-model="passwordForm.confirmPassword" type="password" id="confirm-password" class="form-input"
-                     required/>
+              <label class="form-label" for="confirm-password">Confirm New Password</label>
+              <input id="confirm-password" v-model="passwordForm.confirmPassword" class="form-input" required
+                     type="password"/>
             </div>
           </div>
           <div class="bg-gray-900/40 px-6 py-4 flex items-center justify-end">
-            <button :disabled="!canChangePassword || changingPassword" type="submit" class="btn-primary">
+            <button :disabled="!canChangePassword || changingPassword" class="btn-primary" type="submit">
               <span v-if="!changingPassword">Update Password</span>
               <span v-else class="flex items-center">
                       <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5"/>
@@ -147,7 +148,7 @@
             <p class="font-medium text-white">Delete your account</p>
             <p class="text-sm text-gray-400">Once you delete your account, there is no going back.</p>
           </div>
-          <button @click="showDeleteConfirm = true" class="btn-danger flex-shrink-0">
+          <button class="btn-danger flex-shrink-0" @click="showDeleteConfirm = true">
             Delete Account
           </button>
         </div>
@@ -159,16 +160,16 @@
   <!-- Modals -->
   <ConfirmModal
       v-model="showDeleteConfirm"
-      title="Delete Account"
-      message="Are you absolutely sure you want to delete your account? All of your servers and messages will be permanently removed. This action cannot be undone!"
-      confirm-text="Delete Account"
       :is-loading="deletingAccount"
-      @confirm="handleDeleteAccount"
+      confirm-text="Delete Account"
       intent="danger"
+      message="Are you absolutely sure you want to delete your account? All of your servers and messages will be permanently removed. This action cannot be undone!"
+      title="Delete Account"
+      @confirm="handleDeleteAccount"
   />
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {ref, computed, onMounted, reactive} from 'vue';
 import {useAuthStore} from '@/stores/auth';
 import {useToast} from '@/composables/useToast';

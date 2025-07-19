@@ -12,26 +12,26 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue';
-import { useAppStore } from '@/stores/app';
-import { useUserDisplay } from '@/composables/useUserDisplay';
-import type { ChannelDetailDto } from '@/services/types';
+<script lang="ts" setup>
+import {computed} from 'vue';
+import {useAppStore} from '@/stores/app';
+import {useUserDisplay} from '@/composables/useUserDisplay';
+import type {ChannelDetailDto} from '@/services/types';
 
 const props = defineProps<{
   channel: ChannelDetailDto;
 }>();
 
 const appStore = useAppStore();
-const { getDisplayName } = useUserDisplay();
+const {getDisplayName} = useUserDisplay();
 
-const typingUserIds = computed(() => 
-  appStore.getTypingUsersInChannel(props.channel.id)
+const typingUserIds = computed(() =>
+    appStore.getTypingUsersInChannel(props.channel.id)
 );
 
-const typingUsers = computed(() => 
-  typingUserIds.value
-    .map(userId => appStore.members.find(m => m.userId === userId))
-    .filter(Boolean)
+const typingUsers = computed(() =>
+    typingUserIds.value
+        .map(userId => appStore.members.find(m => m.userId === userId))
+        .filter(Boolean)
 );
 </script>

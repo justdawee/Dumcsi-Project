@@ -1,20 +1,20 @@
 <template>
   <div
-    v-if="visible"
-    ref="contextMenu"
-    class="fixed z-50 bg-gray-900 rounded-lg shadow-lg p-1.5 animate-fade-in border border-gray-700/50"
-    :style="{ top: `${y}px`, left: `${x}px` }"
+      v-if="visible"
+      ref="contextMenu"
+      :style="{ top: `${y}px`, left: `${x}px` }"
+      class="fixed z-50 bg-gray-900 rounded-lg shadow-lg p-1.5 animate-fade-in border border-gray-700/50"
   >
     <ul class="space-y-1">
       <li v-for="item in items" :key="item.label">
         <button
-          @click="handleClick(item)"
-          class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
-          :class="item.danger 
-            ? 'text-red-400 hover:bg-red-500/20 hover:text-red-300' 
+            :class="item.danger
+            ? 'text-red-400 hover:bg-red-500/20 hover:text-red-300'
             : 'text-gray-300 hover:bg-primary/50 hover:text-white'"
+            class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
+            @click="handleClick(item)"
         >
-          <component :is="item.icon" class="w-4 h-4" />
+          <component :is="item.icon" class="w-4 h-4"/>
           <span>{{ item.label }}</span>
         </button>
       </li>
@@ -22,10 +22,10 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onUnmounted } from 'vue';
-import type { Component } from 'vue';
-import { useContextMenuManager } from '@/composables/useContextMenuManager';
+<script lang="ts" setup>
+import {ref, onUnmounted} from 'vue';
+import type {Component} from 'vue';
+import {useContextMenuManager} from '@/composables/useContextMenuManager';
 
 // --- Interface és Props ---
 export interface MenuItem {
@@ -47,7 +47,7 @@ const contextMenu = ref<HTMLElement | null>(null);
 const menuId = ref<number | null>(null);
 
 // --- Manager ---
-const { openMenu, closeMenu } = useContextMenuManager();
+const {openMenu, closeMenu} = useContextMenuManager();
 
 // --- Methods ---
 const open = (event: MouseEvent) => {
@@ -67,10 +67,10 @@ const open = (event: MouseEvent) => {
 };
 
 const close = () => {
-    if (menuId.value !== null) {
-        closeMenu(menuId.value);
-        menuId.value = null;
-    }
+  if (menuId.value !== null) {
+    closeMenu(menuId.value);
+    menuId.value = null;
+  }
 };
 
 const handleClick = (item: MenuItem) => {
@@ -98,8 +98,15 @@ defineExpose({
 .animate-fade-in {
   animation: fadeIn 0.1s ease-out;
 }
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

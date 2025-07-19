@@ -1,18 +1,18 @@
 <template>
   <div class="h-full flex bg-gray-900 overflow-hidden">
     <!-- Server Sidebar -->
-    <ServerSidebar />
-    
+    <ServerSidebar/>
+
     <!-- Main Content Area -->
     <div class="flex-1 flex overflow-hidden">
-      <RouterView />
+      <RouterView/>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useAppStore } from '@/stores/app'
+import {onMounted} from 'vue'
+import {useAppStore} from '@/stores/app'
 import ServerSidebar from '@/components/server/ServerSidebar.vue'
 
 const appStore = useAppStore()

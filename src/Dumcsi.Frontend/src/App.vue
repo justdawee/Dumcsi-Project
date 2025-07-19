@@ -1,15 +1,15 @@
 <template>
-  <RouterView v-if="!authCheckPending" />
+  <RouterView v-if="!authCheckPending"/>
   <div v-else class="h-screen flex items-center justify-center bg-gray-900">
-    <Loader2 class="w-8 h-8 text-primary animate-spin" />
+    <Loader2 class="w-8 h-8 text-primary animate-spin"/>
   </div>
-  <ToastContainer />
+  <ToastContainer/>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { Loader2 } from 'lucide-vue-next'
+<script lang="ts" setup>
+import {ref, onMounted} from 'vue'
+import {useAuthStore} from '@/stores/auth'
+import {Loader2} from 'lucide-vue-next'
 import ToastContainer from '@/components/ui/ToastContainer.vue';
 import {useAppStore} from "@/stores/app.ts";
 import {signalRService} from "@/services/signalrService.ts";

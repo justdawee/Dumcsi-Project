@@ -1,46 +1,50 @@
 <template>
   <Transition name="modal-fade">
     <div
-      v-if="modelValue"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
-      @click.self="$emit('update:modelValue', false)"
+        v-if="modelValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        @click.self="$emit('update:modelValue', false)"
     >
-      <div class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+      <div
+          class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
         <div class="flex items-start space-x-2.5">
-          <div :class="['flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full', intentClasses.iconContainer]">
-            <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true" />
+          <div
+              :class="['flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full', intentClasses.iconContainer]">
+            <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true"/>
           </div>
           <div class="flex-1">
-            <h3 class="text-lg font-semibold leading-6 text-white" id="modal-title">{{ title }}</h3>
+            <h3 id="modal-title" class="text-lg font-semibold leading-6 text-white">{{ title }}</h3>
             <div class="mt-2">
               <p class="text-sm text-gray-400 whitespace-pre-line">
                 {{ message }}
               </p>
-              
-              <div v-if="$slots.content || contentDetails" class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-h-40 overflow-y-auto scrollbar-thin">
-                  <slot name="content">
-                      <p v-if="contentDetails" class="text-sm text-gray-300 italic whitespace-pre-wrap break-words">"{{ contentDetails }}"</p>
-                  </slot>
+
+              <div v-if="$slots.content || contentDetails"
+                   class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-h-40 overflow-y-auto scrollbar-thin">
+                <slot name="content">
+                  <p v-if="contentDetails" class="text-sm text-gray-300 italic whitespace-pre-wrap break-words">
+                    "{{ contentDetails }}"</p>
+                </slot>
               </div>
-              </div>
+            </div>
           </div>
         </div>
-        
+
         <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
           <button
-            type="button"
-            :class="['w-full sm:w-auto', intentClasses.button, { 'opacity-50 cursor-wait': isLoading }]"
-            :disabled="isLoading"
-            @click="$emit('confirm')"
+              :class="['w-full sm:w-auto', intentClasses.button, { 'opacity-50 cursor-wait': isLoading }]"
+              :disabled="isLoading"
+              type="button"
+              @click="$emit('confirm')"
           >
-            <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2" />
+            <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2"/>
             {{ confirmText }}
           </button>
           <button
-            type="button"
-            class="w-full sm:w-auto mt-3 sm:mt-0 btn-secondary"
-            :disabled="isLoading"
-            @click="$emit('update:modelValue', false)"
+              :disabled="isLoading"
+              class="w-full sm:w-auto mt-3 sm:mt-0 btn-secondary"
+              type="button"
+              @click="$emit('update:modelValue', false)"
           >
             {{ cancelText }}
           </button>
@@ -50,10 +54,10 @@
   </Transition>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue';
-import type { Component } from 'vue';
-import { AlertTriangle, Loader2, CheckCircle2, Info } from 'lucide-vue-next';
+<script lang="ts" setup>
+import {computed} from 'vue';
+import type {Component} from 'vue';
+import {AlertTriangle, Loader2, CheckCircle2, Info} from 'lucide-vue-next';
 
 const props = withDefaults(defineProps<{
   modelValue: boolean;
@@ -117,6 +121,7 @@ const intentClasses = computed(() => {
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;
 }
+
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;

@@ -5,7 +5,7 @@ import type {
     UploadOptions,
     UploadResponse
 } from './types';
-import type { AxiosError, AxiosProgressEvent } from 'axios';
+import type {AxiosError, AxiosProgressEvent} from 'axios';
 
 /**
  * Egyedi hiba osztály a feltöltési hibák kezelésére.
@@ -90,7 +90,7 @@ class UploadService {
 
         try {
             const response = await api.post<ApiResponse<UploadResponse>>(endpoint, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+                headers: {'Content-Type': 'multipart/form-data'},
                 onUploadProgress: options?.onProgress && ((progressEvent: AxiosProgressEvent) => {
                     if (progressEvent.total) {
                         options.onProgress?.(Math.round((progressEvent.loaded * 100) / progressEvent.total));
