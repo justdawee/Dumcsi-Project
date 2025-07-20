@@ -20,7 +20,6 @@ import type {
     UserProfileDto,
     UserServerPayload,
     ReactionPayload,
-    //UserTypingPayload,
 } from '@/services/types';
 
 import {UserStatus} from '@/services/types';

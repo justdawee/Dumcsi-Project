@@ -61,6 +61,7 @@ function toServerListItem(dto: ServerListItemDto): ServerListItem {
         isOwner: dto.isOwner,
         description: dto.description,
         public: dto.public,
+        createdAt: dto.createdAt,
     };
 }
 
@@ -74,7 +75,9 @@ function toServerDetails(dto: ServerDetailDto): ServerDetails {
         description: dto.description,
         public: dto.public,
         ownerId: dto.ownerId,
-        permissions: dto.currentUserPermissions,
+        ownerUsername: dto.ownerUsername,
+        currentUserPermissions: dto.currentUserPermissions,
+        createdAt: dto.createdAt,
         channels: dto.channels.map(toChannelListItem),
         roles: dto.roles.map(toRole),
     };

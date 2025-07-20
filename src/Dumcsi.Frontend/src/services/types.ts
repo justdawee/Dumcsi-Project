@@ -172,11 +172,13 @@ export interface ServerListItem {
     isOwner: boolean;
     description: string | null;
     public: boolean;
+    createdAt: ISODateString;
 }
 
 export interface ServerDetails extends ServerListItem {
     ownerId: EntityId;
-    permissions: Permission;
+    ownerUsername: string;
+    currentUserPermissions: Permission;
     channels: ChannelListItem[];
     roles: Role[];
 }
