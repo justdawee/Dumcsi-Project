@@ -76,20 +76,20 @@ class UploadService {
     }
 
     /**
-     * Univerzális privát metódus a fájlfeltöltések kezelésére.
+     * Univerzális privát metódus a fájlfeltöltések kezelésére, ami a teljes UploadResponse objektumot adja vissza.
      */
-    private async upload(
+    private async upload<T>(
         endpoint: string,
         file: File,
         formDataAppender?: (fd: FormData) => void,
         options?: UploadOptions
-    ): Promise<UploadResponse> {
+    ): Promise<T> {
         const formData = new FormData();
         formData.append('file', file);
         formDataAppender?.(formData);
 
         try {
-            const response = await api.post<ApiResponse<UploadResponse>>(endpoint, formData, {
+            const response = await api.post<ApiResponse<T>>(endpoint, formData, {
                 headers: {'Content-Type': 'multipart/form-data'},
                 onUploadProgress: options?.onProgress && ((progressEvent: AxiosProgressEvent) => {
                     if (progressEvent.total) {
@@ -120,19 +120,19 @@ class UploadService {
     // --- NYILVÁNOS METÓDUSOK ---
 
     /**
-     * Feltölt egy avatar képet.
+     * Feltölt egy avatar képet. A backend itt csak egy { url: '...' } objektumot ad vissza.
      */
-    async uploadAvatar(file: File, options?: UploadOptions): Promise<UploadResponse> {
+    async uploadAvatar(file: File, options?: UploadOptions): Promise<{ url: string }> {
         this.validateImage(file, this.MAX_AVATAR_SIZE);
-        return this.upload('/user/me/avatar', file, undefined, options);
+        return this.upload<{ url: string }>('/user/me/avatar', file, undefined, options);
     }
 
     /**
-     * Feltölt egy szerver ikon képet.
+     * Feltölt egy szerver ikon képet. A backend itt is csak egy { url: '...' } objektumot ad vissza.
      */
-    async uploadServerIcon(serverId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
+    async uploadServerIcon(serverId: EntityId, file: File, options?: UploadOptions): Promise<{ url: string }> {
         this.validateImage(file, this.MAX_SERVER_ICON_SIZE);
-        return this.upload(`/server/${serverId}/icon`, file, undefined, options);
+        return this.upload<{ url: string }>(`/server/${serverId}/icon`, file, undefined, options);
     }
 
     /**
@@ -141,7 +141,7 @@ class UploadService {
     async uploadEmoji(serverId: EntityId, file: File, emojiName: string, options?: UploadOptions): Promise<UploadResponse> {
         this.validateImage(file, this.MAX_EMOJI_SIZE);
 
-        return this.upload(
+        return this.upload<UploadResponse>(
             `/server/${serverId}/emojis`,
             file,
             (formData) => {
@@ -159,7 +159,7 @@ class UploadService {
             throw new UploadError('FILE_TOO_LARGE', 'File size must be less than 50MB');
         }
 
-        return this.upload(`/channels/${channelId}/attachments`, file, undefined, options);
+        return this.upload<UploadResponse>(`/channels/${channelId}/attachments`, file, undefined, options);
     }
 
     /**

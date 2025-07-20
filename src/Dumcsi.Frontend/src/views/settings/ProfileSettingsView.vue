@@ -60,7 +60,7 @@
               <div>
                 <h3 class="text-lg font-semibold">Profile Photo</h3>
                 <p class="text-sm text-gray-400 mt-1">Click on the avatar to change it.</p>
-                <p class="text-xs text-gray-400 mt-2">PNG, JPG, GIF up to 5MB.</p>
+                <p class="text-xs text-gray-400 mt-2">PNG, JPG, GIF up to 8MB.</p>
               </div>
             </div>
 
@@ -178,8 +178,8 @@ import uploadService from '@/services/uploadService';
 import {Camera, Loader2, UserCircle} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import type {UserProfileDto} from '@/services/types';
-import {getDisplayMessage} from "@/services/errorHandler.ts";
+import type {UserProfileDto, UpdateUserProfileDto, ChangePasswordDto} from '@/services/types';
+import {getDisplayMessage} from "@/services/errorHandler";
 
 // Composables
 const authStore = useAuthStore();
@@ -203,7 +203,7 @@ const profileForm = reactive({
   globalNickname: '',
   avatar: ''
 });
-const passwordForm = reactive<ChangePasswordRequest & { confirmPassword: '' }>({
+const passwordForm = reactive<ChangePasswordDto & { confirmPassword: '' }>({
   currentPassword: '',
   newPassword: '',
   confirmPassword: ''
@@ -216,8 +216,8 @@ const hasChanges = computed(() => {
 });
 
 const passwordError = computed(() => {
-  if (passwordForm.newPassword && passwordForm.newPassword.length < 8) {
-    return 'Password must be at least 8 characters';
+  if (passwordForm.newPassword && passwordForm.newPassword.length < 6) {
+    return 'Password must be at least 6 characters';
   }
   if (passwordForm.newPassword && passwordForm.confirmPassword &&
       passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -228,7 +228,7 @@ const passwordError = computed(() => {
 
 const canChangePassword = computed(() => {
   return passwordForm.currentPassword &&
-      passwordForm.newPassword.length >= 8 &&
+      passwordForm.newPassword.length >= 6 &&
       passwordForm.newPassword === passwordForm.confirmPassword;
 });
 
@@ -262,10 +262,10 @@ const handleAvatarSelect = (event: Event) => {
 
   try {
     if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-      throw {response: {data: {error: {code: 'AVATAR_INVALID_FILE_TYPE'}}}};
+      throw new Error('Invalid file type. Please use a JPG, PNG, GIF, or WEBP image.');
     }
-    if (file.size > 10 * 1024 * 1024) {
-      throw {response: {data: {error: {code: 'AVATAR_FILE_TOO_LARGE'}}}};
+    if (file.size > 8 * 1024 * 1024) {
+      throw new Error('The avatar image cannot be larger than 8MB.');
     }
 
     if (previewAvatar.value) {
@@ -295,10 +295,11 @@ const handleUpdateProfile = async () => {
 
     if (selectedAvatarFile.value) {
       const response = await uploadService.uploadAvatar(selectedAvatarFile.value);
+      // JAVÍTÁS: a backend 'url' property-t ad vissza
       newAvatarUrl = response.url;
     }
 
-    const payload: UpdateUserProfileRequest = {
+    const payload: UpdateUserProfileDto = {
       username: profileForm.username,
       email: profileForm.email,
       globalNickname: profileForm.globalNickname || null,
@@ -317,7 +318,7 @@ const handleUpdateProfile = async () => {
 
     addToast({type: 'success', message: 'Profile updated successfully'});
   } catch (error: any) {
-    addToast({type: 'danger', message: error.message || 'Failed to update profile'});
+    addToast({type: 'danger', message: getDisplayMessage(error) || 'Failed to update profile'});
   } finally {
     loading.value = false;
     avatarUploading.value = false;
@@ -337,7 +338,7 @@ const handleChangePassword = async () => {
     Object.assign(passwordForm, {currentPassword: '', newPassword: '', confirmPassword: ''});
     addToast({type: 'success', message: 'Password changed successfully'});
   } catch (error: any) {
-    addToast({type: 'danger', message: error.message || 'Failed to change password'});
+    addToast({type: 'danger', message: getDisplayMessage(error) || 'Failed to change password'});
   } finally {
     changingPassword.value = false;
   }
@@ -350,7 +351,7 @@ const handleDeleteAccount = async () => {
     await authStore.logout();
     addToast({type: 'info', message: 'Your account has been deleted'});
   } catch (error: any) {
-    addToast({type: 'danger', message: error.message || 'Failed to delete account'});
+    addToast({type: 'danger', message: getDisplayMessage(error) || 'Failed to delete account'});
   } finally {
     deletingAccount.value = false;
     showDeleteConfirm.value = false;

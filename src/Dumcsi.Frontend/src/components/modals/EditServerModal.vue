@@ -81,7 +81,7 @@
                   <input
                       id="public"
                       v-model="form.public"
-                      class="w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded-sm focus:ring-primary/50"
+                      class="w-4 h-4 text-primary bg-main-700 rounded-sm focus:ring-primary/50"
                       type="checkbox"
                   />
                   <label class="ml-2 text-sm text-gray-300" for="public">
@@ -133,15 +133,15 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, computed } from 'vue';
-import { useAppStore } from '@/stores/app';
-import { useToast } from '@/composables/useToast';
+import {ref, reactive, watch, computed} from 'vue';
+import {useAppStore} from '@/stores/app';
+import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import uploadService from '@/services/uploadService';
-import type { ServerListItem, UpdateServerRequest } from '@/services/types';
-import { Loader2, Camera, ImageIcon } from 'lucide-vue-next';
+import type {ServerListItem, UpdateServerRequest} from '@/services/types';
+import {Loader2, Camera, ImageIcon} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
-import { getDisplayMessage } from '@/services/errorHandler';
+import {getDisplayMessage} from '@/services/errorHandler';
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -153,10 +153,10 @@ const emit = defineEmits(['close', 'server-updated', 'server-deleted']);
 
 // --- State ---
 const appStore = useAppStore();
-const { addToast } = useToast();
+const {addToast} = useToast();
 
-const form = reactive({ name: '', description: '', icon: '', public: false });
-const originalForm = reactive({ name: '', description: '', icon: '', public: false });
+const form = reactive({name: '', description: '', icon: '', public: false});
+const originalForm = reactive({name: '', description: '', icon: '', public: false});
 
 const isLoading = ref(false);
 const error = ref('');
@@ -212,11 +212,11 @@ const handleIconSelect = (event: Event) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
-    addToast({ type: 'danger', message: 'Please select an image file.' });
+    addToast({type: 'danger', message: 'Please select an image file.'});
     return;
   }
   if (file.size > 8 * 1024 * 1024) { // 8MB limit
-    addToast({ type: 'danger', message: 'Image size cannot exceed 8MB.' });
+    addToast({type: 'danger', message: 'Image size cannot exceed 8MB.'});
     return;
   }
 
@@ -233,10 +233,10 @@ const removeIcon = async () => {
   try {
     await uploadService.deleteServerIcon(props.server.id);
     form.icon = '';
-    addToast({ type: 'success', message: 'Server icon removed.' });
+    addToast({type: 'success', message: 'Server icon removed.'});
     emit('server-updated');
   } catch (err: any) {
-    addToast({ type: 'danger', message: getDisplayMessage(err) });
+    addToast({type: 'danger', message: getDisplayMessage(err)});
   } finally {
     removingIcon.value = false;
   }
@@ -254,7 +254,7 @@ const handleUpdateServer = async () => {
 
     if (selectedIconFile.value) {
       const response = await uploadService.uploadServerIcon(props.server.id, selectedIconFile.value);
-      finalIconUrl = response.fileUrl;
+      finalIconUrl = response.url;
     }
 
     const payload: UpdateServerRequest = {
@@ -265,14 +265,13 @@ const handleUpdateServer = async () => {
     };
 
     await serverService.updateServer(props.server.id, payload);
-    addToast({ type: 'success', message: 'Server settings updated.' });
+    addToast({type: 'success', message: 'Server settings updated.'});
     emit('server-updated');
     closeModal();
   } catch (err: any) {
-    // JAVÍTÁS: getDisplayMessage használata a pontos hibaüzenetért
     const displayMessage = getDisplayMessage(err);
     error.value = displayMessage;
-    addToast({ type: 'danger', message: displayMessage });
+    addToast({type: 'danger', message: displayMessage});
   } finally {
     isLoading.value = false;
     iconUploading.value = false;
@@ -284,11 +283,11 @@ const handleDeleteServer = async () => {
   deleting.value = true;
   try {
     await appStore.deleteServer(props.server.id);
-    addToast({ type: 'success', message: `Server '${props.server.name}' has been deleted.` });
+    addToast({type: 'success', message: `Server '${props.server.name}' has been deleted.`});
     emit('server-deleted');
     closeModal();
   } catch (err: any) {
-    addToast({ type: 'danger', message: getDisplayMessage(err) });
+    addToast({type: 'danger', message: getDisplayMessage(err)});
   } finally {
     deleting.value = false;
     isDeleteModalOpen.value = false;
@@ -300,5 +299,5 @@ watch(() => props.modelValue, (isOpening) => {
   if (isOpening) {
     resetForm();
   }
-}, { immediate: true });
+}, {immediate: true});
 </script>
