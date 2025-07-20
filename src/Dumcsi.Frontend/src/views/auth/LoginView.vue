@@ -3,7 +3,6 @@
       class="min-h-screen flex items-center justify-center bg-linear-to-br from-bg-base via-purple-900/20 to-bg-base">
     <div
         class="w-full max-w-md p-8 space-y-6 bg-bg-surface/50 backdrop-blur-xs rounded-2xl shadow-2xl border border-border-default/50">
-      <!-- Logo & Title -->
       <div class="text-center">
         <div class="inline-flex items-center justify-center w-20 h-20 mb-4 bg-primary/20 rounded-2xl">
           <MessageSquare class="w-10 h-10 text-primary"/>
@@ -12,12 +11,10 @@
         <p class="mt-2 text-text-muted">Login to your Dumcsi account</p>
       </div>
 
-      <!-- Error Alert -->
       <div v-if="authStore.error" class="p-4 bg-danger/10 border border-danger/50 rounded-lg">
         <p class="text-sm text-danger">{{ authStore.error }}</p>
       </div>
 
-      <!-- Login Form -->
       <form class="space-y-4" @submit.prevent="handleLogin">
         <div>
           <label class="block text-sm font-medium text-text-secondary mb-2" for="username">
@@ -61,13 +58,12 @@
         </button>
       </form>
 
-      <!-- Register Link -->
       <div class="text-center">
         <p class="text-text-muted">
           Don't have an account?
           <RouterLink
               class="text-primary hover:text-primary-hover transition"
-              to="/register"
+              to="/auth/register"
           >
             Create one
           </RouterLink>

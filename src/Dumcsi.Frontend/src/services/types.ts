@@ -127,6 +127,7 @@ export interface ServerMember {
     userId: EntityId;
     username: string;
     serverNickname: string | null;
+    globalNickname: string | null;
     avatarUrl: string | null;
     roles: Role[];
     isOnline: boolean;
@@ -160,6 +161,7 @@ export interface UserProfileDto {
 export interface ServerMemberDto {
     userId: EntityId;
     username: string;
+    globalNickname: string | null;
     serverNickname: string | null;
     avatar: string | null;
     roles: RoleDto[];

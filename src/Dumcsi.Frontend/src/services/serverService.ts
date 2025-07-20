@@ -88,6 +88,7 @@ function toServerMember(dto: ServerMemberDto): ServerMember {
         userId: dto.userId,
         username: dto.username,
         serverNickname: dto.serverNickname,
+        globalNickname: dto.globalNickname,
         avatarUrl: dto.avatar,
         roles: dto.roles.map(toRole),
         isOnline: false, // Alapértelmezett érték, a store majd frissíti a SignalR adatok alapján

@@ -1,4 +1,4 @@
-import type {UserProfileDto, UserProfile, ServerMemberDto} from '@/services/types';
+import type {UserProfileDto, UserProfile, ServerMemberDto, ServerMember} from '@/services/types';
 
 /**
  * Composable for handling user display logic
@@ -9,7 +9,7 @@ export function useUserDisplay() {
      * Get display name for a user
      * Prioritizes: GlobalNickname > Username
      */
-    const getDisplayName = (user: UserProfileDto | UserProfile | ServerMemberDto | null | undefined): string => {
+    const getDisplayName = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember | null | undefined): string => {
         if (!user) return 'Unknown User';
 
         // For UserSearchResult and UserProfile
@@ -30,6 +30,9 @@ export function useUserDisplay() {
         // Handle different property names
         if ('avatarUrl' in user) {
             return user.avatarUrl || null;
+        }
+        if ('avatar' in user) {
+            return user.avatar || null;
         }
 
         return null;

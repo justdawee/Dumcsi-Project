@@ -3,7 +3,6 @@
       class="min-h-screen flex items-center justify-center bg-linear-to-br from-bg-base via-purple-900/20 to-bg-base">
     <div
         class="w-full max-w-md p-8 space-y-6 bg-bg-surface/50 backdrop-blur-xs rounded-2xl shadow-2xl border border-border-default/50">
-      <!-- Logo & Title -->
       <div class="text-center">
         <div class="inline-flex items-center justify-center w-20 h-20 mb-4 bg-primary/20 rounded-2xl">
           <MessageSquare class="w-10 h-10 text-primary"/>
@@ -12,12 +11,10 @@
         <p class="mt-2 text-text-muted">Create your account to get started</p>
       </div>
 
-      <!-- Error Alert -->
       <div v-if="authStore.error" class="p-4 bg-danger/10 border border-danger/50 rounded-lg">
         <p class="text-sm text-danger">{{ authStore.error }}</p>
       </div>
 
-      <!-- Register Form -->
       <form class="space-y-4" @submit.prevent="handleRegister">
         <div>
           <label class="block text-sm font-medium text-text-secondary mb-2" for="username">
@@ -57,15 +54,32 @@
               class="w-full px-4 py-3 bg-main-700/50 border border-main-600 rounded-lg text-text-default placeholder-text-muted focus:outline-hidden focus:ring-2 focus:ring-primary/50 focus:border-transparent transition"
               maxlength="20"
               minlength="6"
-              placeholder="Create a password (6-20 characters)"
+              placeholder="Create a password"
               required
               type="password"
           />
-          <p class="mt-1 text-xs text-text-muted">Password must be 6-20 characters</p>
+          <p v-if="form.password && (form.password.length < 6 || form.password.length > 20)" class="form-error">
+            Password must be between 6 and 20 characters.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-text-secondary mb-2" for="confirm-password">
+            Confirm Password
+          </label>
+          <input
+              id="confirm-password"
+              v-model="form.confirmPassword"
+              class="w-full px-4 py-3 bg-main-700/50 border border-main-600 rounded-lg text-text-default placeholder-text-muted focus:outline-hidden focus:ring-2 focus:ring-primary/50 focus:border-transparent transition"
+              placeholder="Confirm your password"
+              required
+              type="password"
+          />
+          <p v-if="passwordMismatchError" class="form-error">{{ passwordMismatchError }}</p>
         </div>
 
         <button
-            :disabled="authStore.loading"
+            :disabled="authStore.loading || !isFormValid"
             class="w-full py-3 px-4 bg-primary hover:bg-primary-hover disabled:bg-primary/50 text-text-default font-medium rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:scale-100 disabled:cursor-not-allowed"
             type="submit"
         >
@@ -77,13 +91,12 @@
         </button>
       </form>
 
-      <!-- Login Link -->
       <div class="text-center">
         <p class="text-text-muted">
           Already have an account?
           <RouterLink
               class="text-primary hover:text-primary-hover transition"
-              to="/login"
+              to="/auth/login"
           >
             Sign in
           </RouterLink>
@@ -96,9 +109,11 @@
 <script setup>
 import {ref, computed, onMounted} from 'vue'
 import {useAuthStore} from '@/stores/auth'
+import {useRouter} from 'vue-router'
 import {MessageSquare, Loader2} from 'lucide-vue-next'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 onMounted(() => {
   authStore.clearError()
@@ -111,15 +126,22 @@ const form = ref({
   confirmPassword: ''
 })
 
+const passwordMismatchError = computed(() => {
+  if (form.value.confirmPassword && form.value.password !== form.value.confirmPassword) {
+    return 'Passwords do not match.';
+  }
+  return '';
+});
+
 const isFormValid = computed(() => {
   return form.value.password === form.value.confirmPassword &&
       form.value.password.length >= 6 &&
-      form.value.password.length <= 20
+      form.value.password.length <= 20 &&
+      !passwordMismatchError.value
 })
 
 const handleRegister = async () => {
   if (!isFormValid.value) {
-    authStore.error = 'Passwords do not match or invalid length'
     return
   }
 
@@ -129,6 +151,14 @@ const handleRegister = async () => {
       email: form.value.email,
       password: form.value.password
     })
+    // Sikeres regisztráció után átirányítás a login oldalra
+    await router.push({
+      name: 'Login',
+      query: {
+        registered: 'true',
+        username: form.value.username
+      }
+    });
   } catch (error) {
     // Error is handled in the store
   }
