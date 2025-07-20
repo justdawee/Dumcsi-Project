@@ -1,37 +1,32 @@
 <template>
-  <div class="relative">
-    <!-- Attachment Preview -->
-    <div v-if="attachments.length > 0" class="mb-2 p-2 bg-bg-base/50 rounded-lg border border-border-default/50">
-      <div class="flex flex-wrap gap-2">
+  <div class="relative flex flex-col gap-2">
+    <!-- Attachments Preview -->
+    <div v-if="attachments.length > 0" class="px-4 py-2">
+      <div class="flex gap-2 flex-wrap">
         <div
             v-for="(attachment, index) in attachments"
             :key="index"
             class="relative group"
         >
+          <!-- Upload Progress -->
+          <div
+              v-if="attachment.uploading"
+              class="absolute inset-0 bg-black/50 flex items-center justify-center rounded z-10"
+          >
+            <div class="text-center">
+              <Loader2 class="w-6 h-6 animate-spin text-white mx-auto mb-1"/>
+              <span class="text-xs text-white">{{ attachment.progress }}%</span>
+            </div>
+          </div>
           <!-- Image Preview -->
-          <div v-if="attachment.url" class="relative">
+          <div v-if="attachment.url">
             <img
                 :alt="attachment.file.name"
                 :src="attachment.url"
-                class="h-20 w-20 object-cover rounded"
+                class="h-20 w-auto max-w-xs rounded border border-border-subtle object-contain bg-bg-surface"
             />
-            <div v-if="attachment.uploading"
-                 class="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded">
-              <div class="relative w-10 h-10">
-                <svg class="w-full h-full" viewBox="0 0 36 36">
-                  <path class="text-main-700"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
-                        stroke-width="4"></path>
-                  <path :stroke-dasharray="`${attachment.progress}, 100`"
-                        class="text-primary"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                        fill="none" stroke-linecap="round"
-                        stroke-width="4"></path>
-                </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-text-default text-xs font-bold">{{
-                    attachment.progress
-                  }}%</span>
-              </div>
+            <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 rounded-b truncate">
+              {{ attachment.file.name }}
             </div>
           </div>
           <!-- Generic File Preview -->
@@ -58,24 +53,70 @@
     <!-- Mention Suggestions -->
     <div
         v-if="showMentionSuggestions && mentionSuggestions.length > 0"
-        class="absolute bottom-full mb-2 left-0 right-0 bg-bg-surface border border-border-default rounded-lg shadow-lg max-h-48 overflow-y-auto scrollbar-thin"
+        class="absolute bottom-full mb-2 left-0 right-0 bg-bg-surface border border-border-default rounded-lg shadow-lg max-h-64 overflow-hidden"
     >
-      <div class="p-1">
-        <button
-            v-for="(user, index) in mentionSuggestions"
-            :key="user.id"
-            :class="[
-            'w-full flex items-center gap-2 p-2 rounded hover:bg-primary/20 transition',
-            { 'bg-primary/20': index === selectedMentionIndex }
-          ]"
-            @click="selectMention(user)"
-        >
-          <UserAvatar :size="24" :user-id="user.id" :username="user.username" :avatar-url="user.avatar"/>
-          <div class="flex-1 text-left">
-            <div class="text-sm font-medium text-text-default">{{ getDisplayName(user) }}</div>
-            <div v-if="user.globalNickname" class="text-xs text-text-muted">@{{ user.username }}</div>
-          </div>
-        </button>
+      <div ref="scrollContainer" class="max-h-64 overflow-y-auto scrollbar-thin">
+        <div class="p-1">
+          <!-- Members Section -->
+          <template v-if="userSuggestions.length > 0">
+            <div class="px-3 py-1.5 text-xs font-semibold text-text-muted">Members</div>
+            <button
+                v-for="(suggestion, index) in userSuggestions"
+                :key="`user-${suggestion.data.id}`"
+                :data-selected="index === selectedMentionIndex"
+                :class="[
+                  'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                  index === selectedMentionIndex
+                    ? 'bg-primary/20 text-text-default'
+                    : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
+                ]"
+                @click="selectMention(suggestion)"
+                @mouseenter="handleMentionMouseEnter(index)"
+            >
+              <UserAvatar
+                  :size="32"
+                  :user-id="suggestion.data.id"
+                  :username="suggestion.data.username"
+                  :avatar-url="suggestion.data.avatar"
+              />
+              <div class="flex-1 flex items-center justify-between">
+                <div class="text-sm font-medium">{{ getDisplayName(suggestion.data) }}</div>
+                <div class="text-xs text-text-muted">{{ suggestion.data.username }}</div>
+              </div>
+            </button>
+          </template>
+
+          <!-- Separator -->
+          <div v-if="userSuggestions.length > 0 && roleSuggestions.length > 0"
+               class="my-1 border-t border-border-subtle mx-3"></div>
+
+          <!-- Roles Section -->
+          <template v-if="roleSuggestions.length > 0">
+            <button
+                v-for="(suggestion, index) in roleSuggestions"
+                :key="`role-${suggestion.data.id}`"
+                :data-selected="userSuggestions.length + index === selectedMentionIndex"
+                :class="[
+                  'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                  userSuggestions.length + index === selectedMentionIndex
+                    ? 'bg-primary/20 text-text-default'
+                    : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
+                ]"
+                @click="selectMention(suggestion)"
+                @mouseenter="handleMentionMouseEnter(userSuggestions.length + index)"
+            >
+              <div
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                  :style="{ backgroundColor: suggestion.data.color || '#5865F2' }"
+              >
+                <Hash class="w-4 h-4" />
+              </div>
+              <div class="flex-1 text-left">
+                <div class="text-sm font-medium">@{{ suggestion.data.name }}</div>
+              </div>
+            </button>
+          </template>
+        </div>
       </div>
     </div>
 
@@ -85,33 +126,63 @@
 
       <button
           :disabled="isUploading || attachments.length >= 10"
-          class="p-2 text-text-muted hover:text-text-default disabled:opacity-50 disabled:cursor-not-allowed transition"
+          class="p-2 text-text-muted hover:text-text-default disabled:opacity-50 disabled:cursor-not-allowed transition self-start"
           title="Attach files (max 10)"
           @click="fileInput?.click()"
       >
         <Paperclip class="w-5 h-5"/>
       </button>
 
-      <textarea
-          ref="messageInput"
-          v-model="messageContent"
-          :disabled="isSending || isUploading"
-          :placeholder="`Message #${props.channel.name}`"
-          :style="{ height: textareaHeight }"
-          class="
-          flex-1 bg-transparent text-text-default placeholder-text-muted
-          resize-none max-h-[200px] scrollbar-thin outline-none
-          focus:outline-none border-none focus:border-none ring-0
-          focus:ring-0 focus:ring-offset-0 focus:ring-transparent
-          "
-          rows="1"
-          @input="handleInput"
-          @keydown="handleKeyDown"
-      />
+      <div class="relative flex-1">
+        <!-- Mention highlight overlay -->
+        <div
+            v-if="messageContent.length > 0"
+            class="absolute inset-0 pointer-events-none overflow-hidden"
+        >
+          <div
+              class="whitespace-pre-wrap break-words text-transparent"
+              :style="{
+              font: 'inherit',
+              fontSize: '1rem',
+              lineHeight: '1.5rem',
+              letterSpacing: 'normal',
+              minHeight: '1.5rem',
+              maxHeight: '200px',
+              padding: '0',
+              margin: '0',
+              border: 'none'
+            }"
+          >
+            <span v-for="(part, index) in highlightedContent" :key="index">
+              <span v-if="part.type === 'text'">{{ part.content }}</span>
+              <span v-else class="bg-blue-500/30 text-blue-500 rounded px-0.5">{{ part.content }}</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Actual textarea -->
+        <textarea
+            ref="messageInput"
+            v-model="messageContent"
+            :disabled="isSending || isUploading"
+            :placeholder="`Message #${props.channel.name}`"
+            :style="{ height: textareaHeight }"
+            class="
+            relative bg-transparent text-text-default placeholder-text-muted
+            resize-none min-h-[1.5rem] max-h-[200px] scrollbar-thin outline-none
+            focus:outline-none border-none focus:border-none ring-0
+            focus:ring-0 focus:ring-offset-0 focus:ring-transparent
+            w-full p-0 text-base leading-6
+            "
+            rows="1"
+            @input="handleInput"
+            @keydown="handleKeyDown"
+        />
+      </div>
 
       <button
           :class="[
-          'p-2 rounded-full transition',
+          'p-2 rounded-full transition self-start',
           canSend
             ? 'text-primary bg-primary/20 hover:bg-primary/30'
             : 'text-text-tertiary cursor-not-allowed'
@@ -140,7 +211,7 @@ import {useMentions} from '@/composables/useMentions';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
 
 // Component imports
-import {Paperclip, Send, X, File, Loader2} from 'lucide-vue-next';
+import {Paperclip, Send, X, File, Loader2, Hash} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import type {ChannelDetailDto, CreateMessageRequest} from '@/services/types';
 
@@ -176,10 +247,13 @@ const {
   mentionSuggestions,
   selectedMentionIndex,
   mentionedUserIds,
+  mentionedRoleIds,
   checkForMentions,
   selectMention,
   handleMentionKeyDown,
-  clearMentions
+  handleMentionMouseEnter,
+  clearMentions,
+  scrollContainer
 } = useMentions(messageContent, messageInput);
 
 const {
@@ -193,6 +267,51 @@ const canSend = computed(() => {
   return (messageContent.value.trim().length > 0 || attachments.value.length > 0)
       && !isUploading.value
       && !isSending.value;
+});
+
+const userSuggestions = computed(() =>
+    mentionSuggestions.value.filter(s => s.type === 'user')
+);
+
+const roleSuggestions = computed(() =>
+    mentionSuggestions.value.filter(s => s.type === 'role')
+);
+
+interface HighlightPart {
+  type: 'text' | 'mention';
+  content: string;
+}
+
+const highlightedContent = computed(() => {
+  const parts: HighlightPart[] = [];
+  const mentionRegex = /@([a-zA-Z0-9_\-\.]+)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(messageContent.value)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'text',
+        content: messageContent.value.substring(lastIndex, match.index)
+      });
+    }
+
+    parts.push({
+      type: 'mention',
+      content: match[0]
+    });
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < messageContent.value.length) {
+    parts.push({
+      type: 'text',
+      content: messageContent.value.substring(lastIndex)
+    });
+  }
+
+  return parts;
 });
 
 // --- Methods ---
@@ -244,7 +363,7 @@ const handleSend = async () => {
         content: messageContent.value.trim(),
         attachmentIds: attachmentIds,
         mentionedUserIds: Array.from(mentionedUserIds.value),
-        mentionedRoleIds: []
+        mentionedRoleIds: Array.from(mentionedRoleIds.value)  // Most már küldjük a role ID-kat is
       };
 
       await appStore.sendMessage(props.channel.id, payload);

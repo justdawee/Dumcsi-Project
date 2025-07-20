@@ -1,6 +1,6 @@
 <template>
   <div
-      :class="showHeader ? 'mt-4' : '-mt-4'"
+      :class="showHeader ? 'mt-4' : 'mt-1'"
       class="group hover:bg-main-700/20 px-4 py-0 rounded-md transition-colors relative"
   >
     <!-- With Header (new user message or certain time passed) -->
@@ -18,9 +18,13 @@
           <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
         </div>
         <div class="message-content">
-          <p v-if="!isEditing" class="text-text-secondary break-words">
-            {{ message.content }}
-          </p>
+          <MessageContentParser
+              v-if="!isEditing"
+              :content="message.content"
+              :mentions="message.mentions"
+              :mention-role-ids="message.mentionRoleIds"
+              class="text-text-secondary"
+          />
           <MessageEdit
               v-else
               :initial-content="message.content"
@@ -39,15 +43,21 @@
         </span>
       </div>
       <div class="flex-1 message-content">
-        <p v-if="!isEditing" class="text-text-secondary break-words">
-          {{ message.content }}
-        </p>
-        <MessageEdit
-            v-else
-            :initial-content="message.content"
-            @cancel="isEditing = false"
-            @save="handleSave"
-        />
+        <div class="flex-1">
+          <MessageContentParser
+              v-if="!isEditing"
+              :content="message.content"
+              :mentions="message.mentions"
+              :mention-role-ids="message.mentionRoleIds"
+              class="text-text-secondary"
+          />
+          <MessageEdit
+              v-else
+              :initial-content="message.content"
+              @cancel="isEditing = false"
+              @save="handleSave"
+          />
+        </div>
       </div>
     </div>
 
@@ -90,6 +100,7 @@
 import {ref, computed} from 'vue';
 import {Edit3, Trash2} from 'lucide-vue-next';
 import MessageEdit from './MessageEdit.vue';
+import MessageContentParser from './MessageContentParser.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type {MessageDto} from '@/services/types';
