@@ -122,8 +122,8 @@ const handleUpdateChannel = async () => {
     });
     emit('channel-updated', {
       id: props.channel.id,
-      name: form.name,
-      description: form.description,
+      name: form.name || '',
+      description: form.description || undefined,
     });
     closeModal();
   } catch (err: any) {
