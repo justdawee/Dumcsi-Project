@@ -1,6 +1,5 @@
 <template>
   <div class="flex flex-col h-screen bg-main-900">
-    <!-- Channel Header -->
     <div class="flex items-center justify-between px-4 h-14 bg-main-900 border-b border-main-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
         <Hash class="w-5 h-5 text-text-muted flex-shrink-0"/>
@@ -83,13 +82,12 @@
             />
             <div class="flex-1 min-w-0">
               <span class="text-gray-300 font-medium text-sm truncate block">
-                {{ member.serverNickname || member.username }}
+                {{ getDisplayName(member) }}
               </span>
               <span v-if="member.roles.length > 0" class="text-xs text-text-tertiary">
                 {{ member.roles[0].name }}
               </span>
             </div>
-            <!-- Moderációs gombok -->
             <div v-if="canManageMember(member.userId).value" class="flex gap-1">
               <button
                   v-if="permissions.kickMembers"
@@ -122,6 +120,7 @@ import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {usePermissions} from '@/composables/usePermissions';
+import {useUserDisplay} from '@/composables/useUserDisplay';
 import {debounce} from '@/utils/helpers';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
 import {Hash, Users, Loader2, UserX, Ban} from 'lucide-vue-next';
@@ -139,6 +138,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const {addToast} = useToast();
+const {getDisplayName} = useUserDisplay();
 
 // Typing indicator text for the current channel using the composable
 const channelIdRef = computed<EntityId>(

@@ -301,9 +301,15 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const handleUserUpdated = (user: UserProfileDto) => {
+        const authStore = useAuthStore();
+        if (authStore.user?.id === user.id) {
+            authStore.updateUserData(user);
+        }
+
         const member = members.value.find(m => m.userId === user.id);
         if (member) {
             member.username = user.username;
+            member.globalNickname = user.globalNickname;
             member.avatarUrl = user.avatar;
         }
     };
@@ -407,6 +413,7 @@ export const useAppStore = defineStore('app', () => {
                 userId: payload.user.id,
                 username: payload.user.username,
                 serverNickname: null,
+                globalNickname: payload.user.globalNickname || null,
                 avatarUrl: payload.user.avatar,
                 roles: [],
                 isOnline: onlineUsers.value.has(payload.user.id),
