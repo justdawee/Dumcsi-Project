@@ -18,7 +18,7 @@
           <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
         </div>
         <div class="message-content">
-          <p v-if="!isEditing" class="text-text-default break-words">
+          <p v-if="!isEditing" class="text-text-secondary break-words">
             {{ message.content }}
           </p>
           <MessageEdit
@@ -51,8 +51,9 @@
       </div>
     </div>
 
+    <!-- Message Edit/Delete buttons -->
     <div
-        v-if="!isEditing"
+        v-if="!isEditing && (canEdit || canDelete)"
         class="absolute right-4 -top-3 bg-bg-surface rounded-lg shadow-lg
              opacity-0 group-hover:opacity-100 transition-opacity flex items-center border border-border-default"
     >
