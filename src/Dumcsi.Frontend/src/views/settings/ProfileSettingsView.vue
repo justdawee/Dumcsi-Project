@@ -178,7 +178,7 @@ import uploadService from '@/services/uploadService';
 import {Camera, Loader2, UserCircle} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import type {UpdateUserProfileRequest, ChangePasswordRequest, UserProfileDto} from '@/services/types';
+import type {UserProfileDto} from '@/services/types';
 import {getDisplayMessage} from "@/services/errorHandler.ts";
 
 // Composables
@@ -360,43 +360,3 @@ const handleDeleteAccount = async () => {
 // Lifecycle
 onMounted(loadProfile);
 </script>
-
-<style scoped>
-@reference "@/style.css";
-
-.form-label {
-  @apply block text-sm font-medium text-gray-400 mb-1;
-}
-
-.form-input {
-  @apply block w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition;
-}
-
-.form-input-disabled {
-  @apply block w-full px-3 py-2 bg-gray-700/30 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed;
-}
-
-.form-error {
-  @apply mt-1 text-xs text-red-400;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center items-center py-2 px-4 bg-primary hover:bg-primary-hover disabled:bg-primary/50 text-white font-semibold rounded-lg transition-colors duration-200;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center items-center py-2 px-4 bg-gray-700/60 border border-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-danger {
-  @apply inline-flex justify-center items-center py-2 px-4 bg-red-600 hover:bg-red-700 disabled:bg-red-600/50 text-white font-semibold rounded-lg transition-colors duration-200;
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-</style>

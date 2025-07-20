@@ -80,7 +80,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="flex items-end gap-2 bg-gray-800/80 rounded-lg p-2">
+    <div class="flex items-center gap-2 bg-gray-800/80 rounded-lg p-2">
       <input ref="fileInput" class="hidden" multiple type="file" @change="onFileSelected"/>
 
       <button
@@ -268,16 +268,3 @@ onUnmounted(() => {
   stopTypingIndicator();
 });
 </script>
-<style scoped>
-@reference "@/style.css";
-
-.no-outline {
-  outline: none;
-  border: none;
-}
-
-.no-outline:focus {
-  outline: none;
-  border: none;
-}
-</style>

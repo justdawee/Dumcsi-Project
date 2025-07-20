@@ -102,35 +102,3 @@ const copyToClipboard = async () => {
   }
 };
 </script>
-
-<style scoped>
-@reference "@/style.css";
-
-.form-input {
-  @apply w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center items-center py-2 px-4 bg-gray-700/60 border border-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors duration-200;
-}
-
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-}
-
-.modal-fade-enter-active .transform,
-.modal-fade-leave-active .transform {
-  transition: all 0.3s ease;
-}
-
-.modal-fade-enter-from .transform,
-.modal-fade-leave-to .transform {
-  transform: scale(0.95);
-}
-</style>

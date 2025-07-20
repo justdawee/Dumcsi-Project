@@ -276,18 +276,3 @@ onUnmounted(() => {
   }
 });
 </script>
-
-<style scoped>
-@reference "@/style.css";
-
-.server-icon {
-  @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center
-  bg-gray-700 text-gray-400 transition-all duration-200
-  hover:rounded-[16px] hover:bg-primary hover:text-white
-  cursor-pointer overflow-hidden;
-}
-
-.server-icon.active {
-  @apply rounded-[16px] bg-primary text-white;
-}
-</style>

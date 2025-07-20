@@ -234,26 +234,7 @@ const handleChannelDeleted = (deletedChannelId: number) => {
 </script>
 
 <style scoped>
-@reference "@/style.css";
-
-.bg-gray-850 {
-  background-color: #1e2939;
-}
-
-.channel-item {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded text-gray-400
-  hover:bg-gray-700 hover:text-gray-100 transition-colors cursor-pointer;
-}
-
-.channel-item.active {
-  @apply bg-gray-700 text-white;
-}
-
-.channel-item.voice-channel {
-  @apply opacity-50 cursor-pointer;
-}
-
-.channel-item.voice-channel:hover {
-  @apply opacity-100;
-}
+  .bg-gray-850 {
+    background-color: #1e2939;
+  }
 </style>
