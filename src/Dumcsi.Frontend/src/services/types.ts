@@ -23,28 +23,39 @@ export enum UserStatus {
 // A backend Permission enum-ja, ez a jogosultságkezelés alapja.
 export enum Permission {
     None = 0,
-    ViewChannels = 1 << 0,
-    ManageChannels = 1 << 1,
-    ManageRoles = 1 << 2,
-    ManageServer = 1 << 3,
-    CreateInvite = 1 << 4,
-    ChangeNickname = 1 << 5,
-    ManageNicknames = 1 << 6,
-    KickMembers = 1 << 7,
-    BanMembers = 1 << 8,
-    SendMessages = 1 << 9,
-    EmbedLinks = 1 << 10,
-    AttachFiles = 1 << 11,
-    AddReactions = 1 << 12,
-    UseExternalEmojis = 1 << 13,
-    MentionEveryone = 1 << 14,
-    ManageMessages = 1 << 15,
-    ReadMessageHistory = 1 << 16,
-    SendTTSMessages = 1 << 17,
-    UseVoice = 1 << 18,
-    ManageEmojis = 1 << 19,
-    ViewAuditLog = 1 << 20,
-    Administrator = 1 << 31
+
+    // Általános Szerver Jogosultságok
+    ViewChannels = 1 << 0,       // Csatornák megtekintése
+    ManageChannels = 1 << 1,      // Csatornák létrehozása, szerkesztése, törlése
+    ManageRoles = 1 << 2,         // Szerepkörök kezelése
+    ManageEmojis = 1 << 3,        // Emojik és matricák kezelése
+    ViewAuditLog = 1 << 4,        // Audit napló megtekintése
+    ManageServer = 1 << 5,        // Szerver nevének, régiójának stb. módosítása
+
+    // Tagsággal kapcsolatos Jogosultságok
+    CreateInvite = 1 << 6,        // Meghívó létrehozása
+    KickMembers = 1 << 7,         // Tagok kirúgása
+    BanMembers = 1 << 8,          // Tagok kitiltása
+
+    // Üzenetküldéssel kapcsolatos Jogosultságok
+    SendMessages = 1 << 9,        // Üzenetek küldése
+    EmbedLinks = 1 << 10,         // Linkek beágyazása
+    AttachFiles = 1 << 11,        // Fájlok csatolása
+    AddReactions = 1 << 12,       // Reakciók hozzáadása
+    UseExternalEmojis = 1 << 13, // Külső emojik használata
+    MentionEveryone = 1 << 14,    // @everyone, @here és Minden Szerepkör megemlítése
+    ManageMessages = 1 << 15,     // Mások üzeneteinek törlése
+    ReadMessageHistory = 1 << 16, // Üzenetelőzmények olvasása
+
+    // Hangcsatorna Jogosultságok
+    Connect = 1 << 17,            // Csatlakozás hangcsatornához
+    Speak = 1 << 18,              // Beszéd hangcsatornán
+    MuteMembers = 1 << 19,        // Tagok némítása
+    DeafenMembers = 1 << 20,      // Tagok süketítése
+    MoveMembers = 1 << 21,        // Tagok mozgatása csatornák között
+
+    // Adminisztrátori Jogosultság
+    Administrator = 1 << 22       // Minden jogosultságot megad
 }
 
 /**
