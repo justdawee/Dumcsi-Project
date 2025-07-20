@@ -2,6 +2,8 @@
 
 @import 'tailwindcss';
 
+@tailwind utilities;
+
 @plugin '@tailwindcss/forms';
 
 
@@ -23,6 +25,13 @@
     --color-danger: #ef4444;
 
     --font-sans: Inter, system-ui, -apple-system, sans-serif;
+
+    --animate-dot-bounce: dot-bounce 1.4s ease-in-out infinite;
+
+    @keyframes dot-bounce {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+        30%           { transform: translateY(-3px); opacity: 1; }
+    }
 
     --animate-slide-in: slideIn 0.2s ease-out;
     --animate-fade-in: fadeIn 0.15s ease-out;
@@ -55,6 +64,20 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentcolor);
     }
+}
+
+.spinner {
+    border: 2px solid #4f545c; /* interactive-muted */
+    border-top: 2px solid #5865f2; /* button-primary-background */
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .form-label {
