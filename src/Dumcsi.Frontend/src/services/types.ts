@@ -373,6 +373,8 @@ export interface Role {
     color: string;
     position: number;
     permissions: Permission;
+    isHoisted: boolean;
+    isMentionable: boolean;
 }
 
 // --- API Responses (Nyers adatok a backendtől) ---

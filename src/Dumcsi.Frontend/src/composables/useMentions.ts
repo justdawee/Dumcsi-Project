@@ -1,39 +1,100 @@
-import {ref, nextTick, type Ref} from 'vue';
-import {debounce} from 'lodash';
+import {ref, nextTick, type Ref, computed} from 'vue';
 import userService from '@/services/userService';
 import {useUserDisplay} from './useUserDisplay';
-import type {UserProfileDto, EntityId} from '@/services/types';
+import {useAppStore} from '@/stores/app';
+import type {UserProfileDto, EntityId, Role} from '@/services/types';
+import {usePermissions} from '@/composables/usePermissions';
+
+type MentionSuggestion =
+    | { type: 'user'; data: UserProfileDto }
+    | { type: 'role'; data: Role };
 
 export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLTextAreaElement | undefined>) {
     // --- State ---
     const showMentionSuggestions = ref(false);
-    const mentionSuggestions = ref<UserProfileDto[]>([]);
+    const mentionSuggestions = ref<MentionSuggestion[]>([]);
     const currentMentionSearch = ref('');
     const selectedMentionIndex = ref(0);
     const mentionedUserIds = ref<Set<EntityId>>(new Set());
-    const mentionPosition = ref(0); // The starting index of the '@' character
+    const mentionedRoleIds = ref<Set<EntityId>>(new Set());
+    const mentionPosition = ref(0);
+    const scrollContainer = ref<HTMLDivElement>();
 
     // --- Composables ---
     const {getDisplayName} = useUserDisplay();
+    const {permissions} = usePermissions();
+    const appStore = useAppStore();
+
+    // --- Computed ---
+    const mentionableRoles = computed(() => {
+        const server = appStore.currentServer;
+        if (!server?.roles) return [];
+
+        if (permissions.mentionEveryone.value) {
+            return server.roles;
+        }
+
+        return server.roles.filter(role =>
+            role.name === '@everyone' || role.isMentionable
+        );
+    });
 
     // --- Methods ---
 
-    const searchUsers = debounce(async (query: string) => {
-        if (query.length < 1) {
-            mentionSuggestions.value = [];
-            return;
-        }
-        try {
-            const response = await userService.searchUsers(query);
+    const searchMentions = async (query: string) => {
+        const suggestions: MentionSuggestion[] = [];
+        const lowerQuery = query.toLowerCase();
 
-            mentionSuggestions.value = response;
+        // Ha nincs query (csak @ jel), minden tagot és szerepkört megjelenítünk
+        if (query.length === 0) {
+            // Összes tag lekérése
+            const members = appStore.members;
+            members.forEach(member => {
+                suggestions.push({
+                    type: 'user',
+                    data: {
+                        id: member.userId,
+                        username: member.username,
+                        globalNickname: member.globalNickname,
+                        avatar: member.avatarUrl
+                    } as UserProfileDto
+                });
+            });
 
-            selectedMentionIndex.value = 0;
-        } catch (error) {
-            console.error('User search for mentions failed:', error);
-            mentionSuggestions.value = [];
+            // Összes mentionálható szerepkör
+            mentionableRoles.value.forEach(role => {
+                suggestions.push({type: 'role', data: role});
+            });
+        } else {
+            // Szűrt keresés
+            // Felhasználó keresés
+            try {
+                const users = await userService.searchUsers(query);
+                users.forEach(user => {
+                    suggestions.push({type: 'user', data: user});
+                });
+            } catch (error) {
+                console.error('User search for mentions failed:', error);
+            }
+
+            // Role keresés
+            const matchingRoles = mentionableRoles.value.filter(role =>
+                role.name.toLowerCase().includes(lowerQuery)
+            );
+            matchingRoles.forEach(role => {
+                suggestions.push({type: 'role', data: role});
+            });
         }
-    }, 300);
+
+        mentionSuggestions.value = suggestions;
+        selectedMentionIndex.value = 0;
+
+        nextTick(() => {
+            if (scrollContainer.value) {
+                scrollContainer.value.scrollTop = 0;
+            }
+        });
+    };
 
     const closeMentionSuggestions = () => {
         showMentionSuggestions.value = false;
@@ -56,7 +117,8 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
                 currentMentionSearch.value = textAfterAt;
                 mentionPosition.value = lastAtIndex;
                 showMentionSuggestions.value = true;
-                searchUsers(textAfterAt);
+                // Azonnal keresünk, még üres string esetén is (csak @ jel)
+                searchMentions(textAfterAt);
             } else {
                 closeMentionSuggestions();
             }
@@ -65,16 +127,24 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
         }
     };
 
-    const selectMention = (user: UserProfileDto) => {
+    const selectMention = (suggestion: MentionSuggestion) => {
         if (!messageInput.value) return;
 
         const beforeMention = messageContent.value.substring(0, mentionPosition.value);
         const afterMention = messageContent.value.substring(mentionPosition.value + currentMentionSearch.value.length + 1);
 
-        const mentionText = `@${getDisplayName(user)}`;
+        let mentionText = '';
+
+        if (suggestion.type === 'user') {
+            mentionText = `@${getDisplayName(suggestion.data)}`;
+            mentionedUserIds.value.add(suggestion.data.id);
+        } else {
+            mentionText = `@${suggestion.data.name}`;
+            mentionedRoleIds.value.add(suggestion.data.id);
+        }
+
         messageContent.value = `${beforeMention}${mentionText} ${afterMention}`;
 
-        mentionedUserIds.value.add(user.id);
         closeMentionSuggestions();
 
         // Set cursor position after the inserted mention
@@ -87,6 +157,29 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
         });
     };
 
+    const scrollToSelected = () => {
+        nextTick(() => {
+            if (!scrollContainer.value) return;
+
+            const container = scrollContainer.value;
+            const selectedElement = container.querySelector('[data-selected="true"]') as HTMLElement;
+
+            if (!selectedElement) return;
+
+            const containerHeight = container.clientHeight;
+            const elementTop = selectedElement.offsetTop;
+            const elementHeight = selectedElement.offsetHeight;
+            const scrollTop = container.scrollTop;
+
+            // Ha az elem a látható területen kívül van
+            if (elementTop < scrollTop) {
+                container.scrollTop = elementTop;
+            } else if (elementTop + elementHeight > scrollTop + containerHeight) {
+                container.scrollTop = elementTop + elementHeight - containerHeight;
+            }
+        });
+    };
+
     const handleMentionKeyDown = (event: KeyboardEvent): boolean => {
         if (!showMentionSuggestions.value) return false;
 
@@ -94,11 +187,13 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
             case 'ArrowUp':
                 event.preventDefault();
                 selectedMentionIndex.value = Math.max(0, selectedMentionIndex.value - 1);
+                scrollToSelected();
                 return true;
 
             case 'ArrowDown':
                 event.preventDefault();
                 selectedMentionIndex.value = Math.min(mentionSuggestions.value.length - 1, selectedMentionIndex.value + 1);
+                scrollToSelected();
                 return true;
 
             case 'Enter':
@@ -117,8 +212,13 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
         return false;
     };
 
+    const handleMentionMouseEnter = (index: number) => {
+        selectedMentionIndex.value = index;
+    };
+
     const clearMentions = () => {
         mentionedUserIds.value.clear();
+        mentionedRoleIds.value.clear();
     };
 
     return {
@@ -126,9 +226,12 @@ export function useMentions(messageContent: Ref<string>, messageInput: Ref<HTMLT
         mentionSuggestions,
         selectedMentionIndex,
         mentionedUserIds,
+        mentionedRoleIds,
         checkForMentions,
         selectMention,
         handleMentionKeyDown,
+        handleMentionMouseEnter,
         clearMentions,
+        scrollContainer,
     };
 }

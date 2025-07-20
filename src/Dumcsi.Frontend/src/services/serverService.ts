@@ -41,6 +41,8 @@ function toRole(dto: RoleDto): Role {
         color: dto.color,
         position: dto.position,
         permissions: dto.permissions,
+        isHoisted: dto.isHoisted,
+        isMentionable: dto.isMentionable,
     };
 }
 
