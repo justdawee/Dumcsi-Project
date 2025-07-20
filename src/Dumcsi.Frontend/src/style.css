@@ -4,21 +4,45 @@
 
 /* Theme colors and variables */
 @theme {
-    --color-discord-100: #424549;
-    --color-discord-200: #36393e;
-    --color-discord-300: #282b30;
-    --color-discord-400: #1e2124;
-    --color-discord-500: #424549;
-    --color-discord-600: #7289da;
-    --color-discord-700: #5865f2;
-    --color-discord-800: #99aab5;
-    --color-discord-900: #2c2f33;
+    /* Alapértelmezett színek (Default Colors) */
+    --color-main-100: var(--color-gray-100);
+    --color-main-200: var(--color-gray-200);
+    --color-main-300: var(--color-gray-300);
+    --color-main-400: var(--color-gray-400);
+    --color-main-500: var(--color-gray-500);
+    --color-main-600: var(--color-gray-600);
+    --color-main-700: var(--color-gray-700);
+    --color-main-800: var(--color-gray-800);
+    --color-main-900: var(--color-gray-900);
+    --color-main-950: var(--color-gray-950);
 
+    /* Színek (Colors) */
     --color-primary: #7c3aed;
     --color-primary-hover: #6d28d9;
     --color-secondary: #4b5563;
     --color-accent: #10b981;
     --color-danger: #ef4444;
+
+    /* Háttérszínek (Backgrounds) */
+    --color-bg-base: var(--color-main-900);
+    --color-bg-surface: var(--color-main-800);
+
+    /* Szövegszínek (Text) */
+    --color-text-default: var(--color-white);
+    --color-text-secondary: var(--color-main-300);
+    --color-text-muted: var(--color-main-400);
+    --color-text-tertiary: var(--color-main-500);
+
+    /* Szegélyek (Borders) */
+    --color-border-default: var(--color-main-700);
+
+    /* Linkek */
+    --color-link-default: var(--color-primary);
+    --color-link-hover: var(--color-primary-hover);
+
+    /* Interaktív elemek (pl. ikon gombok) */
+    --color-interactive-default: var(--color-main-400);
+    --color-interactive-hover: var(--color-main-100);
 
     --font-sans: Inter, system-ui, -apple-system, sans-serif;
 
@@ -178,8 +202,8 @@
         align-items: center;
         justify-content: center;
         border-radius: 9999px;
-        background-color: #1e1f22;
-        box-shadow: 0 0 0 var(--indicator-box-shadow-size, 3px) #1e1f22;
+        background-color: var(--color-gray-900);
+        box-shadow: 0 0 0 var(--indicator-box-shadow-size, 3px) var(--color-gray-900);
         overflow: hidden;
         transition: width 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55),
         height 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55),
