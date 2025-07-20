@@ -370,6 +370,7 @@ export const useAppStore = defineStore('app', () => {
             isOwner: server.isOwner,
             description: server.description,
             public: server.public,
+            createdAt: server.createdAt,
         });
     };
 
@@ -384,6 +385,7 @@ export const useAppStore = defineStore('app', () => {
                 isOwner: server.isOwner,
                 description: server.description,
                 public: server.public,
+                createdAt: server.createdAt,
             };
         }
         if (currentServer.value?.id === server.id) {
