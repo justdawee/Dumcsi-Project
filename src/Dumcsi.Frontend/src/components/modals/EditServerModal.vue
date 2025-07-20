@@ -6,7 +6,8 @@
         @click.self="closeModal"
     >
       <div
-          class="w-full max-w-2xl transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50">
+          class="w-full max-w-2xl transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50"
+      >
         <form @submit.prevent="handleUpdateServer">
           <!-- Fejléc -->
           <div class="p-6 border-b border-border-default">
@@ -14,27 +15,41 @@
           </div>
 
           <!-- Törzs (görgethető tartalommal) -->
-          <div class="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin">
+          <div
+              class="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin"
+          >
             <div class="flex flex-col lg:flex-row gap-6">
               <!-- Ikon feltöltés -->
               <div class="flex-shrink-0">
-                <label class="block text-sm font-medium text-text-secondary mb-2">Server Icon</label>
-                <div class="relative group">
-                  <img
-                      v-if="previewIcon || form.icon"
-                      :src="previewIcon || form.icon"
-                      alt="Server Icon"
-                      class="w-32 h-32 rounded-full ring-4 ring-border-default/50 object-cover bg-main-700"
-
-                  />
-                  <div v-else class="w-32 h-32 rounded-full bg-main-700 flex items-center justify-center">
-                    <ImageIcon class="w-10 h-10 text-text-muted"/>
+                <label
+                    class="block text-sm font-medium text-text-secondary mb-2"
+                >Server Icon</label
+                >
+                <div class="relative group w-32 h-32">
+                  <div
+                      class="relative rounded-full ring-4 ring-border-default/50"
+                  >
+                    <img
+                        v-if="previewIcon || form.icon"
+                        :src="previewIcon || form.icon"
+                        alt="Server Icon"
+                        class="w-32 h-32 rounded-full object-cover bg-main-700"
+                    />
+                    <div
+                        v-else
+                        class="w-32 h-32 rounded-full bg-main-700 flex items-center justify-center"
+                    >
+                      <ImageIcon class="w-10 h-10 text-text-muted" />
+                    </div>
                   </div>
                   <label
-                      class="absolute inset-0 bg-bg-base/80 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center cursor-pointer">
+                      class="absolute inset-0 bg-bg-base/80 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center cursor-pointer"
+                  >
                     <div class="text-center">
-                      <Camera class="w-8 h-8 text-text-default mx-auto mb-1"/>
-                      <span class="text-xs text-text-default font-medium">Change Icon</span>
+                      <Camera class="w-8 h-8 text-text-default mx-auto mb-1" />
+                      <span class="text-xs text-text-default font-medium"
+                      >Change Icon</span
+                      >
                     </div>
                     <input
                         ref="iconFileInput"
@@ -44,23 +59,32 @@
                         @change="handleIconSelect"
                     />
                   </label>
-                  <div v-if="iconUploading"
-                       class="absolute inset-0 bg-bg-base/80 rounded-full flex items-center justify-center">
-                    <Loader2 class="w-8 h-8 animate-spin text-text-default"/>
+                  <div
+                      v-if="iconUploading"
+                      class="absolute inset-0 bg-bg-base/80 rounded-full flex items-center justify-center"
+                  >
+                    <Loader2 class="w-8 h-8 animate-spin text-text-default" />
                   </div>
                 </div>
-                <div v-if="form.icon" class="mt-3">
+                <div v-if="form.icon" class="mt-3 w-32">
                   <button
                       :disabled="removingIcon"
-                      class="w-full flex items-center justify-center space-x-2
-                      px-4 py-2 text-sm font-medium text-red-500
-                      bg-gray-800 border border-gray-700 rounded-md
-                      hover:bg-gray-700 focus:outline-none focus:ring-2
-                      focus:ring-gray-600 focus:ring-offset-2 transition-colors
-                      disabled:opacity-50 disabled:cursor-not-allowed"
-                      @click="removeIcon">
-                    <Loader2 v-if="removingIcon" class="w-4 h-4 animate-spin"/>
-                    <span>Remove Icon</span>
+                      class="btn-secondary relative w-full text-xs py-1.5 text-danger hover:bg-danger/10 hover:text-red-300 border-danger/20 focus:outline-none rounded"
+                      @click="removeIcon"
+                  >
+                    <span
+                        v-if="removingIcon"
+                        class="absolute left-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      <Loader2 class="w-4 h-4 animate-spin" />
+                    </span>
+                    <span
+                        v-else
+                        class="absolute left-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      <Trash2 class="w-4 h-4" />
+                    </span>
+                    <span class="block w-full text-center"> Remove </span>
                   </button>
                 </div>
               </div>
@@ -68,11 +92,21 @@
               <!-- Szerver adatai -->
               <div class="flex-1 space-y-6">
                 <div>
-                  <label class="form-label" for="server-name">Server Name</label>
-                  <input id="server-name" v-model="form.name" class="form-input" required type="text"/>
+                  <label class="form-label" for="server-name"
+                  >Server Name</label
+                  >
+                  <input
+                      id="server-name"
+                      v-model="form.name"
+                      class="form-input"
+                      required
+                      type="text"
+                  />
                 </div>
                 <div>
-                  <label class="form-label" for="server-description">Description</label>
+                  <label class="form-label" for="server-description"
+                  >Description</label
+                  >
                   <textarea
                       id="server-description"
                       v-model="form.description"
@@ -86,10 +120,10 @@
                   <input
                       id="public"
                       v-model="form.public"
-                      class="w-4 h-4 text-primary bg-main-700 rounded-sm focus:ring-primary/50"
+                      class="w-4 h-4 text-primary bg-main-700 border-border-default rounded-sm focus:ring-primary/50"
                       type="checkbox"
                   />
-                  <label class="ml-2 text-sm text-main-300" for="public">
+                  <label class="ml-2 text-sm text-text-secondary" for="public">
                     Make server public
                   </label>
                 </div>
@@ -99,7 +133,9 @@
           </div>
 
           <!-- Lábléc -->
-          <div class="flex items-center justify-between p-6 border-t border-border-default">
+          <div
+              class="flex items-center justify-between p-6 border-t border-border-default"
+          >
             <button
                 v-if="canDeleteServer"
                 :disabled="deleting"
@@ -107,15 +143,22 @@
                 type="button"
                 @click="isDeleteModalOpen = true"
             >
-              <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2"/>
+              <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2" />
               Delete Server
             </button>
-            <div v-else></div> <!-- Placeholder to keep alignment -->
+            <div v-else></div>
+            <!-- Placeholder to keep alignment -->
 
             <div class="flex gap-3">
-              <button class="btn-secondary" type="button" @click="closeModal">Cancel</button>
-              <button :disabled="!hasChanges || isLoading" class="btn-primary" type="submit">
-                <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2"/>
+              <button class="btn-secondary" type="button" @click="closeModal">
+                Cancel
+              </button>
+              <button
+                  :disabled="!hasChanges || isLoading"
+                  class="btn-primary"
+                  type="submit"
+              >
+                <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
                 Save Changes
               </button>
             </div>

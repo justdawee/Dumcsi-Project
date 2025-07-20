@@ -2,27 +2,27 @@
   <Transition name="modal-fade">
     <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
         @click.self="$emit('update:modelValue', false)"
     >
       <div
-          class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+          class="w-full max-w-md transform rounded-2xl bg-bg-surface p-6 text-left align-middle shadow-xl transition-all border border-border-default/50">
         <div class="flex items-start space-x-2.5">
           <div
               :class="['flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full', intentClasses.iconContainer]">
             <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true"/>
           </div>
           <div class="flex-1">
-            <h3 id="modal-title" class="text-lg font-semibold leading-6 text-white">{{ title }}</h3>
+            <h3 id="modal-title" class="text-lg font-semibold leading-6 text-text-default">{{ title }}</h3>
             <div class="mt-2">
-              <p class="text-sm text-gray-400 whitespace-pre-line">
+              <p class="text-sm text-text-muted whitespace-pre-line">
                 {{ message }}
               </p>
 
               <div v-if="$slots.content || contentDetails"
-                   class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-h-40 overflow-y-auto scrollbar-thin">
+                   class="mt-4 p-3 bg-bg-base/50 rounded-lg border border-border-default/50 max-h-40 overflow-y-auto scrollbar-thin">
                 <slot name="content">
-                  <p v-if="contentDetails" class="text-sm text-gray-300 italic whitespace-pre-wrap break-words">
+                  <p v-if="contentDetails" class="text-sm text-text-secondary italic whitespace-pre-wrap break-words">
                     "{{ contentDetails }}"</p>
                 </slot>
               </div>

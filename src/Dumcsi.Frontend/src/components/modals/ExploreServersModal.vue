@@ -2,14 +2,14 @@
   <Transition name="modal-fade">
     <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
         @click.self="closeModal"
     >
       <div
-          class="w-full max-w-4xl h-[80vh] flex flex-col transform rounded-2xl bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-700/50">
-        <div class="p-6 border-b border-gray-700/50 flex-shrink-0">
-          <h3 class="text-xl font-bold text-white">Explore Public Servers</h3>
-          <p class="text-sm text-gray-400 mt-1">Find new communities to join.</p>
+          class="w-full max-w-4xl h-[80vh] flex flex-col transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50">
+        <div class="p-6 border-b border-border-default/50 flex-shrink-0">
+          <h3 class="text-xl font-bold text-text-default">Explore Public Servers</h3>
+          <p class="text-sm text-text-muted mt-1">Find new communities to join.</p>
         </div>
 
         <div v-if="loading" class="flex-1 flex items-center justify-center">
@@ -17,7 +17,7 @@
         </div>
         <div v-else-if="error" class="flex-1 flex items-center justify-center text-center">
           <div>
-            <p class="text-red-400">Failed to load servers.</p>
+            <p class="text-danger">Failed to load servers.</p>
             <button class="btn-secondary mt-2" @click="fetchPublicServers">Try Again</button>
           </div>
         </div>
@@ -27,7 +27,7 @@
             <div
                 v-for="server in servers"
                 :key="server.id"
-                class="group bg-gray-700 rounded-xl p-4 transition-all shadow-md flex flex-col"
+                class="group bg-main-700 rounded-xl p-4 transition-all shadow-md flex flex-col"
             >
               <div class="flex items-center gap-4 mb-3">
                 <div
@@ -36,12 +36,12 @@
                   <span v-else class="text-lg font-bold text-primary">{{ getServerInitials(server.name) }}</span>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-semibold text-white truncate">{{ server.name }}</h3>
-                  <p class="text-sm text-gray-400">{{ server.memberCount }}
+                  <h3 class="font-semibold text-text-default truncate">{{ server.name }}</h3>
+                  <p class="text-sm text-text-muted">{{ server.memberCount }}
                     {{ server.memberCount === 1 ? 'member' : 'members' }}</p>
                 </div>
               </div>
-              <p class="text-sm text-gray-400 line-clamp-3 flex-grow min-h-[60px]">
+              <p class="text-sm text-text-muted line-clamp-3 flex-grow min-h-[60px]">
                 {{ server.description || 'No description provided.' }}
               </p>
               <button
@@ -62,7 +62,7 @@
           </div>
         </div>
 
-        <div class="p-4 bg-gray-900/40 border-t border-gray-700/50 flex-shrink-0 text-right">
+        <div class="p-4 bg-bg-base/40 border-t border-border-default/50 flex-shrink-0 text-right">
           <button class="btn-secondary" @click="closeModal">Close</button>
         </div>
       </div>

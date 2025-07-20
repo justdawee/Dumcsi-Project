@@ -1,6 +1,6 @@
 <template>
   <RouterView v-if="!authCheckPending" />
-  <div v-else class="h-screen flex items-center justify-center bg-gray-900">
+  <div v-else class="h-screen flex items-center justify-center bg-bg-base">
     <Loader2 class="w-8 h-8 text-primary animate-spin" />
   </div>
   <ToastContainer />

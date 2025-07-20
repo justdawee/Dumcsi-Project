@@ -1,16 +1,16 @@
 <template>
-  <div class="flex flex-col h-screen bg-gray-900">
+  <div class="flex flex-col h-screen bg-main-900">
     <!-- Channel Header -->
-    <div class="flex items-center justify-between px-4 h-14 bg-gray-900 border-b border-gray-700 flex-shrink-0">
+    <div class="flex items-center justify-between px-4 h-14 bg-main-900 border-b border-main-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0">
-        <Hash class="w-5 h-5 text-gray-400 flex-shrink-0"/>
-        <h2 class="text-lg font-semibold text-white truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
-        <span v-if="channelDescription" class="text-sm text-gray-400 hidden md:inline truncate">{{
+        <Hash class="w-5 h-5 text-text-muted flex-shrink-0"/>
+        <h2 class="text-lg font-semibold text-text-default truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
+        <span v-if="channelDescription" class="text-sm text-text-muted hidden md:inline truncate">{{
             channelDescription
           }}</span>
       </div>
       <button
-          class="p-2 text-gray-400 hover:text-white transition"
+          class="p-2 text-text-muted hover:text-text-default transition"
           title="Toggle Member List"
           @click="isMemberListOpen = !isMemberListOpen"
       >
@@ -26,17 +26,23 @@
             @scroll="debouncedScrollHandler"
         >
           <div v-if="appStore.loading.messages" class="flex justify-center p-4">
-            <Loader2 class="w-6 h-6 text-gray-500 animate-spin"/>
+            <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
           </div>
-          <MessageItem
-              v-for="(message, index) in messages"
-              :key="message.id"
-              :current-user-id="authStore.user?.id"
-              :message="message"
-              :previous-message="messages[index - 1] || null"
-              @delete="handleDeleteMessage"
-              @edit="handleEditMessage"
-          />
+          <div v-else-if="appStore.messages.length === 0" class="text-center text-text-muted">
+            <p>No messages in this channel yet.</p>
+            <p class="text-sm">Be the first to send a message!</p>
+          </div>
+          <div v-else>
+            <MessageItem
+                v-for="(message, index) in messages"
+                :key="message.id"
+                :current-user-id="authStore.user?.id"
+                :message="message"
+                :previous-message="messages[index - 1] || null"
+                @delete="handleDeleteMessage"
+                @edit="handleEditMessage"
+            />
+          </div>
         </div>
 
         <div class="relative px-4 pb-6">
@@ -45,13 +51,13 @@
               :channel="currentChannel"
               @send="handleSendMessage"
           />
-          <div v-else-if="!permissions.sendMessages" class="text-center text-gray-400 text-sm py-2">
+          <div v-else-if="!permissions.sendMessages" class="text-center text-text-muted text-sm py-2">
             You do not have permission to send messages in this channel.
           </div>
           <Transition name="typing-fade">
             <div
                 v-if="typingIndicatorText"
-                class="typing-indicator text-xs text-gray-400 italic absolute left-4 bottom-1"
+                class="typing-indicator text-xs text-text-muted italic absolute left-4 bottom-1"
             >
               <span class="typing-dots"><span></span><span></span><span></span></span>
               {{ typingIndicatorText }}
@@ -60,10 +66,10 @@
         </div>
       </div>
 
-      <div v-if="isMemberListOpen" class="w-60 bg-gray-900 border-l border-gray-700 p-4 animate-slide-in flex flex-col">
-        <h3 class="font-semibold text-white mb-4">Members - {{ members.length }}</h3>
+      <div v-if="isMemberListOpen" class="w-60 bg-main-900 border-l border-main-700 p-4 animate-slide-in flex flex-col">
+        <h3 class="font-semibold text-text-default mb-4">Members - {{ members.length }}</h3>
         <div v-if="appStore.loading.members" class="flex justify-center items-center h-full">
-          <Loader2 class="w-6 h-6 text-gray-500 animate-spin"/>
+          <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
         </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
@@ -79,7 +85,7 @@
               <span class="text-gray-300 font-medium text-sm truncate block">
                 {{ member.serverNickname || member.username }}
               </span>
-              <span v-if="member.roles.length > 0" class="text-xs text-gray-500">
+              <span v-if="member.roles.length > 0" class="text-xs text-text-tertiary">
                 {{ member.roles[0].name }}
               </span>
             </div>
@@ -87,7 +93,7 @@
             <div v-if="canManageMember(member.userId).value" class="flex gap-1">
               <button
                   v-if="permissions.kickMembers"
-                  class="p-1 text-gray-400 hover:text-red-400 transition"
+                  class="p-1 text-text-muted hover:text-red-400 transition"
                   title="Kick Member"
                   @click="kickMember()"
               >
@@ -95,7 +101,7 @@
               </button>
               <button
                   v-if="permissions.banMembers"
-                  class="p-1 text-gray-400 hover:text-red-500 transition"
+                  class="p-1 text-text-muted hover:text-red-500 transition"
                   title="Ban Member"
                   @click="banMember()"
               >

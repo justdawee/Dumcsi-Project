@@ -1,5 +1,5 @@
 <template>
-  <div class="w-[72px] bg-gray-950 flex flex-col items-center py-3 space-y-2">
+  <div class="w-[72px] bg-main-950 flex flex-col items-center py-3 space-y-2">
     <!-- Home/Direct Messages -->
     <div
         class="relative group w-full px-3"
@@ -8,7 +8,7 @@
     >
       <div
           :class="isHome ? 'h-10' : 'scale-y-0 group-hover:h-5 group-hover:scale-y-100'"
-          class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-white rounded-r-lg transition-all duration-200 origin-center h-2"
+          class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-text-default rounded-r-lg transition-all duration-200 origin-center h-2"
       ></div>
       <RouterLink
           :class="{ 'active': isHome }"
@@ -19,7 +19,7 @@
       </RouterLink>
     </div>
 
-    <div class="w-8 h-[2px] bg-gray-700 rounded-full"/>
+    <div class="w-8 h-[2px] bg-border-default rounded-full"/>
 
     <!-- Server List & Add Button Container -->
     <div class="flex-1 space-y-2 w-full overflow-y-auto scrollbar-thin px-3">
@@ -34,7 +34,7 @@
       >
         <div
             :class="currentServerId === server.id ? 'h-10' : 'scale-y-0 group-hover:h-5 group-hover:scale-y-100'"
-            class="absolute -left-2 top-1/2 -translate-y-1/2 w-1 bg-white rounded-r-lg transition-all duration-200 origin-center h-2"
+            class="absolute -left-2 top-1/2 -translate-y-1/2 w-1 bg-text-default rounded-r-lg transition-all duration-200 origin-center h-2"
         ></div>
 
         <RouterLink
@@ -69,7 +69,7 @@
            @mouseleave="hideTooltip"
       >
         <button
-            class="server-icon bg-gray-700 hover:bg-accent text-gray-400 hover:text-white mx-auto"
+            class="server-icon bg-main-700 hover:bg-accent text-text-muted hover:text-text-default mx-auto"
             @click="isExploreModalOpen = true"
         >
           <Compass class="w-6 h-6"/>
@@ -115,7 +115,7 @@
     <Teleport to="body">
       <div
           v-if="tooltipVisible"
-          :class="['fixed left-[72px] -translate-y-1/2 px-3 py-2 bg-gray-950 text-white text-sm rounded-lg whitespace-nowrap z-50 transition-opacity', tooltipVisible ? 'opacity-100' : 'opacity-0']"
+          :class="['fixed left-[72px] -translate-y-1/2 px-3 py-2 bg-bg-base text-text-default text-sm rounded-lg whitespace-nowrap z-50 transition-opacity', tooltipVisible ? 'opacity-100' : 'opacity-0']"
           :style="{ top: `${tooltipTop}px` }"
       >
         {{ tooltipText }}

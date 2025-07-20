@@ -1,24 +1,24 @@
 <template>
-  <div class="flex-1 flex items-center justify-center p-8">
+  <div class="flex-1 flex items-center justify-center p-8 bg-bg-base">
     <div v-if="server" class="text-center max-w-md">
-      <div class="w-32 h-32 mx-auto mb-6 bg-gray-700 rounded-full flex items-center justify-center">
-        <MessageSquare class="w-16 h-16 text-gray-500"/>
+      <div class="w-32 h-32 mx-auto mb-6 bg-main-700 rounded-full flex items-center justify-center">
+        <MessageSquare class="w-16 h-16 text-text-tertiary"/>
       </div>
-      <h1 class="text-3xl font-bold text-white mb-3">
+      <h1 class="text-3xl font-bold text-text-default mb-3">
         Welcome to {{ server.name }}!
       </h1>
-      <p class="text-gray-400 mb-6">
+      <p class="text-text-muted mb-6">
         {{ server.description || 'Select a channel from the sidebar to start chatting.' }}
       </p>
 
       <div v-if="server.channels?.length > 0" class="space-y-2">
-        <p class="text-sm text-gray-500 mb-3">Quick jump to:</p>
+        <p class="text-sm text-text-tertiary mb-3">Quick jump to:</p>
         <div class="flex flex-wrap gap-2 justify-center">
           <RouterLink
               v-for="channel in server.channels.slice(0, 5)"
               :key="channel.id"
               :to="`/servers/${server.id}/channels/${channel.id}`"
-              class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-full text-sm text-gray-300 hover:text-white transition"
+              class="inline-flex items-center gap-1 px-3 py-1.5 bg-main-700 hover:bg-main-600 rounded-full text-sm text-text-secondary hover:text-text-default transition"
           >
             <Hash class="w-3 h-3"/>
             {{ channel.name }}
@@ -45,7 +45,7 @@
     </div>
     <!-- Loading Spinner -->
     <div v-else>
-      <Loader2 class="w-8 h-8 text-gray-500 animate-spin"/>
+      <Loader2 class="w-8 h-8 text-text-tertiary animate-spin"/>
     </div>
   </div>
 

@@ -2,20 +2,20 @@
   <Transition name="modal-fade">
     <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
         @click.self="closeModal"
     >
       <div
-          class="w-full max-w-md transform rounded-2xl bg-gray-800 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+          class="w-full max-w-md transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50">
         <!-- Fejléc -->
         <div class="p-6">
-          <h3 class="text-xl font-bold text-white">Edit Channel</h3>
-          <p class="text-sm text-gray-400 mt-1">Update your channel's settings or delete it.</p>
+          <h3 class="text-xl font-bold text-text-default">Edit Channel</h3>
+          <p class="text-sm text-text-muted mt-1">Update your channel's settings or delete it.</p>
         </div>
 
         <!-- Szerkesztő űrlap -->
         <form @submit.prevent="handleUpdateChannel">
-          <div class="p-6 space-y-4 border-y border-gray-700/50">
+          <div class="p-6 space-y-4 border-y border-border-default">
             <div>
               <label class="form-label" for="channel-name">Channel Name</label>
               <input id="channel-name" v-model="form.name" class="form-input" required type="text"/>
@@ -39,11 +39,11 @@
         </form>
 
         <!-- Danger Zone a törléshez -->
-        <div class="p-6 border-t border-gray-700/50 bg-gray-900/40 rounded-b-2xl">
+        <div class="p-6 border-t border-border-default bg-bg-base/40 rounded-b-2xl">
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium text-red-400">Delete Channel</p>
-              <p class="text-sm text-gray-400">This action cannot be undone.</p>
+              <p class="font-medium text-danger">Delete Channel</p>
+              <p class="text-sm text-text-muted">This action cannot be undone.</p>
             </div>
             <button class="btn-danger flex-shrink-0" @click="isConfirmDeleteOpen = true">
               Delete

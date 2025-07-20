@@ -2,11 +2,11 @@
   <Transition name="modal-fade">
     <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
         @click.self="closeModal"
     >
       <div
-          class="w-full max-w-md transform rounded-2xl bg-gray-800 p-6 text-left align-middle shadow-xl transition-all border border-gray-700/50">
+          class="w-full max-w-md transform rounded-2xl bg-bg-surface p-6 text-left align-middle shadow-xl transition-all border border-border-default/50">
         <!-- Fejléc -->
         <header class="flex items-center space-x-4 mb-4">
           <UserAvatar
@@ -16,22 +16,22 @@
               :username="server.name"
           />
           <div class="min-w-0">
-            <p class="text-xs text-gray-400">You are inviting people to</p>
-            <h3 :title="server?.name" class="text-xl font-bold text-white truncate">{{ server?.name }}</h3>
+            <p class="text-xs text-text-muted">You are inviting people to</p>
+            <h3 :title="server?.name" class="text-xl font-bold text-text-default truncate">{{ server?.name }}</h3>
           </div>
         </header>
 
-        <p v-if="server?.description" class="text-sm text-gray-400 mb-6 border-l-2 border-primary/50 pl-3">
+        <p v-if="server?.description" class="text-sm text-text-muted mb-6 border-l-2 border-primary/50 pl-3">
           {{ server.description }}
         </p>
 
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2" for="invite-code">
+          <label class="block text-sm font-medium text-text-secondary mb-2" for="invite-code">
             Share this invite code with others
           </label>
 
           <div v-if="!inviteCode" class="relative flex items-center">
-            <div class="h-[46px] w-full animate-pulse rounded-lg bg-gray-700/80"></div>
+            <div class="h-[46px] w-full animate-pulse rounded-lg bg-main-700/80"></div>
           </div>
 
           <div v-else class="relative flex items-center">
@@ -45,7 +45,7 @@
             />
             <button
                 aria-label="Copy invite code"
-                class="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-gray-600 text-gray-400 hover:text-white transition-colors"
+                class="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-main-600 text-text-muted hover:text-text-default transition-colors"
                 @click="copyToClipboard"
             >
               <Copy class="w-5 h-5"/>

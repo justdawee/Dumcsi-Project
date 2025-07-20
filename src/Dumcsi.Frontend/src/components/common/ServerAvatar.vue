@@ -1,7 +1,7 @@
 <template>
   <div
       :style="{ backgroundColor: (!icon || imageError) ? backgroundColor : undefined }"
-      class="w-12 h-12 flex items-center justify-center text-white font-bold transition-all duration-200 overflow-hidden"
+      class="w-12 h-12 flex items-center justify-center text-text-default font-bold transition-all duration-200 overflow-hidden"
   >
     <img
         v-if="icon && !imageError"

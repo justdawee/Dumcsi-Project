@@ -3,14 +3,14 @@
       v-if="visible"
       ref="contextMenu"
       :style="{ top: `${y}px`, left: `${x}px` }"
-      class="fixed z-50 bg-gray-900 rounded-lg shadow-lg p-1.5 animate-fade-in border border-gray-700/50"
+      class="fixed z-50 bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50"
   >
     <ul class="space-y-1">
       <li v-for="item in items" :key="item.label">
         <button
             :class="item.danger
-            ? 'text-red-400 hover:bg-red-500/20 hover:text-red-300'
-            : 'text-gray-300 hover:bg-primary/50 hover:text-white'"
+            ? 'text-danger hover:bg-danger/20 hover:text-red-300'
+            : 'text-text-secondary hover:bg-primary/50 hover:text-text-default'"
             class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
             @click="handleClick(item)"
         >

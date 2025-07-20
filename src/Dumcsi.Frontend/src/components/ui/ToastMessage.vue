@@ -1,6 +1,6 @@
 <template>
   <div
-      class="relative flex w-full max-w-sm items-start overflow-hidden rounded-xl border border-white/10 bg-gray-900/50 p-4 shadow-lg backdrop-blur-md"
+      class="relative flex w-full max-w-sm items-start overflow-hidden rounded-xl border border-border-default/50 bg-bg-surface/50 p-4 shadow-lg backdrop-blur-md"
   >
     <div class="mr-3 flex-shrink-0">
       <div
@@ -12,12 +12,12 @@
     </div>
 
     <div class="flex-1">
-      <p class="font-bold text-white">{{ title || typeClasses.title }}</p>
-      <p class="mt-1 text-sm text-gray-300">{{ message }}</p>
+      <p class="font-bold text-text-default">{{ title || typeClasses.title }}</p>
+      <p class="mt-1 text-sm text-text-secondary">{{ message }}</p>
     </div>
 
     <button
-        class="ml-3 flex-shrink-0 rounded-full p-1 text-gray-500 transition-colors hover:bg-white/10 hover:text-gray-200"
+        class="ml-3 flex-shrink-0 rounded-full p-1 text-text-muted transition-colors hover:bg-main-700 hover:text-text-default"
         @click="$emit('close')"
     >
       <X class="h-5 w-5"/>

@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex bg-gray-900 overflow-hidden">
+  <div class="h-full flex bg-bg-base overflow-hidden">
     <!-- Server Sidebar -->
     <ServerSidebar/>
 

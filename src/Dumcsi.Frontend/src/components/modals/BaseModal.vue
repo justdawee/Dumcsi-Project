@@ -1,17 +1,13 @@
 <template>
   <Teleport to="body">
-    <Transition
-        name="modal"
-        @enter="onEnter"
-        @leave="onLeave"
-    >
+    <Transition name="modal-fade">
       <div
           v-if="modelValue"
           class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <!-- Backdrop -->
         <div
-            class="absolute inset-0 bg-black bg-opacity-50"
+            class="absolute inset-0 bg-bg-base/80 backdrop-blur-sm"
             @click="handleBackdropClick"
         />
 
@@ -19,30 +15,30 @@
         <div
             ref="modalContent"
             :class="[
-            'relative bg-gray-800 rounded-lg shadow-xl max-h-[90vh] flex flex-col',
+            'relative bg-bg-surface rounded-lg shadow-xl max-h-[90vh] flex flex-col border border-border-default/50',
             sizeClasses
           ]"
             @click.stop
         >
           <!-- Header -->
-          <div class="flex items-center justify-between p-6 pb-4 border-b border-gray-700">
-            <h2 class="text-xl font-semibold text-white">{{ title }}</h2>
+          <div class="flex items-center justify-between p-6 pb-4 border-b border-border-default">
+            <h2 class="text-xl font-semibold text-text-default">{{ title }}</h2>
             <button
                 :aria-label="closeLabel"
-                class="p-1 hover:bg-gray-700 rounded-lg transition"
+                class="p-1 hover:bg-main-700 rounded-lg transition"
                 @click="close"
             >
-              <X class="w-5 h-5 text-gray-400"/>
+              <X class="w-5 h-5 text-text-muted"/>
             </button>
           </div>
 
           <!-- Body -->
-          <div class="flex-1 overflow-y-auto p-6">
+          <div class="flex-1 overflow-y-auto p-6 scrollbar-thin">
             <slot/>
           </div>
 
           <!-- Footer (optional) -->
-          <div v-if="$slots.footer" class="p-6 pt-4 border-t border-gray-700">
+          <div v-if="$slots.footer" class="p-6 pt-4 border-t border-border-default">
             <slot name="footer"/>
           </div>
         </div>

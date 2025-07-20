@@ -1,24 +1,24 @@
 <template>
   <div
       :class="showHeader ? 'mt-4' : '-mt-4'"
-      class="group hover:bg-secondary/20 px-4 py-0 rounded-md transition-colors relative"
+      class="group hover:bg-main-700/20 px-4 py-0 rounded-md transition-colors relative"
   >
     <!-- With Header (new user message or certain time passed) -->
     <div v-if="showHeader" class="flex items-start gap-3">
       <UserAvatar
           :avatar-url="message.author.avatar"
-          :size="40" :user="message.author"
+          :size="40" :user-id="message.author.id" :username="message.author.username"
           class="mt-1"
       />
 
       <div>
         <div class="flex items-baseline gap-2">
-          <span class="font-semibold text-white">{{ getDisplayName(message.author) }}</span>
-          <span class="text-xs text-gray-500">{{ formatTime(message.timestamp) }}</span>
-          <span v-if="message.editedTimestamp" class="text-xs text-gray-500">(edited)</span>
+          <span class="font-semibold text-text-default">{{ getDisplayName(message.author) }}</span>
+          <span class="text-xs text-text-tertiary">{{ formatTime(message.timestamp) }}</span>
+          <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
         </div>
         <div class="message-content">
-          <p v-if="!isEditing" class="text-gray-100 break-words">
+          <p v-if="!isEditing" class="text-text-default break-words">
             {{ message.content }}
           </p>
           <MessageEdit
@@ -33,13 +33,13 @@
     <!-- Without Header (continuous message) -->
     <div v-else class="flex items-start gap-3 group">
       <div class="w-10 shrink-0 text-right">
-        <span class="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition">
+        <span class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
           {{ formatTimeShort(message.timestamp) }}
-          <span v-if="message.editedTimestamp" class="text-xs text-gray-500">(edited)</span>
+          <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
         </span>
       </div>
       <div class="flex-1 message-content">
-        <p v-if="!isEditing" class="text-gray-100 break-words">
+        <p v-if="!isEditing" class="text-text-secondary break-words">
           {{ message.content }}
         </p>
         <MessageEdit
@@ -53,24 +53,24 @@
 
     <div
         v-if="!isEditing"
-        class="absolute right-4 -top-3 bg-gray-700 rounded-lg shadow-lg
-             opacity-0 group-hover:opacity-100 transition-opacity flex items-center"
+        class="absolute right-4 -top-3 bg-bg-surface rounded-lg shadow-lg
+             opacity-0 group-hover:opacity-100 transition-opacity flex items-center border border-border-default"
     >
       <button
           v-if="canEdit"
-          class="p-1.5 hover:bg-gray-600 rounded-sm transition"
+          class="p-1.5 hover:bg-main-700 rounded-sm transition"
           title="Edit message"
           @click="isEditing = true"
       >
-        <Edit3 class="w-4 h-4 text-gray-300"/>
+        <Edit3 class="w-4 h-4 text-text-secondary"/>
       </button>
       <button
           v-if="canDelete"
-          class="p-1.5 hover:bg-gray-600 rounded-sm transition"
+          class="p-1.5 hover:bg-main-700 rounded-sm transition"
           title="Delete message"
           @click="handleDelete"
       >
-        <Trash2 class="w-4 h-4 text-gray-300"/>
+        <Trash2 class="w-4 h-4 text-text-secondary"/>
       </button>
     </div>
   </div>

@@ -20,7 +20,7 @@
           class="w-full h-full object-cover"
           @error="handleImageError"
       />
-      <span v-else :style="{ fontSize: `${size * 0.4}px` }">
+      <span v-else :style="{ fontSize: `${size! * 0.4}px` }">
         {{ initials }}
       </span>
     </div>
@@ -113,7 +113,7 @@ const initials = computed(() => {
 
 const statusColor = computed(() => getStatusColor(userStatus.value));
 
-// Simplified styles using CSS Custom Properties for animation
+// Calculate status indicator size and position based on avatar size
 const statusIndicatorStyles = computed(() => {
   const avatarSize = props.size;
   const isSmall = avatarSize <= 32;
@@ -122,7 +122,7 @@ const statusIndicatorStyles = computed(() => {
   let baseSize, offset, boxShadowSize;
 
   if (isSmall) {
-    baseSize = 10;
+    baseSize = 12;
     offset = -2;
     boxShadowSize = 2;
   } else if (isMedium) {
@@ -135,13 +135,22 @@ const statusIndicatorStyles = computed(() => {
     boxShadowSize = 3;
   }
 
-  return {
+  // Cast the styles object to a type that allows arbitrary string keys
+  const styles: { [key: string]: string } = {
     '--indicator-base-size': `${baseSize}px`,
     '--indicator-offset': `${offset}px`,
     '--indicator-box-shadow-size': `${boxShadowSize}px`,
     bottom: `var(--indicator-offset)`,
     right: `var(--indicator-offset)`,
   };
+
+  // When typing, the indicator container itself gets the status color.
+  // When online, the container is dark, and the child .online-indicator provides the color.
+  if (props.isTyping) {
+    styles.backgroundColor = statusColor.value;
+  }
+
+  return styles;
 });
 
 // Methods

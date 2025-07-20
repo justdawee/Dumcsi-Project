@@ -1,11 +1,11 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="$emit('close')">
-    <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md animate-fade-in">
-      <h2 class="text-xl font-bold text-white mb-4">Create Channel</h2>
+    <div class="bg-bg-surface rounded-xl p-6 w-full max-w-md animate-fade-in border border-border-default/50">
+      <h2 class="text-xl font-bold text-text-default mb-4">Create Channel</h2>
 
       <form class="space-y-4" @submit.prevent="handleCreateChannel">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Channel Type
           </label>
           <div class="flex gap-3">
@@ -37,30 +37,30 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Channel Name
           </label>
           <input
               v-model="form.name"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-hidden focus:ring-2 focus:ring-primary/50"
+              class="form-input"
               pattern="[a-z0-9-]+"
               placeholder="new-channel"
               required
               type="text"
               @input="form.name = form.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')"
           />
-          <p class="mt-1 text-xs text-gray-400">
+          <p class="mt-1 text-xs text-text-muted">
             Channel names must be lowercase with no spaces
           </p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Description (optional)
           </label>
           <input
               v-model="form.description"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-hidden focus:ring-2 focus:ring-primary/50"
+              class="form-input"
               placeholder="What's this channel about?"
               type="text"
           />
@@ -86,8 +86,8 @@
       </form>
 
       <!-- Error Message -->
-      <div v-if="error" class="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
-        <p class="text-sm text-red-400">{{ error }}</p>
+      <div v-if="error" class="mt-4 p-3 bg-danger/10 border border-danger/50 rounded-lg">
+        <p class="text-sm text-danger">{{ error }}</p>
       </div>
     </div>
   </div>
@@ -99,7 +99,6 @@ import {useRouter} from 'vue-router'
 import {useAppStore} from '@/stores/app'
 import {useToast} from "@/composables/useToast";
 import {Hash, Volume2, Loader2} from 'lucide-vue-next'
-// A hibás 'BaseModal' importot eltávolítottuk
 
 const props = defineProps({
   serverId: Number

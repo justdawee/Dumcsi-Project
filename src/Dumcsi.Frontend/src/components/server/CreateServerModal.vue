@@ -1,20 +1,20 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="$emit('close')">
-    <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md animate-fade-in border border-gray-700/50">
-      <h2 class="text-2xl font-bold text-white mb-6">Create or Join Server</h2>
+    <div class="bg-bg-surface rounded-xl p-6 w-full max-w-md animate-fade-in border border-border-default/50">
+      <h2 class="text-2xl font-bold text-text-default mb-6">Create or Join Server</h2>
 
       <!-- Tab Selection -->
-      <div class="flex mb-6 bg-gray-900 rounded-lg p-1">
+      <div class="flex mb-6 bg-bg-base rounded-lg p-1">
         <button
             :class="['flex-1 py-2 px-4 rounded-md font-medium transition',
-                   activeTab === 'create' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white']"
+                   activeTab === 'create' ? 'bg-primary text-text-default' : 'text-text-muted hover:text-text-default']"
             @click="activeTab = 'create'"
         >
           Create Server
         </button>
         <button
             :class="['flex-1 py-2 px-4 rounded-md font-medium transition',
-                   activeTab === 'join' ? 'bg-primary text-white' : 'text-gray-400 hover:text-white']"
+                   activeTab === 'join' ? 'bg-primary text-text-default' : 'text-text-muted hover:text-text-default']"
             @click="activeTab = 'join'"
         >
           Join Server
@@ -24,7 +24,7 @@
       <!-- Create Server Tab -->
       <form v-if="activeTab === 'create'" class="space-y-4" @submit.prevent="handleCreateServer">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Server Name
           </label>
           <input
@@ -37,7 +37,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Description
           </label>
           <textarea
@@ -52,10 +52,10 @@
           <input
               id="public"
               v-model="createForm.public"
-              class="w-4 h-4 text-primary bg-gray-700 border-gray-600 rounded-sm focus:ring-primary/50"
+              class="w-4 h-4 text-primary bg-main-700 border-border-default rounded-sm focus:ring-primary/50"
               type="checkbox"
           />
-          <label class="ml-2 text-sm text-gray-300" for="public">
+          <label class="ml-2 text-sm text-text-secondary" for="public">
             Make server public
           </label>
         </div>
@@ -82,7 +82,7 @@
       <!-- Join Server Tab -->
       <form v-else class="space-y-4" @submit.prevent="handleJoinServer">
         <div>
-          <label class="block text-sm font-medium text-gray-300 mb-2">
+          <label class="form-label">
             Invite Code
           </label>
           <input
@@ -115,8 +115,8 @@
       </form>
 
       <!-- Error Message -->
-      <div v-if="error" class="mt-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg">
-        <p class="text-sm text-red-400">{{ error }}</p>
+      <div v-if="error" class="mt-4 p-3 bg-danger/10 border border-danger/50 rounded-lg">
+        <p class="text-sm text-danger">{{ error }}</p>
       </div>
     </div>
   </div>

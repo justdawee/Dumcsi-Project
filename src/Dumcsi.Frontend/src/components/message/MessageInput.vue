@@ -1,7 +1,7 @@
 <template>
   <div class="relative">
     <!-- Attachment Preview -->
-    <div v-if="attachments.length > 0" class="mb-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700/50">
+    <div v-if="attachments.length > 0" class="mb-2 p-2 bg-bg-base/50 rounded-lg border border-border-default/50">
       <div class="flex flex-wrap gap-2">
         <div
             v-for="(attachment, index) in attachments"
@@ -19,7 +19,7 @@
                  class="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center rounded">
               <div class="relative w-10 h-10">
                 <svg class="w-full h-full" viewBox="0 0 36 36">
-                  <path class="text-gray-700"
+                  <path class="text-main-700"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
                         stroke-width="4"></path>
                   <path :stroke-dasharray="`${attachment.progress}, 100`"
@@ -28,24 +28,24 @@
                         fill="none" stroke-linecap="round"
                         stroke-width="4"></path>
                 </svg>
-                <span class="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">{{
+                <span class="absolute inset-0 flex items-center justify-center text-text-default text-xs font-bold">{{
                     attachment.progress
                   }}%</span>
               </div>
             </div>
           </div>
           <!-- Generic File Preview -->
-          <div v-else class="flex items-center gap-2 bg-gray-800 px-3 py-2 rounded h-20 w-48">
-            <File class="w-6 h-6 text-gray-400 flex-shrink-0"/>
+          <div v-else class="flex items-center gap-2 bg-bg-surface px-3 py-2 rounded h-20 w-48">
+            <File class="w-6 h-6 text-text-muted flex-shrink-0"/>
             <div class="flex flex-col min-w-0">
-              <span class="text-sm text-gray-300 truncate">{{ attachment.file.name }}</span>
-              <span class="text-xs text-gray-500">{{ formatFileSize(attachment.file.size) }}</span>
+              <span class="text-sm text-text-secondary truncate">{{ attachment.file.name }}</span>
+              <span class="text-xs text-text-tertiary">{{ formatFileSize(attachment.file.size) }}</span>
             </div>
           </div>
           <!-- Remove Button -->
           <button
               v-if="!attachment.uploading"
-              class="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+              class="absolute -top-1.5 -right-1.5 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger-hover"
               title="Remove file"
               @click="removeAttachment(index)"
           >
@@ -58,7 +58,7 @@
     <!-- Mention Suggestions -->
     <div
         v-if="showMentionSuggestions && mentionSuggestions.length > 0"
-        class="absolute bottom-full mb-2 left-0 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto scrollbar-thin"
+        class="absolute bottom-full mb-2 left-0 right-0 bg-bg-surface border border-border-default rounded-lg shadow-lg max-h-48 overflow-y-auto scrollbar-thin"
     >
       <div class="p-1">
         <button
@@ -70,22 +70,22 @@
           ]"
             @click="selectMention(user)"
         >
-          <UserAvatar :size="24" :user="user"/>
+          <UserAvatar :size="24" :user-id="user.id" :username="user.username" :avatar-url="user.avatar"/>
           <div class="flex-1 text-left">
-            <div class="text-sm font-medium text-white">{{ getDisplayName(user) }}</div>
-            <div v-if="user.globalNickname" class="text-xs text-gray-400">@{{ user.username }}</div>
+            <div class="text-sm font-medium text-text-default">{{ getDisplayName(user) }}</div>
+            <div v-if="user.globalNickname" class="text-xs text-text-muted">@{{ user.username }}</div>
           </div>
         </button>
       </div>
     </div>
 
     <!-- Input Area -->
-    <div class="flex items-center gap-2 bg-gray-800/80 rounded-lg p-2">
+    <div class="flex items-center gap-2 bg-bg-surface/80 rounded-lg p-2">
       <input ref="fileInput" class="hidden" multiple type="file" @change="onFileSelected"/>
 
       <button
           :disabled="isUploading || attachments.length >= 10"
-          class="p-2 text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          class="p-2 text-text-muted hover:text-text-default disabled:opacity-50 disabled:cursor-not-allowed transition"
           title="Attach files (max 10)"
           @click="fileInput?.click()"
       >
@@ -99,7 +99,7 @@
           :placeholder="`Message #${props.channel.name}`"
           :style="{ height: textareaHeight }"
           class="
-          flex-1 bg-transparent text-gray-100 placeholder-gray-400
+          flex-1 bg-transparent text-text-default placeholder-text-muted
           resize-none max-h-[200px] scrollbar-thin outline-none
           focus:outline-none border-none focus:border-none ring-0
           focus:ring-0 focus:ring-offset-0 focus:ring-transparent
@@ -114,7 +114,7 @@
           'p-2 rounded-full transition',
           canSend
             ? 'text-primary bg-primary/20 hover:bg-primary/30'
-            : 'text-gray-500 cursor-not-allowed'
+            : 'text-text-tertiary cursor-not-allowed'
         ]"
           :disabled="!canSend"
           title="Send Message"

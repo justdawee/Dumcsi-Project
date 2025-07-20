@@ -1,3 +1,4 @@
+
 <template>
   <div class="flex-1 flex h-full overflow-hidden">
     <!-- Channel Sidebar -->
@@ -7,7 +8,7 @@
     />
 
     <!-- Channel Content or Server Welcome -->
-    <div class="flex-1 bg-gray-900 overflow-hidden">
+    <div class="flex-1 bg-bg-base overflow-hidden">
       <RouterView v-if="$route.params.channelId"/>
       <ServerWelcome v-else :server="appStore.currentServer"/>
     </div>

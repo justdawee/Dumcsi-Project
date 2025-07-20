@@ -1,11 +1,11 @@
 <template>
-  <div class="flex-1 flex flex-col bg-gray-900">
+  <div class="flex-1 flex flex-col bg-bg-base">
     <!-- Header -->
-    <div class="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-white">Your Servers</h1>
+    <div class="px-6 py-4 border-b border-border-default flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-text-default">Your Servers</h1>
       <div class="flex items-center gap-3">
         <button
-            class="relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition"
+            class="relative flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-main-700 transition"
             @click="showUserMenu = !showUserMenu"
         >
           <UserAvatar
@@ -14,24 +14,24 @@
               :user-id="authStore.user?.id"
               :username="authStore.user?.username || ''"
           />
-          <span class="text-white font-medium">{{ authStore.user?.username }}</span>
-          <ChevronDown class="w-4 h-4 text-gray-400"/>
+          <span class="text-text-default font-medium">{{ authStore.user?.username }}</span>
+          <ChevronDown class="w-4 h-4 text-text-muted"/>
         </button>
 
         <!-- User Dropdown Menu -->
         <div
             v-if="showUserMenu"
-            class="absolute right-6 top-16 w-48 bg-gray-900 rounded-lg shadow-lg border border-gray-700 py-2 z-50"
+            class="absolute right-6 top-16 w-48 bg-bg-base rounded-lg shadow-lg border border-border-default py-2 z-50"
         >
           <button
-              class="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 hover:text-white transition flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-text-secondary hover:bg-bg-surface hover:text-text-default transition flex items-center gap-2"
               @click="editUser"
           >
             <Edit class="w-4 h-4"/>
             Edit Profile
           </button>
           <button
-              class="w-full px-4 py-2 text-left text-red-300 hover:bg-red-800/10 hover:text-red-400 transition flex items-center gap-2"
+              class="w-full px-4 py-2 text-left text-danger hover:bg-danger/10 transition flex items-center gap-2"
               @click="handleLogout"
           >
             <LogOut class="w-4 h-4"/>
@@ -49,11 +49,11 @@
 
       <div v-else-if="appStore.servers.length === 0"
            class="flex flex-col items-center justify-center h-full text-center">
-        <div class="w-24 h-24 mb-6 bg-gray-700 rounded-full flex items-center justify-center">
-          <Server class="w-12 h-12 text-gray-500"/>
+        <div class="w-24 h-24 mb-6 bg-main-700 rounded-full flex items-center justify-center">
+          <Server class="w-12 h-12 text-text-tertiary"/>
         </div>
-        <h2 class="text-xl font-semibold text-white mb-2">No servers yet</h2>
-        <p class="text-gray-400 mb-6">Create or join a server to get started!</p>
+        <h2 class="text-xl font-semibold text-text-default mb-2">No servers yet</h2>
+        <p class="text-text-muted mb-6">Create or join a server to get started!</p>
         <button
             class="btn-primary flex items-center gap-2"
             @click="showCreateModal = true"
@@ -68,25 +68,25 @@
             v-for="server in appStore.servers"
             :key="server.id"
             :to="`/servers/${server.id}`"
-            class="group bg-gray-700 rounded-xl p-6 hover:bg-gray-650 transition-all hover:shadow-lg"
+            class="group bg-main-700 rounded-xl p-6 hover:bg-main-600 transition-all hover:shadow-lg"
         >
           <div class="flex items-center gap-4 mb-3">
             <ServerAvatar
-                :icon-url="server.icon"
+                :icon="server.icon"
                 :server-id="server.id"
                 :server-name="server.name"
                 class="rounded-[8px]"
             />
             <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-white truncate group-hover:text-primary transition">
+              <h3 class="font-semibold text-text-default truncate group-hover:text-primary transition">
                 {{ server.name }}
               </h3>
-              <p class="text-sm text-gray-400">
+              <p class="text-sm text-text-muted">
                 {{ server.memberCount }} {{ server.memberCount === 1 ? 'member' : 'members' }}
               </p>
             </div>
           </div>
-          <p class="text-sm text-gray-400 line-clamp-2">
+          <p class="text-sm text-text-muted line-clamp-2">
             {{ server.description || 'No description' }}
           </p>
           <div class="mt-3 flex items-center justify-between">
@@ -94,7 +94,7 @@
               Owner
             </span>
             <span v-else></span>
-            <span class="text-xs text-gray-500">
+            <span class="text-xs text-text-tertiary">
               {{ formatDate(server.createdAt) }}
             </span>
           </div>
