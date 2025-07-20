@@ -50,6 +50,7 @@ public class ServerDtos
     {
         public long UserId { get; set; }
         public string Username { get; set; } = string.Empty;
+        public string? GlobalNickname { get; set; } = string.Empty;
         public string? ServerNickname { get; set; }
         public string? Avatar { get; set; }
         public List<RoleDto> Roles { get; set; } = new();

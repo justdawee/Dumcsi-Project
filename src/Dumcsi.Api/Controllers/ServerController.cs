@@ -243,6 +243,7 @@ public class ServerController(
             {
                 UserId = sm.UserId,
                 Username = sm.User.Username,
+                GlobalNickname = sm.User.GlobalNickname,
                 Avatar = sm.User.Avatar,
                 JoinedAt = sm.JoinedAt,
                 Deafened = sm.Deafened,
