@@ -43,7 +43,7 @@
             class="server-icon"
         >
           <ServerAvatar
-              :icon-url="server.icon"
+              :icon="server.icon"
               :server-id="server.id"
               :server-name="server.name"
           />
@@ -140,12 +140,14 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import type {ServerListItem} from '@/services/types';
+import { usePermissions } from '@/composables/usePermissions';
 
 // --- State ---
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
+const { permissions } = usePermissions();
 
 interface MenuItem {
   label: string;
@@ -238,13 +240,31 @@ const confirmLeaveServer = async () => {
 };
 
 const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
-  serverMenuItems.value = [
-    {label: 'Invite', icon: UserPlus, action: () => handleInvite(server)},
-    {label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server)},
-    {label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)},
-    {label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server)},
-  ];
-  serverContextMenu.value?.open(event);
+  const menuItems: MenuItem[] = [];
+  const isCurrentServer = server.id === currentServerId.value;
+
+  const canInvite = isCurrentServer ? permissions.createInvite.value : server.isOwner;
+  const canManageChannels = isCurrentServer ? permissions.manageChannels.value : server.isOwner;
+  const canManageServer = isCurrentServer ? permissions.manageServer.value : server.isOwner;
+
+  if (canInvite) {
+    menuItems.push({label: 'Invite', icon: UserPlus, action: () => handleInvite(server)});
+  }
+  if (canManageChannels) {
+    menuItems.push({label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server)});
+  }
+  if (canManageServer) {
+    menuItems.push({label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)});
+  }
+
+  if (!server.isOwner) {
+    menuItems.push({label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server)});
+  }
+
+  serverMenuItems.value = menuItems;
+  if (menuItems.length > 0) {
+    serverContextMenu.value?.open(event);
+  }
 };
 
 const showTooltip = (e: MouseEvent, text: string) => {
