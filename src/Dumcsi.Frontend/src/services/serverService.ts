@@ -150,7 +150,7 @@ const serverService = {
      * Frissíti egy szerver adatait.
      */
     async updateServer(serverId: EntityId, payload: UpdateServerRequest): Promise<void> {
-        const response = await api.patch<ApiResponse<void>>(`/server/${serverId}`, payload);
+        const response = await api.put<ApiResponse<void>>(`/server/${serverId}`, payload);
         if (!response.data.isSuccess) {
             throw new Error(response.data.message);
         }
