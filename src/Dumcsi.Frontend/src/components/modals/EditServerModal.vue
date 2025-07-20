@@ -24,13 +24,14 @@
                       v-if="previewIcon || form.icon"
                       :src="previewIcon || form.icon"
                       alt="Server Icon"
-                      class="w-32 h-32 rounded-2xl object-cover bg-main-700"
+                      class="w-32 h-32 rounded-full ring-4 ring-border-default/50 object-cover bg-main-700"
+
                   />
-                  <div v-else class="w-32 h-32 rounded-2xl bg-main-700 flex items-center justify-center">
+                  <div v-else class="w-32 h-32 rounded-full bg-main-700 flex items-center justify-center">
                     <ImageIcon class="w-10 h-10 text-text-muted"/>
                   </div>
                   <label
-                      class="absolute inset-0 bg-bg-base/80 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center cursor-pointer">
+                      class="absolute inset-0 bg-bg-base/80 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center cursor-pointer">
                     <div class="text-center">
                       <Camera class="w-8 h-8 text-text-default mx-auto mb-1"/>
                       <span class="text-xs text-text-default font-medium">Change Icon</span>
@@ -44,18 +45,22 @@
                     />
                   </label>
                   <div v-if="iconUploading"
-                       class="absolute inset-0 bg-bg-base/80 rounded-2xl flex items-center justify-center">
+                       class="absolute inset-0 bg-bg-base/80 rounded-full flex items-center justify-center">
                     <Loader2 class="w-8 h-8 animate-spin text-text-default"/>
                   </div>
                 </div>
                 <div v-if="form.icon" class="mt-3">
                   <button
                       :disabled="removingIcon"
-                      class="btn-danger w-full text-xs py-1.5"
-                      type="button"
+                      class="w-full flex items-center justify-center space-x-2
+                      px-4 py-2 text-sm font-medium text-red-500
+                      bg-gray-800 border border-gray-700 rounded-md
+                      hover:bg-gray-700 focus:outline-none focus:ring-2
+                      focus:ring-gray-600 focus:ring-offset-2 transition-colors
+                      disabled:opacity-50 disabled:cursor-not-allowed"
                       @click="removeIcon">
-                    <Loader2 v-if="removingIcon" class="w-3 h-3 animate-spin mr-1"/>
-                    Remove Icon
+                    <Loader2 v-if="removingIcon" class="w-4 h-4 animate-spin"/>
+                    <span>Remove Icon</span>
                   </button>
                 </div>
               </div>
@@ -84,7 +89,7 @@
                       class="w-4 h-4 text-primary bg-main-700 rounded-sm focus:ring-primary/50"
                       type="checkbox"
                   />
-                  <label class="ml-2 text-sm text-gray-300" for="public">
+                  <label class="ml-2 text-sm text-main-300" for="public">
                     Make server public
                   </label>
                 </div>
