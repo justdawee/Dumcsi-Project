@@ -63,21 +63,21 @@
             <button
                 v-for="(suggestion, index) in userSuggestions"
                 :key="`user-${suggestion.data.id}`"
-                :data-selected="index === selectedMentionIndex"
                 :class="[
                   'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
                   index === selectedMentionIndex
                     ? 'bg-primary/20 text-text-default'
                     : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
                 ]"
+                :data-selected="index === selectedMentionIndex"
                 @click="selectMention(suggestion)"
                 @mouseenter="handleMentionMouseEnter(index)"
             >
               <UserAvatar
+                  :avatar-url="suggestion.data.avatar"
                   :size="32"
                   :user-id="suggestion.data.id"
                   :username="suggestion.data.username"
-                  :avatar-url="suggestion.data.avatar"
               />
               <div class="flex-1 flex items-center justify-between">
                 <div class="text-sm font-medium">{{ getDisplayName(suggestion.data) }}</div>
@@ -95,21 +95,21 @@
             <button
                 v-for="(suggestion, index) in roleSuggestions"
                 :key="`role-${suggestion.data.id}`"
-                :data-selected="userSuggestions.length + index === selectedMentionIndex"
                 :class="[
                   'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
                   userSuggestions.length + index === selectedMentionIndex
                     ? 'bg-primary/20 text-text-default'
                     : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
                 ]"
+                :data-selected="userSuggestions.length + index === selectedMentionIndex"
                 @click="selectMention(suggestion)"
                 @mouseenter="handleMentionMouseEnter(userSuggestions.length + index)"
             >
               <div
-                  class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
                   :style="{ backgroundColor: suggestion.data.color || '#5865F2' }"
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
               >
-                <Hash class="w-4 h-4" />
+                <Hash class="w-4 h-4"/>
               </div>
               <div class="flex-1 text-left">
                 <div class="text-sm font-medium">@{{ suggestion.data.name }}</div>
@@ -133,43 +133,44 @@
         <Paperclip class="w-5 h-5"/>
       </button>
 
-      <div class="relative flex-1">
-        <!-- Mention highlight overlay -->
+      <div class="relative flex flex-1 items-center">
         <div
             v-if="messageContent.length > 0"
             class="absolute inset-0 pointer-events-none overflow-hidden"
         >
           <div
-              class="whitespace-pre-wrap break-words text-transparent"
               :style="{
-              font: 'inherit',
-              fontSize: '1rem',
-              lineHeight: '1.5rem',
-              letterSpacing: 'normal',
-              minHeight: '1.5rem',
-              maxHeight: '200px',
-              padding: '0',
-              margin: '0',
-              border: 'none'
-            }"
+        font: 'inherit',
+        fontSize: '1rem',
+        lineHeight: '1.5rem',
+        letterSpacing: 'normal',
+        minHeight: '1.5rem',
+        maxHeight: '200px',
+        padding: '0',
+        margin: '0',
+        border: 'none'
+      }"
+              class="whitespace-pre-wrap break-words text-transparent"
           >
-            <span v-for="(part, index) in highlightedContent" :key="index">
-              <span v-if="part.type === 'text'">{{ part.content }}</span>
-              <span v-else class="bg-blue-500/30 text-blue-500 rounded px-0.5">{{ part.content }}</span>
-            </span>
+      <span v-for="(part, index) in highlightedContent" :key="index">
+        <span v-if="part.type === 'text'">{{ part.content }}</span>
+        <span v-else class="bg-blue-500/30 text-blue-500 rounded px-0.5">{{ part.content }}</span>
+      </span>
           </div>
         </div>
 
-        <!-- Actual textarea -->
+        <div v-if="!messageContent" class="absolute text-text-muted pointer-events-none">
+          Message #{{ props.channel.name }}
+        </div>
+
         <textarea
             ref="messageInput"
             v-model="messageContent"
             :disabled="isSending || isUploading"
-            :placeholder="`Message #${props.channel.name}`"
             :style="{ height: textareaHeight }"
             class="
-            relative bg-transparent text-text-default placeholder-text-muted
-            resize-none min-h-[1.5rem] max-h-[200px] scrollbar-thin outline-none
+            relative bg-transparent text-text-default resize-none
+            min-h-[1.5rem] max-h-[200px] scrollbar-thin outline-none
             focus:outline-none border-none focus:border-none ring-0
             focus:ring-0 focus:ring-offset-0 focus:ring-transparent
             w-full p-0 text-base leading-6

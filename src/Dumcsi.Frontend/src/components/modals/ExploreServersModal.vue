@@ -22,6 +22,14 @@
           </div>
         </div>
 
+        <div v-else-if="servers.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-6">
+          <div class="w-24 h-24 mb-6 bg-main-700 rounded-full flex items-center justify-center">
+            <Server class="w-12 h-12 text-text-tertiary"/>
+          </div>
+          <h2 class="text-xl font-semibold text-text-default mb-2">No Public Servers Found</h2>
+          <p class="text-text-muted">It looks like there are no public servers available at the moment. Why not create your own?</p>
+        </div>
+
         <div v-else class="flex-1 p-6 overflow-y-auto scrollbar-thin">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
