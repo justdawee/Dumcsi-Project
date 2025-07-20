@@ -25,24 +25,23 @@
       </span>
     </div>
 
-    <!-- Status indicator overlay -->
+    <!-- Status indicator overlay with animation -->
     <div
         v-if="showOnlineIndicator && (isOnline || isTyping)"
-        :class="{
-        'status-online': isOnline && !isTyping,
-        'status-typing': isTyping
-      }"
-        :style="statusIndicatorStyles"
         class="status-indicator"
+        :class="{ 'is-typing': isTyping }"
+        :style="statusIndicatorStyles"
     >
-      <!-- Typing indicator -->
-      <div v-if="isTyping" class="typing-indicator-content">
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-      </div>
-      <!-- Online indicator -->
-      <div v-else class="online-indicator" :style="{ backgroundColor: statusColor }"></div>
+      <transition name="status-content" mode="out-in">
+        <!-- Typing indicator -->
+        <div v-if="isTyping" key="typing" class="typing-indicator-content">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+        <!-- Online indicator -->
+        <div v-else key="online" class="online-indicator" :style="{ backgroundColor: statusColor }"></div>
+      </transition>
     </div>
   </div>
 </template>
@@ -114,47 +113,34 @@ const initials = computed(() => {
 
 const statusColor = computed(() => getStatusColor(userStatus.value));
 
-// Calculate status indicator size and position based on avatar size
+// Simplified styles using CSS Custom Properties for animation
 const statusIndicatorStyles = computed(() => {
   const avatarSize = props.size;
   const isSmall = avatarSize <= 32;
   const isMedium = avatarSize <= 40;
 
-  let indicatorSize;
-  let indicatorOffset;
+  let baseSize, offset, boxShadowSize;
 
-  if (props.isTyping) {
-    // Typing indicator sizes
-    if (isSmall) {
-      indicatorSize = 16;
-      indicatorOffset = -2;
-    } else if (isMedium) {
-      indicatorSize = 20;
-      indicatorOffset = -3;
-    } else {
-      indicatorSize = 24;
-      indicatorOffset = -4;
-    }
+  if (isSmall) {
+    baseSize = 10;
+    offset = -2;
+    boxShadowSize = 2;
+  } else if (isMedium) {
+    baseSize = 12;
+    offset = -2;
+    boxShadowSize = 3;
   } else {
-    // Online indicator sizes
-    if (isSmall) {
-      indicatorSize = 10;
-      indicatorOffset = -2;
-    } else if (isMedium) {
-      indicatorSize = 12;
-      indicatorOffset = -2;
-    } else {
-      indicatorSize = 14;
-      indicatorOffset = -3;
-    }
+    baseSize = 14;
+    offset = -3;
+    boxShadowSize = 3;
   }
 
   return {
-    width: props.isTyping ? `${indicatorSize}px` : `${indicatorSize}px`,
-    height: props.isTyping ? `${indicatorSize * 0.5}px` : `${indicatorSize}px`,
-    bottom: `${indicatorOffset}px`,
-    right: `${indicatorOffset}px`,
-    backgroundColor: props.isTyping ? statusColor.value : undefined,
+    '--indicator-base-size': `${baseSize}px`,
+    '--indicator-offset': `${offset}px`,
+    '--indicator-box-shadow-size': `${boxShadowSize}px`,
+    bottom: `var(--indicator-offset)`,
+    right: `var(--indicator-offset)`,
   };
 });
 
@@ -163,82 +149,3 @@ const handleImageError = () => {
   imageError.value = true;
 };
 </script>
-
-<style scoped>
-.avatar-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
-.avatar-container {
-  position: relative;
-}
-
-/* Status indicator container */
-.status-indicator {
-  position: absolute;
-  border-radius: 9999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 0 3px #1e1f22;
-  background-color: #1e1f22;
-}
-
-/* Online status */
-.status-online .online-indicator {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-}
-
-/* Typing indicator */
-.status-typing {
-  padding: 0 4px;
-}
-
-.typing-indicator-content {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 100%;
-}
-
-.typing-dot {
-  width: 3px;
-  height: 3px;
-  background-color: #b5bac1;
-  border-radius: 50%;
-  animation: typing-animation 1.4s infinite ease-in-out;
-}
-
-.typing-dot:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.typing-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typing-animation {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
-
-/* Responsive sizing */
-@media (max-width: 640px) {
-  .status-indicator {
-    box-shadow: 0 0 0 2px #1e1f22;
-  }
-}
-</style>
