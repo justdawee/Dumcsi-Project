@@ -61,7 +61,7 @@
 import {ref, computed} from 'vue';
 import {MessageSquare, Hash, UserPlus, Loader2} from 'lucide-vue-next';
 import serverService from '@/services/serverService';
-import type {ServerDetailDto} from '@/services/types';
+import type {ServerDetails} from '@/services/types';
 import {Permission} from '@/services/types';
 import {useToast} from '@/composables/useToast';
 import InviteModal from '@/components/modals/InviteModal.vue';
@@ -69,7 +69,7 @@ import InviteModal from '@/components/modals/InviteModal.vue';
 const {addToast} = useToast();
 
 const props = defineProps<{
-  server: ServerDetailDto | null;
+  server: ServerDetails | null;
 }>();
 
 const generatedInviteCode = ref('');
