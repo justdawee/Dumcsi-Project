@@ -106,6 +106,8 @@ const parsedContent = computed(() => {
 </script>
 
 <style scoped>
+@reference "@/style.css";
+
 .message-content {
   @apply whitespace-pre-wrap break-words;
 }
