@@ -3,7 +3,7 @@
     <div
         v-if="modelValue"
         class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
-        @click.self="closeModal"
+        v-backdrop-close="closeModal"
     >
       <div
           class="w-full max-w-md transform rounded-2xl bg-bg-surface p-6 text-left align-middle shadow-xl transition-all border border-border-default/50">

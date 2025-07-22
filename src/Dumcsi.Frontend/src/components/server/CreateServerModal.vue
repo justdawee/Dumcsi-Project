@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="$emit('close')">
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" v-backdrop-close="$emit('close')">
     <div class="bg-bg-surface rounded-xl p-6 w-full max-w-md animate-fade-in border border-border-default/50">
       <h2 class="text-2xl font-bold text-text-default mb-6">Create or Join Server</h2>
 
