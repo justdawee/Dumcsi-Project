@@ -1,5 +1,12 @@
 <template>
-  <div class="relative">
+  <div
+      class="relative"
+      :class="{ 'ring-2 ring-primary/50': isDragOver }"
+      @dragover.prevent="handleDragOver"
+      @dragenter.prevent="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop.prevent="handleDrop"
+  >
     <!-- Attachment Preview -->
     <div v-if="attachments.length > 0" class="p-2 bg-bg-main border-b border-bg-surface">
       <div class="flex flex-wrap gap-2">
@@ -191,6 +198,7 @@ const fileInput = ref<HTMLInputElement>();
 const isSending = ref(false);
 const showPreview = ref(false);
 const showToolbar = ref(false);
+const isDragOver = ref(false);
 const MAX_TEXTAREA_HEIGHT = 330;
 
 // Composables
@@ -354,6 +362,21 @@ const handleInsert = (text: string) => {
       messageInput.value.focus();
     }
   });
+};
+
+const handleDragOver = () => {
+  isDragOver.value = true;
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  if (event.currentTarget === event.target) {
+    isDragOver.value = false;
+  }
+};
+
+const handleDrop = (event: DragEvent) => {
+  isDragOver.value = false;
+  handleFileSelect(event.dataTransfer?.files ?? null);
 };
 
 const onFileSelected = (event: Event) => {
