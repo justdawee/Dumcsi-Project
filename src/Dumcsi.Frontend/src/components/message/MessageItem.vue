@@ -37,19 +37,17 @@
     <!-- Without Header (continuous message) -->
     <div v-else class="flex items-start gap-3 group">
       <div class="w-10 shrink-0 text-right">
-        <span class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
-          {{ formatTimeShort(message.timestamp) }}
-          <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
-        </span>
+    <span class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
+      {{ formatTimeShort(message.timestamp) }}
+      <span v-if="message.editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
+    </span>
       </div>
       <div class="flex-1 message-content">
         <div class="flex-1">
           <MessageContentParser
-              v-if="!isEditing"
-              :content="message.content"
-              :mentions="message.mentions"
-              :mention-role-ids="message.mentionRoleIds"
-              class="text-text-secondary"
+              v-if="!isEditing"  :content="message.content"
+              :mentioned-user-ids="message.mentions.map(user => user.id)"
+              :mentioned-role-ids="message.mentionRoleIds"
           />
           <MessageEdit
               v-else

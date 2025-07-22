@@ -1,128 +1,103 @@
 <template>
-  <div class="relative flex flex-col gap-2">
-    <!-- Attachments Preview -->
-    <div v-if="attachments.length > 0" class="px-4 py-2">
-      <div class="flex gap-2 flex-wrap">
+  <div class="relative">
+    <!-- Attachment Preview -->
+    <div v-if="attachments.length > 0" class="p-2 bg-bg-main border-b border-bg-surface">
+      <div class="flex flex-wrap gap-2">
         <div
             v-for="(attachment, index) in attachments"
             :key="index"
-            class="relative group"
+            class="relative group bg-bg-surface rounded-lg p-2 pr-8 flex items-center gap-2"
         >
-          <!-- Upload Progress -->
-          <div
-              v-if="attachment.uploading"
-              class="absolute inset-0 bg-black/50 flex items-center justify-center rounded z-10"
-          >
-            <div class="text-center">
-              <Loader2 class="w-6 h-6 animate-spin text-white mx-auto mb-1"/>
-              <span class="text-xs text-white">{{ attachment.progress }}%</span>
-            </div>
+          <File class="w-4 h-4 text-text-muted" />
+          <div class="text-sm">
+            <div class="text-text-default">{{ attachment.file.name }}</div>
+            <div class="text-xs text-text-tertiary">{{ formatFileSize(attachment.file.size) }}</div>
           </div>
-          <!-- Image Preview -->
-          <div v-if="attachment.url">
-            <img
-                :alt="attachment.file.name"
-                :src="attachment.url"
-                class="h-20 w-auto max-w-xs rounded border border-border-subtle object-contain bg-bg-surface"
-            />
-            <div class="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 rounded-b truncate">
-              {{ attachment.file.name }}
-            </div>
-          </div>
-          <!-- Generic File Preview -->
-          <div v-else class="flex items-center gap-2 bg-bg-surface px-3 py-2 rounded h-20 w-48">
-            <File class="w-6 h-6 text-text-muted flex-shrink-0"/>
-            <div class="flex flex-col min-w-0">
-              <span class="text-sm text-text-secondary truncate">{{ attachment.file.name }}</span>
-              <span class="text-xs text-text-tertiary">{{ formatFileSize(attachment.file.size) }}</span>
-            </div>
-          </div>
-          <!-- Remove Button -->
           <button
-              v-if="!attachment.uploading"
-              class="absolute -top-1.5 -right-1.5 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-danger-hover"
-              title="Remove file"
+              class="absolute right-1 top-1 p-1 text-text-muted hover:text-danger rounded transition-colors opacity-0 group-hover:opacity-100"
               @click="removeAttachment(index)"
           >
-            <X class="w-3.5 h-3.5"/>
+            <X class="w-4 h-4" />
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Mention Suggestions -->
+    <!-- Mention Suggestions Dropdown -->
     <div
-        v-if="showMentionSuggestions && mentionSuggestions.length > 0"
-        class="absolute bottom-full mb-2 left-0 right-0 bg-bg-surface border border-border-default rounded-lg shadow-lg max-h-64 overflow-hidden"
+        v-if="showMentionSuggestions"
+        ref="scrollContainer"
+        class="absolute bottom-full mb-2 left-0 right-0 bg-bg-surface rounded-lg shadow-xl border border-bg-light max-h-64 overflow-y-auto z-50"
     >
-      <div ref="scrollContainer" class="max-h-64 overflow-y-auto scrollbar-thin">
-        <div class="p-1">
-          <!-- Members Section -->
-          <template v-if="userSuggestions.length > 0">
-            <div class="px-3 py-1.5 text-xs font-semibold text-text-muted">Members</div>
-            <button
-                v-for="(suggestion, index) in userSuggestions"
-                :key="`user-${suggestion.data.id}`"
-                :class="[
-                  'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
-                  index === selectedMentionIndex
-                    ? 'bg-primary/20 text-text-default'
-                    : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
-                ]"
-                :data-selected="index === selectedMentionIndex"
-                @click="selectMention(suggestion)"
-                @mouseenter="handleMentionMouseEnter(index)"
-            >
-              <UserAvatar
-                  :avatar-url="suggestion.data.avatar"
-                  :size="32"
-                  :user-id="suggestion.data.id"
-                  :username="suggestion.data.username"
-              />
-              <div class="flex-1 flex items-center justify-between">
-                <div class="text-sm font-medium">{{ getDisplayName(suggestion.data) }}</div>
-                <div class="text-xs text-text-muted">{{ suggestion.data.username }}</div>
+      <div class="p-2">
+        <div v-if="userSuggestions.length > 0" class="mb-2">
+          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">Users</div>
+          <button
+              v-for="(suggestion, index) in userSuggestions"
+              :key="`user-${index}`"
+              class="w-full flex items-center gap-3 p-2 rounded hover:bg-primary/10 transition-colors text-left"
+              :class="index === selectedMentionIndex ? 'bg-primary/20 text-text-default' : 'text-text-secondary'"
+              @click="selectMention(suggestion)"
+              @mouseenter="handleMentionMouseEnter(index)"
+          >
+            <UserAvatar
+                :username="suggestion.data.username"
+                :avatar-url="suggestion.data.avatar"
+                :size="32"
+            />
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">
+                {{ getDisplayName(suggestion.data) }}
               </div>
-            </button>
-          </template>
+              <div class="text-xs text-text-tertiary truncate">
+                @{{ suggestion.data.username }}
+              </div>
+            </div>
+          </button>
+        </div>
 
-          <!-- Separator -->
-          <div v-if="userSuggestions.length > 0 && roleSuggestions.length > 0"
-               class="my-1 border-t border-border-subtle mx-3"></div>
-
-          <!-- Roles Section -->
-          <template v-if="roleSuggestions.length > 0">
-            <button
-                v-for="(suggestion, index) in roleSuggestions"
-                :key="`role-${suggestion.data.id}`"
-                :class="[
-                  'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
-                  userSuggestions.length + index === selectedMentionIndex
-                    ? 'bg-primary/20 text-text-default'
-                    : 'text-text-secondary hover:bg-primary/10 hover:text-text-default'
-                ]"
-                :data-selected="userSuggestions.length + index === selectedMentionIndex"
-                @click="selectMention(suggestion)"
-                @mouseenter="handleMentionMouseEnter(userSuggestions.length + index)"
+        <div v-if="roleSuggestions.length > 0">
+          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">Roles</div>
+          <button
+              v-for="(suggestion, index) in roleSuggestions"
+              :key="`role-${index}`"
+              class="w-full flex items-center gap-3 p-2 rounded hover:bg-primary/10 transition-colors text-left"
+              :class="userSuggestions.length + index === selectedMentionIndex ? 'bg-primary/20 text-text-default' : 'text-text-secondary'"
+              @click="selectMention(suggestion)"
+              @mouseenter="handleMentionMouseEnter(userSuggestions.length + index)"
+          >
+            <div
+                :style="{ backgroundColor: suggestion.data.color || '#5865F2' }"
+                class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
             >
-              <div
-                  :style="{ backgroundColor: suggestion.data.color || '#5865F2' }"
-                  class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
-              >
-                <Hash class="w-4 h-4"/>
-              </div>
-              <div class="flex-1 text-left">
-                <div class="text-sm font-medium">@{{ suggestion.data.name }}</div>
-              </div>
-            </button>
-          </template>
+              <Hash class="w-4 h-4" />
+            </div>
+            <div class="flex-1 text-left">
+              <div class="text-sm font-medium">@{{ suggestion.data.name }}</div>
+            </div>
+          </button>
         </div>
       </div>
     </div>
 
+    <!-- Markdown Toolbar -->
+    <MarkdownToolbar
+        v-if="showToolbar"
+        :show-preview="showPreview"
+        @toggle-preview="showPreview = !showPreview"
+        @format="handleFormat"
+        @insert="handleInsert"
+    />
+
     <!-- Input Area -->
-    <div class="flex items-center gap-2 bg-bg-surface/80 rounded-lg p-2">
-      <input ref="fileInput" class="hidden" multiple type="file" @change="onFileSelected"/>
+    <div class="flex items-start gap-2 bg-bg-surface/80 rounded-lg p-2">
+      <input
+          ref="fileInput"
+          class="hidden"
+          multiple
+          type="file"
+          @change="onFileSelected"
+      />
 
       <button
           :disabled="isUploading || attachments.length >= 10"
@@ -130,55 +105,41 @@
           title="Attach files (max 10)"
           @click="fileInput?.click()"
       >
-        <Paperclip class="w-5 h-5"/>
+        <Paperclip class="w-5 h-5" />
       </button>
 
-      <div class="relative flex flex-1 items-center">
-        <div
-            v-if="messageContent.length > 0"
-            class="absolute inset-0 pointer-events-none overflow-hidden"
-        >
-          <div
-              :style="{
-        font: 'inherit',
-        fontSize: '1rem',
-        lineHeight: '1.5rem',
-        letterSpacing: 'normal',
-        minHeight: '1.5rem',
-        maxHeight: '200px',
-        padding: '0',
-        margin: '0',
-        border: 'none'
-      }"
-              class="whitespace-pre-wrap break-words text-transparent"
-          >
-      <span v-for="(part, index) in highlightedContent" :key="index">
-        <span v-if="part.type === 'text'">{{ part.content }}</span>
-        <span v-else class="bg-blue-500/30 text-blue-500 rounded px-0.5">{{ part.content }}</span>
-      </span>
+      <div class="flex-1">
+        <!-- Preview Mode -->
+        <div v-if="showPreview" class="min-h-[40px] max-h-[224px] overflow-y-auto p-2.5">
+          <MessageContentParser
+              v-if="messageContent"
+              :content="messageContent"
+              :mentioned-user-ids="Array.from(mentionedUserIds)"
+              :mentioned-role-ids="Array.from(mentionedRoleIds)"
+          />
+          <div v-else class="text-text-muted italic">
+            Nothing to preview
           </div>
         </div>
 
-        <div v-if="!messageContent" class="absolute text-text-muted pointer-events-none">
-          Message #{{ props.channel.name }}
-        </div>
+        <!-- Edit Mode -->
+        <div v-else class="relative">
+          <div v-if="!messageContent" class="absolute text-text-muted pointer-events-none top-2 left-2.5">
+            Message #{{ props.channel.name }}
+          </div>
 
-        <textarea
-            ref="messageInput"
-            v-model="messageContent"
-            :disabled="isSending || isUploading"
-            :style="{ height: textareaHeight }"
-            class="
-            relative bg-transparent text-text-default resize-none
-            min-h-[1.5rem] max-h-[200px] scrollbar-thin outline-none
-            focus:outline-none border-none focus:border-none ring-0
-            focus:ring-0 focus:ring-offset-0 focus:ring-transparent
-            w-full p-0 text-base leading-6
-            "
-            rows="1"
-            @input="handleInput"
-            @keydown="handleKeyDown"
-        />
+          <textarea
+              ref="messageInput"
+              v-model="messageContent"
+              :disabled="isSending || isUploading"
+              class="w-full bg-transparent text-text-default resize-none p-2
+                   scrollbar-thin outline-none focus:outline-none border-none focus:border-none
+                   ring-0 focus:ring-0 leading-4"
+              rows="1"
+              @input="handleInput"
+              @keydown="handleKeyDown"
+          />
+        </div>
       </div>
 
       <button
@@ -190,48 +151,51 @@
         ]"
           :disabled="!canSend"
           title="Send Message"
-          type="button"
           @click="handleSend"
       >
-        <Send v-if="!isSending" class="w-5 h-5"/>
-        <Loader2 v-else class="w-5 h-5 animate-spin"/>
+        <Send v-if="!isSending" class="w-5 h-5" />
+        <Loader2 v-else class="w-5 h-5 animate-spin" />
       </button>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {ref, computed, nextTick, onUnmounted} from 'vue';
-import {useAppStore} from '@/stores/app';
-import {useUserDisplay} from '@/composables/useUserDisplay';
-import {formatFileSize} from '@/utils/helpers';
+import { ref, computed, nextTick, onUnmounted, watch } from 'vue';
+import { useAppStore } from '@/stores/app';
+import { useUserDisplay } from '@/composables/useUserDisplay';
+import { formatFileSize } from '@/utils/helpers';
+import { MarkdownParser } from '@/services/markdownParser';
 
-// Import the new composables
-import {useAttachments} from '@/composables/useAttachments';
-import {useMentions} from '@/composables/useMentions';
-import {useTypingIndicator} from '@/composables/useTypingIndicator';
+// Import composables
+import { useAttachments } from '@/composables/useAttachments';
+import { useMentions } from '@/composables/useMentions';
+import { useTypingIndicator } from '@/composables/useTypingIndicator';
 
 // Component imports
-import {Paperclip, Send, X, File, Loader2, Hash} from 'lucide-vue-next';
+import { Paperclip, Send, X, File, Loader2, Hash } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import type {ChannelDetailDto, CreateMessageRequest} from '@/services/types';
+import MessageContentParser from './MessageContentParser.vue';
+import MarkdownToolbar from './MarkdownToolbar.vue';
+import type { ChannelDetailDto, CreateMessageRequest } from '@/services/types';
 
-// --- Props ---
+// Props
 const props = defineProps<{
   channel: ChannelDetailDto;
 }>();
 
-// --- Refs ---
+// Refs
 const messageContent = ref('');
 const messageInput = ref<HTMLTextAreaElement>();
 const fileInput = ref<HTMLInputElement>();
-const textareaHeight = ref('auto');
 const isSending = ref(false);
+const showPreview = ref(false);
+const showToolbar = ref(false);
+const MAX_TEXTAREA_HEIGHT = 330;
 
-// --- Composables Initialization ---
+// Composables
 const appStore = useAppStore();
-const {getDisplayName} = useUserDisplay();
-// track the channel id reactively even when the channel object changes
+const { getDisplayName } = useUserDisplay();
 const channelIdRef = computed(() => props.channel.id);
 
 const {
@@ -262,8 +226,7 @@ const {
   stopTypingIndicator
 } = useTypingIndicator(channelIdRef);
 
-
-// --- Computed ---
+// Computed
 const canSend = computed(() => {
   return (messageContent.value.trim().length > 0 || attachments.value.length > 0)
       && !isUploading.value
@@ -278,52 +241,29 @@ const roleSuggestions = computed(() =>
     mentionSuggestions.value.filter(s => s.type === 'role')
 );
 
-interface HighlightPart {
-  type: 'text' | 'mention';
-  content: string;
-}
-
-const highlightedContent = computed(() => {
-  const parts: HighlightPart[] = [];
-  const mentionRegex = /@([a-zA-Z0-9_\-\.]+)/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = mentionRegex.exec(messageContent.value)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({
-        type: 'text',
-        content: messageContent.value.substring(lastIndex, match.index)
-      });
-    }
-
-    parts.push({
-      type: 'mention',
-      content: match[0]
-    });
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < messageContent.value.length) {
-    parts.push({
-      type: 'text',
-      content: messageContent.value.substring(lastIndex)
-    });
-  }
-
-  return parts;
+// Watch for content changes to show/hide toolbar
+watch(messageContent, (newVal) => {
+  showToolbar.value = newVal.length > 0;
 });
 
-// --- Methods ---
-
+// Methods
 const adjustTextareaHeight = () => {
-  if (!messageInput.value) return;
-  messageInput.value.style.height = 'auto';
-  const scrollHeight = messageInput.value.scrollHeight;
-  const maxHeight = 200;
-  messageInput.value.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
-  messageInput.value.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+  const el = messageInput.value;
+  if (!el) return;
+
+  // Reset height to calculate the new scrollHeight correctly
+  el.style.height = 'auto';
+  const scrollHeight = el.scrollHeight;
+
+  // If scrollHeight exceeds max height, fix height and enable scrollbar
+  if (scrollHeight > MAX_TEXTAREA_HEIGHT) {
+    el.style.height = `${MAX_TEXTAREA_HEIGHT}px`;
+    el.style.overflowY = 'auto';
+  } else {
+    // Otherwise, set height to content height and hide scrollbar
+    el.style.height = `${scrollHeight}px`;
+    el.style.overflowY = 'hidden';
+  }
 };
 
 const handleInput = () => {
@@ -337,6 +277,29 @@ const handleInput = () => {
 
 const handleKeyDown = (event: KeyboardEvent) => {
   if (handleMentionKeyDown(event)) return;
+
+  // Markdown shortcuts
+  if (event.ctrlKey || event.metaKey) {
+    switch (event.key) {
+      case 'b':
+        event.preventDefault();
+        handleFormat('bold', '**', '**');
+        break;
+      case 'i':
+        event.preventDefault();
+        handleFormat('italic', '*', '*');
+        break;
+      case 'k':
+        event.preventDefault();
+        const url = prompt('Enter URL:');
+        if (url) {
+          handleFormat('link', '[', `](${url})`);
+        }
+        break;
+    }
+  }
+
+  // Send on Enter (without Shift)
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     if (canSend.value) {
@@ -345,10 +308,58 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
+const handleFormat = (format: string, prefix: string, suffix?: string) => {
+  if (!messageInput.value) return;
+
+  const start = messageInput.value.selectionStart;
+  const end = messageInput.value.selectionEnd;
+  const selectedText = messageContent.value.substring(start, end);
+
+  const before = messageContent.value.substring(0, start);
+  const after = messageContent.value.substring(end);
+
+  if (suffix) {
+    messageContent.value = before + prefix + selectedText + suffix + after;
+    nextTick(() => {
+      if (messageInput.value) {
+        messageInput.value.selectionStart = start + prefix.length;
+        messageInput.value.selectionEnd = start + prefix.length + selectedText.length;
+        messageInput.value.focus();
+      }
+    });
+  } else {
+    messageContent.value = before + prefix + selectedText + after;
+    nextTick(() => {
+      if (messageInput.value) {
+        messageInput.value.selectionStart = start + prefix.length;
+        messageInput.value.selectionEnd = start + prefix.length + selectedText.length;
+        messageInput.value.focus();
+      }
+    });
+  }
+};
+
+const handleInsert = (text: string) => {
+  if (!messageInput.value) return;
+
+  const start = messageInput.value.selectionStart;
+  const before = messageContent.value.substring(0, start);
+  const after = messageContent.value.substring(start);
+
+  messageContent.value = before + text + after;
+  nextTick(() => {
+    if (messageInput.value) {
+      messageInput.value.selectionStart = start + text.length;
+      messageInput.value.selectionEnd = start + text.length;
+      messageInput.value.focus();
+    }
+  });
+};
+
 const onFileSelected = (event: Event) => {
   const target = event.target as HTMLInputElement;
   handleFileSelect(target.files);
-  target.value = ''; // Reset input to allow selecting the same file again
+  target.value = '';
 };
 
 const handleSend = async () => {
@@ -357,26 +368,32 @@ const handleSend = async () => {
 
   try {
     const attachmentIds = await uploadAttachments();
+    const mentions = MarkdownParser.extractMentions(messageContent.value);
 
-    // Csak akkor küldjük az üzenetet, ha van szöveg vagy sikeres feltöltés
     if (messageContent.value.trim().length > 0 || attachmentIds.length > 0) {
       const payload: CreateMessageRequest = {
         content: messageContent.value.trim(),
         attachmentIds: attachmentIds,
-        mentionedUserIds: Array.from(mentionedUserIds.value),
-        mentionedRoleIds: Array.from(mentionedRoleIds.value)  // Most már küldjük a role ID-kat is
+        mentionedUserIds: [...Array.from(mentionedUserIds.value), ...mentions.userIds],
+        mentionedRoleIds: [...Array.from(mentionedRoleIds.value), ...mentions.roleIds]
       };
 
       await appStore.sendMessage(props.channel.id, payload);
     }
 
-    // Clear form state
     messageContent.value = '';
     clearAttachments();
     clearMentions();
     stopTypingIndicator();
+    showPreview.value = false;
+    showToolbar.value = false;
 
-    nextTick(() => adjustTextareaHeight());
+    nextTick(() => {
+      if (messageInput.value) {
+        messageInput.value.style.height = 'auto';
+        messageInput.value.style.overflowY = 'hidden';
+      }
+    });
   } catch (error) {
     console.error("Failed to send message:", error);
   } finally {
@@ -388,3 +405,23 @@ onUnmounted(() => {
   stopTypingIndicator();
 });
 </script>
+
+<style scoped>
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-muted) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-text-muted);
+  border-radius: 3px;
+}
+</style>

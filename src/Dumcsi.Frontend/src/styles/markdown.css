@@ -1,0 +1,217 @@
+﻿/* Message content base styles */
+.message-content {
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+    line-height: 1.375rem;
+}
+
+/* Inline code */
+.message-content code {
+    background-color: #2b2d31;
+    color: #e06c75;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+}
+
+/* Code blocks */
+.message-content pre {
+    background-color: #2b2d31;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.message-content pre code {
+    background-color: transparent;
+    color: #abb2bf;
+    padding: 0;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+/* Blockquotes */
+.message-content blockquote {
+    border-left: 4px solid #4f545c;
+    padding-left: 0.75rem;
+    margin: 0.5rem 0;
+    color: #b9bbbe;
+}
+
+.message-content blockquote > * {
+    margin: 0.25rem 0;
+}
+
+/* Spoilers */
+.message-content .spoiler {
+    background-color: #202225;
+    color: transparent;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    padding: 0 0.125rem;
+    transition: all 0.1s ease-in-out;
+}
+
+.message-content .spoiler:hover {
+    background-color: #2f3136;
+}
+
+.message-content .spoiler.revealed {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: inherit;
+}
+
+/* Links */
+.message-content a {
+    color: #00aff4;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.message-content a:hover {
+    text-decoration: underline;
+}
+
+/* Mentions */
+.message-content .mention {
+    font-weight: 500;
+    border-radius: 0.25rem;
+    padding: 0 0.125rem;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.message-content .mention-user {
+    background-color: rgba(88, 101, 242, 0.3);
+    color: #949cf7;
+}
+
+.message-content .mention-user:hover {
+    background-color: rgba(88, 101, 242, 0.5);
+    color: #fff;
+}
+
+.message-content .mention-role {
+    background-color: rgba(88, 101, 242, 0.1);
+    color: #949cf7;
+}
+
+.message-content .mention-role:hover {
+    background-color: rgba(88, 101, 242, 0.3);
+}
+
+.message-content .mention-channel {
+    background-color: rgba(88, 101, 242, 0.3);
+    color: #949cf7;
+}
+
+.message-content .mention-channel:hover {
+    background-color: rgba(88, 101, 242, 0.5);
+    color: #fff;
+}
+
+/* Everyone mention */
+.message-content .mention-role[data-role-name="everyone"] {
+    background-color: rgba(250, 166, 26, 0.3);
+    color: #faa81a;
+}
+
+.message-content .mention-role[data-role-name="everyone"]:hover {
+    background-color: rgba(250, 166, 26, 0.5);
+    color: #fff;
+}
+
+/* Custom emoji */
+.message-content .emoji {
+    width: 1.375rem;
+    height: 1.375rem;
+    margin: 0 0.05rem 0 0.1rem;
+    vertical-align: -0.4rem;
+}
+
+/* Text formatting */
+.message-content strong {
+    font-weight: 700;
+}
+
+.message-content em {
+    font-style: italic;
+}
+
+.message-content del {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Lists (future enhancement) */
+.message-content ul {
+    list-style: disc;
+    margin-left: 1.5rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.message-content ol {
+    list-style: decimal;
+    margin-left: 1.5rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.message-content li {
+    margin: 0.125rem 0;
+}
+
+/* Headings (if needed) */
+.message-content h1,
+.message-content h2,
+.message-content h3 {
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.25;
+}
+
+.message-content h1 {
+    font-size: 1.5rem;
+}
+
+.message-content h2 {
+    font-size: 1.25rem;
+}
+
+.message-content h3 {
+    font-size: 1.125rem;
+}
+
+/* Horizontal rule */
+.message-content hr {
+    border: none;
+    border-top: 1px solid #4f545c;
+    margin: 1rem 0;
+}
+
+/* Scrollbar styling for code blocks */
+.message-content pre::-webkit-scrollbar {
+    height: 8px;
+}
+
+.message-content pre::-webkit-scrollbar-track {
+    background: #2b2d31;
+    border-radius: 0.25rem;
+}
+
+.message-content pre::-webkit-scrollbar-thumb {
+    background: #202225;
+    border-radius: 0.25rem;
+}
+
+.message-content pre::-webkit-scrollbar-thumb:hover {
+    background: #18191c;
+}

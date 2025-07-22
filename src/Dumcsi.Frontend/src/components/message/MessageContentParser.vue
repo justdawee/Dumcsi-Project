@@ -1,25 +1,15 @@
 ﻿<template>
   <span class="message-content">
-    <template v-for="(part, index) in parsedContent" :key="index">
-      <span v-if="part.type === 'text'">{{ part.content }}</span>
-      <span v-else-if="part.type === 'user-mention'" class="mention mention-user">
-        {{ part.content }}
-      </span>
-      <span v-else-if="part.type === 'role-mention'" class="mention mention-role">
-        {{ part.content }}
-      </span>
+    <template v-for="(node, index) in parsedNodes" :key="index">
+      <component :is="renderNode(node)" />
     </template>
   </span>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, h, type VNode } from 'vue';
 import { useAppStore } from '@/stores/app';
-
-interface ContentPart {
-  type: 'text' | 'user-mention' | 'role-mention';
-  content: string;
-}
+import { MarkdownParser, type ParsedNode } from '@/services/markdownParser';
 
 const props = defineProps<{
   content: string;
@@ -29,80 +19,209 @@ const props = defineProps<{
 
 const appStore = useAppStore();
 
-const parsedContent = computed(() => {
-  const parts: ContentPart[] = [];
-  const mentionRegex = /@([a-zA-Z0-9_\-\.]+)/g;
-  let lastIndex = 0;
-  let match;
+// Create context maps for mentions
+const userMap = computed(() => {
+  const map = new Map<string, any>();
 
-  const content = props.content;
-
-  // Gyűjtsük össze a felhasználók és szerepkörök neveit
-  const userNames = new Map<string, number>();
-  const roleNames = new Map<string, number>();
-
-  // Ha vannak mentionált user/role ID-k, használjuk azokat
   if (props.mentionedUserIds && props.mentionedUserIds.length > 0) {
     appStore.members.forEach(member => {
       if (props.mentionedUserIds?.includes(member.userId)) {
         const displayName = member.globalNickname || member.username;
-        userNames.set(displayName.toLowerCase(), member.userId);
-        userNames.set(member.username.toLowerCase(), member.userId);
+        map.set(displayName.toLowerCase(), {
+          id: member.userId,
+          username: member.username,
+          displayName: displayName
+        });
+        map.set(member.username.toLowerCase(), {
+          id: member.userId,
+          username: member.username,
+          displayName: displayName
+        });
       }
     });
   }
 
-  if (props.mentionedRoleIds && props.mentionedRoleIds.length > 0) {
-    const server = appStore.currentServer;
-    if (server?.roles) {
-      server.roles.forEach(role => {
-        if (props.mentionedRoleIds?.includes(role.id)) {
-          roleNames.set(role.name.toLowerCase(), role.id);
-        }
-      });
-    }
-  }
-
-  // Feldolgozzuk a szöveget
-  while ((match = mentionRegex.exec(content)) !== null) {
-    // Hozzáadjuk a mention előtti szöveget
-    if (match.index > lastIndex) {
-      parts.push({
-        type: 'text',
-        content: content.substring(lastIndex, match.index)
-      });
-    }
-
-    const mentionText = match[0]; // @username
-    const mentionName = match[1].toLowerCase(); // username
-
-    // Ellenőrizzük hogy user vagy role mention-e
-    let mentionType: 'user-mention' | 'role-mention' | 'text' = 'text';
-
-    if (userNames.has(mentionName)) {
-      mentionType = 'user-mention';
-    } else if (roleNames.has(mentionName) || mentionName === 'everyone') {
-      mentionType = 'role-mention';
-    }
-
-    parts.push({
-      type: mentionType,
-      content: mentionText
-    });
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Hozzáadjuk a maradék szöveget
-  if (lastIndex < content.length) {
-    parts.push({
-      type: 'text',
-      content: content.substring(lastIndex)
-    });
-  }
-
-  return parts;
+  return map;
 });
+
+const roleMap = computed(() => {
+  const map = new Map<string, any>();
+  const server = appStore.currentServer;
+
+  if (server?.roles && props.mentionedRoleIds && props.mentionedRoleIds.length > 0) {
+    server.roles.forEach(role => {
+      if (props.mentionedRoleIds?.includes(role.id)) {
+        map.set(role.name.toLowerCase(), {
+          id: role.id,
+          name: role.name,
+          color: role.color
+        });
+      }
+    });
+  }
+
+  return map;
+});
+
+const channelMap = computed(() => {
+  const map = new Map<string, any>();
+  const server = appStore.currentServer;
+
+  if (server?.channels) {
+    server.channels.forEach(channel => {
+      map.set(channel.name.toLowerCase(), {
+        id: channel.id,
+        name: channel.name
+      });
+    });
+  }
+
+  return map;
+});
+
+const parsedNodes = computed(() => {
+  return MarkdownParser.parse(props.content, {
+    mentionedUserIds: props.mentionedUserIds,
+    mentionedRoleIds: props.mentionedRoleIds,
+    userMap: userMap.value,
+    roleMap: roleMap.value,
+    channelMap: channelMap.value
+  });
+});
+
+// Render function for nodes
+const renderNode = (node: ParsedNode): VNode => {
+  switch (node.type) {
+    case 'text':
+      return h('span', node.content);
+
+    case 'bold':
+      return h('strong', { class: 'font-bold' },
+          node.children ? node.children.map(child => renderNode(child)) : node.content
+      );
+
+    case 'italic':
+      return h('em', { class: 'italic' },
+          node.children ? node.children.map(child => renderNode(child)) : node.content
+      );
+
+    case 'bolditalic':
+      return h('strong', { class: 'font-bold italic' },
+          node.children ? node.children.map(child => renderNode(child)) : node.content
+      );
+
+    case 'strikethrough':
+      return h('del', { class: 'line-through opacity-60' },
+          node.children ? node.children.map(child => renderNode(child)) : node.content
+      );
+
+    case 'code':
+      return h('code', {
+        class: 'px-1 py-0.5 rounded bg-bg-surface font-mono text-sm text-pink-400'
+      }, node.content);
+
+    case 'codeblock':
+      return h('pre', {
+        class: 'block my-2 p-3 rounded-md bg-bg-surface overflow-x-auto'
+      }, [
+        h('code', { class: 'font-mono text-sm text-text-secondary' }, node.content)
+      ]);
+
+    case 'blockquote':
+      return h('blockquote', {
+        class: 'border-l-4 border-text-muted pl-3 my-2 text-text-secondary'
+      }, node.children ? node.children.map(child => renderNode(child)) : node.content);
+
+    case 'spoiler':
+      return h('span', {
+        class: 'spoiler bg-text-tertiary text-transparent hover:text-text-secondary rounded px-0.5 cursor-pointer transition-colors',
+        onClick: (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          target.classList.toggle('revealed');
+        }
+      }, node.children ? node.children.map(child => renderNode(child)) : node.content);
+
+    case 'link':
+      return h('a', {
+        href: node.data?.href,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class: 'text-blue-400 hover:underline',
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+        }
+      }, node.content);
+
+    case 'user-mention':
+      const userData = node.data;
+      const displayName = userData?.username ? `@${userData.username}` : node.content;
+
+      return h('span', {
+        class: 'mention mention-user bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 font-medium rounded-md px-1 transition-colors cursor-pointer inline-block',
+        'data-user-id': userData?.userId,
+        onClick: () => {
+          // Handle user mention click
+          console.log('User mention clicked:', userData);
+        }
+      }, displayName);
+
+    case 'role-mention':
+      const roleData = node.data;
+      const roleName = roleData?.roleName ? `@${roleData.roleName}` : node.content;
+      const isEveryone = roleData?.roleName === 'everyone' || node.content === '@everyone';
+
+      return h('span', {
+        class: `mention mention-role ${
+            isEveryone
+                ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+        } font-medium rounded-md px-1 transition-colors cursor-pointer inline-block`,
+        'data-role-id': roleData?.roleId,
+        style: roleData?.color ? {
+          backgroundColor: `${roleData.color}20`,
+          color: roleData.color
+        } : undefined
+      }, roleName);
+
+    case 'channel-mention':
+      const channelData = node.data;
+      const channelName = channelData?.channelName ? `#${channelData.channelName}` : node.content;
+
+      return h('span', {
+        class: 'mention mention-channel bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 font-medium rounded-md px-1 transition-colors cursor-pointer inline-block',
+        'data-channel-id': channelData?.channelId,
+        onClick: () => {
+          // Handle channel mention click - navigate to channel
+          if (channelData?.channelId) {
+            // TODO
+            //appStore.setCurrentChannel(channelData.channelId);
+          }
+        }
+      }, [
+        h('span', { class: 'opacity-60' }, '#'),
+        channelName.substring(1)
+      ]);
+
+    case 'emoji':
+      const emojiData = node.data;
+      if (emojiData?.id) {
+        // Custom emoji - would need CDN URL
+        return h('img', {
+          src: `https://cdn.discordapp.com/emojis/${emojiData.id}.${emojiData.animated ? 'gif' : 'png'}?size=32`,
+          alt: `:${emojiData.name}:`,
+          class: 'inline-block w-5 h-5 mx-0.5 align-text-bottom',
+          loading: 'lazy'
+        });
+      }
+      return h('span', node.content);
+
+    case 'linebreak':
+      return h('br');
+
+    default:
+      return h('span', node.content);
+  }
+};
 </script>
 
 <style scoped>
@@ -112,15 +231,7 @@ const parsedContent = computed(() => {
   @apply whitespace-pre-wrap break-words;
 }
 
-.mention {
-  @apply font-medium rounded-md px-1 transition-colors cursor-pointer inline-block;
-}
-
-.mention-user {
-  @apply bg-blue-500/20 text-blue-400 hover:bg-blue-500/30;
-}
-
-.mention-role {
-  @apply bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30;
+.spoiler.revealed {
+  @apply bg-text-tertiary/30 text-text-secondary;
 }
 </style>
