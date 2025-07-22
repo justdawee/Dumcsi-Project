@@ -34,6 +34,7 @@
           <MessageAttachments
               v-if="!isEditing && message.attachments.length > 0"
               :attachments="message.attachments"
+              :message="message"
               class="mt-2"
           />
         </div>
@@ -63,6 +64,7 @@
           <MessageAttachments
               v-if="!isEditing && message.attachments.length > 0"
               :attachments="message.attachments"
+              :message="message"
               class="mt-2"
           />
         </div>

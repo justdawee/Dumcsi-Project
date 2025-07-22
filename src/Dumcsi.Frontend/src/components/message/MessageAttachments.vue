@@ -43,6 +43,7 @@
         v-if="selected && showPreview"
         v-model="showPreview"
         :attachment="selected"
+        :message="message"
         @update:modelValue="onClose"
     />
   </div>
@@ -51,12 +52,13 @@
 <script lang="ts" setup>
 import { File, ExternalLink } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
-import type { AttachmentDto } from '@/services/types';
+import type { AttachmentDto, MessageDto } from '@/services/types';
 import { formatFileSize } from '@/utils/helpers';
 import AttachmentPreviewModal from './AttachmentPreviewModal.vue';
 
 defineProps<{
   attachments: AttachmentDto[];
+  message?: MessageDto; // Optional message prop for preview modal
 }>();
 
 const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
