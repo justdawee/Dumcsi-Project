@@ -14,9 +14,12 @@ namespace Dumcsi.Infrastructure.Services
             var member = await dbContext.ServerMembers
                 .AsNoTracking()
                 .Include(m => m.Roles)
+                .Include(m => m.Server)
                 .FirstOrDefaultAsync(m => m.UserId == userId && m.ServerId == serverId);
 
             if (member == null) return false;
+            
+            if (member.Server.OwnerId == userId) return true;
 
             var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
 
@@ -33,9 +36,12 @@ namespace Dumcsi.Infrastructure.Services
                 .AsNoTracking()
                 .Where(m => m.UserId == userId && m.Server.Channels.Any(c => c.Id == channelId))
                 .Include(m => m.Roles)
+                .Include(m => m.Server)
                 .FirstOrDefaultAsync();
 
             if (member == null) return (false, false);
+            
+            if (member.Server.OwnerId == userId) return (true, true);
 
             var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);
 
@@ -52,11 +58,17 @@ namespace Dumcsi.Infrastructure.Services
                 .AsNoTracking()
                 .Where(m => m.UserId == userId && m.Server.Channels.Any(c => c.Id == channelId))
                 .Include(m => m.Roles)
+                .Include(m => m.Server)
                 .FirstOrDefaultAsync();
 
             if (member == null)
             {
                 return (false, Permission.None);
+            }
+            
+            if (member.Server.OwnerId == userId)
+            {
+                return (true, (Permission)long.MaxValue);
             }
 
             var permissions = member.Roles.Aggregate(Permission.None, (current, role) => current | role.Permissions);

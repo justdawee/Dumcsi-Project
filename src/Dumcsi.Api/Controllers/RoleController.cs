@@ -121,7 +121,7 @@ public class RoleController(
         }
 
         // Special handling for default roles
-        if (role.Name is "@everyone" or "Admin")
+        if (role.Name == "@everyone")
         {
             // Only allow permission updates for default roles
             if (request.Name != null || request.Color != null || request.Position != null)
@@ -132,13 +132,13 @@ public class RoleController(
 
         var oldRole = new { role.Name, role.Color, role.Permissions, role.Position };
 
-        if (request.Name != null && role.Name != "@everyone" && role.Name != "Admin")
+        if (request.Name != null && role.Name != "@everyone")
             role.Name = request.Name;
         if (request.Color != null)
             role.Color = request.Color;
         if (request.Permissions.HasValue)
             role.Permissions = request.Permissions.Value;
-        if (request.Position.HasValue && role.Name != "@everyone" && role.Name != "Admin")
+        if (request.Position.HasValue && role.Name != "@everyone")
             role.Position = request.Position.Value;
         if (request.IsHoisted.HasValue)
             role.IsHoisted = request.IsHoisted.Value;
@@ -191,9 +191,9 @@ public class RoleController(
             return NotFound(ApiResponse.Fail("ROLE_NOT_FOUND", "The role to delete does not exist."));
         }
 
-        if (role.Name is "@everyone" or "Admin")
+        if (role.Name == "@everyone")
         {
-            return BadRequest(ApiResponse.Fail("ROLE_CANNOT_DELETE_DEFAULT", "Default roles ('@everyone', 'Admin') cannot be deleted."));
+            return BadRequest(ApiResponse.Fail("ROLE_CANNOT_DELETE_DEFAULT", "The '@everyone' role cannot be deleted."));
         }
 
         var deletedRoleName = role.Name;

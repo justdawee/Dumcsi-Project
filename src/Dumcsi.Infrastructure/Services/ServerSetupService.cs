@@ -36,15 +36,6 @@ namespace Dumcsi.Infrastructure.Services
                 Position = 0,
                 CreatedAt = SystemClock.Instance.GetCurrentInstant()
             };
-            
-            var adminRole = new Role
-            {
-                Name = "Admin",
-                Server = server,
-                Permissions = Permission.Administrator,
-                Position = 1,
-                CreatedAt = SystemClock.Instance.GetCurrentInstant()
-            };
 
             var serverMember = new ServerMember
             {
@@ -54,7 +45,6 @@ namespace Dumcsi.Infrastructure.Services
             };
             
             serverMember.Roles.Add(everyoneRole);
-            serverMember.Roles.Add(adminRole);
 
             var defaultChannel = new Channel
             {
@@ -65,7 +55,7 @@ namespace Dumcsi.Infrastructure.Services
             };
 
             dbContext.Servers.Add(server);
-            dbContext.Roles.AddRange(everyoneRole, adminRole);
+            dbContext.Roles.AddRange(everyoneRole);
             dbContext.ServerMembers.Add(serverMember);
             dbContext.Channels.Add(defaultChannel);
 

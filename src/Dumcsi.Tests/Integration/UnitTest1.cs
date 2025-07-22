@@ -287,7 +287,9 @@ public class DiscordApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         Assert.NotNull(members);
         Assert.Single(members); // Only the test user
         Assert.Equal("testuser", members[0].GetProperty("username").GetString());
-        Assert.Equal(2, members[0].GetProperty("role").GetInt32()); // Role.Admin = 2
+        var roles = members[0].GetProperty("roles");
+        Assert.Equal(1, roles.GetArrayLength());
+        Assert.Equal("@everyone", roles[0].GetProperty("name").GetString());
         
         _output.WriteLine($"✅ Found {members.Length} member(s)");
     }
