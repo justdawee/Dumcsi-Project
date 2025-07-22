@@ -148,9 +148,6 @@
                   class="max-w-full max-h-full object-contain"
                   draggable="false"
                   @mousedown="startDrag"
-                  @mousemove="onDrag"
-                  @mouseup="endDrag"
-                  @mouseleave="endDrag"
               />
             </div>
             <video
@@ -249,6 +246,8 @@ const showMoreMenu = ref(false);
 const showDetails = ref(false);
 const zoomLevel = ref(1);
 const isDragging = ref(false);
+const hasDragged = ref(false);
+const mouseDownOnImage = ref(false);
 const dragStart = ref({ x: 0, y: 0 });
 const imagePosition = ref({ x: 0, y: 0 });
 
@@ -263,6 +262,12 @@ const close = () => {
 };
 
 const onContainerClick = () => {
+  if (hasDragged.value || mouseDownOnImage.value) {
+    // Prevent closing after dragging or releasing a click that started on the image
+    hasDragged.value = false;
+    mouseDownOnImage.value = false;
+    return;
+  }
   if (!showDetails.value) {
     close();
   }
@@ -334,14 +339,20 @@ const onWheel = (e: WheelEvent) => {
   zoomLevel.value = Math.min(3, Math.max(0.5, newZoom));
 };
 
-// Drag functions
+// Drag functions and click tracking
 const startDrag = (e: MouseEvent) => {
+  mouseDownOnImage.value = true;
+  window.addEventListener('mouseup', resetMouseDown);
+
   if (zoomLevel.value > 1) {
     isDragging.value = true;
+    hasDragged.value = false;
     dragStart.value = {
       x: e.clientX - imagePosition.value.x,
       y: e.clientY - imagePosition.value.y
     };
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', endDrag);
   }
 };
 
@@ -351,11 +362,27 @@ const onDrag = (e: MouseEvent) => {
       x: e.clientX - dragStart.value.x,
       y: e.clientY - dragStart.value.y
     };
+    hasDragged.value = true;
   }
 };
 
+const resetMouseDown = () => {
+  window.removeEventListener('mouseup', resetMouseDown);
+  setTimeout(() => {
+    mouseDownOnImage.value = false;
+  });
+};
+
 const endDrag = () => {
+  if (!isDragging.value) return;
   isDragging.value = false;
+  window.removeEventListener('mousemove', onDrag);
+  window.removeEventListener('mouseup', endDrag);
+  // Reset flags after click event processing
+  setTimeout(() => {
+    hasDragged.value = false;
+    mouseDownOnImage.value = false;
+  });
 };
 
 // Helper functions
