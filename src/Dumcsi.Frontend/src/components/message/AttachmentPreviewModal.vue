@@ -133,12 +133,14 @@
           <div class="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <div
                 v-if="isImage(attachment)"
-                class="relative max-w-full max-h-full"
+                class="relative flex items-center justify-center w-full h-full max-w-full max-h-full"
                 :style="{
                   transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
                   transition: isDragging ? 'none' : 'transform 0.2s',
-                  cursor: zoomLevel > 1 ? 'move' : 'default'
+                  cursor: zoomLevel > 1 ? 'move' : 'default',
+                  'transform-origin': 'center'
                 }"
+                @wheel.prevent="onWheel"
             >
               <img
                   :src="attachment.fileUrl"
@@ -220,7 +222,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import {
   X, Download, ExternalLink, MoreVertical, Copy, Link, Info, File,
   ZoomIn, ZoomOut, Minimize2
@@ -323,6 +325,15 @@ const resetZoom = () => {
   imagePosition.value = { x: 0, y: 0 };
 };
 
+// Wheel zoom handler
+const onWheel = (e: WheelEvent) => {
+  if (!isImage(props.attachment)) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 0.1 : -0.1;
+  const newZoom = zoomLevel.value + delta;
+  zoomLevel.value = Math.min(3, Math.max(0.5, newZoom));
+};
+
 // Drag functions
 const startDrag = (e: MouseEvent) => {
   if (zoomLevel.value > 1) {
@@ -389,16 +400,21 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // Click outside directive
 const vClickOutside = {
-  mounted(el: HTMLElement, binding: any) {
-    el.clickOutsideEvent = (event: MouseEvent) => {
+  mounted(
+      el: HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void },
+      binding: any
+  ) {
+    el._clickOutsideHandler = (event: MouseEvent) => {
       if (!(el === event.target || el.contains(event.target as Node))) {
         binding.value();
       }
     };
-    document.addEventListener('click', el.clickOutsideEvent);
+    document.addEventListener('click', el._clickOutsideHandler);
   },
-  unmounted(el: any) {
-    document.removeEventListener('click', el.clickOutsideEvent);
+  unmounted(el: HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void }) {
+    if (el._clickOutsideHandler) {
+      document.removeEventListener('click', el._clickOutsideHandler);
+    }
   },
 };
 

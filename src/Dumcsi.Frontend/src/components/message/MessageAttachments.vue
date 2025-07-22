@@ -58,7 +58,7 @@ import AttachmentPreviewModal from './AttachmentPreviewModal.vue';
 
 defineProps<{
   attachments: AttachmentDto[];
-  message?: MessageDto; // Optional message prop for preview modal
+  message?: MessageDto;
 }>();
 
 const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
