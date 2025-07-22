@@ -379,6 +379,11 @@ const handleDrop = (event: DragEvent) => {
   handleFileSelect(event.dataTransfer?.files ?? null);
 };
 
+const sendFilesDirect = async (files: FileList) => {
+  await handleFileSelect(files);
+  await handleSend();
+};
+
 const onFileSelected = (event: Event) => {
   const target = event.target as HTMLInputElement;
   handleFileSelect(target.files);
@@ -426,6 +431,11 @@ const handleSend = async () => {
 
 onUnmounted(() => {
   stopTypingIndicator();
+});
+
+defineExpose({
+  addFiles: handleFileSelect,
+  sendFilesDirect,
 });
 </script>
 

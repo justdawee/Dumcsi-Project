@@ -46,6 +46,7 @@
 
         <div class="relative px-4 pb-6">
           <MessageInput
+              ref="messageInputRef"
               v-if="currentChannel && permissions.sendMessages"
               :channel="currentChannel"
               @send="handleSendMessage"
@@ -159,6 +160,7 @@ const {permissions, canManageMember} = usePermissions();
 
 const messagesContainer = ref<HTMLElement | null>(null);
 const isMemberListOpen = ref(true);
+const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
 
 // State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);
@@ -245,6 +247,15 @@ const banMember = async () => {
   addToast({type: 'info', message: 'Ban member functionality coming soon!'});
 };
 
+const handleGlobalDrop = (event: CustomEvent<{ files: FileList; direct: boolean }>) => {
+  if (!messageInputRef.value) return;
+  if (event.detail.direct) {
+    messageInputRef.value.sendFilesDirect(event.detail.files);
+  } else {
+    messageInputRef.value.addFiles(event.detail.files);
+  }
+};
+
 // --- Lifecycle & Watchers ---
 
 onMounted(() => {
@@ -252,6 +263,7 @@ onMounted(() => {
   if (channelId) {
     loadChannelData(channelId);
   }
+  window.addEventListener('global-files-dropped', handleGlobalDrop as EventListener);
 });
 
 onUnmounted(() => {
@@ -259,6 +271,7 @@ onUnmounted(() => {
   if (id && signalRService.isConnected) {
     signalRService.leaveChannel(id);
   }
+  window.removeEventListener('global-files-dropped', handleGlobalDrop as EventListener);
 });
 
 watch(() => route.params.channelId, (newId) => {
