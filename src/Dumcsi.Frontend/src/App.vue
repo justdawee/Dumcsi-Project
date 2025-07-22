@@ -4,7 +4,6 @@
     <Loader2 class="w-8 h-8 text-primary animate-spin" />
   </div>
   <ToastContainer />
-  <GlobalFileDrop />
 </template>
 
 <script setup lang="ts">
@@ -12,7 +11,6 @@ import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { Loader2 } from 'lucide-vue-next'
 import ToastContainer from '@/components/ui/ToastContainer.vue';
-import GlobalFileDrop from '@/components/ui/GlobalFileDrop.vue';
 
 
 const authStore = useAuthStore()

@@ -112,6 +112,7 @@
       </div>
     </div>
   </div>
+  <GlobalFileDrop />
 </template>
 
 <script lang="ts" setup>
@@ -128,6 +129,7 @@ import {Hash, Users, Loader2, UserX, Ban} from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import GlobalFileDrop from '@/components/ui/GlobalFileDrop.vue';
 import {signalRService} from '@/services/signalrService';
 import {
   type CreateMessageRequest,

@@ -23,12 +23,22 @@ const channelName = computed(() => appStore.currentChannel?.name ?? 'channel');
 const visible = ref(false);
 let dragCounter = 0;
 
+const isDragAllowed = () => {
+  if (!appStore.currentChannel) return false;
+  // when any modal is open, a fullscreen fixed element is present
+  // which has pointer events enabled. avoid showing the overlay then
+  const modalOpen = document.querySelector('.fixed.inset-0:not(.pointer-events-none)');
+  return !modalOpen;
+};
+
 const show = () => {
+  if (!isDragAllowed()) return;
   dragCounter++;
   visible.value = true;
 };
 
 const hide = () => {
+  if (!isDragAllowed()) return;
   dragCounter = Math.max(0, dragCounter - 1);
   if (dragCounter === 0) visible.value = false;
 };
@@ -39,6 +49,7 @@ const prevent = (e: DragEvent) => {
 
 const handleDrop = (e: DragEvent) => {
   e.preventDefault();
+  if (!isDragAllowed()) return;
   const files = e.dataTransfer?.files;
   const direct = e.shiftKey;
   dragCounter = 0;
