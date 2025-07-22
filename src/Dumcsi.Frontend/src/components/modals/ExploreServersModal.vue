@@ -128,7 +128,7 @@ const fetchPublicServers = async () => {
 
 const joinServer = async (server: ServerListItem) => {
   if (isMember(server.id).value) {
-    router.push(`/servers/${server.id}`);
+    await router.push(`/servers/${server.id}`);
     closeModal();
     return;
   }
@@ -141,7 +141,7 @@ const joinServer = async (server: ServerListItem) => {
         type: 'success',
         message: `Successfully joined ${server.name}.`
       });
-      router.push(`/servers/${result.serverId}`);
+      await router.push(`/servers/${result.serverId}`);
       closeModal();
     }
   } catch (err) {
