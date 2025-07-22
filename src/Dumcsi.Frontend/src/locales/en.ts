@@ -65,6 +65,7 @@ export const errorMessages: Record<string, string> = {
     'ROLE_FORBIDDEN_CREATE': 'You do not have permission to create roles.',
     'ROLE_FORBIDDEN_UPDATE': 'You do not have permission to update roles.',
     'ROLE_NOT_FOUND': 'The specified role does not exist.',
+    'ROLE_CANNOT_MODIFY_DEFAULT': "Only permissions can be modified for default roles.",
     'ROLE_CANNOT_DELETE_DEFAULT': "Default roles ('@everyone', 'Admin') cannot be deleted.",
     'ROLE_FORBIDDEN_ASSIGN': 'You do not have permission to manage member roles.',
     'ROLE_MEMBER_NOT_FOUND': 'The specified member was not found in this server.',

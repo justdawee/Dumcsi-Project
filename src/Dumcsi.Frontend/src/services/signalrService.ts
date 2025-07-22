@@ -248,6 +248,27 @@ export class SignalRService {
             appStore.handleUserBannedFromServer(payload);
         });
 
+        // Role events
+        this.connection.on('RoleCreated', (role: any) => {
+            console.log('SignalR: Role created', role);
+            appStore.handleRoleCreated(role);
+        });
+
+        this.connection.on('RoleUpdated', (role: any) => {
+            console.log('SignalR: Role updated', role);
+            appStore.handleRoleUpdated(role);
+        });
+
+        this.connection.on('RoleDeleted', (roleId: EntityId) => {
+            console.log('SignalR: Role deleted', roleId);
+            appStore.handleRoleDeleted(roleId);
+        });
+
+        this.connection.on('MemberRolesUpdated', (payload: any) => {
+            console.log('SignalR: Member roles updated', payload);
+            appStore.handleMemberRolesUpdated(payload);
+        });
+
         // Connection events
         this.connection.onclose((error) => {
             console.log('SignalR: Connection closed', error);

@@ -103,6 +103,13 @@
         @server-updated="appStore.fetchServers()"
     />
 
+    <ManageRolesModal
+        v-if="isManageRolesModalOpen"
+        v-model="isManageRolesModalOpen"
+        :server="selectedServer"
+        @close="isManageRolesModalOpen = false"
+    />
+
     <ConfirmModal
         v-model="isLeaveConfirmOpen"
         :is-loading="isLeaving"
@@ -128,7 +135,7 @@
 import {ref, computed, onUnmounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
-import {Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass} from 'lucide-vue-next';
+import {Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass, Shield} from 'lucide-vue-next';
 import type {Component} from 'vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
@@ -137,6 +144,7 @@ import EditServerModal from '@/components/modals/EditServerModal.vue';
 import ExploreServersModal from '@/components/modals/ExploreServersModal.vue';
 import CreateServerModal from './CreateServerModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
 import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import type {ServerListItem} from '@/services/types';
@@ -163,6 +171,7 @@ const selectedServer = ref<ServerListItem | null>(null);
 const showCreateModal = ref(false);
 const isInviteModalOpen = ref(false);
 const generatedInviteCode = ref('');
+const isManageRolesModalOpen = ref(false);
 const isEditServerModalOpen = ref(false);
 const isExploreModalOpen = ref(false);
 const isLeaveConfirmOpen = ref(false);
@@ -209,6 +218,11 @@ const handleLeaveServer = (server: ServerListItem) => {
   isLeaveConfirmOpen.value = true;
 };
 
+const handleManageRoles = (server: ServerListItem) => {
+  selectedServer.value = server;
+  isManageRolesModalOpen.value = true;
+};
+
 const confirmLeaveServer = async () => {
   if (!selectedServer.value) return;
 
@@ -246,6 +260,7 @@ const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   const canInvite = isCurrentServer ? permissions.createInvite.value : server.isOwner;
   const canManageChannels = isCurrentServer ? permissions.manageChannels.value : server.isOwner;
   const canManageServer = isCurrentServer ? permissions.manageServer.value : server.isOwner;
+  const canManageRoles = isCurrentServer ? permissions.manageRoles.value : server.isOwner;
 
   if (canInvite) {
     menuItems.push({label: 'Invite', icon: UserPlus, action: () => handleInvite(server)});
@@ -255,6 +270,10 @@ const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   }
   if (canManageServer) {
     menuItems.push({label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)});
+  }
+
+  if (canManageRoles) {
+    menuItems.push({label: 'Manage Roles', icon: Shield, action: () => handleManageRoles(server)});
   }
 
   if (!server.isOwner) {

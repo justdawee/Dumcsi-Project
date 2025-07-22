@@ -505,6 +505,63 @@ export const useAppStore = defineStore('app', () => {
         }
     };
 
+    // Role event handlers
+    const handleRoleCreated = (role: any) => {
+        if (currentServer.value) {
+            currentServer.value.roles.push({
+                id: role.id,
+                name: role.name,
+                color: role.color,
+                position: role.position,
+                permissions: role.permissions,
+                isHoisted: role.isHoisted,
+                isMentionable: role.isMentionable,
+            });
+        }
+    };
+
+    const handleRoleUpdated = (role: any) => {
+        if (currentServer.value) {
+            const index = currentServer.value.roles.findIndex(r => r.id === role.id);
+            if (index !== -1) {
+                currentServer.value.roles[index] = {
+                    id: role.id,
+                    name: role.name,
+                    color: role.color,
+                    position: role.position,
+                    permissions: role.permissions,
+                    isHoisted: role.isHoisted,
+                    isMentionable: role.isMentionable,
+                };
+            }
+        }
+    };
+
+    const handleRoleDeleted = (roleId: EntityId) => {
+        if (currentServer.value) {
+            currentServer.value.roles = currentServer.value.roles.filter(r => r.id !== roleId);
+            // Remove role from members
+            members.value.forEach(member => {
+                member.roles = member.roles.filter(r => r.id !== roleId);
+            });
+        }
+    };
+
+    const handleMemberRolesUpdated = (payload: any) => {
+        const member = members.value.find(m => m.userId === payload.memberId);
+        if (member) {
+            member.roles = payload.roles.map((role: any) => ({
+                id: role.id,
+                name: role.name,
+                color: role.color,
+                position: role.position,
+                permissions: role.permissions,
+                isHoisted: role.isHoisted,
+                isMentionable: role.isMentionable,
+            }));
+        }
+    };
+
     const handleUserJoinedVoiceChannel = (channelId: EntityId, user: UserProfileDto) => {
         const users = voiceChannelUsers.value.get(channelId) || [];
         voiceChannelUsers.value.set(channelId, [...users, user]);
@@ -613,6 +670,10 @@ export const useAppStore = defineStore('app', () => {
         handleChannelCreated,
         handleChannelUpdated,
         handleChannelDeleted,
+        handleRoleCreated,
+        handleRoleUpdated,
+        handleRoleDeleted,
+        handleMemberRolesUpdated,
         handleReactionAdded,
         handleReactionRemoved,
         handleUserJoinedVoiceChannel,
