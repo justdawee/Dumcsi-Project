@@ -119,32 +119,46 @@ public class RoleController(
         {
             return NotFound(ApiResponse.Fail("ROLE_NOT_FOUND", "The role to update does not exist."));
         }
-        
-        var oldValues = new { role.Name, role.Color, role.Permissions, role.Position, role.IsHoisted, role.IsMentionable };
 
-        if (role.Name != "@everyone")
+        // Special handling for default roles
+        if (role.Name is "@everyone" or "Admin")
         {
-            if (request.Name != null) role.Name = request.Name;
+            // Only allow permission updates for default roles
+            if (request.Name != null || request.Color != null || request.Position != null)
+            {
+                return BadRequest(ApiResponse.Fail("ROLE_CANNOT_MODIFY_DEFAULT", "Only permissions can be modified for default roles."));
+            }
         }
-        if (request.Color != null) role.Color = request.Color;
-        if (request.Permissions.HasValue) role.Permissions = request.Permissions.Value;
-        if (request.Position.HasValue) role.Position = request.Position.Value;
-        if (request.IsHoisted.HasValue) role.IsHoisted = request.IsHoisted.Value;
-        if (request.IsMentionable.HasValue) role.IsMentionable = request.IsMentionable.Value;
+
+        var oldRole = new { role.Name, role.Color, role.Permissions, role.Position };
+
+        if (request.Name != null && role.Name != "@everyone" && role.Name != "Admin")
+            role.Name = request.Name;
+        if (request.Color != null)
+            role.Color = request.Color;
+        if (request.Permissions.HasValue)
+            role.Permissions = request.Permissions.Value;
+        if (request.Position.HasValue && role.Name != "@everyone" && role.Name != "Admin")
+            role.Position = request.Position.Value;
+        if (request.IsHoisted.HasValue)
+            role.IsHoisted = request.IsHoisted.Value;
+        if (request.IsMentionable.HasValue)
+            role.IsMentionable = request.IsMentionable.Value;
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        var changes = new {
-            Name = new { Old = oldValues.Name, New = role.Name },
-            Color = new { Old = oldValues.Color, New = role.Color },
-            Permissions = new { Old = oldValues.Permissions.ToString(), New = role.Permissions.ToString() },
-            Position = new { Old = oldValues.Position, New = role.Position },
-            IsHoisted = new { Old = oldValues.IsHoisted, New = role.IsHoisted },
-            IsMentionable = new { Old = oldValues.IsMentionable, New = role.IsMentionable }
+
+        var changes = new
+        {
+            OldName = oldRole.Name != role.Name ? oldRole.Name : null,
+            NewName = oldRole.Name != role.Name ? role.Name : null,
+            OldColor = oldRole.Color != role.Color ? oldRole.Color : null,
+            NewColor = oldRole.Color != role.Color ? role.Color : null,
+            OldPermissions = oldRole.Permissions != role.Permissions ? oldRole.Permissions : (Permission?)null,
+            NewPermissions = oldRole.Permissions != role.Permissions ? role.Permissions : (Permission?)null,
         };
-        
+
         await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.RoleUpdated, role.Id, AuditLogTargetType.Role, changes);
-        
+
         var roleDto = new ServerDtos.RoleDto
         {
             Id = role.Id,
@@ -157,8 +171,8 @@ public class RoleController(
         };
         
         await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("RoleUpdated", roleDto, cancellationToken);
-
-        return OkResponse("Role updated successfully.");
+        
+        return OkResponse<ServerDtos.RoleDto>(roleDto);
     }
 
     [HttpDelete("{roleId}")]
