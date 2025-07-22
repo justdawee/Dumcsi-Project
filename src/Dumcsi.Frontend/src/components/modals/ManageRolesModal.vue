@@ -1,6 +1,10 @@
 ﻿<template>
-  <BaseModal :show="modelValue" @close="close">
-    <template #title>Manage Roles</template>
+  <BaseModal
+      :model-value="modelValue"
+      title="Manage Roles"
+      @close="close"
+      @update:modelValue="val => emit('update:modelValue', val)"
+  >
     <template #default>
       <div class="space-y-6">
         <!-- Create New Role Section -->
@@ -118,7 +122,7 @@
             <div>
               <label class="block text-sm font-medium text-text-secondary mb-1">Role Name</label>
               <input
-                  v-model="editingRole.name"
+                  v-model="editingRole!.name"
                   type="text"
                   class="input"
                   :disabled="selectedRole.name === '@everyone' || selectedRole.name === 'Admin'"
@@ -129,12 +133,12 @@
               <label class="block text-sm font-medium text-text-secondary mb-1">Role Color</label>
               <div class="flex items-center gap-3">
                 <input
-                    v-model="editingRole.color"
+                    v-model="editingRole!.color"
                     type="color"
                     class="h-10 w-20 rounded cursor-pointer"
                 />
                 <input
-                    v-model="editingRole.color"
+                    v-model="editingRole!.color"
                     type="text"
                     class="input flex-1"
                 />
@@ -144,7 +148,7 @@
             <div class="flex items-center gap-3">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input
-                    v-model="editingRole.isHoisted"
+                    v-model="editingRole!.isHoisted"
                     type="checkbox"
                     class="checkbox"
                 />
@@ -155,7 +159,7 @@
             <div class="flex items-center gap-3">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input
-                    v-model="editingRole.isMentionable"
+                    v-model="editingRole!.isMentionable"
                     type="checkbox"
                     class="checkbox"
                 />
@@ -174,7 +178,7 @@
                 >
                   <input
                       type="checkbox"
-                      :checked="hasPermission(editingRole.permissions, perm.value)"
+                      :checked="hasPermission(editingRole!.permissions, perm.value)"
                       @change="togglePermission(perm.value)"
                       class="checkbox"
                   />
