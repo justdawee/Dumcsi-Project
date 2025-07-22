@@ -23,7 +23,6 @@ public class MessageDtos
 
     public class CreateMessageRequestDto
     {
-        [Required]
         [StringLength(4000)]
         public string Content { get; set; } = string.Empty;
         public bool Tts { get; set; } = false;
