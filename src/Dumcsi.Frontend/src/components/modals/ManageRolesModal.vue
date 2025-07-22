@@ -125,7 +125,7 @@
                   v-model="editingRole!.name"
                   type="text"
                   class="input"
-                  :disabled="selectedRole.name === '@everyone' || selectedRole.name === 'Admin'"
+                  :disabled="selectedRole.name === '@everyone'"
               />
             </div>
 
@@ -193,7 +193,7 @@
 
           <div class="flex justify-between">
             <button
-                v-if="selectedRole.name !== '@everyone' && selectedRole.name !== 'Admin'"
+                v-if="selectedRole.name !== '@everyone'"
                 @click="deleteRole"
                 class="btn btn-danger"
             >
