@@ -400,21 +400,16 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 // Click outside directive
 const vClickOutside = {
-  mounted(
-      el: HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void },
-      binding: any
-  ) {
-    el._clickOutsideHandler = (event: MouseEvent) => {
+  mounted(el: HTMLElement, binding: any) {
+    (el as any).clickOutsideEvent = (event: MouseEvent) => {
       if (!(el === event.target || el.contains(event.target as Node))) {
         binding.value();
       }
     };
-    document.addEventListener('click', el._clickOutsideHandler);
+    document.addEventListener('click', (el as any).clickOutsideEvent);
   },
-  unmounted(el: HTMLElement & { _clickOutsideHandler?: (e: MouseEvent) => void }) {
-    if (el._clickOutsideHandler) {
-      document.removeEventListener('click', el._clickOutsideHandler);
-    }
+  unmounted(el: any) {
+    document.removeEventListener('click', (el as any).clickOutsideEvent);
   },
 };
 
