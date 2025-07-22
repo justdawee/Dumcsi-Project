@@ -1,6 +1,10 @@
 ﻿<template>
   <div class="message-attachments mt-2 space-y-2">
-    <div v-for="attachment in attachments" :key="attachment.id">
+    <div
+        v-for="attachment in attachments"
+        :key="attachment.id"
+        class="attachment-container relative inline-block group"
+    >
       <img
           v-if="isImage(attachment)"
           :src="attachment.fileUrl"
@@ -8,14 +12,20 @@
           class="preview-media rounded-lg cursor-pointer"
           @click="openPreview(attachment)"
       />
-      <video
-          v-else-if="isVideo(attachment)"
-          controls
-          class="preview-media rounded-lg cursor-pointer"
-          @click="openPreview(attachment)"
-      >
-        <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
-      </video>
+      <template v-else-if="isVideo(attachment)">
+        <video
+            controls
+            class="preview-media rounded-lg"
+        >
+          <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+        </video>
+        <button
+            class="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/80 transition"
+            @click.stop="openVideoPreview(attachment, $event)"
+        >
+          <ExternalLink class="w-4 h-4" />
+        </button>
+      </template>
       <audio v-else-if="isAudio(attachment)" controls class="w-full">
         <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
       </audio>
@@ -39,7 +49,7 @@
 </template>
 
 <script lang="ts" setup>
-import { File } from 'lucide-vue-next';
+import { File, ExternalLink } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 import type { AttachmentDto } from '@/services/types';
 import { formatFileSize } from '@/utils/helpers';
@@ -59,6 +69,13 @@ const selected = ref<AttachmentDto | null>(null);
 const openPreview = (a: AttachmentDto) => {
   selected.value = a;
   showPreview.value = true;
+};
+
+const openVideoPreview = (a: AttachmentDto, e: Event) => {
+  const container = (e.currentTarget as HTMLElement).closest('.attachment-container');
+  const video = container?.querySelector('video') as HTMLVideoElement | null;
+  video?.pause();
+  openPreview(a);
 };
 
 const onClose = (val: boolean) => {
