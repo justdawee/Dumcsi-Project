@@ -52,7 +52,7 @@ import {
   EyeOff
 } from 'lucide-vue-next';
 
-const props = defineProps<{
+defineProps<{
   showPreview: boolean;
 }>();
 

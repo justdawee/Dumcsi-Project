@@ -114,14 +114,6 @@ const unlockBodyScroll = () => {
   document.body.style.overflow = '';
 };
 
-const onEnter = () => {
-  lockBodyScroll();
-};
-
-const onLeave = () => {
-  unlockBodyScroll();
-};
-
 // Focus trap
 const trapFocus = (event: KeyboardEvent) => {
   if (!modalContent.value || event.key !== 'Tab') return;
@@ -146,9 +138,11 @@ watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('keydown', trapFocus);
+    lockBodyScroll();
   } else {
     document.removeEventListener('keydown', handleEscape);
     document.removeEventListener('keydown', trapFocus);
+    unlockBodyScroll();
   }
 });
 
@@ -156,6 +150,7 @@ onMounted(() => {
   if (props.modelValue) {
     document.addEventListener('keydown', handleEscape);
     document.addEventListener('keydown', trapFocus);
+    lockBodyScroll();
   }
 });
 

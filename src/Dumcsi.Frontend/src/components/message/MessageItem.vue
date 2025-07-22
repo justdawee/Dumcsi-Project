@@ -31,6 +31,11 @@
               @cancel="isEditing = false"
               @save="handleSave"
           />
+          <MessageAttachments
+              v-if="!isEditing && message.attachments.length > 0"
+              :attachments="message.attachments"
+              class="mt-2"
+          />
         </div>
       </div>
     </div>
@@ -54,6 +59,11 @@
               :initial-content="message.content"
               @cancel="isEditing = false"
               @save="handleSave"
+          />
+          <MessageAttachments
+              v-if="!isEditing && message.attachments.length > 0"
+              :attachments="message.attachments"
+              class="mt-2"
           />
         </div>
       </div>
@@ -99,6 +109,7 @@ import {ref, computed} from 'vue';
 import {Edit3, Trash2} from 'lucide-vue-next';
 import MessageEdit from './MessageEdit.vue';
 import MessageContentParser from './MessageContentParser.vue';
+import MessageAttachments from './MessageAttachments.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import type {MessageDto} from '@/services/types';

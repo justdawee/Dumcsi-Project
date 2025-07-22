@@ -308,7 +308,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
-const handleFormat = (format: string, prefix: string, suffix?: string) => {
+const handleFormat = (_format: string, prefix: string, suffix?: string) => {
   if (!messageInput.value) return;
 
   const start = messageInput.value.selectionStart;

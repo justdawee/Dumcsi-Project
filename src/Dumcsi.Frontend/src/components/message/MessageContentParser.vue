@@ -1,7 +1,7 @@
 ﻿<template>
   <span class="message-content">
-    <template v-for="(node, index) in parsedNodes" :key="index">
-      <component :is="renderNode(node)" />
+    <template v-for="item in parsedNodesWithIndex" :key="item.idx">
+      <component :is="renderNode(item.node)" />
     </template>
   </span>
 </template>
@@ -88,6 +88,10 @@ const parsedNodes = computed(() => {
     channelMap: channelMap.value
   });
 });
+
+const parsedNodesWithIndex = computed(() =>
+    parsedNodes.value.map((node, idx) => ({ node, idx }))
+);
 
 // Render function for nodes
 const renderNode = (node: ParsedNode): VNode => {
