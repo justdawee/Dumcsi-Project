@@ -4,7 +4,6 @@
       <div
           v-if="modelValue"
           class="fixed inset-0 z-[100] flex items-center justify-center"
-          @click.self="handleBackdropClick"
       >
         <!-- Dark backdrop -->
         <div class="absolute inset-0 bg-black/90"></div>
@@ -141,6 +140,7 @@
                   'transform-origin': 'center'
                 }"
                 @wheel.prevent="onWheel"
+                @click.self="onContainerClick"
             >
               <img
                   :src="attachment.fileUrl"
@@ -262,7 +262,7 @@ const close = () => {
   emit('update:modelValue', false);
 };
 
-const handleBackdropClick = () => {
+const onContainerClick = () => {
   if (!showDetails.value) {
     close();
   }
