@@ -111,7 +111,7 @@ import {ref} from 'vue'
 import {useAuthStore} from '@/stores/auth'
 import {useAppStore} from '@/stores/app'
 import {useRouter} from 'vue-router';
-import {User, ChevronDown, LogOut, Loader2, Server, Plus, Edit} from 'lucide-vue-next'
+import {ChevronDown, LogOut, Loader2, Server, Plus, Edit} from 'lucide-vue-next'
 import CreateServerModal from '@/components/server/CreateServerModal.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import ServerAvatar from "@/components/common/ServerAvatar.vue";
@@ -138,15 +138,6 @@ const handleLogout = async () => {
 const editUser = () => {
   // Navigate to user settings page
   router.push({name: 'UserSettings'});
-}
-
-const getServerInitials = (name: string) => {
-  return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
 }
 
 const formatDate = (dateString: string) => {
