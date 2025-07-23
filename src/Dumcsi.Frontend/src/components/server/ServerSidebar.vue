@@ -96,7 +96,6 @@
     />
 
     <EditServerModal
-        v-if="isEditServerModalOpen"
         v-model="isEditServerModalOpen"
         :server="selectedServer"
         @close="isEditServerModalOpen = false"
@@ -104,7 +103,6 @@
     />
 
     <ManageRolesModal
-        v-if="isManageRolesModalOpen"
         v-model="isManageRolesModalOpen"
         :server="selectedServer"
         @close="isManageRolesModalOpen = false"
