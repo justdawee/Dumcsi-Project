@@ -136,16 +136,24 @@
           <div
               class="flex items-center justify-between p-6 border-t border-border-default"
           >
-            <button
-                v-if="canDeleteServer"
-                :disabled="deleting"
-                class="btn-danger"
-                type="button"
-                @click="isDeleteModalOpen = true"
-            >
-              <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2" />
-              Delete Server
-            </button>
+            <div v-if="canDeleteServer" class="flex gap-3">
+              <button
+                  :disabled="deleting"
+                  class="btn-danger"
+                  type="button"
+                  @click="isDeleteModalOpen = true"
+              >
+                <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2" />
+                Delete Server
+              </button>
+              <button
+                  class="btn-warning"
+                  type="button"
+                  @click="isTransferModalOpen = true"
+              >
+                Transfer Ownership
+              </button>
+            </div>
             <div v-else></div>
             <!-- Placeholder to keep alignment -->
 
@@ -178,6 +186,11 @@
       title="Delete Server"
       @confirm="handleDeleteServer"
   />
+  <TransferOwnershipModal
+      v-model="isTransferModalOpen"
+      :server="props.server"
+      @transferred="emit('server-updated')"
+  />
 </template>
 
 <script lang="ts" setup>
@@ -189,6 +202,7 @@ import uploadService from '@/services/uploadService';
 import type {ServerListItem, UpdateServerRequest} from '@/services/types';
 import {Loader2, Camera, ImageIcon} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
+import TransferOwnershipModal from './TransferOwnershipModal.vue';
 import {getDisplayMessage} from '@/services/errorHandler';
 
 // --- Props & Emits ---
@@ -211,6 +225,7 @@ const error = ref('');
 
 const deleting = ref(false);
 const isDeleteModalOpen = ref(false);
+const isTransferModalOpen = ref(false);
 const iconFileInput = ref<HTMLInputElement | null>(null);
 const selectedIconFile = ref<File | null>(null);
 const previewIcon = ref<string | null>(null);

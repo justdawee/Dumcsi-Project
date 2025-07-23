@@ -210,6 +210,10 @@ export interface UpdateServerRequest {
     icon: string | null;
 }
 
+export interface TransferOwnershipRequest {
+    newOwnerId: EntityId;
+}
+
 // --- API Responses (Nyers adatok a backendtől) ---
 export interface ServerListItemDto {
     id: EntityId;

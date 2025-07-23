@@ -180,6 +180,16 @@ const serverService = {
     },
 
     /**
+     * Átadja a szerver tulajdonjogát egy másik tagnak.
+     */
+    async transferOwnership(serverId: EntityId, payload: { newOwnerId: EntityId }): Promise<void> {
+        const response = await api.post<ApiResponse<void>>(`/server/${serverId}/transfer-ownership`, payload);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
+
+    /**
      * Lekéri a szerver tagjait.
      */
     async getServerMembers(serverId: EntityId): Promise<ServerMember[]> {
