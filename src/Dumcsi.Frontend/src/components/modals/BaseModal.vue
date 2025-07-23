@@ -15,7 +15,7 @@
         <div
             ref="modalContent"
             :class="[
-            'relative bg-bg-surface rounded-lg shadow-xl max-h-[90vh] flex flex-col border border-border-default/50',
+            'relative bg-bg-surface rounded-lg shadow-xl max-h-[90vh] flex flex-col border border-border-default/50 transform',
             sizeClasses
           ]"
             @click.stop
@@ -162,23 +162,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.modal-enter-active,
-.modal-leave-active {
+.modal-fade-enter-active,
+.modal-fade-leave-active {
   transition: opacity 0.2s ease;
 }
 
-.modal-enter-active > div:last-child,
-.modal-leave-active > div:last-child {
+.modal-fade-enter-active > div:last-child,
+.modal-fade-leave-active > div:last-child {
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.modal-enter-from,
-.modal-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to {
   opacity: 0;
 }
 
-.modal-enter-from > div:last-child,
-.modal-leave-to > div:last-child {
+.modal-fade-enter-from > div:last-child,
+.modal-fade-leave-to > div:last-child {
   transform: scale(0.95);
   opacity: 0;
 }
