@@ -6,6 +6,7 @@ public enum AuditLogActionType
     ServerCreated,
     ServerUpdated,
     ServerDeleted,
+    ServerOwnershipTransferred,
     ServerMemberJoined,
     ServerMemberLeft,
 

@@ -264,6 +264,52 @@ public class ServerController(
         return OkResponse(members);
     }
     
+    [HttpPost("{id}/transfer-ownership")]
+    public async Task<IActionResult> TransferOwnership(long id, [FromBody] ServerDtos.TransferOwnershipRequestDto request, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var server = await dbContext.Servers.Include(s => s.Members).FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (server == null)
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server does not exist."));
+        }
+
+        if (server.OwnerId != CurrentUserId)
+        {
+            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can transfer ownership."));
+        }
+
+        if (request.NewOwnerId == CurrentUserId)
+        {
+            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_SAME_OWNER", "You are already the owner of this server."));
+        }
+
+        if (!server.Members.Any(m => m.UserId == request.NewOwnerId))
+        {
+            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_NOT_MEMBER", "The selected user is not a member of this server."));
+        }
+
+        server.OwnerId = request.NewOwnerId;
+        server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerOwnershipTransferred, request.NewOwnerId, AuditLogTargetType.User);
+
+        var serverDto = new ServerDtos.ServerListItemDto
+        {
+            Id = server.Id,
+            Name = server.Name,
+            Description = server.Description,
+            Icon = server.Icon,
+            Public = server.Public
+        };
+
+        await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto, cancellationToken);
+
+        return OkResponse("Server ownership transferred.");
+    }
+    
     [HttpPost("{id}/invite")]
     public async Task<IActionResult> CreateInvite(long id, [FromBody] InviteDtos.CreateInviteRequestDto request, CancellationToken cancellationToken)
     {

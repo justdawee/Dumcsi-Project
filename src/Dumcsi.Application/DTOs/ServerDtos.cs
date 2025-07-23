@@ -70,6 +70,12 @@ public class ServerDtos
         public string? Icon { get; set; }
     }
     
+    public class TransferOwnershipRequestDto
+    {
+        [Required]
+        public long NewOwnerId { get; set; }
+    }
+    
     public class RoleDto
     {
         public long Id { get; set; }
