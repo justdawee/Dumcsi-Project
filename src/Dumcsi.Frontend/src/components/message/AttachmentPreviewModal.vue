@@ -150,13 +150,19 @@
                   @mousedown="startDrag"
               />
             </div>
-            <video
+            <div
                 v-else-if="isVideo(attachment)"
-                controls
-                class="max-h-[80vh] max-w-full"
+                class="relative flex items-center justify-center w-full h-full max-w-full max-h-full"
+                @click.self="onContainerClick"
             >
-              <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
-            </video>
+              <video
+                  controls
+                  class="max-h-[80vh] max-w-full"
+                  @mousedown="startVideoInteraction"
+              >
+                <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+              </video>
+            </div>
             <audio v-else-if="isAudio(attachment)" controls class="w-full max-w-lg">
               <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
             </audio>
@@ -248,6 +254,7 @@ const zoomLevel = ref(1);
 const isDragging = ref(false);
 const hasDragged = ref(false);
 const mouseDownOnImage = ref(false);
+const mouseDownOnVideo = ref(false);
 const dragStart = ref({ x: 0, y: 0 });
 const imagePosition = ref({ x: 0, y: 0 });
 
@@ -262,10 +269,11 @@ const close = () => {
 };
 
 const onContainerClick = () => {
-  if (hasDragged.value || mouseDownOnImage.value) {
-    // Prevent closing after dragging or releasing a click that started on the image
+  if (hasDragged.value || mouseDownOnImage.value || mouseDownOnVideo.value) {
+    // Prevent closing after dragging or releasing a click that started on the image or video
     hasDragged.value = false;
     mouseDownOnImage.value = false;
+    mouseDownOnVideo.value = false;
     return;
   }
   if (!showDetails.value) {
@@ -370,6 +378,18 @@ const resetMouseDown = () => {
   window.removeEventListener('mouseup', resetMouseDown);
   setTimeout(() => {
     mouseDownOnImage.value = false;
+  });
+};
+
+const startVideoInteraction = () => {
+  mouseDownOnVideo.value = true;
+  window.addEventListener('mouseup', resetVideoMouseDown);
+};
+
+const resetVideoMouseDown = () => {
+  window.removeEventListener('mouseup', resetVideoMouseDown);
+  setTimeout(() => {
+    mouseDownOnVideo.value = false;
   });
 };
 
