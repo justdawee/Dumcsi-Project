@@ -58,7 +58,7 @@
       >
         <button
             class="server-icon"
-            @click="showCreateModal = true"
+            @click="openCreateModal"
         >
           <Plus class="w-6 h-6"/>
         </button>
@@ -80,8 +80,8 @@
     <ContextMenu ref="serverContextMenu" :items="serverMenuItems"/>
 
     <CreateServerModal
-        v-if="showCreateModal"
-        @close="showCreateModal = false"
+        v-model="showCreateModal"
+        @close="closeCreateModal"
     />
 
     <ExploreServersModal
@@ -181,6 +181,14 @@ const tooltipText = ref('');
 const tooltipTop = ref(0);
 const tooltipVisible = ref(false);
 let tooltipTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const openCreateModal = () => {
+  showCreateModal.value = true;
+};
+
+const closeCreateModal = () => {
+  showCreateModal.value = false;
+};
 
 // --- Computed ---
 const isHome = computed(() => route.name === 'ServerSelect');

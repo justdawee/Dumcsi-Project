@@ -1,7 +1,11 @@
 <template>
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" v-backdrop-close="$emit('close')">
-    <div class="bg-bg-surface rounded-xl p-6 w-full max-w-md animate-fade-in border border-border-default/50">
-      <h2 class="text-2xl font-bold text-text-default mb-6">Create or Join Server</h2>
+  <BaseModal
+      :model-value="modelValue"
+      title="Create or Join Server"
+      @close="close"
+      @update:modelValue="emit('update:modelValue', $event)"
+  >
+    <template #default>
 
       <!-- Tab Selection -->
       <div class="flex mb-6 bg-bg-base rounded-lg p-1">
@@ -64,7 +68,7 @@
           <button
               class="flex-1 btn-secondary"
               type="button"
-              @click="$emit('close')"
+              @click="close"
           >
             Cancel
           </button>
@@ -99,7 +103,7 @@
           <button
               class="flex-1 btn-secondary"
               type="button"
-              @click="$emit('close')"
+              @click="close"
           >
             Cancel
           </button>
@@ -118,88 +122,95 @@
       <div v-if="error" class="mt-4 p-3 bg-danger/10 border border-danger/50 rounded-lg">
         <p class="text-sm text-danger">{{ error }}</p>
       </div>
-    </div>
-  </div>
+    </template>
+  </BaseModal>
 </template>
 
-<script lang="ts" setup>
-import {ref} from 'vue';
-import {useRouter} from 'vue-router';
-import {useAppStore} from '@/stores/app';
-import {useToast} from '@/composables/useToast';
-import {Loader2} from 'lucide-vue-next';
-import type {CreateServerRequest} from '@/services/types';
+    <script lang="ts" setup>
+      import {ref} from 'vue';
+      import {useRouter} from 'vue-router';
+      import {useAppStore} from '@/stores/app';
+      import {useToast} from '@/composables/useToast';
+      import {Loader2} from 'lucide-vue-next';
+      import type {CreateServerRequest} from '@/services/types';
+      import BaseModal from "@/components/modals/BaseModal.vue";
 
-const emit = defineEmits(['close']);
-const router = useRouter();
-const appStore = useAppStore();
-const {addToast} = useToast();
+      defineProps<{ modelValue: boolean }>();
+      const emit = defineEmits(['update:modelValue', 'close']);
+      const router = useRouter();
+      const appStore = useAppStore();
+      const {addToast} = useToast();
 
-const activeTab = ref<'create' | 'join'>('create');
-const loading = ref(false);
-const error = ref('');
+      const close = () => {
+        emit('update:modelValue', false);
+        emit('close');
+      };
 
-const createForm = ref<CreateServerRequest>({
-  name: '',
-  description: '',
-  public: false
-});
+      const activeTab = ref<'create' | 'join'>('create');
+      const loading = ref(false);
+      const error = ref('');
 
-const handleCreateServer = async () => {
-  loading.value = true;
-  error.value = '';
-
-  try {
-    const response = await appStore.createServer(createForm.value);
-    if (response?.serverId) {
-      emit('close');
-      router.push({name: 'Server', params: {serverId: response.serverId}});
-      addToast({
-        type: 'success',
-        message: `Successfully created ${createForm.value.name}.`
+      const createForm = ref<CreateServerRequest>({
+        name: '',
+        description: '',
+        public: false
       });
-    }
-  } catch (err: any) {
-    addToast({
-      type: 'danger',
-      message: 'Failed to create server. Please try again later.'
-    });
-  } finally {
-    loading.value = false;
-  }
-};
 
-const joinForm = ref({
-  inviteCode: ''
-});
+      const handleCreateServer = async () => {
+        loading.value = true;
+        error.value = '';
 
-const handleJoinServer = async () => {
-  if (!joinForm.value.inviteCode.trim()) {
-    error.value = 'Please enter a valid invite code.';
-    return;
-  }
+        try {
+          const response = await appStore.createServer(createForm.value);
+          if (response?.serverId) {
+            close();
+            router.push({name: 'Server', params: {serverId: response.serverId}});
+            addToast({
+              type: 'success',
+              message: `Successfully created ${createForm.value.name}.`
+            });
+          }
+        } catch (err: any) {
+          addToast({
+            type: 'danger',
+            message: 'Failed to create server. Please try again later.'
+          });
+        } finally {
+          loading.value = false;
+        }
+      };
 
-  loading.value = true;
-  error.value = '';
-
-  try {
-    const result = await appStore.joinServerWithInvite(joinForm.value.inviteCode);
-    if (result?.serverId) {
-      emit('close');
-      router.push({name: 'Server', params: {serverId: result.serverId}});
-      addToast({
-        type: 'success',
-        message: 'Successfully joined the server.'
+      const joinForm = ref({
+        inviteCode: ''
       });
-    }
-  } catch (err: any) {
-    addToast({
-      type: 'danger',
-      title: 'Invite Code',
-      message: 'The invite code is invalid or has expired.'
-    });
-  } finally {
-    loading.value = false;
-  }
-};
-</script>
+
+      const handleJoinServer = async () => {
+        if (!joinForm.value.inviteCode.trim()) {
+          error.value = 'Please enter a valid invite code.';
+          return;
+        }
+
+        loading.value = true;
+        error.value = '';
+
+        try {
+          const result = await appStore.joinServerWithInvite(joinForm.value.inviteCode);
+          if (result?.serverId) {
+            close();
+            await router.push({name: 'Server', params: {serverId: result.serverId}});
+            addToast({
+              type: 'success',
+              message: 'Successfully joined the server.'
+            });
+          }
+        } catch (err: any) {
+          addToast({
+            type: 'danger',
+            title: 'Invite Code',
+            message: 'The invite code is invalid or has expired.'
+          });
+        } finally {
+          loading.value = false;
+        }
+      };
+    </script>

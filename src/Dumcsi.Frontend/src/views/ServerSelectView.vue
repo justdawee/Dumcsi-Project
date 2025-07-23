@@ -1,6 +1,5 @@
 <template>
   <div class="flex-1 flex flex-col bg-bg-base">
-    <!-- Header -->
     <div class="px-6 py-4 border-b border-border-default flex items-center justify-between">
       <h1 class="text-2xl font-bold text-text-default">Your Servers</h1>
       <div class="flex items-center gap-3">
@@ -18,7 +17,6 @@
           <ChevronDown class="w-4 h-4 text-text-muted"/>
         </button>
 
-        <!-- User Dropdown Menu -->
         <div
             v-if="showUserMenu"
             class="absolute right-6 top-16 w-48 bg-bg-base rounded-lg shadow-lg border border-border-default py-2 z-50"
@@ -41,7 +39,6 @@
       </div>
     </div>
 
-    <!-- Server Grid -->
     <div class="flex-1 p-6 overflow-y-auto">
       <div v-if="appStore.loading.servers" class="flex items-center justify-center h-full">
         <Loader2 class="w-8 h-8 text-primary animate-spin"/>
@@ -56,7 +53,7 @@
         <p class="text-text-muted mb-6">Create or join a server to get started!</p>
         <button
             class="btn-primary flex items-center gap-2"
-            @click="showCreateModal = true"
+            @click="openCreateModal"
         >
           <Plus class="w-5 h-5"/>
           Add Server
@@ -102,15 +99,14 @@
       </div>
     </div>
 
-    <!-- Create Server Modal -->
     <CreateServerModal
-        v-if="showCreateModal"
-        @close="showCreateModal = false"
+        v-model="showCreateModal"
+        @close="closeCreateModal"
     />
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import {ref} from 'vue'
 import {useAuthStore} from '@/stores/auth'
 import {useAppStore} from '@/stores/app'
@@ -127,6 +123,14 @@ const router = useRouter();
 const showUserMenu = ref(false)
 const showCreateModal = ref(false)
 
+const openCreateModal = () => {
+  showCreateModal.value = true
+}
+
+const closeCreateModal = () => {
+  showCreateModal.value = false
+}
+
 const handleLogout = async () => {
   await authStore.logout()
 }
@@ -136,7 +140,7 @@ const editUser = () => {
   router.push({name: 'UserSettings'});
 }
 
-const getServerInitials = (name) => {
+const getServerInitials = (name: string) => {
   return name
       .split(' ')
       .map(word => word[0])
@@ -145,7 +149,7 @@ const getServerInitials = (name) => {
       .slice(0, 2)
 }
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', {
     month: 'short',
