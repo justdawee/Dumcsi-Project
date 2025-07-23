@@ -1,18 +1,15 @@
 ﻿<template>
   <Teleport to="body">
-    <Transition name="modal-fade">
+    <Transition name="modal-fade" appear>
       <div
           v-if="modelValue"
           class="fixed inset-0 z-[100] flex items-center justify-center"
+          @click.self="close"
       >
-        <!-- Dark backdrop -->
         <div class="absolute inset-0 bg-black/90"></div>
 
-        <!-- Preview container -->
         <div class="relative flex flex-col h-full w-full">
-          <!-- Header -->
           <div class="relative z-10 flex items-center justify-between p-4">
-            <!-- Left side: User info -->
             <div class="flex items-center gap-3">
               <UserAvatar
                   v-if="message"
@@ -26,9 +23,7 @@
               </div>
             </div>
 
-            <!-- Right side: Actions -->
             <div class="flex items-center gap-2">
-              <!-- Zoom controls for images -->
               <template v-if="isImage(attachment)">
                 <button
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
@@ -54,7 +49,6 @@
                 </button>
               </template>
 
-              <!-- Download button -->
               <button
                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
                   title="Download"
@@ -63,7 +57,6 @@
                 <Download class="w-5 h-5" />
               </button>
 
-              <!-- Open in browser -->
               <a
                   :href="attachment.fileUrl"
                   target="_blank"
@@ -73,7 +66,6 @@
                 <ExternalLink class="w-5 h-5" />
               </a>
 
-              <!-- More options menu -->
               <div class="relative">
                 <button
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
@@ -83,7 +75,6 @@
                   <MoreVertical class="w-5 h-5" />
                 </button>
 
-                <!-- Dropdown menu -->
                 <Transition name="dropdown">
                   <div
                       v-if="showMoreMenu"
@@ -117,7 +108,6 @@
                 </Transition>
               </div>
 
-              <!-- Close button -->
               <button
                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition ml-2"
                   title="Close"
@@ -128,7 +118,6 @@
             </div>
           </div>
 
-          <!-- Content area -->
           <div class="flex-1 flex items-center justify-center p-4 overflow-hidden">
             <div
                 v-if="isImage(attachment)"
@@ -179,8 +168,7 @@
           </div>
         </div>
 
-        <!-- Details Modal -->
-        <Transition name="modal-fade">
+        <Transition name="modal-fade" appear>
           <div
               v-if="showDetails"
               class="fixed inset-0 z-[110] flex items-center justify-center p-4"

@@ -40,7 +40,7 @@
       </a>
     </div>
     <AttachmentPreviewModal
-        v-if="selected && showPreview"
+        v-if="selected"
         v-model="showPreview"
         :attachment="selected"
         :message="message"
@@ -51,7 +51,7 @@
 
 <script lang="ts" setup>
 import { File, ExternalLink } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import type { AttachmentDto, MessageDto } from '@/services/types';
 import { formatFileSize } from '@/utils/helpers';
 import AttachmentPreviewModal from './AttachmentPreviewModal.vue';
@@ -70,7 +70,9 @@ const selected = ref<AttachmentDto | null>(null);
 
 const openPreview = (a: AttachmentDto) => {
   selected.value = a;
-  showPreview.value = true;
+  nextTick(() => {
+    showPreview.value = true;
+  });
 };
 
 const openVideoPreview = (a: AttachmentDto, e: Event) => {
@@ -85,7 +87,12 @@ const onClose = (val: boolean) => {
 };
 
 watch(showPreview, (open) => {
-  if (!open) selected.value = null;
+  if (!open) {
+    // Wait for the modal fade-out transition before clearing the selection
+    setTimeout(() => {
+      selected.value = null;
+    }, 200);
+  }
 });
 </script>
 
