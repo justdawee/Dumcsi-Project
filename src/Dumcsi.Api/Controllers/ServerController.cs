@@ -96,55 +96,76 @@ public class ServerController(
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        
-        var response = await dbContext.Servers
-            .Where(s => s.Id == id)
-            .Select(s => new ServerDtos.ServerDetailDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                Description = s.Description ?? string.Empty,
-                Icon = s.Icon,
-                OwnerId = s.OwnerId,
-                OwnerUsername = s.Owner.Username,
-                MemberCount = s.Members.Count(),
-                IsOwner = s.OwnerId == CurrentUserId,
-                Public = s.Public,
-                CurrentUserPermissions = s.Members
-                    .Where(m => m.UserId == CurrentUserId)
-                    .SelectMany(m => m.Roles)
-                    .Aggregate(Permission.None, (current, role) => current | role.Permissions),
-                CreatedAt = s.CreatedAt,
-                Channels = s.Channels.OrderBy(c => c.Position).Select(c => new ChannelDtos.ChannelListItemDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Type = c.Type,
-                    Position = c.Position,
-                    ServerId = c.ServerId
-                }).ToList(),
-                Topics = s.Topics.OrderBy(t => t.Position).Select(t => new TopicDtos.TopicListItemDto
-                {
-                    Id = t.Id,
-                    ServerId = t.ServerId,
-                    Name = t.Name,
-                    Position = t.Position,
-                    Channels = t.Channels.OrderBy(c => c.Position).Select(c => new ChannelDtos.ChannelListItemDto
-                    {
-                        Id = c.Id,
-                        ServerId = c.ServerId,
-                        Name = c.Name,
-                        Type = c.Type,
-                        Position = c.Position
-                    }).ToList()
-                }).ToList()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
 
-        if (response == null)
+        var server = await dbContext.Servers
+            .AsNoTracking()
+            .Include(s => s.Owner)
+            .Include(s => s.Channels)
+            .Include(s => s.Topics)
+            .ThenInclude(t => t.Channels)
+            .Include(s =>
+                s.Members.Where(m => m.UserId == CurrentUserId))
+            .ThenInclude(m => m.Roles)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        
+        if (server != null)
+        {
+            server.Channels = server.Channels.OrderBy(c => c.Position).ToList();
+            server.Topics = server.Topics.OrderBy(t => t.Position).ToList();
+            foreach (var topic in server.Topics)
+            {
+                topic.Channels = topic.Channels.OrderBy(c => c.Position).ToList();
+            }
+        }
+
+        if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The requested server does not exist."));
         }
+
+        var currentUserMembership = server.Members.First();
+        var currentUserPermissions = currentUserMembership.Roles
+            .Aggregate(Permission.None, (current, role) => current | role.Permissions);
+
+        var memberCount = await dbContext.ServerMembers.CountAsync(sm => sm.ServerId == id, cancellationToken);
+
+        var response = new ServerDtos.ServerDetailDto
+        {
+            Id = server.Id,
+            Name = server.Name,
+            Description = server.Description ?? string.Empty,
+            Icon = server.Icon,
+            OwnerId = server.OwnerId,
+            OwnerUsername = server.Owner.Username,
+            MemberCount = memberCount,
+            IsOwner = server.OwnerId == CurrentUserId,
+            Public = server.Public,
+            CurrentUserPermissions = currentUserPermissions,
+            CreatedAt = server.CreatedAt,
+            Channels = server.Channels.Select(c => new ChannelDtos.ChannelListItemDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Type = c.Type,
+                Position = c.Position,
+                ServerId = c.ServerId
+            }).ToList(),
+            Topics = server.Topics.Select(t => new TopicDtos.TopicListItemDto
+            {
+                Id = t.Id,
+                ServerId = t.ServerId,
+                Name = t.Name,
+                Position = t.Position,
+                Channels = t.Channels.Select(c => new ChannelDtos.ChannelListItemDto
+                {
+                    Id = c.Id,
+                    ServerId = c.ServerId,
+                    Name = c.Name,
+                    Type = c.Type,
+                    Position = c.Position
+                }).ToList()
+            }).ToList()
+        };
 
         return OkResponse(response);
     }
@@ -638,7 +659,7 @@ public class ServerController(
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var topic = await dbContext.Topics.Include(t => t.Server).Include(topic => topic.Channels)
+        var topic = await dbContext.Topics.Include(t => t.Server)
             .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
         if (topic == null)
         {
