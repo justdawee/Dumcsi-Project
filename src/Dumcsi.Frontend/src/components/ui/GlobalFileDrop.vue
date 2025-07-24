@@ -31,23 +31,26 @@ const isDragAllowed = () => {
   return !modalOpen;
 };
 
-const show = () => {
-  if (!isDragAllowed()) return;
+const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+
+const show = (e: DragEvent) => {
+  if (!isDragAllowed() || !hasFiles(e)) return;
   dragCounter++;
   visible.value = true;
 };
 
-const hide = () => {
-  if (!isDragAllowed()) return;
+const hide = (e: DragEvent) => {
+  if (!isDragAllowed() || !hasFiles(e)) return;
   dragCounter = Math.max(0, dragCounter - 1);
   if (dragCounter === 0) visible.value = false;
 };
 
 const prevent = (e: DragEvent) => {
-  e.preventDefault();
+  if (hasFiles(e)) e.preventDefault();
 };
 
 const handleDrop = (e: DragEvent) => {
+  if (!hasFiles(e)) return;
   e.preventDefault();
   if (!isDragAllowed()) return;
   const files = e.dataTransfer?.files;
