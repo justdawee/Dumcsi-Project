@@ -12,39 +12,37 @@
       </div>
 
       <div v-else class="py-2">
-        <DragList v-model="topics" item-key="id" class="space-y-4" @reorder="onTopicsReorder">
-          <DragItem v-for="topic in topics" :key="topic.id" :value="topic">
-            <div class="px-2 mb-4">
-              <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
-                <span>{{ topic.name }}</span>
-                <button
-                    v-if="canManageChannels"
-                    class="hover:text-text-secondary transition"
-                    title="Create Channel"
-                    @click="appStore.openCreateChannelModal(server!.id)"
-                >
-                  <Plus class="w-4 h-4"/>
-                </button>
-              </div>
-              <DragList v-model="topic.channels" item-key="id" class="space-y-0.5" group="channels" @reorder="onChannelsReorder">
-                <DragItem v-for="channel in topic.channels" :key="channel.id" :value="channel">
-                  <RouterLink
-                      :class="{ 'active': currentChannelId === channel.id }"
-                      :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
-                      @contextmenu.prevent="openChannelMenu($event, channel)"
-                  >
-                    <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted"/>
-                    <span class="truncate">{{ channel.name }}</span>
-                    <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                            title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
-                      <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
-                    </button>
-                  </RouterLink>
-                </DragItem>
-              </DragList>
+        <ul ref="topicsParent" class="space-y-4">
+          <li v-for="topic in topics" :key="topic.id" class="px-2 mb-4">
+            <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
+              <span>{{ topic.name }}</span>
+              <button
+                  v-if="canManageChannels"
+                  class="hover:text-text-secondary transition"
+                  title="Create Channel"
+                  @click="appStore.openCreateChannelModal(server!.id)"
+              >
+                <Plus class="w-4 h-4"/>
+              </button>
             </div>
-          </DragItem>
-        </DragList>
+            <ul :ref="setChannelParent(topic.id)" class="space-y-0.5">
+              <li v-for="channel in topic.channels" :key="channel.id">
+                <RouterLink
+                    :class="{ 'active': currentChannelId === channel.id }"
+                    :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                    @contextmenu.prevent="openChannelMenu($event, channel)"
+                >
+                  <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted"/>
+                  <span class="truncate">{{ channel.name }}</span>
+                  <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                    <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
+                  </button>
+                </RouterLink>
+              </li>
+            </ul>
+          </li>
+        </ul>
       </div>
     </div>
 
@@ -93,7 +91,7 @@
 
 <script lang="ts" setup>
 import type {Component} from 'vue';
-import {computed, ref, watchEffect} from 'vue';
+import {computed, ref, watchEffect, nextTick, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
@@ -103,9 +101,9 @@ import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import { DragList, DragItem } from '@formkit/drag-and-drop/vue';
+import { useDragAndDrop, dragAndDrop } from '@formkit/drag-and-drop/vue';
+import { animations } from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
-import serverService from '@/services/serverService';
 import {
   type ChannelDetailDto,
   type ChannelListItem,
@@ -149,7 +147,17 @@ const deletingChannel = ref<ChannelListItem | null>(null);
 
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
-const topics = ref<TopicListItem[]>([]);
+
+const [topicsParent, topics] = useDragAndDrop<TopicListItem>([], {
+  plugins: [animations()],
+  draggable: (el: HTMLElement) => el.tagName == 'LI',
+  onSort: () => saveOrder(),
+  onTransfer: () => saveOrder(),
+});
+const channelParentRefs = ref<Record<number, HTMLElement | undefined>>({});
+const setChannelParent = (id: number) => (el: Element | ComponentPublicInstance | null) => {
+  channelParentRefs.value[id] = el as HTMLElement || undefined;
+};
 
 watchEffect(() => {
   if (!props.server) {
@@ -162,6 +170,25 @@ watchEffect(() => {
         ...t,
         channels: [...t.channels],
       }));
+});
+
+watchEffect(async () => {
+  await nextTick();
+  const configs = topics.value.flatMap(topic => {
+    const parent = channelParentRefs.value[topic.id];
+    return parent
+        ? [{
+          parent,
+          values: topic.channels,
+          group: 'channels',
+          plugins: [animations()],
+          draggable: (el: HTMLElement) => el.tagName === 'LI',
+          onSort: () => saveOrder(),
+          onTransfer: () => saveOrder(),
+        }]
+        : [];
+  });
+  dragAndDrop(configs);
 });
 
 const canManageChannels = permissions.manageChannels;
@@ -224,9 +251,6 @@ const saveOrder = async () => {
     }
   }
 };
-
-const onTopicsReorder = () => saveOrder();
-const onChannelsReorder = () => saveOrder();
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
   if (props.server) {
