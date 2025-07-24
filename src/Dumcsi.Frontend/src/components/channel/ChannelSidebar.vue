@@ -12,8 +12,18 @@
       </div>
 
       <div v-else class="py-2">
-        <div v-for="topic in topics" :key="topic.id" class="px-2 mb-4">
-          <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
+        <div
+            v-for="topic in topics"
+            :key="topic.id"
+            class="px-2 mb-4"
+            @dragover.prevent
+            @drop="onTopicDrop(topic.id)"
+        >
+          <div
+              class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase"
+              draggable="true"
+              @dragstart="onTopicDragStart(topic.id)"
+          >
             <span>{{ topic.name }}</span>
             <button
                 v-if="canManageChannels"
@@ -25,12 +35,16 @@
             </button>
           </div>
 
-          <div class="space-y-0.5">
+          <div class="space-y-0.5" @dragover.prevent @drop="onTopicDrop(topic.id)">
             <RouterLink
                 v-for="channel in topic.channels"
                 :key="channel.id"
                 :class="{ 'active': currentChannelId === channel.id }"
                 :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                draggable="true"
+                @dragstart="onChannelDragStart(channel.id)"
+                @dragover.prevent
+                @drop="onChannelDrop(channel.id)"
                 @contextmenu.prevent="openChannelMenu($event, channel)"
             >
               <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted" />
@@ -105,7 +119,8 @@ import {
   type ChannelDetailDto,
   type ChannelListItem,
   ChannelType,
-  type ServerDetails
+  type ServerDetails,
+  type TopicListItem
 } from '@/services/types';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import {usePermissions} from '@/composables/usePermissions';
@@ -127,6 +142,7 @@ const {permissions} = usePermissions();
 // --- State ---
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelDetailDto | null>(null);
+const dragItem = ref<{ type: 'topic' | 'channel'; id: number } | null>(null)
 
 interface MenuItem {
   label: string;
@@ -143,7 +159,15 @@ const deletingChannel = ref<ChannelListItem | null>(null);
 
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
-const topics = computed(() => props.server?.topics || []);
+const topics = computed<TopicListItem[]>(() => {
+  if (!props.server) return [];
+  return [...props.server.topics]
+      .sort((a, b) => a.position - b.position)
+      .map(t => ({
+        ...t,
+        channels: [...t.channels],
+      }));
+});
 
 const canManageChannels = permissions.manageChannels;
 
@@ -192,7 +216,70 @@ const confirmDeleteChannel = async () => {
     isConfirmDeleteOpen.value = false;
     deletingChannel.value = null;
   }
-}
+};
+
+const onTopicDragStart = (id: number) => {
+  if (!canManageChannels.value) return;
+  dragItem.value = { type: 'topic', id };
+};
+
+const onChannelDragStart = (id: number) => {
+  if (!canManageChannels.value) return;
+  dragItem.value = { type: 'channel', id };
+};
+
+const onTopicDrop = async (targetId: number) => {
+  const item = dragItem.value;
+  if (!item || !props.server) return;
+  if (item.type === 'topic') {
+    const list = props.server.topics;
+    const from = list.findIndex(t => t.id === item.id);
+    const to = list.findIndex(t => t.id === targetId);
+    if (from === -1 || to === -1 || from === to) { dragItem.value = null; return; }
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    for (let i = 0; i < list.length; i++) {
+      list[i].position = i;
+      await appStore.updateTopic(list[i].id, { position: i });
+    }
+  } else if (item.type === 'channel') {
+    const channelId = item.id;
+    const fromTopic = props.server.topics.find(t => t.channels.some(c => c.id === channelId));
+    const toTopic = props.server.topics.find(t => t.id === targetId);
+    if (!fromTopic || !toTopic) { dragItem.value = null; return; }
+    const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
+    const [channel] = fromTopic.channels.splice(fromIndex, 1);
+    channel.topicId = toTopic.id;
+    toTopic.channels.push(channel);
+    for (const topic of [fromTopic, toTopic]) {
+      topic.channels.forEach(async (c, idx) => {
+        await appStore.updateChannel(c.id, { position: idx, topicId: topic.id });
+      });
+    }
+  }
+  dragItem.value = null;
+};
+
+const onChannelDrop = async (targetId: number) => {
+  const item = dragItem.value;
+  if (!item || item.type !== 'channel' || !props.server) return;
+  const channelId = item.id;
+  const topicsList = props.server.topics;
+  const fromTopic = topicsList.find(t => t.channels.some(c => c.id === channelId));
+  const toTopic = topicsList.find(t => t.channels.some(c => c.id === targetId));
+  if (!fromTopic || !toTopic) { dragItem.value = null; return; }
+  const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
+  const [channel] = fromTopic.channels.splice(fromIndex, 1);
+  const toIndex = toTopic.channels.findIndex(c => c.id === targetId);
+  channel.topicId = toTopic.id;
+  toTopic.channels.splice(toIndex, 0, channel);
+  for (const topic of [fromTopic, toTopic]) {
+    topic.channels.forEach(async (c, idx) => {
+      await appStore.updateChannel(c.id, { position: idx, topicId: topic.id });
+    });
+  }
+  dragItem.value = null;
+};
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
   if (props.server) {

@@ -214,6 +214,13 @@ export const useAppStore = defineStore('app', () => {
         }
     };
 
+    const updateTopic = async (topicId: EntityId, payload: { name?: string | null; position?: number | null }) => {
+        await serverService.updateTopic(topicId, payload);
+        if (currentServer.value) {
+            await fetchServer(currentServer.value.id);
+        }
+    };
+
     const deleteChannel = async (channelId: EntityId) => {
         await channelService.deleteChannel(channelId);
         if (currentServer.value) {
@@ -685,6 +692,7 @@ export const useAppStore = defineStore('app', () => {
         updateCurrentChannelDetails,
         createChannel,
         updateChannel,
+        updateTopic,
         deleteChannel,
         openCreateChannelModal,
         closeCreateChannelModal,
