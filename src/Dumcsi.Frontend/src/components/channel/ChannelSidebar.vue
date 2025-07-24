@@ -102,7 +102,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
-import {animations, insert} from '@formkit/drag-and-drop';
+import {animations, insert, tearDown} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
 import {
   type ChannelDetailDto,
@@ -193,7 +193,7 @@ const setChannelParent = (id: number) => (el: Element | ComponentPublicInstance 
   channelParentRefs.value[id] = el as HTMLElement || undefined;
 };
 
-let channelDndInstances: Array<{ destroy: () => void }> = [];
+let channelDndParents: HTMLElement[] = [];
 
 watchEffect(() => {
   if (!props.server) {
@@ -210,46 +210,47 @@ watchEffect(() => {
 });
 
 watchEffect((onCleanup) => {
+  Object.values(channelParentRefs.value);
   nextTick().then(() => {
-    channelDndInstances.forEach(inst => inst.destroy());
-    channelDndInstances = [];
+    channelDndParents.forEach(p => tearDown(p));
+    channelDndParents = [];
 
     const configs = topics.value.flatMap(topic => {
       const parent = channelParentRefs.value[topic.id];
-      return parent
-          ? [{
-            parent,
-            values: topic.channels,
-            group: 'channels',
-            plugins: [
-              animations(),
-              insert({
-                insertPoint: () => {
-                  const div = document.createElement('div');
-                  for (const cls of insertPointClasses) div.classList.add(cls);
-                  return div;
-                },
-              }),
-            ],
-            draggable: (el: HTMLElement) => el.tagName === 'LI',
-            onSort: () => saveOrder(),
-            onTransfer: () => saveOrder(),
-          }]
-          : [];
+      if (!parent) return [];
+      channelDndParents.push(parent);
+      return [{
+        parent,
+        values: topic.channels,
+        group: 'channels',
+        plugins: [
+          animations(),
+          insert({
+            insertPoint: () => {
+              const div = document.createElement('div');
+              for (const cls of insertPointClasses) div.classList.add(cls);
+              return div;
+            },
+          }),
+        ],
+        draggable: (el: HTMLElement) => el.tagName === 'LI',
+        onSort: () => saveOrder(),
+        onTransfer: () => saveOrder(),
+      }];
     });
 
-    channelDndInstances = dragAndDrop(configs) as unknown as Array<{ destroy: () => void }>;
+    dragAndDrop(configs);
   });
 
   onCleanup(() => {
-    channelDndInstances.forEach(inst => inst.destroy());
-    channelDndInstances = [];
+    channelDndParents.forEach(p => tearDown(p));
+    channelDndParents = [];
   });
 });
 
 onBeforeUnmount(() => {
-  channelDndInstances.forEach(inst => inst.destroy());
-  channelDndInstances = [];
+  channelDndParents.forEach(p => tearDown(p));
+  channelDndParents = [];
 });
 
 const canManageChannels = permissions.manageChannels;
