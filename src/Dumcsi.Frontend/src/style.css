@@ -272,6 +272,10 @@
         @apply opacity-100;
     }
 
+    .drop-indicator {
+        @apply h-0.5 bg-green-500 rounded;
+    }
+
     /* Server Icon */
     .server-icon {
         @apply relative w-12 h-12 rounded-[24px] flex items-center justify-center

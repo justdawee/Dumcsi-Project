@@ -16,8 +16,9 @@
             v-for="topic in topics"
             :key="topic.id"
             class="px-2 mb-4"
-            @dragover.prevent
+            @dragleave="clearDropTarget"
             @drop="onTopicDrop(topic.id)"
+            @dragover.prevent="onTopicDragOver(topic.id)"
         >
           <div
               class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase"
@@ -35,25 +36,33 @@
             </button>
           </div>
 
-          <div class="space-y-0.5" @dragover.prevent @drop="onTopicDrop(topic.id)">
-            <RouterLink
-                v-for="channel in topic.channels"
-                :key="channel.id"
-                :class="{ 'active': currentChannelId === channel.id }"
-                :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
-                draggable="true"
-                @dragstart="onChannelDragStart(channel.id)"
-                @dragover.prevent
-                @drop="onChannelDrop(channel.id)"
-                @contextmenu.prevent="openChannelMenu($event, channel)"
-            >
-              <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted" />
-              <span class="truncate">{{ channel.name }}</span>
-              <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                      title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
-                <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
-              </button>
-            </RouterLink>
+          <div
+              class="space-y-0.5"
+              @dragleave="clearDropTarget"
+              @drop="onTopicDrop(topic.id)"
+              @dragover.prevent="onTopicDragOver(topic.id)"
+          >
+            <template v-for="channel in topic.channels" :key="channel.id">
+              <RouterLink
+                  :class="{ 'active': currentChannelId === channel.id }"
+                  :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                  draggable="true"
+                  @dragleave="clearDropTarget"
+                  @dragstart="onChannelDragStart(channel.id)"
+                  @drop="onChannelDrop(channel.id)"
+                  @dragover.prevent="onChannelDragOver(channel.id)"
+                  @contextmenu.prevent="openChannelMenu($event, channel)"
+              >
+                <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted"/>
+                <span class="truncate">{{ channel.name }}</span>
+                <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                        title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                  <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
+                </button>
+              </RouterLink>
+              <div v-if="dropTarget.channelId === channel.id" class="drop-indicator"></div>
+            </template>
+            <div v-if="dropTarget.topicId === topic.id && dropTarget.channelId === null" class="drop-indicator"></div>
           </div>
         </div>
       </div>
@@ -142,7 +151,7 @@ const {permissions} = usePermissions();
 // --- State ---
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelDetailDto | null>(null);
-const dragItem = ref<{ type: 'topic' | 'channel'; id: number } | null>(null)
+const dropTarget = ref<{ topicId: number | null; channelId: number | null }>({ topicId: null, channelId: null });
 
 interface MenuItem {
   label: string;
@@ -220,12 +229,26 @@ const confirmDeleteChannel = async () => {
 
 const onTopicDragStart = (id: number) => {
   if (!canManageChannels.value) return;
-  dragItem.value = { type: 'topic', id };
+  dragItem.value = {type: 'topic', id};
 };
 
 const onChannelDragStart = (id: number) => {
   if (!canManageChannels.value) return;
-  dragItem.value = { type: 'channel', id };
+  dragItem.value = {type: 'channel', id};
+};
+
+const onTopicDragOver = (id: number) => {
+  if (!dragItem.value) return;
+  dropTarget.value = { topicId: id, channelId: null };
+};
+
+const onChannelDragOver = (id: number) => {
+  if (!dragItem.value) return;
+  dropTarget.value = { topicId: null, channelId: id };
+};
+
+const clearDropTarget = () => {
+  dropTarget.value = { topicId: null, channelId: null };
 };
 
 const onTopicDrop = async (targetId: number) => {
@@ -235,29 +258,36 @@ const onTopicDrop = async (targetId: number) => {
     const list = props.server.topics;
     const from = list.findIndex(t => t.id === item.id);
     const to = list.findIndex(t => t.id === targetId);
-    if (from === -1 || to === -1 || from === to) { dragItem.value = null; return; }
+    if (from === -1 || to === -1 || from === to) {
+      dragItem.value = null;
+      return;
+    }
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);
     for (let i = 0; i < list.length; i++) {
       list[i].position = i;
-      await appStore.updateTopic(list[i].id, { position: i });
+      await appStore.updateTopic(list[i].id, {position: i});
     }
   } else if (item.type === 'channel') {
     const channelId = item.id;
     const fromTopic = props.server.topics.find(t => t.channels.some(c => c.id === channelId));
     const toTopic = props.server.topics.find(t => t.id === targetId);
-    if (!fromTopic || !toTopic) { dragItem.value = null; return; }
+    if (!fromTopic || !toTopic) {
+      dragItem.value = null;
+      return;
+    }
     const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
     const [channel] = fromTopic.channels.splice(fromIndex, 1);
     channel.topicId = toTopic.id;
     toTopic.channels.push(channel);
     for (const topic of [fromTopic, toTopic]) {
       topic.channels.forEach(async (c, idx) => {
-        await appStore.updateChannel(c.id, { position: idx, topicId: topic.id });
+        await appStore.updateChannel(c.id, {position: idx, topicId: topic.id});
       });
     }
   }
   dragItem.value = null;
+  clearDropTarget();
 };
 
 const onChannelDrop = async (targetId: number) => {
@@ -267,7 +297,10 @@ const onChannelDrop = async (targetId: number) => {
   const topicsList = props.server.topics;
   const fromTopic = topicsList.find(t => t.channels.some(c => c.id === channelId));
   const toTopic = topicsList.find(t => t.channels.some(c => c.id === targetId));
-  if (!fromTopic || !toTopic) { dragItem.value = null; return; }
+  if (!fromTopic || !toTopic) {
+    dragItem.value = null;
+    return;
+  }
   const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
   const [channel] = fromTopic.channels.splice(fromIndex, 1);
   const toIndex = toTopic.channels.findIndex(c => c.id === targetId);
@@ -279,6 +312,7 @@ const onChannelDrop = async (targetId: number) => {
     });
   }
   dragItem.value = null;
+  clearDropTarget();
 };
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
