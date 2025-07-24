@@ -660,7 +660,9 @@ public class ServerController(
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var topic = await dbContext.Topics.Include(t => t.Server)
+            .Include(t => t.Channels)
             .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
+        
         if (topic == null)
         {
             return NotFound(ApiResponse.Fail("TOPIC_NOT_FOUND", "The topic to update does not exist."));
