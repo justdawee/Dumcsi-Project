@@ -407,19 +407,9 @@ export const useAppStore = defineStore('app', () => {
         }
     };
 
-    const handleUserJoinedServer = (payload: UserServerPayload) => {
-        if (currentServer.value?.id === payload.serverId && payload.user) {
-            const newMember: ServerMember = {
-                userId: payload.user.id,
-                username: payload.user.username,
-                serverNickname: null,
-                globalNickname: payload.user.globalNickname || null,
-                avatarUrl: payload.user.avatar,
-                roles: [],
-                isOnline: onlineUsers.value.has(payload.user.id),
-                status: onlineUsers.value.has(payload.user.id) ? UserStatus.Online : UserStatus.Offline,
-            };
-            members.value.push(newMember);
+    const handleUserJoinedServer = async (payload: UserServerPayload) => {
+        if (currentServer.value?.id === payload.serverId) {
+            await fetchServerMembers(payload.serverId);
             if (currentServer.value) {
                 currentServer.value.memberCount += 1;
             }
