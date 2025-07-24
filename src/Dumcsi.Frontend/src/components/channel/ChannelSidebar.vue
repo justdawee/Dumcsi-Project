@@ -151,6 +151,7 @@ const {permissions} = usePermissions();
 // --- State ---
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelDetailDto | null>(null);
+const currentDragItem = ref<{ type: 'topic' | 'channel'; id: number } | null>(null);
 const dropTarget = ref<{ topicId: number | null; channelId: number | null }>({ topicId: null, channelId: null });
 
 interface MenuItem {
@@ -229,21 +230,21 @@ const confirmDeleteChannel = async () => {
 
 const onTopicDragStart = (id: number) => {
   if (!canManageChannels.value) return;
-  dragItem.value = {type: 'topic', id};
+  currentDragItem.value = { type: 'topic', id };
 };
 
 const onChannelDragStart = (id: number) => {
   if (!canManageChannels.value) return;
-  dragItem.value = {type: 'channel', id};
+  currentDragItem.value = { type: 'channel', id };
 };
 
 const onTopicDragOver = (id: number) => {
-  if (!dragItem.value) return;
+  if (!currentDragItem.value) return;
   dropTarget.value = { topicId: id, channelId: null };
 };
 
 const onChannelDragOver = (id: number) => {
-  if (!dragItem.value) return;
+  if (!currentDragItem.value) return;
   dropTarget.value = { topicId: null, channelId: id };
 };
 
@@ -252,55 +253,46 @@ const clearDropTarget = () => {
 };
 
 const onTopicDrop = async (targetId: number) => {
-  const item = dragItem.value;
+  const item = currentDragItem.value;
   if (!item || !props.server) return;
   if (item.type === 'topic') {
     const list = props.server.topics;
     const from = list.findIndex(t => t.id === item.id);
     const to = list.findIndex(t => t.id === targetId);
-    if (from === -1 || to === -1 || from === to) {
-      dragItem.value = null;
-      return;
-    }
+    if (from === -1 || to === -1 || from === to) { currentDragItem.value = null; return; }
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);
     for (let i = 0; i < list.length; i++) {
       list[i].position = i;
-      await appStore.updateTopic(list[i].id, {position: i});
+      await appStore.updateTopic(list[i].id, { position: i });
     }
   } else if (item.type === 'channel') {
     const channelId = item.id;
     const fromTopic = props.server.topics.find(t => t.channels.some(c => c.id === channelId));
     const toTopic = props.server.topics.find(t => t.id === targetId);
-    if (!fromTopic || !toTopic) {
-      dragItem.value = null;
-      return;
-    }
+    if (!fromTopic || !toTopic) { currentDragItem.value = null; return; }
     const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
     const [channel] = fromTopic.channels.splice(fromIndex, 1);
     channel.topicId = toTopic.id;
     toTopic.channels.push(channel);
     for (const topic of [fromTopic, toTopic]) {
       topic.channels.forEach(async (c, idx) => {
-        await appStore.updateChannel(c.id, {position: idx, topicId: topic.id});
+        await appStore.updateChannel(c.id, { position: idx, topicId: topic.id });
       });
     }
   }
-  dragItem.value = null;
+  currentDragItem.value = null;
   clearDropTarget();
 };
 
 const onChannelDrop = async (targetId: number) => {
-  const item = dragItem.value;
+  const item = currentDragItem.value;
   if (!item || item.type !== 'channel' || !props.server) return;
   const channelId = item.id;
   const topicsList = props.server.topics;
   const fromTopic = topicsList.find(t => t.channels.some(c => c.id === channelId));
   const toTopic = topicsList.find(t => t.channels.some(c => c.id === targetId));
-  if (!fromTopic || !toTopic) {
-    dragItem.value = null;
-    return;
-  }
+  if (!fromTopic || !toTopic) { currentDragItem.value = null; return; }
   const fromIndex = fromTopic.channels.findIndex(c => c.id === channelId);
   const [channel] = fromTopic.channels.splice(fromIndex, 1);
   const toIndex = toTopic.channels.findIndex(c => c.id === targetId);
@@ -311,7 +303,7 @@ const onChannelDrop = async (targetId: number) => {
       await appStore.updateChannel(c.id, { position: idx, topicId: topic.id });
     });
   }
-  dragItem.value = null;
+  currentDragItem.value = null;
   clearDropTarget();
 };
 
