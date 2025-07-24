@@ -12,6 +12,7 @@ import type {
     ServerListItemDto,
     ReactionPayload,
     ChannelDetailDto,
+    TopicListItem,
 } from '@/services/types';
 
 import {UserStatus} from '@/services/types'
@@ -110,6 +111,21 @@ export class SignalRService {
         this.connection.on('ChannelDeleted', (payload: ChannelDeletedPayload) => {
             console.log('SignalR: Channel deleted', payload);
             appStore.handleChannelDeleted(payload);
+        });
+
+        this.connection.on('TopicCreated', (topic: TopicListItem) => {
+            console.log('SignalR: Topic created', topic);
+            appStore.handleTopicCreated(topic);
+        });
+
+        this.connection.on('TopicUpdated', (topic: TopicListItem) => {
+            console.log('SignalR: Topic updated', topic);
+            appStore.handleTopicUpdated(topic);
+        });
+
+        this.connection.on('TopicDeleted', (payload: { TopicId: EntityId; ServerId: EntityId }) => {
+            console.log('SignalR: Topic deleted', payload);
+            appStore.handleTopicDeleted(payload);
         });
 
         // User events

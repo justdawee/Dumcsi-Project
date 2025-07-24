@@ -16,7 +16,7 @@
     <!-- Create Channel Modal -->
     <CreateChannelModal
         v-if="appStore.isCreateChannelModalOpen"
-        :server-id="appStore.createChannelForServerId"
+        :server-id="appStore.createChannelForServerId as number"
         @close="appStore.closeCreateChannelModal"
         @channel-created="handleChannelCreated"
     />

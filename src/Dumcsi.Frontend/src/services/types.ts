@@ -193,6 +193,7 @@ export interface ServerDetails extends ServerListItem {
     ownerUsername: string;
     currentUserPermissions: Permission;
     channels: ChannelListItem[];
+    topics: TopicListItem[];
     roles: Role[];
 }
 
@@ -240,6 +241,7 @@ export interface ServerDetailDto {
     currentUserPermissions: Permission;
     createdAt: ISODateString;
     channels: ChannelListItemDto[];
+    topics: TopicListItemDto[];
     roles: RoleDto[];
 }
 
@@ -252,6 +254,8 @@ export interface ServerDetailDto {
 // --- View Models (UI & Store számára) ---
 export interface ChannelListItem {
     id: EntityId;
+    serverId?: EntityId;
+    topicId?: EntityId | null;
     name: string;
     type: ChannelType;
 }
@@ -265,18 +269,21 @@ export interface CreateChannelRequest {
     name: string;
     description?: string | null;
     type: ChannelType;
+    topicId?: EntityId | null;
 }
 
 export interface UpdateChannelRequest {
     name?: string | null;
     description?: string | null;
     position?: number | null;
+    topicId?: EntityId | null;
 }
 
 // --- API Responses (Nyers adatok a backendtől) ---
 export interface ChannelListItemDto {
     id: EntityId;
     serverId: EntityId;
+    topicId: EntityId | null;
     name: string;
     type: ChannelType;
     position: number;
@@ -285,6 +292,22 @@ export interface ChannelListItemDto {
 export interface ChannelDetailDto extends ChannelListItemDto {
     description: string | null;
     createdAt: ISODateString;
+}
+
+export interface TopicListItem {
+    id: EntityId;
+    serverId: EntityId;
+    name: string;
+    position: number;
+    channels: ChannelListItem[];
+}
+
+export interface TopicListItemDto {
+    id: EntityId;
+    serverId: EntityId;
+    name: string;
+    position: number;
+    channels: ChannelListItemDto[];
 }
 
 /**

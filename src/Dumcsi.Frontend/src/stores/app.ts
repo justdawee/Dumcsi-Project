@@ -14,6 +14,7 @@ import type {
     ServerListItem,
     ServerListItemDto,
     ServerMember,
+    TopicListItem,
     UpdateChannelRequest,
     UpdateMessageRequest,
     UpdateServerRequest,
@@ -452,11 +453,18 @@ export const useAppStore = defineStore('app', () => {
 
     const handleChannelCreated = (channel: ChannelDetailDto) => {
         if (currentServer.value?.id === channel.serverId) {
-            currentServer.value.channels.push({
+            const item = {
                 id: channel.id,
+                serverId: channel.serverId,
+                topicId: channel.topicId ?? undefined,
                 name: channel.name,
                 type: channel.type,
-            });
+            };
+            currentServer.value.channels.push(item);
+            const topic = currentServer.value.topics.find(t => t.id === channel.topicId);
+            if (topic) {
+                topic.channels.push(item);
+            }
         }
     };
 
@@ -464,11 +472,32 @@ export const useAppStore = defineStore('app', () => {
         if (currentServer.value) {
             const index = currentServer.value.channels.findIndex(c => c.id === channel.id);
             if (index !== -1) {
-                currentServer.value.channels[index] = {
+                const item = {
                     id: channel.id,
+                    serverId: channel.serverId,
+                    topicId: channel.topicId ?? undefined,
                     name: channel.name,
                     type: channel.type,
                 };
+                const oldTopicId = currentServer.value.channels[index].topicId;
+                currentServer.value.channels[index] = item;
+
+                if (oldTopicId !== channel.topicId) {
+                    const oldTopic = currentServer.value.topics.find(t => t.id === oldTopicId);
+                    if (oldTopic) {
+                        oldTopic.channels = oldTopic.channels.filter(c => c.id !== channel.id);
+                    }
+                    const newTopic = currentServer.value.topics.find(t => t.id === channel.topicId);
+                    if (newTopic) {
+                        newTopic.channels.push(item);
+                    }
+                } else {
+                    const topic = currentServer.value.topics.find(t => t.id === channel.topicId);
+                    if (topic) {
+                        const idx = topic.channels.findIndex(c => c.id === channel.id);
+                        if (idx !== -1) topic.channels[idx] = item;
+                    }
+                }
             }
         }
         if (currentChannel.value?.id === channel.id) {
@@ -481,6 +510,10 @@ export const useAppStore = defineStore('app', () => {
             currentServer.value.channels = currentServer.value.channels.filter(
                 c => c.id !== payload.channelId
             );
+            const topic = currentServer.value.topics.find(t => t.channels.some(c => c.id === payload.channelId));
+            if (topic) {
+                topic.channels = topic.channels.filter(c => c.id !== payload.channelId);
+            }
         }
         if (currentChannel.value?.id === payload.channelId) {
             currentChannel.value = null;
@@ -492,6 +525,31 @@ export const useAppStore = defineStore('app', () => {
                     router.push(`/servers/${currentServer.value.id}`);
                 }
             }
+        }
+    };
+
+    const handleTopicCreated = (topic: TopicListItem) => {
+        if (currentServer.value?.id === topic.serverId) {
+            currentServer.value.topics.push(topic);
+        }
+    };
+
+    const handleTopicUpdated = (topic: TopicListItem) => {
+        if (!currentServer.value || currentServer.value.id !== topic.serverId) return;
+        const idx = currentServer.value.topics.findIndex(t => t.id === topic.id);
+        if (idx !== -1) {
+            currentServer.value.topics[idx] = topic;
+        } else {
+            currentServer.value.topics.push(topic);
+        }
+        // rebuild channels list from topics
+        currentServer.value.channels = currentServer.value.topics.flatMap(t => t.channels);
+    };
+
+    const handleTopicDeleted = (payload: { TopicId: EntityId; ServerId: EntityId }) => {
+        if (currentServer.value?.id === payload.ServerId) {
+            currentServer.value.topics = currentServer.value.topics.filter(t => t.id !== payload.TopicId);
+            currentServer.value.channels = currentServer.value.channels.filter(c => c.topicId !== payload.TopicId);
         }
     };
 
@@ -660,6 +718,9 @@ export const useAppStore = defineStore('app', () => {
         handleChannelCreated,
         handleChannelUpdated,
         handleChannelDeleted,
+        handleTopicCreated,
+        handleTopicUpdated,
+        handleTopicDeleted,
         handleRoleCreated,
         handleRoleUpdated,
         handleRoleDeleted,

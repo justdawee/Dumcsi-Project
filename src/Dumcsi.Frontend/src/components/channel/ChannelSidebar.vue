@@ -12,9 +12,9 @@
       </div>
 
       <div v-else class="py-2">
-        <div class="px-2 mb-4">
+        <div v-for="topic in topics" :key="topic.id" class="px-2 mb-4">
           <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
-            <span>Text Channels</span>
+            <span>{{ topic.name }}</span>
             <button
                 v-if="canManageChannels"
                 class="hover:text-text-secondary transition"
@@ -27,48 +27,19 @@
 
           <div class="space-y-0.5">
             <RouterLink
-                v-for="channel in textChannels"
+                v-for="channel in topic.channels"
                 :key="channel.id"
                 :class="{ 'active': currentChannelId === channel.id }"
                 :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
                 @contextmenu.prevent="openChannelMenu($event, channel)"
             >
-              <Hash class="w-4 h-4 text-text-muted"/>
+              <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted" />
               <span class="truncate">{{ channel.name }}</span>
               <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
                       title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
                 <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
               </button>
             </RouterLink>
-          </div>
-        </div>
-
-        <div v-if="voiceChannels.length > 0" class="px-2 mb-2">
-          <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
-            <span>Voice Channels</span>
-            <button
-                v-if="canManageChannels"
-                class="hover:text-text-secondary transition"
-                title="Create Channel"
-                @click="appStore.openCreateChannelModal(server!.id)"
-            >
-              <Plus class="w-4 h-4"/>
-            </button>
-          </div>
-          <div class="space-y-0.5">
-            <div
-                v-for="channel in voiceChannels"
-                :key="channel.id"
-                class="channel-item group voice-channel"
-                @contextmenu.prevent="openChannelMenu($event, channel)"
-            >
-              <Volume2 class="w-4 h-4 text-text-muted"/>
-              <span class="truncate">{{ channel.name }}</span>
-              <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                      title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
-                <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -172,8 +143,7 @@ const deletingChannel = ref<ChannelListItem | null>(null);
 
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
-const textChannels = computed(() => props.server?.channels?.filter(c => c.type === ChannelType.Text) || []);
-const voiceChannels = computed(() => props.server?.channels?.filter(c => c.type === ChannelType.Voice) || []);
+const topics = computed(() => props.server?.topics || []);
 
 const canManageChannels = permissions.manageChannels;
 

@@ -66,6 +66,13 @@
           />
         </div>
 
+        <div>
+          <label class="form-label">Topic</label>
+          <select v-model="form.topicId" class="form-input">
+            <option v-for="t in topics" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+        </div>
+
         <div class="flex gap-3 pt-4">
           <button
               class="flex-1 btn-secondary"
@@ -93,8 +100,8 @@
   </div>
 </template>
 
-<script setup>
-import {ref} from 'vue'
+<script lang="ts" setup>
+import {ref, computed} from 'vue'
 import {useRouter} from 'vue-router'
 import {useAppStore} from '@/stores/app'
 import {useToast} from "@/composables/useToast";
@@ -115,15 +122,21 @@ const error = ref('')
 const form = ref({
   name: '',
   description: '',
-  type: 0 // 0 = Text, 1 = Voice
+  type: 0, // 0 = Text, 1 = Voice
+  topicId: null as number | null
 })
+
+const topics = computed(() => appStore.currentServer?.topics || [])
 
 const handleCreateChannel = async () => {
   loading.value = true
   error.value = ''
 
   try {
-    const response = await appStore.createChannel(props.serverId, form.value)
+    if (form.value.topicId === null && topics.value.length > 0) {
+      form.value.topicId = topics.value[0].id
+    }
+    const response = await appStore.createChannel(props.serverId as number, form.value)
     emit('channel-created', response)
     emit('close')
 

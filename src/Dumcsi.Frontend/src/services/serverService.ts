@@ -5,6 +5,7 @@ import type {
     ServerDetails,
     ServerMember,
     ChannelListItem,
+    TopicListItem,
     CreateServerRequest,
     UpdateServerRequest,
     CreateChannelRequest,
@@ -14,6 +15,7 @@ import type {
     ServerDetailDto,
     ServerMemberDto,
     ChannelListItemDto,
+    TopicListItemDto,
     RoleDto,
     CreateInviteResponse,
 
@@ -27,7 +29,7 @@ import type {
     JoinServerResponse,
 } from './types';
 
-import { UserStatus } from './types';
+import {UserStatus} from './types';
 
 // =================================================================
 // MAPPER FÜGGVÉNYEK
@@ -49,8 +51,20 @@ function toRole(dto: RoleDto): Role {
 function toChannelListItem(dto: ChannelListItemDto): ChannelListItem {
     return {
         id: dto.id,
+        serverId: dto.serverId,
+        topicId: dto.topicId,
         name: dto.name,
         type: dto.type,
+    };
+}
+
+function toTopicListItem(dto: TopicListItemDto): TopicListItem {
+    return {
+        id: dto.id,
+        serverId: dto.serverId,
+        name: dto.name,
+        position: dto.position,
+        channels: dto.channels.map(toChannelListItem),
     };
 }
 
@@ -81,6 +95,7 @@ function toServerDetails(dto: ServerDetailDto): ServerDetails {
         currentUserPermissions: dto.currentUserPermissions,
         createdAt: dto.createdAt,
         channels: dto.channels.map(toChannelListItem),
+        topics: dto.topics.map(toTopicListItem),
         roles: dto.roles.map(toRole),
     };
 }
@@ -261,6 +276,41 @@ const serverService = {
             throw new Error(response.data.message);
         }
         return response.data.data;
+    },
+
+    async getTopics(serverId: EntityId): Promise<TopicListItem[]> {
+        const response = await api.get<ApiResponse<TopicListItemDto[]>>(
+            `/server/${serverId}/topics`
+        );
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        return response.data.data.map(toTopicListItem);
+    },
+
+    async createTopic(serverId: EntityId, payload: { name: string }): Promise<TopicListItem> {
+        const response = await api.post<ApiResponse<TopicListItemDto>>(
+            `/server/${serverId}/topics`,
+            payload
+        );
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        return toTopicListItem(response.data.data);
+    },
+
+    async updateTopic(topicId: EntityId, payload: { name?: string | null; position?: number | null }): Promise<void> {
+        const response = await api.patch<ApiResponse<void>>(`/server/topics/${topicId}`, payload);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
+
+    async deleteTopic(topicId: EntityId): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>(`/server/topics/${topicId}`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
     },
 
     /**

@@ -25,6 +25,12 @@
               <textarea id="channel-description" v-model="form.description" class="form-input resize-none"
                         rows="3"></textarea>
             </div>
+            <div>
+              <label class="form-label" for="channel-topic">Topic</label>
+              <select id="channel-topic" v-model="form.topicId" class="form-input">
+                <option v-for="t in topics" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </div>
             <p v-if="error" class="form-error">{{ error }}</p>
           </div>
 
@@ -67,11 +73,12 @@
 </template>
 
 <script lang="ts" setup>
-import {ref, reactive, watch} from 'vue';
+import {ref, reactive, watch, computed} from 'vue';
 import {Loader2} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import channelService from '@/services/channelService';
 import {useToast} from '@/composables/useToast';
+import {useAppStore} from '@/stores/app';
 import type {ChannelDetailDto, UpdateChannelRequest} from '@/services/types';
 
 const {addToast} = useToast();
@@ -89,11 +96,13 @@ const emit = defineEmits<{
 }>();
 
 // --- State ---
-const form = reactive<Partial<UpdateChannelRequest>>({name: '', description: ''});
+const form = reactive<Partial<UpdateChannelRequest>>({name: '', description: '', topicId: null});
 const isLoading = ref(false);
 const isDeleting = ref(false);
 const error = ref('');
 const isConfirmDeleteOpen = ref(false);
+const appStore = useAppStore();
+const topics = computed(() => appStore.currentServer?.topics || []);
 
 // --- Logic ---
 const closeModal = () => {
@@ -104,6 +113,7 @@ watch(() => props.channel, (newChannel) => {
   if (newChannel) {
     form.name = newChannel.name;
     form.description = newChannel.description || '';
+    form.topicId = newChannel.topicId ?? null;
   }
 }, {immediate: true});
 
@@ -119,6 +129,7 @@ const handleUpdateChannel = async () => {
       name: form.name,
       description: form.description,
       position: props.channel.position,
+      topicId: form.topicId,
     });
     emit('channel-updated', {
       id: props.channel.id,
