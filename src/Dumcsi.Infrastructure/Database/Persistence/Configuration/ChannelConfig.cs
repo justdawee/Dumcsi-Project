@@ -17,6 +17,11 @@ public class ChannelConfiguration : IEntityTypeConfiguration<Channel>
         builder.Property(x => x.Description)
             .HasMaxLength(500);
         
+        builder.HasOne(x => x.Topic)
+            .WithMany(t => t.Channels)
+            .HasForeignKey(x => x.TopicId)
+            .OnDelete(DeleteBehavior.SetNull);
+        
         builder.HasOne(x => x.Server)
             .WithMany(x => x.Channels)
             .HasForeignKey(x => x.ServerId)

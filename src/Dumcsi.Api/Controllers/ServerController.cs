@@ -52,17 +52,19 @@ public class ServerController(
     }
 
     [HttpPost]
-    public async Task<IActionResult> CreateServer([FromBody] ServerDtos.CreateServerRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateServer([FromBody] ServerDtos.CreateServerRequestDto request,
+        CancellationToken cancellationToken)
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
-        if (user == null) 
+        if (user == null)
         {
             return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
         }
 
-        var server = await serverSetupService.CreateNewServerAsync(user, request.Name, request.Description, request.Public, cancellationToken);
+        var server = await serverSetupService.CreateNewServerAsync(user, request.Name, request.Description,
+            request.Public, cancellationToken);
 
         var serverDto = new ServerDtos.ServerListItemDto
         {
@@ -89,79 +91,92 @@ public class ServerController(
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_VIEW", "You do not have permission to view this server."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_FORBIDDEN_VIEW", "You do not have permission to view this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        
+        var response = await dbContext.Servers
+            .Where(s => s.Id == id)
+            .Select(s => new ServerDtos.ServerDetailDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Description = s.Description ?? string.Empty,
+                Icon = s.Icon,
+                OwnerId = s.OwnerId,
+                OwnerUsername = s.Owner.Username,
+                MemberCount = s.Members.Count(),
+                IsOwner = s.OwnerId == CurrentUserId,
+                Public = s.Public,
+                CurrentUserPermissions = s.Members
+                    .Where(m => m.UserId == CurrentUserId)
+                    .SelectMany(m => m.Roles)
+                    .Aggregate(Permission.None, (current, role) => current | role.Permissions),
+                CreatedAt = s.CreatedAt,
+                Channels = s.Channels.OrderBy(c => c.Position).Select(c => new ChannelDtos.ChannelListItemDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Type = c.Type,
+                    Position = c.Position,
+                    ServerId = c.ServerId
+                }).ToList(),
+                Topics = s.Topics.OrderBy(t => t.Position).Select(t => new TopicDtos.TopicListItemDto
+                {
+                    Id = t.Id,
+                    ServerId = t.ServerId,
+                    Name = t.Name,
+                    Position = t.Position,
+                    Channels = t.Channels.OrderBy(c => c.Position).Select(c => new ChannelDtos.ChannelListItemDto
+                    {
+                        Id = c.Id,
+                        ServerId = c.ServerId,
+                        Name = c.Name,
+                        Type = c.Type,
+                        Position = c.Position
+                    }).ToList()
+                }).ToList()
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var server = await dbContext.Servers
-            .AsNoTracking()
-            .Include(s => s.Owner)
-            .Include(s => s.Channels.OrderBy(c => c.Position))
-            .Include(s => s.Members.Where(m => m.UserId == CurrentUserId))
-            .ThenInclude(m => m.Roles)
-            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-
-        if (server == null) 
+        if (response == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The requested server does not exist."));
         }
 
-        var currentUserMembership = server.Members.First();
-        var currentUserPermissions = currentUserMembership.Roles
-            .Aggregate(Permission.None, (current, role) => current | role.Permissions);
-
-        var memberCount = await dbContext.ServerMembers.CountAsync(sm => sm.ServerId == id, cancellationToken);
-
-        var response = new ServerDtos.ServerDetailDto
-        {
-            Id = server.Id,
-            Name = server.Name,
-            Description = server.Description ?? string.Empty,
-            Icon = server.Icon,
-            OwnerId = server.OwnerId,
-            OwnerUsername = server.Owner.Username,
-            MemberCount = memberCount,
-            IsOwner = server.OwnerId == CurrentUserId,
-            Public = server.Public,
-            CurrentUserPermissions = currentUserPermissions,
-            CreatedAt = server.CreatedAt,
-            Channels = server.Channels.Select(c => new ChannelDtos.ChannelListItemDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Type = c.Type,
-                Position = c.Position
-            }).ToList()
-        };
-
         return OkResponse(response);
     }
-    
+
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateServer(long id, [FromBody] ServerDtos.UpdateServerRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateServer(long id, [FromBody] ServerDtos.UpdateServerRequestDto request,
+        CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) 
+        if (!ModelState.IsValid)
         {
-            return BadRequest(ApiResponse.Fail("SERVER_UPDATE_INVALID_DATA", "The provided data for updating the server is invalid."));
+            return BadRequest(ApiResponse.Fail("SERVER_UPDATE_INVALID_DATA",
+                "The provided data for updating the server is invalid."));
         }
 
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_MANAGE", "You do not have permission to manage this server."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_FORBIDDEN_MANAGE", "You do not have permission to manage this server."));
         }
-        
+
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) 
+        if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to update does not exist."));
         }
 
-        if (server.OwnerId != CurrentUserId) 
+        if (server.OwnerId != CurrentUserId)
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can update the server."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can update the server."));
         }
 
         var oldValues = new { server.Name, server.Description, server.Icon, server.Public };
@@ -171,7 +186,7 @@ public class ServerController(
         server.Icon = request.Icon;
         server.Public = request.Public;
         server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
-        
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var changes = new
@@ -181,8 +196,8 @@ public class ServerController(
             Icon = new { Old = oldValues.Icon, New = server.Icon },
             Public = new { Old = oldValues.Public, New = server.Public }
         };
-        
-        var serverDto = new ServerDtos.ServerListItemDto 
+
+        var serverDto = new ServerDtos.ServerListItemDto
         {
             Id = server.Id,
             Name = server.Name,
@@ -192,7 +207,8 @@ public class ServerController(
         };
         await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto, cancellationToken);
 
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerUpdated, id, AuditLogTargetType.Server, changes);
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerUpdated, id,
+            AuditLogTargetType.Server, changes);
 
         return OkResponse("Server updated successfully.");
     }
@@ -207,28 +223,32 @@ public class ServerController(
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to delete does not exist."));
         }
-        
+
         if (server.OwnerId != CurrentUserId)
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can delete the server."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can delete the server."));
         }
 
         dbContext.Servers.Remove(server);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerDeleted, id, AuditLogTargetType.Server);
-        
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerDeleted, id,
+            AuditLogTargetType.Server);
+
         await chatHubContext.Clients.All.SendAsync("ServerDeleted", id, cancellationToken);
 
         return OkResponse("Server deleted successfully.");
     }
-    
+
     [HttpGet("{id}/members")]
     public async Task<IActionResult> GetServerMembers(long id, CancellationToken cancellationToken)
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_MEMBERS_FORBIDDEN_VIEW", "You do not have permission to view server members."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_MEMBERS_FORBIDDEN_VIEW",
+                    "You do not have permission to view server members."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -263,13 +283,15 @@ public class ServerController(
 
         return OkResponse(members);
     }
-    
+
     [HttpPost("{id}/transfer-ownership")]
-    public async Task<IActionResult> TransferOwnership(long id, [FromBody] ServerDtos.TransferOwnershipRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> TransferOwnership(long id,
+        [FromBody] ServerDtos.TransferOwnershipRequestDto request, CancellationToken cancellationToken)
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var server = await dbContext.Servers.Include(s => s.Members).FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        var server = await dbContext.Servers.Include(s => s.Members)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server does not exist."));
@@ -277,24 +299,28 @@ public class ServerController(
 
         if (server.OwnerId != CurrentUserId)
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can transfer ownership."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_FORBIDDEN_NOT_OWNER", "Only the server owner can transfer ownership."));
         }
 
         if (request.NewOwnerId == CurrentUserId)
         {
-            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_SAME_OWNER", "You are already the owner of this server."));
+            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_SAME_OWNER",
+                "You are already the owner of this server."));
         }
 
         if (!server.Members.Any(m => m.UserId == request.NewOwnerId))
         {
-            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_NOT_MEMBER", "The selected user is not a member of this server."));
+            return BadRequest(ApiResponse.Fail("SERVER_TRANSFER_NOT_MEMBER",
+                "The selected user is not a member of this server."));
         }
 
         server.OwnerId = request.NewOwnerId;
         server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerOwnershipTransferred, request.NewOwnerId, AuditLogTargetType.User);
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerOwnershipTransferred,
+            request.NewOwnerId, AuditLogTargetType.User);
 
         var serverDto = new ServerDtos.ServerListItemDto
         {
@@ -309,13 +335,15 @@ public class ServerController(
 
         return OkResponse("Server ownership transferred.");
     }
-    
+
     [HttpPost("{id}/invite")]
-    public async Task<IActionResult> CreateInvite(long id, [FromBody] InviteDtos.CreateInviteRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateInvite(long id, [FromBody] InviteDtos.CreateInviteRequestDto request,
+        CancellationToken cancellationToken)
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.CreateInvite))
         {
-            return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_CREATE", "You don't have permission to create invites."));
+            return StatusCode(403,
+                ApiResponse.Fail("INVITE_FORBIDDEN_CREATE", "You don't have permission to create invites."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -323,7 +351,7 @@ public class ServerController(
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
         var creator = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
 
-        if (server == null || creator == null) 
+        if (server == null || creator == null)
         {
             return NotFound(ApiResponse.Fail("INVITE_CREATE_PREREQUISITES_NOT_FOUND", "Server or creator not found."));
         }
@@ -345,56 +373,60 @@ public class ServerController(
 
         dbContext.Invites.Add(invite);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteCreated, null, AuditLogTargetType.Invite, new { invite.Code });
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteCreated, null,
+            AuditLogTargetType.Invite, new { invite.Code });
 
         return OkResponse(new { invite.Code });
     }
-    
+
     [HttpDelete("{id}/invite")]
     public async Task<IActionResult> DeleteInvite(long id, CancellationToken cancellationToken)
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
         {
-            return StatusCode(403, ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You don't have permission to delete invites."));
+            return StatusCode(403,
+                ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You don't have permission to delete invites."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var invite = await dbContext.Invites.FindAsync([id], cancellationToken);
-        if (invite == null) 
+        if (invite == null)
         {
             return NotFound(ApiResponse.Fail("INVITE_NOT_FOUND", "Invite not found."));
         }
 
         dbContext.Invites.Remove(invite);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteDeleted, null, AuditLogTargetType.Invite, new { invite.Code });
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteDeleted, null,
+            AuditLogTargetType.Invite, new { invite.Code });
 
         return OkResponse("Invite deleted successfully.");
     }
-    
+
     [HttpPost("{id}/leave")]
     public async Task<IActionResult> LeaveServer(long id, CancellationToken cancellationToken)
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) 
+        if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to leave does not exist."));
         }
-        
+
         if (server.OwnerId == CurrentUserId)
         {
-            return BadRequest(ApiResponse.Fail("SERVER_OWNER_CANNOT_LEAVE", "Server owner cannot leave. Delete the server instead."));
+            return BadRequest(ApiResponse.Fail("SERVER_OWNER_CANNOT_LEAVE",
+                "Server owner cannot leave. Delete the server instead."));
         }
 
         var membership = await dbContext.ServerMembers
             .FirstOrDefaultAsync(sm => sm.ServerId == id && sm.UserId == CurrentUserId, cancellationToken);
 
-        if (membership == null) 
+        if (membership == null)
         {
             return BadRequest(ApiResponse.Fail("SERVER_LEAVE_NOT_MEMBER", "You are not a member of this server."));
         }
@@ -402,19 +434,23 @@ public class ServerController(
         dbContext.ServerMembers.Remove(membership);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberLeft, CurrentUserId, AuditLogTargetType.User, reason: "User left the server.");
-        
-        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserLeftServer", new { UserId = CurrentUserId, ServerId = id }, cancellationToken: cancellationToken);
-        
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberLeft, CurrentUserId,
+            AuditLogTargetType.User, reason: "User left the server.");
+
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserLeftServer",
+            new { UserId = CurrentUserId, ServerId = id }, cancellationToken: cancellationToken);
+
         return OkResponse("Successfully left the server.");
     }
-    
+
     [HttpGet("{id}/channels")]
     public async Task<IActionResult> GetChannels(long id, CancellationToken cancellationToken)
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
         {
-            return StatusCode(403, ApiResponse.Fail("CHANNEL_LIST_FORBIDDEN_VIEW", "You do not have permission to view channels on this server."));
+            return StatusCode(403,
+                ApiResponse.Fail("CHANNEL_LIST_FORBIDDEN_VIEW",
+                    "You do not have permission to view channels on this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -433,24 +469,28 @@ public class ServerController(
 
         return OkResponse(channels);
     }
-    
+
     [HttpPost("{id}/channels")]
-    public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateChannel(long id, [FromBody] ChannelDtos.CreateChannelRequestDto request,
+        CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid) 
+        if (!ModelState.IsValid)
         {
-            return BadRequest(ApiResponse.Fail("CHANNEL_CREATE_INVALID_DATA", "The provided data for creating a channel is invalid."));
+            return BadRequest(ApiResponse.Fail("CHANNEL_CREATE_INVALID_DATA",
+                "The provided data for creating a channel is invalid."));
         }
-        
+
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageChannels))
         {
-            return StatusCode(403, ApiResponse.Fail("CHANNEL_FORBIDDEN_CREATE", "You do not have permission to create channels on this server."));
+            return StatusCode(403,
+                ApiResponse.Fail("CHANNEL_FORBIDDEN_CREATE",
+                    "You do not have permission to create channels on this server."));
         }
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) 
+        if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to add the channel to does not exist."));
         }
@@ -458,10 +498,12 @@ public class ServerController(
         var channel = new Channel
         {
             ServerId = id,
+            TopicId = request.TopicId,
             Name = request.Name,
             Description = request.Description,
             Type = request.Type,
-            Position = (await dbContext.Channels.Where(c => c.ServerId == id).MaxAsync(c => (int?)c.Position, cancellationToken) ?? -1) + 1,
+            Position = (await dbContext.Channels.Where(c => c.ServerId == id)
+                .MaxAsync(c => (int?)c.Position, cancellationToken) ?? -1) + 1,
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
             UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
             Server = server
@@ -469,23 +511,218 @@ public class ServerController(
 
         dbContext.Channels.Add(channel);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ChannelCreated, channel.Id, AuditLogTargetType.Channel, new { channel.Name, channel.Type });
-        
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ChannelCreated, channel.Id,
+            AuditLogTargetType.Channel, new { channel.Name, channel.Type });
+
         var channelDto = new ChannelDtos.ChannelListItemDto
         {
             Id = channel.Id,
             ServerId = channel.ServerId,
+            TopicId = channel.TopicId,
             Name = channel.Name,
             Type = channel.Type,
             Position = channel.Position
         };
-        
-        await chatHubContext.Clients.Group(id.ToString()).SendAsync("ChannelCreated", channelDto, cancellationToken: cancellationToken);
-        
-        return CreatedAtAction(nameof(GetChannels), new { id }, ApiResponse<ChannelDtos.ChannelListItemDto>.Success(channelDto, "Channel created successfully."));
+
+        await chatHubContext.Clients.Group(id.ToString())
+            .SendAsync("ChannelCreated", channelDto, cancellationToken: cancellationToken);
+
+        return CreatedAtAction(nameof(GetChannels), new { id },
+            ApiResponse<ChannelDtos.ChannelListItemDto>.Success(channelDto, "Channel created successfully."));
     }
-    
+
+    [HttpGet("{id}/topics")]
+    public async Task<IActionResult> GetTopics(long id, CancellationToken cancellationToken)
+    {
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ViewChannels))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("TOPIC_LIST_FORBIDDEN_VIEW",
+                    "You do not have permission to view topics on this server."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var topics = await dbContext.Topics
+            .Where(t => t.ServerId == id)
+            .Include(t => t.Channels.OrderBy(c => c.Position))
+            .OrderBy(t => t.Position)
+            .Select(t => new TopicDtos.TopicListItemDto
+            {
+                Id = t.Id,
+                ServerId = t.ServerId,
+                Name = t.Name,
+                Position = t.Position,
+                Channels = t.Channels.Select(c => new ChannelDtos.ChannelListItemDto
+                {
+                    Id = c.Id,
+                    ServerId = c.ServerId,
+                    Name = c.Name,
+                    Type = c.Type,
+                    Position = c.Position
+                }).ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        return OkResponse(topics);
+    }
+
+    [HttpPost("{id}/topics")]
+    public async Task<IActionResult> CreateTopic(long id, [FromBody] TopicDtos.CreateTopicRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ApiResponse.Fail("TOPIC_CREATE_INVALID_DATA",
+                "The provided data for creating a topic is invalid."));
+        }
+
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageChannels))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("TOPIC_FORBIDDEN_CREATE",
+                    "You do not have permission to create topics on this server."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var server = await dbContext.Servers.FindAsync([id], cancellationToken);
+        if (server == null)
+        {
+            return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to add the topic to does not exist."));
+        }
+
+        var topic = new Topic
+        {
+            ServerId = id,
+            Name = request.Name,
+            Position = (await dbContext.Topics.Where(t => t.ServerId == id)
+                .MaxAsync(t => (int?)t.Position, cancellationToken) ?? -1) + 1,
+            CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+            UpdatedAt = SystemClock.Instance.GetCurrentInstant(),
+            Server = server
+        };
+
+        dbContext.Topics.Add(topic);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.TopicCreated, topic.Id,
+            AuditLogTargetType.Topic, new { topic.Name });
+
+        var topicDto = new TopicDtos.TopicListItemDto
+        {
+            Id = topic.Id,
+            ServerId = topic.ServerId,
+            Name = topic.Name,
+            Position = topic.Position,
+            Channels = new List<ChannelDtos.ChannelListItemDto>()
+        };
+
+        await chatHubContext.Clients.Group(id.ToString())
+            .SendAsync("TopicCreated", topicDto, cancellationToken: cancellationToken);
+
+        return CreatedAtAction(nameof(GetTopics), new { id },
+            ApiResponse<TopicDtos.TopicListItemDto>.Success(topicDto, "Topic created successfully."));
+    }
+
+    [HttpPatch("topics/{topicId}")]
+    public async Task<IActionResult> UpdateTopic(long topicId, [FromBody] TopicDtos.UpdateTopicRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ApiResponse.Fail("TOPIC_UPDATE_INVALID_DATA",
+                "The provided data for updating the topic is invalid."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var topic = await dbContext.Topics.Include(t => t.Server).Include(topic => topic.Channels)
+            .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
+        if (topic == null)
+        {
+            return NotFound(ApiResponse.Fail("TOPIC_NOT_FOUND", "The topic to update does not exist."));
+        }
+
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, topic.ServerId,
+                Permission.ManageChannels))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("TOPIC_FORBIDDEN_MANAGE", "You do not have permission to manage this topic."));
+        }
+
+        var oldValues = new { topic.Name, topic.Position };
+
+        if (request.Name != null) topic.Name = request.Name;
+        if (request.Position.HasValue) topic.Position = request.Position.Value;
+        topic.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var changes = new
+        {
+            Name = new { Old = oldValues.Name, New = topic.Name },
+            Position = new { Old = oldValues.Position, New = topic.Position }
+        };
+
+        var topicDto = new TopicDtos.TopicListItemDto
+        {
+            Id = topic.Id,
+            ServerId = topic.ServerId,
+            Name = topic.Name,
+            Position = topic.Position,
+            Channels = topic.Channels.OrderBy(c => c.Position).Select(c => new ChannelDtos.ChannelListItemDto
+            {
+                Id = c.Id,
+                ServerId = c.ServerId,
+                Name = c.Name,
+                Type = c.Type,
+                Position = c.Position
+            }).ToList()
+        };
+
+        await auditLogService.LogAsync(topic.ServerId, CurrentUserId, AuditLogActionType.TopicUpdated, topic.Id,
+            AuditLogTargetType.Topic, changes);
+        await chatHubContext.Clients.Group(topic.ServerId.ToString())
+            .SendAsync("TopicUpdated", topicDto, cancellationToken);
+
+        return OkResponse("Topic updated successfully.");
+    }
+
+    [HttpDelete("topics/{topicId}")]
+    public async Task<IActionResult> DeleteTopic(long topicId, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var topic = await dbContext.Topics.Include(t => t.Server)
+            .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
+        if (topic == null)
+        {
+            return NotFound(ApiResponse.Fail("TOPIC_NOT_FOUND", "The topic to delete does not exist."));
+        }
+
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, topic.ServerId,
+                Permission.ManageChannels))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("TOPIC_FORBIDDEN_DELETE", "You do not have permission to delete this topic."));
+        }
+
+        var serverId = topic.ServerId;
+        var topicName = topic.Name;
+
+        dbContext.Topics.Remove(topic);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.TopicDeleted, topicId,
+            AuditLogTargetType.Topic, new { topicName });
+        await chatHubContext.Clients.Group(serverId.ToString()).SendAsync("TopicDeleted",
+            new { TopicId = topicId, ServerId = serverId }, cancellationToken);
+
+        return OkResponse("Topic deleted successfully.");
+    }
+
     [HttpGet("public")]
     public async Task<IActionResult> GetPublicServers(CancellationToken cancellationToken)
     {
@@ -510,36 +747,40 @@ public class ServerController(
 
         return OkResponse(servers);
     }
-    
+
     [HttpPost("{id}/join")]
     public async Task<IActionResult> JoinPublicServer(long id, CancellationToken cancellationToken)
     {
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var server = await dbContext.Servers.FindAsync([id], cancellationToken);
-        if (server == null) 
+        if (server == null)
         {
             return NotFound(ApiResponse.Fail("SERVER_NOT_FOUND", "The server to join does not exist."));
         }
-        
-        if (!server.Public) 
+
+        if (!server.Public)
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_JOIN_NOT_PUBLIC", "This server is not public. You need an invite to join."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_JOIN_NOT_PUBLIC", "This server is not public. You need an invite to join."));
         }
-        
-        if (await dbContext.ServerMembers.AnyAsync(sm => sm.ServerId == id && sm.UserId == CurrentUserId, cancellationToken))
+
+        if (await dbContext.ServerMembers.AnyAsync(sm => sm.ServerId == id && sm.UserId == CurrentUserId,
+                cancellationToken))
         {
-            return BadRequest(ApiResponse.Fail("SERVER_JOIN_ALREADY_MEMBER", "You are already a member of this server."));
+            return BadRequest(
+                ApiResponse.Fail("SERVER_JOIN_ALREADY_MEMBER", "You are already a member of this server."));
         }
 
         var user = await dbContext.Users.FindAsync([CurrentUserId], cancellationToken);
-        if (user == null) 
+        if (user == null)
         {
             return Unauthorized(ApiResponse.Fail("AUTH_USER_NOT_FOUND", "Authenticated user could not be found."));
         }
 
-        var everyoneRole = await dbContext.Roles.FirstAsync(r => r.ServerId == id && r.Name == "@everyone", cancellationToken);
-        
+        var everyoneRole =
+            await dbContext.Roles.FirstAsync(r => r.ServerId == id && r.Name == "@everyone", cancellationToken);
+
         var newMember = new ServerMember
         {
             User = user,
@@ -550,28 +791,32 @@ public class ServerController(
 
         dbContext.ServerMembers.Add(newMember);
         await dbContext.SaveChangesAsync(cancellationToken);
-        
-        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberJoined, CurrentUserId, AuditLogTargetType.User, new { server.Name });
 
-        var userDto = new UserDtos.UserProfileDto 
+        await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.ServerMemberJoined, CurrentUserId,
+            AuditLogTargetType.User, new { server.Name });
+
+        var userDto = new UserDtos.UserProfileDto
         {
             Id = user.Id,
             Username = user.Username,
             GlobalNickname = user.GlobalNickname,
             Avatar = user.Avatar
         };
-        
-        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserJoinedServer", new { User = userDto, ServerId = id }, cancellationToken: cancellationToken);
-        
+
+        await chatHubContext.Clients.Group(id.ToString()).SendAsync("UserJoinedServer",
+            new { User = userDto, ServerId = id }, cancellationToken: cancellationToken);
+
         return OkResponse(new { ServerId = server.Id }, "Successfully joined server.");
     }
-    
+
     [HttpPost("{serverId}/icon")]
     public async Task<IActionResult> UploadOrUpdateServerIcon(long serverId, IFormFile? file)
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageServer))
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE",
+                    "You do not have permission to manage this server's icon."));
         }
 
         if (file == null || file.Length == 0)
@@ -587,9 +832,10 @@ public class ServerController(
         var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
         if (!allowedTypes.Contains(file.ContentType.ToLower()))
         {
-            return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_FILE_TYPE", "Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed."));
+            return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_FILE_TYPE",
+                "Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed."));
         }
-        
+
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var server = await dbContext.Servers.FindAsync(serverId);
         if (server == null)
@@ -603,9 +849,10 @@ public class ServerController(
 
             if (image.Width > 1024 || image.Height > 1024)
             {
-                return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_DIMENSIONS", "Image dimensions cannot exceed 1024x1024 pixels."));
+                return BadRequest(ApiResponse.Fail("SERVER_ICON_INVALID_DIMENSIONS",
+                    "Image dimensions cannot exceed 1024x1024 pixels."));
             }
-            
+
             image.Mutate(x => x.Resize(new ResizeOptions
             {
                 Size = new Size(512, 512),
@@ -615,7 +862,7 @@ public class ServerController(
             await using var memoryStream = new MemoryStream();
             await image.SaveAsPngAsync(memoryStream);
             memoryStream.Position = 0;
-            
+
             if (!string.IsNullOrEmpty(server.Icon))
             {
                 try
@@ -628,14 +875,16 @@ public class ServerController(
                     // Log this error but don't fail the operation
                 }
             }
-            
-            var newIconUrl = await fileStorageService.UploadFileAsync(memoryStream, $"{serverId}_icon.png", "image/png");
-            
+
+            var newIconUrl =
+                await fileStorageService.UploadFileAsync(memoryStream, $"{serverId}_icon.png", "image/png");
+
             server.Icon = newIconUrl;
             server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
             await dbContext.SaveChangesAsync();
-            
-            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconChanged = newIconUrl });
+
+            await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId,
+                AuditLogTargetType.Server, new { IconChanged = newIconUrl });
 
             var serverDto = new ServerDtos.ServerListItemDto
             {
@@ -645,14 +894,16 @@ public class ServerController(
                 Icon = newIconUrl,
                 Public = server.Public
             };
-            
+
             await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto);
-            
+
             return OkResponse(new { url = newIconUrl });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail("SERVER_ICON_PROCESSING_ERROR", $"An error occurred while processing the image: {ex.Message}"));
+            return StatusCode(500,
+                ApiResponse.Fail("SERVER_ICON_PROCESSING_ERROR",
+                    $"An error occurred while processing the image: {ex.Message}"));
         }
     }
 
@@ -661,9 +912,11 @@ public class ServerController(
     {
         if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, serverId, Permission.ManageServer))
         {
-            return StatusCode(403, ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE", "You do not have permission to manage this server's icon."));
+            return StatusCode(403,
+                ApiResponse.Fail("SERVER_ICON_FORBIDDEN_MANAGE",
+                    "You do not have permission to manage this server's icon."));
         }
-        
+
         await using var dbContext = await DbContextFactory.CreateDbContextAsync();
         var server = await dbContext.Servers.FindAsync(serverId);
         if (server == null)
@@ -677,22 +930,24 @@ public class ServerController(
         }
 
         var oldIconUrl = server.Icon;
-        
-        try 
+
+        try
         {
             var fileName = Path.GetFileName(new Uri(oldIconUrl).LocalPath);
             await fileStorageService.DeleteFileAsync(fileName);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, ApiResponse.Fail("SERVER_ICON_DELETE_ERROR", $"Failed to delete server icon: {ex.Message}"));
+            return StatusCode(500,
+                ApiResponse.Fail("SERVER_ICON_DELETE_ERROR", $"Failed to delete server icon: {ex.Message}"));
         }
-        
+
         server.Icon = null;
         server.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         await dbContext.SaveChangesAsync();
-        
-        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId, AuditLogTargetType.Server, new { IconRemoved = oldIconUrl });
+
+        await auditLogService.LogAsync(serverId, CurrentUserId, AuditLogActionType.ServerUpdated, serverId,
+            AuditLogTargetType.Server, new { IconRemoved = oldIconUrl });
 
         var serverDto = new ServerDtos.ServerListItemDto
         {
@@ -702,9 +957,9 @@ public class ServerController(
             Icon = null,
             Public = server.Public
         };
-        
+
         await chatHubContext.Clients.All.SendAsync("ServerUpdated", serverDto);
-        
+
         return OkResponse("Server icon deleted successfully.");
     }
 }

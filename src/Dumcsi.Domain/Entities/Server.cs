@@ -28,5 +28,7 @@ public class Server
     
     public ICollection<Channel> Channels { get; set; } = new List<Channel>();
     
+    public ICollection<Topic> Topics { get; set; } = new List<Topic>();
+    
     public ICollection<Role> Roles { get; set; } = new List<Role>();
 }

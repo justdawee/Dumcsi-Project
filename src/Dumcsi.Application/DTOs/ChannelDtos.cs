@@ -10,6 +10,7 @@ public class ChannelDtos
     {
         public long Id { get; set; }
         public long ServerId { get; set; }
+        public long? TopicId { get; set; }
         public string Name { get; set; } = string.Empty;
         public ChannelType Type { get; set; }
         public int Position { get; set; }
@@ -25,6 +26,7 @@ public class ChannelDtos
         [StringLength(1024)]
         public string? Description { get; set; }
         public ChannelType Type { get; set; } = ChannelType.Text;
+        public long? TopicId { get; set; }
     }
 
     public class ChannelDetailDto : ChannelListItemDto
@@ -42,5 +44,6 @@ public class ChannelDtos
         [StringLength(1024)]
         public string? Description { get; set; }
         public int? Position { get; set; }
+        public long? TopicId { get; set; }
     }
 }

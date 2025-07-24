@@ -43,6 +43,7 @@ public class ServerDtos
         public Permission CurrentUserPermissions { get; set; }
         public Instant CreatedAt { get; set; }
         public List<ChannelDtos.ChannelListItemDto> Channels { get; set; } = new();
+        public List<TopicDtos.TopicListItemDto> Topics { get; set; } = new();
         public List<RoleDto> Roles { get; set; } = new();
     }
     

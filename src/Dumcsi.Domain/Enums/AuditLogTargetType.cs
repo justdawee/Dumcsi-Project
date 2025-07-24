@@ -5,6 +5,7 @@ public enum AuditLogTargetType
     Server,
     Role,
     Channel,
+    Topic,
     User,
     Invite
 }

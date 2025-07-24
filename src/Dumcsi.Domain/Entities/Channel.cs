@@ -19,6 +19,10 @@ public class Channel
     
     public required Server? Server { get; set; }
     
+    public long? TopicId { get; set; }
+
+    public Topic? Topic { get; set; }
+    
     public Instant CreatedAt { get; set; }
     
     public Instant UpdatedAt { get; set; }

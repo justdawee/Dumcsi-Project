@@ -53,6 +53,7 @@ public class ChannelController(
             Description = channel.Description,
             Type = channel.Type,
             Position = channel.Position,
+            TopicId = channel.TopicId,
             CreatedAt = channel.CreatedAt
         };
 
@@ -85,11 +86,12 @@ public class ChannelController(
             return NotFound(ApiResponse.Fail("CHANNEL_NOT_FOUND", "The channel to update does not exist."));
         }
 
-        var oldValues = new { channel.Name, channel.Description, channel.Position };
+        var oldValues = new { channel.Name, channel.Description, channel.Position, channel.TopicId };
         
         if (request.Name != null) channel.Name = request.Name;
         if (request.Description != null) channel.Description = request.Description;
         if (request.Position.HasValue) channel.Position = request.Position.Value;
+        if (request.TopicId.HasValue) channel.TopicId = request.TopicId.Value;
         channel.UpdatedAt = SystemClock.Instance.GetCurrentInstant();
         
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -97,7 +99,8 @@ public class ChannelController(
         var changes = new {
             Name = new { Old = oldValues.Name, New = channel.Name },
             Description = new { Old = oldValues.Description, New = channel.Description },
-            Position = new { Old = oldValues.Position, New = channel.Position }
+            Position = new { Old = oldValues.Position, New = channel.Position },
+            TopicId = new { Old = oldValues.TopicId, New = channel.TopicId }
         };
         
         var channelDto = new ChannelDtos.ChannelDetailDto
@@ -107,6 +110,7 @@ public class ChannelController(
             Description = channel.Description,
             Type = channel.Type,
             Position = channel.Position,
+            TopicId = channel.TopicId,
             CreatedAt = channel.CreatedAt
         };
         

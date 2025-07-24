@@ -20,6 +20,11 @@ public enum AuditLogActionType
     ChannelCreated,
     ChannelUpdated,
     ChannelDeleted,
+    
+    // Topic műveletek
+    TopicCreated,
+    TopicUpdated,
+    TopicDeleted,
 
     // Tag műveletek
     MemberKicked,

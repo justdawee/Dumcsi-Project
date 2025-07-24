@@ -45,8 +45,8 @@ namespace Dumcsi.Infrastructure.Services
             };
             
             serverMember.Roles.Add(everyoneRole);
-
-            var defaultChannel = new Channel
+            
+            var defaultTopic = new Topic
             {
                 Name = "general",
                 Server = server,
@@ -54,9 +54,19 @@ namespace Dumcsi.Infrastructure.Services
                 UpdatedAt = SystemClock.Instance.GetCurrentInstant()
             };
 
+            var defaultChannel = new Channel
+            {
+                Name = "general",
+                Server = server,
+                Topic = defaultTopic,
+                CreatedAt = SystemClock.Instance.GetCurrentInstant(),
+                UpdatedAt = SystemClock.Instance.GetCurrentInstant()
+            };
+
             dbContext.Servers.Add(server);
             dbContext.Roles.AddRange(everyoneRole);
             dbContext.ServerMembers.Add(serverMember);
+            dbContext.Topics.Add(defaultTopic);
             dbContext.Channels.Add(defaultChannel);
 
             await dbContext.SaveChangesAsync(cancellationToken);
