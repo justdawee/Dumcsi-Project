@@ -91,7 +91,7 @@
 
 <script lang="ts" setup>
 import type {Component} from 'vue';
-import {computed, ref, watchEffect, nextTick, type ComponentPublicInstance} from 'vue';
+import {computed, ref, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
@@ -101,8 +101,8 @@ import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
-import { useDragAndDrop, dragAndDrop } from '@formkit/drag-and-drop/vue';
-import { animations } from '@formkit/drag-and-drop';
+import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
+import {animations, insert} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
 import {
   type ChannelDetailDto,
@@ -128,6 +128,30 @@ const {addToast} = useToast();
 const {getDisplayName} = useUserDisplay();
 const {permissions} = usePermissions();
 
+const insertPointClasses = [
+  'absolute',
+  'bg-blue-500',
+  'z-[1000]',
+  'rounded-full',
+  'duration-[5ms]',
+  'before:block',
+  'before:content-["Insert"]',
+  'before:whitespace-nowrap',
+  'before:block',
+  'before:bg-blue-500',
+  'before:py-1',
+  'before:px-2',
+  'before:rounded-full',
+  'before:text-xs',
+  'before:absolute',
+  'before:top-1/2',
+  'before:left-1/2',
+  'before:-translate-y-1/2',
+  'before:-translate-x-1/2',
+  'before:text-white',
+  'before:text-xs',
+];
+
 // --- State ---
 const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelDetailDto | null>(null);
@@ -149,46 +173,83 @@ const deletingChannel = ref<ChannelListItem | null>(null);
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
 
 const [topicsParent, topics] = useDragAndDrop<TopicListItem>([], {
-  plugins: [animations()],
+  plugins: [
+    animations(),
+    insert({
+      insertPoint: () => {
+        const div = document.createElement('div');
+        for (const cls of insertPointClasses) div.classList.add(cls);
+        return div;
+      },
+    }),
+  ],
   draggable: (el: HTMLElement) => el.tagName == 'LI',
   onSort: () => saveOrder(),
   onTransfer: () => saveOrder(),
 });
+
 const channelParentRefs = ref<Record<number, HTMLElement | undefined>>({});
 const setChannelParent = (id: number) => (el: Element | ComponentPublicInstance | null) => {
   channelParentRefs.value[id] = el as HTMLElement || undefined;
 };
 
+let channelDndInstances: Array<{ destroy: () => void }> = [];
+
 watchEffect(() => {
   if (!props.server) {
-    topics.value = [];
+    topics.value.splice(0, topics.value.length);
     return;
   }
-  topics.value = [...props.server.topics]
+  const newSortedTopics = [...props.server.topics]
       .sort((a, b) => a.position - b.position)
       .map(t => ({
         ...t,
         channels: [...t.channels],
       }));
+  topics.value.splice(0, topics.value.length, ...newSortedTopics);
 });
 
-watchEffect(async () => {
-  await nextTick();
-  const configs = topics.value.flatMap(topic => {
-    const parent = channelParentRefs.value[topic.id];
-    return parent
-        ? [{
-          parent,
-          values: topic.channels,
-          group: 'channels',
-          plugins: [animations()],
-          draggable: (el: HTMLElement) => el.tagName === 'LI',
-          onSort: () => saveOrder(),
-          onTransfer: () => saveOrder(),
-        }]
-        : [];
+watchEffect((onCleanup) => {
+  nextTick().then(() => {
+    channelDndInstances.forEach(inst => inst.destroy());
+    channelDndInstances = [];
+
+    const configs = topics.value.flatMap(topic => {
+      const parent = channelParentRefs.value[topic.id];
+      return parent
+          ? [{
+            parent,
+            values: topic.channels,
+            group: 'channels',
+            plugins: [
+              animations(),
+              insert({
+                insertPoint: () => {
+                  const div = document.createElement('div');
+                  for (const cls of insertPointClasses) div.classList.add(cls);
+                  return div;
+                },
+              }),
+            ],
+            draggable: (el: HTMLElement) => el.tagName === 'LI',
+            onSort: () => saveOrder(),
+            onTransfer: () => saveOrder(),
+          }]
+          : [];
+    });
+
+    channelDndInstances = dragAndDrop(configs) as unknown as Array<{ destroy: () => void }>;
   });
-  dragAndDrop(configs);
+
+  onCleanup(() => {
+    channelDndInstances.forEach(inst => inst.destroy());
+    channelDndInstances = [];
+  });
+});
+
+onBeforeUnmount(() => {
+  channelDndInstances.forEach(inst => inst.destroy());
+  channelDndInstances = [];
 });
 
 const canManageChannels = permissions.manageChannels;
@@ -244,10 +305,10 @@ const saveOrder = async () => {
   if (!props.server) return;
   for (let i = 0; i < topics.value.length; i++) {
     const topic = topics.value[i];
-    await appStore.updateTopic(topic.id, { position: i });
+    await appStore.updateTopic(topic.id, {position: i});
     for (let j = 0; j < topic.channels.length; j++) {
       const ch = topic.channels[j];
-      await appStore.updateChannel(ch.id, { position: j, topicId: topic.id });
+      await appStore.updateChannel(ch.id, {position: j, topicId: topic.id});
     }
   }
 };
