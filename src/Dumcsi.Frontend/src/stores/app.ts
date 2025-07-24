@@ -467,10 +467,14 @@ export const useAppStore = defineStore('app', () => {
                 name: channel.name,
                 type: channel.type,
             };
-            currentServer.value.channels.push(item);
+            if (!currentServer.value.channels.some(c => c.id === channel.id)) {
+                currentServer.value.channels.push(item);
+            }
             const topic = currentServer.value.topics.find(t => t.id === channel.topicId);
             if (topic) {
-                topic.channels.push(item);
+                if (!topic.channels.some(c => c.id === channel.id)) {
+                    topic.channels.push(item);
+                }
             }
         }
     };
@@ -496,7 +500,12 @@ export const useAppStore = defineStore('app', () => {
                     }
                     const newTopic = currentServer.value.topics.find(t => t.id === channel.topicId);
                     if (newTopic) {
-                        newTopic.channels.push(item);
+                        const exist = newTopic.channels.findIndex(c => c.id === channel.id);
+                        if (exist !== -1) {
+                            newTopic.channels[exist] = item;
+                        } else {
+                            newTopic.channels.push(item);
+                        }
                     }
                 } else {
                     const topic = currentServer.value.topics.find(t => t.id === channel.topicId);

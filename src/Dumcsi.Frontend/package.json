@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@formkit/drag-and-drop": "^0.5.3",
+    "@formkit/vue": "^1.6.9",
     "@microsoft/signalr": "^8.0.7",
     "@tailwindcss/postcss": "^4.1.11",
     "axios": "^1.10.0",

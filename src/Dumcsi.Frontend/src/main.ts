@@ -1,10 +1,11 @@
 import {createApp} from 'vue';
-import { createPinia } from 'pinia';
+import {createPinia} from 'pinia';
 import closeOnBackdrop from '@/directives/closeOnBackdrop';
 import App from './App.vue';
 import router from './router';
-import { useAuthStore } from './stores/auth';
-import { signalRService } from './services/signalrService';
+import {useAuthStore} from './stores/auth';
+import {signalRService} from './services/signalrService';
+import {plugin as formKitPlugin, defaultConfig} from '@formkit/vue';
 import './style.css';
 
 const app = createApp(App);
@@ -14,6 +15,7 @@ app.directive('backdrop-close', closeOnBackdrop);
 
 app.use(pinia);
 app.use(router);
+app.use(formKitPlugin, defaultConfig());
 
 const authStore = useAuthStore();
 
