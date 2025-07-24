@@ -2,8 +2,8 @@
   <Transition name="modal-fade">
     <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
         v-backdrop-close="closeModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-bg-base/80 backdrop-blur-sm"
     >
       <div
           class="w-full max-w-2xl transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50"
@@ -39,14 +39,14 @@
                         v-else
                         class="w-32 h-32 rounded-full bg-main-700 flex items-center justify-center"
                     >
-                      <ImageIcon class="w-10 h-10 text-text-muted" />
+                      <ImageIcon class="w-10 h-10 text-text-muted"/>
                     </div>
                   </div>
                   <label
                       class="absolute inset-0 bg-bg-base/80 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center cursor-pointer"
                   >
                     <div class="text-center">
-                      <Camera class="w-8 h-8 text-text-default mx-auto mb-1" />
+                      <Camera class="w-8 h-8 text-text-default mx-auto mb-1"/>
                       <span class="text-xs text-text-default font-medium"
                       >Change Icon</span
                       >
@@ -63,28 +63,18 @@
                       v-if="iconUploading"
                       class="absolute inset-0 bg-bg-base/80 rounded-full flex items-center justify-center"
                   >
-                    <Loader2 class="w-8 h-8 animate-spin text-text-default" />
+                    <Loader2 class="w-8 h-8 animate-spin text-text-default"/>
                   </div>
                 </div>
                 <div v-if="form.icon" class="mt-3 w-32">
                   <button
                       :disabled="removingIcon"
-                      class="btn-secondary relative w-full text-xs py-1.5 text-danger hover:bg-danger/10 hover:text-red-300 border-danger/20 focus:outline-none rounded"
+                      class="btn-secondary w-full text-xs py-1.5 text-danger hover:bg-danger/10 hover:text-red-300 border-danger/20 focus:outline-none rounded flex items-center justify-center gap-x-1"
                       @click="removeIcon"
                   >
-                    <span
-                        v-if="removingIcon"
-                        class="absolute left-3 top-1/2 transform -translate-y-1/2"
-                    >
-                      <Loader2 class="w-4 h-4 animate-spin" />
-                    </span>
-                    <span
-                        v-else
-                        class="absolute left-3 top-1/2 transform -translate-y-1/2"
-                    >
-                      <Trash2 class="w-4 h-4" />
-                    </span>
-                    <span class="block w-full text-center"> Remove </span>
+                    <Loader2 v-if="removingIcon" class="h-4 w-4 animate-spin"/>
+                    <Trash2 v-else class="h-4 w-4"/>
+                    <span>Remove Icon</span>
                   </button>
                 </div>
               </div>
@@ -143,7 +133,7 @@
                   type="button"
                   @click="isDeleteModalOpen = true"
               >
-                <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2" />
+                <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2"/>
                 Delete Server
               </button>
               <button
@@ -166,7 +156,7 @@
                   class="btn-primary"
                   type="submit"
               >
-                <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
+                <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2"/>
                 Save Changes
               </button>
             </div>
@@ -200,7 +190,7 @@ import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import uploadService from '@/services/uploadService';
 import type {ServerListItem, UpdateServerRequest} from '@/services/types';
-import {Loader2, Camera, ImageIcon} from 'lucide-vue-next';
+import {Loader2, Trash2, Camera, ImageIcon} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import TransferOwnershipModal from './TransferOwnershipModal.vue';
 import {getDisplayMessage} from '@/services/errorHandler';
