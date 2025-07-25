@@ -7,10 +7,8 @@
         class="fixed z-50"
     >
       <div class="w-64 bg-gray-800 rounded-lg shadow-lg border border-gray-700 relative overflow-hidden">
-        <!-- header bar -->
-        <div class="h-12 bg-[#765159]"></div>
+        <div class="h-20 bg-[#765159]"></div>
 
-        <!-- action buttons -->
         <div class="absolute top-2 right-2 flex space-x-2">
           <button
               v-if="canManageRoles"
@@ -36,14 +34,14 @@
           </button>
         </div>
 
-        <!-- avatar and user info -->
-        <div class="flex flex-col items-center px-4 -mt-8 pb-4">
+        <div class="flex flex-col items-start px-3 -mt-8 pb-3">
           <UserAvatar
               :avatar-url="avatarUrl"
               :user-id="userId"
               :username="user.username"
-              :size="64"
+              :size="80"
               show-online-indicator
+              indicator-bg-color="var(--color-main-800)"
               class="rounded-full ring-4 ring-gray-800"
           />
           <p class="mt-3 text-lg font-semibold text-white truncate">
@@ -53,7 +51,7 @@
           <p v-if="mutualServersCount" class="text-xs text-gray-400 mt-1">
             {{ mutualServersCount }} Mutual Servers
           </p>
-          <div class="flex items-center space-x-1 mt-2 flex-wrap justify-center">
+          <div class="flex items-center space-x-1 mt-2 flex-wrap justify-start">
             <span
                 v-if="isAdmin"
                 class="px-2 py-0.5 bg-red-600 rounded-full text-xs font-medium"
@@ -76,7 +74,7 @@
             </template>
           </div>
           <button
-              class="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-1.5 rounded"
+              class="mt-4 w-full bg-secondary hover:bg-secondary/50 text-white text-sm font-medium py-1.5 rounded"
               @click="messageUser"
           >
             Message
