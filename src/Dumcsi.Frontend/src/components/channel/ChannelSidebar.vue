@@ -91,7 +91,7 @@
 
 <script lang="ts" setup>
 import type {Component} from 'vue';
-import {computed, ref, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
+import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
@@ -168,6 +168,7 @@ const channelContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const channelMenuItems = ref<MenuItem[]>([]);
 const isConfirmDeleteOpen = ref(false);
 const isDeleting = ref(false);
+const isSavingOrder = ref(false);
 const deletingChannel = ref<ChannelListItem | null>(null);
 
 // --- Computed ---
@@ -211,6 +212,7 @@ watchEffect(() => {
 });
 
 watchEffect((onCleanup) => {
+  if (isSavingOrder.value) return;
   Object.values(channelParentRefs.value);
   nextTick().then(() => {
     channelDndParents.forEach(p => tearDown(p));
@@ -304,25 +306,29 @@ const confirmDeleteChannel = async () => {
 };
 
 const saveOrder = async () => {
-  if (!props.server) return;
-  const topicSnapshot = topics.value.map(t => ({
-    id: t.id,
-    channels: t.channels.map(c => ({ id: c.id })),
-  }));
+  if (!props.server || isSavingOrder.value) return;
 
-  const requests: Promise<void>[] = [];
-  for (let i = 0; i < topicSnapshot.length; i++) {
-    const snapshot = topicSnapshot[i];
-    requests.push(serverService.updateTopic(snapshot.id, { position: i }));
-    for (let j = 0; j < snapshot.channels.length; j++) {
-      const ch = snapshot.channels[j];
-      requests.push(
-          channelService.updateChannel(ch.id, { position: j, topicId: snapshot.id })
-      );
+  isSavingOrder.value = true;
+  const updatePromises: Promise<any>[] = [];
+
+  try {
+    topics.value.forEach((topic, topicIndex) => {
+      updatePromises.push(appStore.updateTopic(topic.id, {position: topicIndex}));
+      topic.channels.forEach((channel, channelIndex) => {
+        updatePromises.push(appStore.updateChannel(channel.id, {position: channelIndex, topicId: topic.id}));
+      });
+    });
+
+    await Promise.all(updatePromises);
+
+  } catch (error) {
+    await appStore.fetchServer(props.server.id);
+  } finally {
+    if (props.server) {
+      await appStore.fetchServer(props.server.id);
     }
+    isSavingOrder.value = false;
   }
-  await Promise.all(requests);
-  await appStore.fetchServer(props.server.id);
 };
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
