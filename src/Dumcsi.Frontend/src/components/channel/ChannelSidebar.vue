@@ -104,6 +104,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
 import {animations, insert, tearDown} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
+import serverService from '@/services/serverService';
 import {
   type ChannelDetailDto,
   type ChannelListItem,
@@ -304,14 +305,24 @@ const confirmDeleteChannel = async () => {
 
 const saveOrder = async () => {
   if (!props.server) return;
-  for (let i = 0; i < topics.value.length; i++) {
-    const topic = topics.value[i];
-    await appStore.updateTopic(topic.id, {position: i});
-    for (let j = 0; j < topic.channels.length; j++) {
-      const ch = topic.channels[j];
-      await appStore.updateChannel(ch.id, {position: j, topicId: topic.id});
+  const topicSnapshot = topics.value.map(t => ({
+    id: t.id,
+    channels: t.channels.map(c => ({ id: c.id })),
+  }));
+
+  const requests: Promise<void>[] = [];
+  for (let i = 0; i < topicSnapshot.length; i++) {
+    const snapshot = topicSnapshot[i];
+    requests.push(serverService.updateTopic(snapshot.id, { position: i }));
+    for (let j = 0; j < snapshot.channels.length; j++) {
+      const ch = snapshot.channels[j];
+      requests.push(
+          channelService.updateChannel(ch.id, { position: j, topicId: snapshot.id })
+      );
     }
   }
+  await Promise.all(requests);
+  await appStore.fetchServer(props.server.id);
 };
 
 const handleChannelUpdate = (updatedData: { id: number, name: string, description?: string }) => {
