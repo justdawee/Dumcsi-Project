@@ -61,8 +61,14 @@ const positionStyle = computed(() => {
     if (left + cardWidth > window.innerWidth) {
       left = window.innerWidth - cardWidth - 10;
     }
+    if (left < 0) {
+      left = 10;
+    }
     if (top + cardHeight > window.innerHeight) {
       top = window.innerHeight - cardHeight - 10;
+    }
+    if (top < 0) {
+      top = 10;
     }
   }
   return { left: `${left}px`, top: `${top}px` };

@@ -66,17 +66,13 @@
         </div>
       </div>
 
-      <div v-if="isMemberListOpen" class="w-60 bg-main-900 border-l border-main-700 p-4 animate-slide-in flex flex-col">
-        <h3 class="font-semibold text-text-default mb-4">Members - {{ members.length }}</h3>
-        <div v-if="appStore.loading.members" class="flex justify-center items-center h-full">
-          <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
-        </div>
+      <div v-if="isMemberListOpen" class="w-66 bg-main-900 border-l border-main-700 py-4 animate-slide-in flex flex-col"> <h3 class="font-semibold text-text-default mb-4 px-4">Members - {{ members.length }}</h3> <div v-if="appStore.loading.members" class="flex justify-center items-center h-full px-4"> <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
+      </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li
               v-for="member in members"
               :key="member.userId"
-              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 rounded"
-              @click="openMemberInfo(member, $event)"
+              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 px-4 rounded" @click="openMemberInfo(member, $event)"
           >
             <UserAvatar
                 :avatar-url="member.avatarUrl"
@@ -87,12 +83,12 @@
                 show-online-indicator
             />
             <div class="flex-1 min-w-0">
-              <span class="text-gray-300 font-medium text-sm truncate block">
-                {{ getDisplayName(member) }}
-              </span>
+        <span class="text-gray-300 font-medium text-sm truncate block">
+          {{ getDisplayName(member) }}
+        </span>
               <span v-if="member.roles.length > 0" class="text-xs text-text-tertiary">
-                {{ member.roles[0].name }}
-              </span>
+          {{ member.roles[0].name }}
+        </span>
             </div>
             <div v-if="canManageMember(member.userId).value" class="flex gap-1">
               <button
@@ -271,12 +267,16 @@ const banMember = async () => {
 };
 
 const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
+  event.stopPropagation();
   const target = event.currentTarget as HTMLElement;
   const rect = target.getBoundingClientRect();
-  infoCardPos.value = { x: rect.right + 8, y: rect.top };
+  const cardWidth = 256;
+  const offset = 8;
+  infoCardPos.value = { x: rect.left - cardWidth - offset, y: rect.top };
   infoCardMember.value = member;
   infoCardVisible.value = true;
 };
+
 
 const handleGlobalDrop = (event: CustomEvent<{ files: FileList; direct: boolean }>) => {
   if (!messageInputRef.value) return;
