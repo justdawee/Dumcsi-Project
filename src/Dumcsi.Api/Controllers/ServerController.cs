@@ -148,7 +148,8 @@ public class ServerController(
                 Name = c.Name,
                 Type = c.Type,
                 Position = c.Position,
-                ServerId = c.ServerId
+                ServerId = c.ServerId,
+                TopicId = c.TopicId
             }).ToList(),
             Topics = server.Topics.Select(t => new TopicDtos.TopicListItemDto
             {
@@ -160,6 +161,7 @@ public class ServerController(
                 {
                     Id = c.Id,
                     ServerId = c.ServerId,
+                    TopicId = c.TopicId,
                     Name = c.Name,
                     Type = c.Type,
                     Position = c.Position
@@ -484,7 +486,9 @@ public class ServerController(
                 Id = c.Id,
                 Name = c.Name,
                 Type = c.Type,
-                Position = c.Position
+                Position = c.Position,
+                ServerId = c.ServerId,
+                TopicId = c.TopicId
             })
             .ToListAsync(cancellationToken);
 
@@ -579,6 +583,7 @@ public class ServerController(
                 {
                     Id = c.Id,
                     ServerId = c.ServerId,
+                    TopicId = c.TopicId,
                     Name = c.Name,
                     Type = c.Type,
                     Position = c.Position
@@ -699,6 +704,7 @@ public class ServerController(
             {
                 Id = c.Id,
                 ServerId = c.ServerId,
+                TopicId = c.TopicId,
                 Name = c.Name,
                 Type = c.Type,
                 Position = c.Position
