@@ -183,7 +183,7 @@ const [topicsParent, topics] = useDragAndDrop<TopicListItem>([], {
       },
     }),
   ],
-  draggable: (el: HTMLElement) => el.tagName == 'LI',
+  draggable: (el: HTMLElement) => canManageChannels.value && el.tagName == 'LI',
   onSort: () => saveOrder(),
   onTransfer: () => saveOrder(),
 });
@@ -233,7 +233,7 @@ watchEffect((onCleanup) => {
             },
           }),
         ],
-        draggable: (el: HTMLElement) => el.tagName === 'LI',
+        draggable: (el: HTMLElement) => canManageChannels.value && el.tagName === 'LI',
         onSort: () => saveOrder(),
         onTransfer: () => saveOrder(),
       }];
