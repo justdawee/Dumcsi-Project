@@ -513,6 +513,24 @@ export class SignalRService {
         }
     }
 
+    /**
+     * Allows external components to subscribe to SignalR events.
+     */
+    on(event: string, callback: (...args: any[]) => void): void {
+        if (this.connection) {
+            this.connection.on(event, callback);
+        }
+    }
+
+    /**
+     * Removes a previously registered SignalR event listener.
+     */
+    off(event: string, callback: (...args: any[]) => void): void {
+        if (this.connection) {
+            this.connection.off(event, callback);
+        }
+    }
+
     get isConnected(): boolean {
         return this.connection?.state === signalR.HubConnectionState.Connected;
     }

@@ -79,12 +79,13 @@
 </template>
 
 <script lang="ts" setup>
-import {ref, onMounted, reactive, computed} from 'vue';
+import {ref, onMounted, onBeforeUnmount, reactive, computed} from 'vue';
 import {useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
-import type {ServerListItem} from '@/services/types';
+import {signalRService} from '@/services/signalrService';
+import type {ServerListItem, ServerListItemDto, EntityId} from '@/services/types';
 import {Loader2} from 'lucide-vue-next';
 
 // --- Props & Emits ---
@@ -159,7 +160,56 @@ const getServerInitials = (name: string) => {
   return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
 };
 
+const dtoToServer = (dto: ServerListItemDto): ServerListItem => ({
+  id: dto.id,
+  name: dto.name,
+  icon: dto.icon,
+  memberCount: dto.memberCount,
+  isOwner: dto.isOwner,
+  description: dto.description,
+  public: dto.public,
+  createdAt: dto.createdAt,
+});
+
+const handleServerCreated = (server: ServerListItemDto) => {
+  if (!server.public) return;
+  const exists = servers.value.some(s => s.id === server.id);
+  if (!exists) {
+    servers.value.push(dtoToServer(server));
+  }
+};
+
+const handleServerUpdated = (server: ServerListItemDto) => {
+  const index = servers.value.findIndex(s => s.id === server.id);
+  if (server.public) {
+    const item = dtoToServer(server);
+    if (index !== -1) {
+      servers.value[index] = item;
+    } else {
+      servers.value.push(item);
+    }
+  } else if (index !== -1) {
+    servers.value.splice(index, 1);
+  }
+};
+
+const handleServerDeleted = (serverId: EntityId) => {
+  const index = servers.value.findIndex(s => s.id === serverId);
+  if (index !== -1) {
+    servers.value.splice(index, 1);
+  }
+};
+
 onMounted(() => {
   fetchPublicServers();
+  signalRService.on('ServerCreated', handleServerCreated);
+  signalRService.on('ServerUpdated', handleServerUpdated);
+  signalRService.on('ServerDeleted', handleServerDeleted);
+});
+
+onBeforeUnmount(() => {
+  signalRService.off('ServerCreated', handleServerCreated);
+  signalRService.off('ServerUpdated', handleServerUpdated);
+  signalRService.off('ServerDeleted', handleServerDeleted);
 });
 </script>
