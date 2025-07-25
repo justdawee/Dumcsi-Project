@@ -24,7 +24,7 @@ export function useUserDisplay() {
     /**
      * Get avatar URL with fallback
      */
-    const getAvatarUrl = (user: UserProfileDto | UserProfile | ServerMemberDto | null | undefined): string | null => {
+    const getAvatarUrl = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember | null | undefined): string | null => {
         if (!user) return null;
 
         // Handle different property names
@@ -41,7 +41,7 @@ export function useUserDisplay() {
     /**
      * Generate initials from display name
      */
-    const getInitials = (user: UserProfileDto | UserProfile | ServerMemberDto | null | undefined): string => {
+    const getInitials = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember | null | undefined): string => {
         const displayName = getDisplayName(user);
 
         const words = displayName.trim().split(/\s+/);
@@ -55,14 +55,14 @@ export function useUserDisplay() {
     /**
      * Format mention text for a user
      */
-    const getMentionText = (user: UserProfileDto | UserProfile | ServerMemberDto): string => {
+    const getMentionText = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember): string => {
         return `@${getDisplayName(user)}`;
     };
 
     /**
      * Check if user has custom avatar
      */
-    const hasCustomAvatar = (user: UserProfileDto | UserProfile | ServerMemberDto | null | undefined): boolean => {
+    const hasCustomAvatar = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember | null | undefined): boolean => {
         return !!getAvatarUrl(user);
     };
 

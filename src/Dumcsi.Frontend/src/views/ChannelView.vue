@@ -72,7 +72,12 @@
           <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
         </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
-          <li v-for="member in members" :key="member.userId" class="flex items-center gap-3">
+          <li
+              v-for="member in members"
+              :key="member.userId"
+              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 rounded"
+              @click="openMemberInfo(member, $event)"
+          >
             <UserAvatar
                 :avatar-url="member.avatarUrl"
                 :is-typing="isTyping(member.userId)"
@@ -112,6 +117,13 @@
       </div>
     </div>
   </div>
+  <UserInfoCard
+      v-if="infoCardMember"
+      v-model="infoCardVisible"
+      :user="infoCardMember"
+      :x="infoCardPos.x"
+      :y="infoCardPos.y"
+  />
   <GlobalFileDrop />
 </template>
 
@@ -129,12 +141,14 @@ import {Hash, Users, Loader2, UserX, Ban} from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import UserInfoCard from '@/components/common/UserInfoCard.vue';
 import GlobalFileDrop from '@/components/ui/GlobalFileDrop.vue';
 import {signalRService} from '@/services/signalrService';
 import {
   type CreateMessageRequest,
   type UpdateMessageRequest,
   type EntityId,
+  type ServerMember,
 } from '@/services/types';
 
 const route = useRoute();
@@ -163,6 +177,13 @@ const {permissions, canManageMember} = usePermissions();
 const messagesContainer = ref<HTMLElement | null>(null);
 const isMemberListOpen = ref(true);
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
+const infoCardMember = ref<ServerMember | null>(null);
+const infoCardVisible = ref(false);
+const infoCardPos = ref({ x: 0, y: 0 });
+
+watch(infoCardVisible, (val) => {
+  if (!val) infoCardMember.value = null;
+});
 
 // State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);
@@ -247,6 +268,14 @@ const kickMember = async () => {
 
 const banMember = async () => {
   addToast({type: 'info', message: 'Ban member functionality coming soon!'});
+};
+
+const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
+  const target = event.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  infoCardPos.value = { x: rect.right + 8, y: rect.top };
+  infoCardMember.value = member;
+  infoCardVisible.value = true;
 };
 
 const handleGlobalDrop = (event: CustomEvent<{ files: FileList; direct: boolean }>) => {
