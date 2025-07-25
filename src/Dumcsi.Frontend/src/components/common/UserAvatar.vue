@@ -32,7 +32,6 @@
         :class="{ 'is-typing': isTyping }"
         :style="statusIndicatorStyles"
     >
-      <transition name="status-content" mode="out-in">
         <!-- Typing indicator -->
         <div v-if="isTyping" key="typing" class="typing-indicator-content">
           <span class="typing-dot"></span>
@@ -41,7 +40,6 @@
         </div>
         <!-- Online indicator -->
         <div v-else key="online" class="online-indicator" :style="{ backgroundColor: statusColor }"></div>
-      </transition>
     </div>
   </div>
 </template>
@@ -64,10 +62,12 @@ const props = withDefaults(defineProps<{
   showOnlineIndicator?: boolean;
   className?: string;
   isTyping?: boolean;
+  indicatorBgColor?: string;
 }>(), {
   size: 40,
   showOnlineIndicator: false,
   isTyping: false,
+  indicatorBgColor: '',
 });
 
 // Composables
@@ -113,45 +113,37 @@ const initials = computed(() => {
 
 const statusColor = computed(() => getStatusColor(userStatus.value));
 
-// Calculate status indicator size and position based on avatar size
+// Status indicator styles
 const statusIndicatorStyles = computed(() => {
-  const avatarSize = props.size;
-  const isSmall = avatarSize <= 32;
-  const isMedium = avatarSize <= 40;
+  const MIN_AVATAR_SIZE = 32;
+  const avatarSize = Math.max(props.size!, MIN_AVATAR_SIZE);
 
-  let baseSize, offset, boxShadowSize;
+  const indicatorRatio = 0.25;
+  const baseSize = Math.max(8, Math.round(avatarSize * indicatorRatio));
+  const indicatorRadius = baseSize / 2;
 
-  if (isSmall) {
-    baseSize = 12;
-    offset = -2;
-    boxShadowSize = 2;
-  } else if (isMedium) {
-    baseSize = 12;
-    offset = -2;
-    boxShadowSize = 3;
-  } else {
-    baseSize = 14;
-    offset = -3;
-    boxShadowSize = 3;
-  }
+  const minMultiplier = 2.0;
+  const maxMultiplier = 2.5;
+  const minSize = 32;
+  const maxSize = 200;
 
-  // Cast the styles object to a type that allows arbitrary string keys
-  const styles: { [key: string]: string } = {
+  const progress = Math.min(1, Math.max(0, (avatarSize - minSize) / (maxSize - minSize)));
+  const edgeInsetMultiplier = minMultiplier + (maxMultiplier - minMultiplier) * progress;
+
+  const edgeInset = Math.round(indicatorRadius * edgeInsetMultiplier);
+  const offset = edgeInset - indicatorRadius;
+
+  const styles: Record<string,string> = {
     '--indicator-base-size': `${baseSize}px`,
-    '--indicator-offset': `${offset}px`,
-    '--indicator-box-shadow-size': `${boxShadowSize}px`,
-    bottom: `var(--indicator-offset)`,
-    right: `var(--indicator-offset)`,
+    '--indicator-bg-color': props.indicatorBgColor,
+    '--indicator-status-color': statusColor.value,
+    bottom: `${offset}px`,
+    right: `${offset}px`,
   };
-
-  // When typing, the indicator container itself gets the status color.
-  // When online, the container is dark, and the child .online-indicator provides the color.
-  if (props.isTyping) {
-    styles.backgroundColor = statusColor.value;
-  }
 
   return styles;
 });
+
 
 // Methods
 const handleImageError = () => {

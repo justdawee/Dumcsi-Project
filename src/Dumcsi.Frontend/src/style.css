@@ -46,14 +46,19 @@
     --color-interactive-hover: var(--color-main-100);
 
     /* ------------ */
-
     --font-sans: Inter, system-ui, -apple-system, sans-serif;
 
     --animate-dot-bounce: dot-bounce 1.4s ease-in-out infinite;
 
     @keyframes dot-bounce {
-        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-        30%           { transform: translateY(-3px); opacity: 1; }
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+        30% {
+            transform: translateY(-3px);
+            opacity: 1;
+        }
     }
 
     --animate-slide-in: slideIn 0.2s ease-out;
@@ -201,25 +206,26 @@
 
     .status-indicator {
         position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 9999px;
-        background-color: var(--color-gray-900);
-        box-shadow: 0 0 0 var(--indicator-box-shadow-size, 3px) var(--color-gray-900);
-        overflow: hidden;
-        transition: width 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55),
-        height 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55),
-        padding 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-        width: var(--indicator-base-size, 12px);
-        height: var(--indicator-base-size, 12px);
-        padding: 2px;
+        width: var(--indicator-base-size);
+        height: var(--indicator-base-size);
+        bottom: 0;
+        right: 0;
+        background-color: var(--indicator-bg-color);
+        box-shadow: 0 0 0 calc(var(--indicator-base-size, 12px) * 0.2) var(--indicator-bg-color), 0 0 2px rgba(0, 0, 0, 0.2);
+        border-radius: 50%;
+        transform: translate(50%, 50%);
+        border: 1px solid transparent;
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
 
     .status-indicator.is-typing {
         width: auto;
-        height: var(--indicator-base-size, 12px);
-        padding: 2px 6px;
+        height: calc(var(--indicator-base-size, 12px) * 0.8);
+        padding: 4px 4px;
+        border-radius: calc(var(--indicator-base-size, 12px) * 0.6);
+        background-color: var(--indicator-status-color);
+        border: 1px solid rgba(47, 49, 54, 0.8);
+        box-shadow: 0 0 0 calc(var(--indicator-base-size, 12px) * 0.2) var(--indicator-bg-color), 0 0 2px rgba(0, 0, 0, 0.2);
     }
 
     .online-indicator {
@@ -231,6 +237,7 @@
     .typing-indicator-content {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 2px;
         height: 100%;
     }
@@ -238,14 +245,52 @@
     .typing-dot {
         width: calc(var(--indicator-base-size, 12px) * 0.3);
         height: calc(var(--indicator-base-size, 12px) * 0.3);
-        background-color: #b5bac1;
+        background-color: rgba(255, 255, 255, 0.9); /* Fehér pontok a jobb láthatóságért */
         border-radius: 50%;
         animation: typing-animation 1.4s infinite ease-in-out;
     }
 
-    .typing-dot:nth-child(1) { animation-delay: 0s; }
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    .typing-dot:nth-child(1) {
+        animation-delay: 0s;
+    }
+
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes typing-animation {
+        0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
+
+    /* Vue transition animációk - most csak fade, mert a shape változás CSS-ben van */
+    .status-content-enter-active {
+        transition: none;
+    }
+
+    .status-content-leave-active {
+        transition: opacity 0.1s ease;
+    }
+
+    .status-content-enter-from,
+    .status-content-leave-to {
+        opacity: 0;
+    }
+
+    .status-content-enter-to,
+    .status-content-leave-from {
+        opacity: 1;
+    }
 
     /* Message Input */
     .message-input {
@@ -447,8 +492,12 @@
 
 /* Keyframes */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes slideIn {

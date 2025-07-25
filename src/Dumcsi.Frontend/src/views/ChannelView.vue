@@ -46,8 +46,8 @@
 
         <div class="relative px-4 pb-6">
           <MessageInput
-              ref="messageInputRef"
               v-if="currentChannel && permissions.sendMessages"
+              ref="messageInputRef"
               :channel="currentChannel"
               @send="handleSendMessage"
           />
@@ -66,13 +66,18 @@
         </div>
       </div>
 
-      <div v-if="isMemberListOpen" class="w-66 bg-main-900 border-l border-main-700 py-4 animate-slide-in flex flex-col"> <h3 class="font-semibold text-text-default mb-4 px-4">Members - {{ members.length }}</h3> <div v-if="appStore.loading.members" class="flex justify-center items-center h-full px-4"> <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
-      </div>
+      <div v-if="isMemberListOpen"
+           class="w-66 bg-main-900 border-l border-main-700 py-4 animate-slide-in flex flex-col"><h3
+          class="font-semibold text-text-default mb-4 px-4">Members - {{ members.length }}</h3>
+        <div v-if="appStore.loading.members" class="flex justify-center items-center h-full px-4">
+          <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
+        </div>
         <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
           <li
               v-for="member in members"
               :key="member.userId"
-              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 px-4 rounded" @click="openMemberInfo(member, $event)"
+              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 px-4 rounded member-item"
+              @click="openMemberInfo(member, $event)"
           >
             <UserAvatar
                 :avatar-url="member.avatarUrl"
@@ -80,6 +85,7 @@
                 :size="32"
                 :user-id="member.userId"
                 :username="member.username"
+                indicator-bg-color="var(--color-main-900)"
                 show-online-indicator
             />
             <div class="flex-1 min-w-0">
@@ -120,7 +126,7 @@
       :x="infoCardPos.x"
       :y="infoCardPos.y"
   />
-  <GlobalFileDrop />
+  <GlobalFileDrop/>
 </template>
 
 <script lang="ts" setup>
@@ -175,7 +181,7 @@ const isMemberListOpen = ref(true);
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
 const infoCardMember = ref<ServerMember | null>(null);
 const infoCardVisible = ref(false);
-const infoCardPos = ref({ x: 0, y: 0 });
+const infoCardPos = ref({x: 0, y: 0});
 
 watch(infoCardVisible, (val) => {
   if (!val) infoCardMember.value = null;
@@ -272,7 +278,7 @@ const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
   const rect = target.getBoundingClientRect();
   const cardWidth = 256;
   const offset = 8;
-  infoCardPos.value = { x: rect.left - cardWidth - offset, y: rect.top };
+  infoCardPos.value = {x: rect.left - cardWidth - offset, y: rect.top};
   infoCardMember.value = member;
   infoCardVisible.value = true;
 };
