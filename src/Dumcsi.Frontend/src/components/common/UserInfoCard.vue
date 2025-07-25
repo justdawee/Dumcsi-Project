@@ -13,14 +13,16 @@
         <!-- action buttons -->
         <div class="absolute top-2 right-2 flex space-x-2">
           <button
-              v-if="canManageRoles && availableRoles.length > 0"
-              class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
+              v-if="canManageRoles"
+              :disabled="availableRoles.length === 0"
+              class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50"
               @click.stop="openAddRoleMenu"
           >
             <Plus class="w-4 h-4 text-white" />
           </button>
           <button
               v-if="canManageRoles"
+              ref="shieldRef"
               class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
               @click.stop.prevent="togglePermissions"
           >
@@ -84,7 +86,8 @@
         <div
             v-show="showPermissions"
             ref="permPopup"
-            class="absolute left-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 z-50"
+            :style="permPopupStyle"
+            class="absolute bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 z-50"
         >
           <div class="flex flex-wrap gap-1 max-w-[14rem]">
             <span
@@ -104,7 +107,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue';
+import {computed, onMounted, onUnmounted, ref, watch, nextTick} from 'vue';
 import { Permission, type ServerMember, type Role } from '@/services/types';
 import UserAvatar from './UserAvatar.vue';
 import ContextMenu, { type MenuItem } from '@/components/ui/ContextMenu.vue';
@@ -124,6 +127,8 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue', 'message']);
 
 const cardRef = ref<HTMLElement | null>(null);
+const shieldRef = ref<HTMLElement | null>(null);
+const permPopupStyle = ref<Record<string, string>>({ left: '0px', top: '0px' });
 const visible = computed(() => props.modelValue);
 
 const { getAvatarUrl, getDisplayName } = useUserDisplay();
@@ -209,6 +214,16 @@ const openAddRoleMenu = (e: MouseEvent) => {
 
 const togglePermissions = () => {
   showPermissions.value = !showPermissions.value;
+  nextTick(() => {
+    if (showPermissions.value && shieldRef.value && cardRef.value) {
+      const shieldRect = shieldRef.value.getBoundingClientRect();
+      const cardRect = cardRef.value.getBoundingClientRect();
+      permPopupStyle.value = {
+        left: `${shieldRect.left - cardRect.left}px`,
+        top: `${shieldRect.bottom - cardRect.top + 4}px`,
+      };
+    }
+  });
 };
 
 const positionStyle = computed(() => {
