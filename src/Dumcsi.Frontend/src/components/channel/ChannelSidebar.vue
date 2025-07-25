@@ -104,7 +104,6 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
 import {animations, insert, tearDown} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
-import serverService from '@/services/serverService';
 import {
   type ChannelDetailDto,
   type ChannelListItem,
