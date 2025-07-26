@@ -2,6 +2,7 @@ import * as signalR from '@microsoft/signalr';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
+import {webrtcService} from './webrtcService.ts';
 import type {
     MessageDto,
     UserProfileDto,
@@ -208,25 +209,32 @@ export class SignalRService {
         });
 
         // Voice channel events
-        this.connection.on('AllUsersInVoiceChannel', (channelId: EntityId | string, userIds: (EntityId | string)[]) => {
+        this.connection.on('AllUsersInVoiceChannel', (channelId: EntityId | string, users: any[]) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
-            const ids = userIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
-            console.log('SignalR: Voice channel user list', {channelId: cid, userIds: ids});
-            appStore.setVoiceChannelUsers(cid, ids);
+            const infos = users.map(u => ({
+                userId: typeof u.userId === 'string' ? parseInt(u.userId, 10) : u.userId,
+                connectionId: u.connectionId as string,
+            }));
+            console.log('SignalR: Voice channel user list', { channelId: cid, users: infos });
+            appStore.setVoiceChannelUsers(cid, infos.map(i => i.userId));
+            appStore.setVoiceChannelConnections(cid, infos);
+            webrtcService.connectToExisting(cid, infos);
         });
 
-        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId | string, userId: EntityId | string) => {
+        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-            console.log('SignalR: User joined voice channel', {channelId: cid, userId: uid});
-            appStore.handleUserJoinedVoiceChannel(cid, uid);
+            console.log('SignalR: User joined voice channel', { channelId: cid, userId: uid, connectionId });
+            appStore.handleUserJoinedVoiceChannel(cid, uid, connectionId);
+            webrtcService.addUser(cid, uid, connectionId);
         });
 
-        this.connection.on('UserLeftVoiceChannel', (channelId: EntityId | string, userId: EntityId | string) => {
+        this.connection.on('UserLeftVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-            console.log('SignalR: User left voice channel', {channelId: cid, userId: uid});
+            console.log('SignalR: User left voice channel', { channelId: cid, userId: uid, connectionId });
             appStore.handleUserLeftVoiceChannel(cid, uid);
+            webrtcService.removeUser(connectionId);
         });
 
         this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {
@@ -520,6 +528,36 @@ export class SignalRService {
                 await this.connection.invoke('LeaveVoiceChannel', serverId.toString(), channelId.toString());
             } catch (error) {
                 console.error('Failed to leave voice channel:', error);
+            }
+        }
+    }
+
+    async sendOffer(targetConnectionId: string, offer: any): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('SendOffer', targetConnectionId, offer);
+            } catch (error) {
+                console.error('Failed to send offer:', error);
+            }
+        }
+    }
+
+    async sendAnswer(targetConnectionId: string, answer: any): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('SendAnswer', targetConnectionId, answer);
+            } catch (error) {
+                console.error('Failed to send answer:', error);
+            }
+        }
+    }
+
+    async sendIceCandidate(targetConnectionId: string, candidate: any): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('SendIceCandidate', targetConnectionId, candidate);
+            } catch (error) {
+                console.error('Failed to send ICE candidate:', error);
             }
         }
     }
