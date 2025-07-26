@@ -150,12 +150,12 @@
       </div>
 
       <button
-      ref="gifPickerButton"
-      class="p-2 text-text-muted hover:text-text-default transition self-start"
-      title="Open GIF picker"
-      @click="showGifPicker = !showGifPicker"
+          ref="gifPickerButton"
+          class="p-2 text-text-muted hover:text-text-default transition self-start"
+          title="Open GIF picker"
+          @click="showGifPicker = !showGifPicker"
       >
-      <ImageIcon class="w-5 h-5" />
+        <ImageIcon class="w-5 h-5" />
       </button>
 
       <button
@@ -173,15 +173,16 @@
         <Loader2 v-else class="w-5 h-5 animate-spin" />
       </button>
       <GifPicker
-        v-model="showGifPicker"
-        :toggle-button="gifPickerButton"
-        @select="handleGifSelect"
+          v-model="showGifPicker"
+          :toggle-button="gifPickerButton"
+          @select="handleGifSelect"
       />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
+import axios from "axios";
 import { ref, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
@@ -191,6 +192,7 @@ import { MarkdownParser } from '@/services/markdownParser';
 // Import composables
 import { useAttachments } from '@/composables/useAttachments';
 import { useMentions } from '@/composables/useMentions';
+import { useToast } from '@/composables/useToast';
 import { useTypingIndicator } from '@/composables/useTypingIndicator';
 
 // Component imports
@@ -224,6 +226,7 @@ const gifPickerButton = ref<HTMLElement | null>(null);
 const appStore = useAppStore();
 const { getDisplayName } = useUserDisplay();
 const channelIdRef = computed(() => props.channel.id);
+const { addToast } = useToast();
 
 const {
   attachments,
@@ -403,19 +406,17 @@ const sendFilesDirect = async (files: FileList) => {
   await handleSend();
 };
 
-/**
- * Kezeli a GIF kiválasztását.
- * Ez a függvény lecseréli a régit.
- * @param gifUrl A kiválasztott GIF URL-je, amit a GifPicker komponens küld.
- */
-const handleGifSelect = (gifUrl: string) => {
-  const currentContent = messageContent.value;
-  messageContent.value = (currentContent ? currentContent + '\n' : '') + gifUrl;
+const handleGifSelect = async (gifUrl: string) => {
+  if (isSending.value) return;
+
+  messageContent.value = gifUrl;
   showGifPicker.value = false;
-  nextTick(() => {
-    messageInput.value?.focus();
-    adjustTextareaHeight();
-  });
+
+  await nextTick();
+
+  if (canSend.value) {
+    await handleSend();
+  }
 };
 
 const onFileSelected = (event: Event) => {
@@ -450,7 +451,7 @@ const handleSend = async () => {
     showPreview.value = false;
     showToolbar.value = false;
 
-    nextTick(() => {
+    await nextTick(() => {
       if (messageInput.value) {
         messageInput.value.style.height = 'auto';
         messageInput.value.style.overflowY = 'hidden';
