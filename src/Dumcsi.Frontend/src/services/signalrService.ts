@@ -208,19 +208,25 @@ export class SignalRService {
         });
 
         // Voice channel events
-        this.connection.on('AllUsersInVoiceChannel', (channelId: EntityId, userIds: EntityId[]) => {
-            console.log('SignalR: Voice channel user list', {channelId, userIds});
-            appStore.setVoiceChannelUsers(channelId, userIds);
+        this.connection.on('AllUsersInVoiceChannel', (channelId: EntityId | string, userIds: (EntityId | string)[]) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const ids = userIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+            console.log('SignalR: Voice channel user list', {channelId: cid, userIds: ids});
+            appStore.setVoiceChannelUsers(cid, ids);
         });
 
-        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User joined voice channel', {channelId, userId});
-            appStore.handleUserJoinedVoiceChannel(channelId, userId);
+        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId | string, userId: EntityId | string) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            console.log('SignalR: User joined voice channel', {channelId: cid, userId: uid});
+            appStore.handleUserJoinedVoiceChannel(cid, uid);
         });
 
-        this.connection.on('UserLeftVoiceChannel', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User left voice channel', {channelId, userId});
-            appStore.handleUserLeftVoiceChannel(channelId, userId);
+        this.connection.on('UserLeftVoiceChannel', (channelId: EntityId | string, userId: EntityId | string) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            console.log('SignalR: User left voice channel', {channelId: cid, userId: uid});
+            appStore.handleUserLeftVoiceChannel(cid, uid);
         });
 
         this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {

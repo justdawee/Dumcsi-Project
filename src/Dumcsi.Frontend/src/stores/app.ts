@@ -282,6 +282,19 @@ export const useAppStore = defineStore('app', () => {
     const joinVoiceChannel = async (channelId: EntityId) => {
         await signalRService.joinVoiceChannel(channelId);
         currentVoiceChannelId.value = channelId;
+
+        const uid = currentUserId.value;
+        if (uid) {
+            const profile = getUserProfile(uid);
+            if (profile) {
+                const users = voiceChannelUsers.value.get(channelId) || [];
+                if (!users.find(u => u.id === uid)) {
+                    const updated = new Map(voiceChannelUsers.value);
+                    updated.set(channelId, [...users, profile]);
+                    voiceChannelUsers.value = updated;
+                }
+            }
+        }
     };
 
     const leaveVoiceChannel = async (channelId: EntityId) => {
