@@ -235,6 +235,8 @@ public class ChatHub(IPresenceService presenceService) : Hub
             var existingUsers = new List<object>();
             foreach (var cid in connections)
             {
+                if (cid == connectionId) continue; // Ne küldjük vissza saját connectionId-nkat
+
                 var uid = await presenceService.GetUserIdByConnectionId(cid);
                 if (uid != null && long.TryParse(uid, out var parsed))
                 {
@@ -243,7 +245,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             }
 
             await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUsers);
-            await Clients.Group(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
+            await Clients.OthersInGroup(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
         }
     }
 
