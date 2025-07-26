@@ -232,18 +232,18 @@ public class ChatHub(IPresenceService presenceService) : Hub
 
         if (userId != null)
         {
-            var existingUserIds = new List<long>();
+            var existingUsers = new List<object>();
             foreach (var cid in connections)
             {
                 var uid = await presenceService.GetUserIdByConnectionId(cid);
                 if (uid != null && long.TryParse(uid, out var parsed))
                 {
-                    existingUserIds.Add(parsed);
+                    existingUsers.Add(new { userId = parsed, connectionId = cid });
                 }
             }
 
-            await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUserIds);
-            await Clients.Group(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId));
+            await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUsers);
+            await Clients.Group(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
         }
     }
 
@@ -266,7 +266,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
-            await Clients.Group(serverId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId));
+            await Clients.Group(serverId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId), Context.ConnectionId);
         }
     }
 
