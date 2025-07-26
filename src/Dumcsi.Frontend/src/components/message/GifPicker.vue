@@ -2,7 +2,7 @@
   <div
       v-if="modelValue"
       ref="pickerContainer"
-      class="absolute bottom-full mb-2 w-full max-w-sm rounded-lg shadow-xl bg-bg-base border border-main-700 z-50 flex flex-col"
+      class="absolute bottom-full right-0 mb-2 w-full max-w-sm rounded-lg shadow-xl bg-bg-base border border-main-700 z-50 flex flex-col"
   >
     <!-- Fejléc a keresőmezővel -->
     <div class="p-2 border-b border-bg-surface">
