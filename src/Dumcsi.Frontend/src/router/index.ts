@@ -12,6 +12,8 @@ export const RouteNames = {
     APP: 'App', // Main application layout
     SERVER_SELECT: 'ServerSelect',
     FRIENDS: 'Friends',
+    DIRECT_MESSAGE_ROOT: 'DirectMessages',
+    DIRECT_MESSAGE: 'DirectMessage',
     SERVER: 'Server',
     CHANNEL: 'Channel',
     USER_SETTINGS: 'UserSettings',
@@ -61,6 +63,18 @@ const routes: readonly RouteRecordRaw[] = [
                 path: 'friends',
                 name: RouteNames.FRIENDS,
                 component: () => import('@/views/FriendsView.vue')
+            },
+            {
+                path: 'dm',
+                name: RouteNames.DIRECT_MESSAGE_ROOT,
+                component: () => import('@/views/DmView.vue'),
+                children: [
+                    {
+                        path: ':userId',
+                        name: RouteNames.DIRECT_MESSAGE,
+                        component: () => import('@/views/DmChannelView.vue')
+                    }
+                ]
             },
             {
                 path: 'servers/:serverId',

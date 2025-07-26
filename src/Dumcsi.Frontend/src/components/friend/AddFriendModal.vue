@@ -22,7 +22,7 @@ import BaseModal from '@/components/modals/BaseModal.vue';
 import { useFriendStore } from '@/stores/friends';
 import { Loader2 } from 'lucide-vue-next';
 
-const props = defineProps<{ modelValue: boolean }>();
+defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
 const store = useFriendStore();
 

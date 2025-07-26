@@ -17,7 +17,10 @@
               <span class="text-text-default">{{ f.username }}</span>
               <span class="text-xs" :class="f.online ? 'text-green-500' : 'text-text-tertiary'">{{ f.online ? 'Online' : 'Offline' }}</span>
             </div>
-            <button class="text-danger text-sm hover:underline" @click="remove(f.userId)">Remove</button>
+            <div class="space-x-2">
+              <RouterLink :to="`/dm/${f.userId}`" class="btn-secondary btn-xs">Message</RouterLink>
+              <button class="text-danger text-sm hover:underline" @click="remove(f.userId)">Remove</button>
+            </div>
           </li>
         </ul>
       </div>

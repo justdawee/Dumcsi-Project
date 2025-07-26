@@ -1,5 +1,5 @@
 ﻿import api from './api';
-import type { ApiResponse, FriendListItem, FriendRequestItem, DmSettings, DmRequestItem, EntityId, DmFilterOption } from './types';
+import type { ApiResponse, FriendListItem, FriendRequestItem, EntityId } from './types';
 
 const friendService = {
     async getFriends(): Promise<FriendListItem[]> {

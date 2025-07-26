@@ -557,3 +557,24 @@ export interface DmRequestItem {
     fromUsername: string;
     initialMessage: string;
 }
+
+export interface DmMessageDto {
+    id: EntityId;
+    senderId: EntityId;
+    receiverId: EntityId;
+    sender: UserProfileDto;
+    content: string;
+    timestamp: ISODateString;
+    editedTimestamp: ISODateString | null;
+}
+
+export interface SendDmMessageRequest {
+    content: string;
+}
+
+export interface ConversationListItemDto {
+    userId: EntityId;
+    username: string;
+    lastMessage: string | null;
+    lastTimestamp: ISODateString | null;
+}
