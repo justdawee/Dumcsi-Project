@@ -193,6 +193,10 @@
         focus:ring-blue-400/50;
     }
 
+    .btn-xs {
+        @apply px-2 py-1 text-sm;
+    }
+
     /* --- Avatar & Status (ANIMATED) --- */
     .avatar-wrapper {
         position: relative;

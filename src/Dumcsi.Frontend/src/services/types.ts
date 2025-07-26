@@ -522,3 +522,38 @@ export interface UploadOptions {
 export interface JoinServerResponse {
     serverId: EntityId;
 }
+
+/**
+ * =================================================================
+ * FRIEND & DIRECT MESSAGE TYPES
+ * =================================================================
+ */
+
+export enum DmFilterOption {
+    AllowAll = 0,
+    FriendsOnly = 1,
+    AllRequests = 2,
+}
+
+export interface FriendListItem {
+    userId: EntityId;
+    username: string;
+    online: boolean;
+}
+
+export interface FriendRequestItem {
+    requestId: EntityId;
+    fromUserId: EntityId;
+    fromUsername: string;
+}
+
+export interface DmSettings {
+    filter: DmFilterOption;
+}
+
+export interface DmRequestItem {
+    id: EntityId;
+    fromUserId: EntityId;
+    fromUsername: string;
+    initialMessage: string;
+}

@@ -11,6 +11,7 @@ export const RouteNames = {
     // Authenticated routes
     APP: 'App', // Main application layout
     SERVER_SELECT: 'ServerSelect',
+    FRIENDS: 'Friends',
     SERVER: 'Server',
     CHANNEL: 'Channel',
     USER_SETTINGS: 'UserSettings',
@@ -55,6 +56,11 @@ const routes: readonly RouteRecordRaw[] = [
                 path: 'servers',
                 name: RouteNames.SERVER_SELECT,
                 component: () => import('@/views/ServerSelectView.vue')
+            },
+            {
+                path: 'friends',
+                name: RouteNames.FRIENDS,
+                component: () => import('@/views/FriendsView.vue')
             },
             {
                 path: 'servers/:serverId',
