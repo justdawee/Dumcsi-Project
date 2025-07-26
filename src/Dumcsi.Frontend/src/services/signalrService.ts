@@ -60,6 +60,9 @@ export class SignalRService {
             await this.connection.start();
             console.log('SignalR: Connected successfully');
 
+            // Register WebRTC listeners now that the connection exists
+            webrtcService.setSignalRService(this);
+
             this.reconnectAttempts = 0;
         } catch (error) {
             console.error('SignalR: Failed to start connection', error);
@@ -590,4 +593,3 @@ export class SignalRService {
 }
 
 export const signalRService = new SignalRService();
-webrtcService.setSignalRService(signalRService);
