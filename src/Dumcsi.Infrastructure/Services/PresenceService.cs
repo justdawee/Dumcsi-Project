@@ -54,4 +54,17 @@ public class PresenceService : IPresenceService
     {
         return Task.FromResult(_onlineUsers.Keys.ToArray());
     }
+    
+    public Task<string?> GetUserIdByConnectionId(string connectionId)
+    {
+        foreach (var kvp in _onlineUsers)
+        {
+            if (kvp.Value.Contains(connectionId))
+            {
+                return Task.FromResult<string?>(kvp.Key);
+            }
+        }
+
+        return Task.FromResult<string?>(null);
+    }
 }

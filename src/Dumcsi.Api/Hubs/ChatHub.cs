@@ -220,42 +220,55 @@ public class ChatHub(IPresenceService presenceService) : Hub
     public async Task JoinVoiceChannel(string channelId)
     {
         var connectionId = Context.ConnectionId;
+        var userId = Context.UserIdentifier;
 
-        // Tájékoztatjuk a már bent lévőket, hogy egy új user csatlakozott
-        // Az új usernek majd mindegyikükkel kapcsolatot kell létesítenie
-        if (VoiceChannelUsers.TryGetValue(channelId, out var usersInChannel))
+        await Groups.AddToGroupAsync(connectionId, channelId);
+
+        List<string> connections = VoiceChannelUsers.GetOrAdd(channelId, _ => new List<string>());
+        lock (connections)
         {
-            // Elküldjük a csatornában lévő összes user connectionId-ját az új csatlakozónak
-            await Clients.Client(connectionId).SendAsync("AllUsersInChannel", usersInChannel);
+            connections.Add(connectionId);
         }
 
-        // Hozzáadjuk az új felhasználót a listához
-        VoiceChannelUsers.AddOrUpdate(channelId, 
-            new List<string> { connectionId }, 
-            (key, existingList) => {
-                lock (existingList)
+        if (userId != null)
+        {
+            var existingUserIds = new List<long>();
+            foreach (var cid in connections)
+            {
+                var uid = await presenceService.GetUserIdByConnectionId(cid);
+                if (uid != null && long.TryParse(uid, out var parsed))
                 {
-                    existingList.Add(connectionId);
+                    existingUserIds.Add(parsed);
                 }
-                return existingList;
-            });
-            
-        // Értesítjük a többieket az új felhasználó érkezéséről
-        await Clients.OthersInGroup(channelId).SendAsync("UserJoinedVoice", connectionId);
+            }
+
+            await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUserIds);
+
+            await Clients.OthersInGroup(channelId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId));
+        }
     }
-    
+
     public async Task LeaveVoiceChannel(string channelId)
     {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, channelId);
+
         if (VoiceChannelUsers.TryGetValue(channelId, out var users))
         {
-            users.Remove(Context.ConnectionId);
-            if (users.Count == 0)
+            lock (users)
             {
-                VoiceChannelUsers.TryRemove(channelId, out _);
+                users.Remove(Context.ConnectionId);
+                if (users.Count == 0)
+                {
+                    VoiceChannelUsers.TryRemove(channelId, out _);
+                }
             }
         }
-        
-        await Clients.OthersInGroup(channelId).SendAsync("UserLeftVoice", Context.ConnectionId);
+
+        var userId = Context.UserIdentifier;
+        if (userId != null)
+        {
+            await Clients.OthersInGroup(channelId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId));
+        }
     }
 
     // --- WebRTC kapcsolatok kezelése ---
