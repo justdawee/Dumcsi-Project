@@ -38,7 +38,9 @@ class WebRtcService {
     async addUser(_channelId: EntityId, _userId: EntityId, connectionId: string) {
         await this.ensureLocalStream();
         if (!this.peers.has(connectionId)) {
-            await this.createPeerConnection(connectionId, true);
+            // A már bent lévő felhasználók nem kezdeményeznek kapcsolatot,
+            // csak várják az érkező offer-t az új tagtól
+            await this.createPeerConnection(connectionId, false);
         }
     }
 

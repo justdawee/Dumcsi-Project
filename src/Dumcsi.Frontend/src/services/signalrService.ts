@@ -590,3 +590,4 @@ export class SignalRService {
 }
 
 export const signalRService = new SignalRService();
+webrtcService.setSignalRService(signalRService);
