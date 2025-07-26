@@ -15,7 +15,7 @@
             :key="index"
             class="relative group bg-bg-surface rounded-lg p-2 pr-8 flex items-center gap-2"
         >
-          <File class="w-4 h-4 text-text-muted" />
+          <FileIcon class="w-4 h-4 text-text-muted" />
           <div class="text-sm">
             <div class="text-text-default">{{ attachment.file.name }}</div>
             <div class="text-xs text-text-tertiary">{{ formatFileSize(attachment.file.size) }}</div>
@@ -150,6 +150,15 @@
       </div>
 
       <button
+      ref="gifPickerButton"
+      class="p-2 text-text-muted hover:text-text-default transition self-start"
+      title="Open GIF picker"
+      @click="showGifPicker = !showGifPicker"
+      >
+      <ImageIcon class="w-5 h-5" />
+      </button>
+
+      <button
           :class="[
           'p-2 rounded-full transition self-start',
           canSend
@@ -163,6 +172,11 @@
         <Send v-if="!isSending" class="w-5 h-5" />
         <Loader2 v-else class="w-5 h-5 animate-spin" />
       </button>
+      <GifPicker
+        v-model="showGifPicker"
+        :toggle-button="gifPickerButton"
+        @select="handleGifSelect"
+      />
     </div>
   </div>
 </template>
@@ -180,7 +194,10 @@ import { useMentions } from '@/composables/useMentions';
 import { useTypingIndicator } from '@/composables/useTypingIndicator';
 
 // Component imports
-import { Paperclip, Send, X, File, Loader2, Hash } from 'lucide-vue-next';
+import { Paperclip, Send, X, File as FileIcon, Loader2, Hash } from 'lucide-vue-next';
+import { ImagePlay as ImageIcon } from "lucide-vue-next";
+
+import GifPicker from './GifPicker.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import MessageContentParser from './MessageContentParser.vue';
 import MarkdownToolbar from './MarkdownToolbar.vue';
@@ -200,6 +217,8 @@ const showPreview = ref(false);
 const showToolbar = ref(false);
 const isDragOver = ref(false);
 const MAX_TEXTAREA_HEIGHT = 330;
+const showGifPicker = ref(false);
+const gifPickerButton = ref<HTMLElement | null>(null);
 
 // Composables
 const appStore = useAppStore();
@@ -382,6 +401,21 @@ const handleDrop = (event: DragEvent) => {
 const sendFilesDirect = async (files: FileList) => {
   await handleFileSelect(files);
   await handleSend();
+};
+
+/**
+ * Kezeli a GIF kiválasztását.
+ * Ez a függvény lecseréli a régit.
+ * @param gifUrl A kiválasztott GIF URL-je, amit a GifPicker komponens küld.
+ */
+const handleGifSelect = (gifUrl: string) => {
+  const currentContent = messageContent.value;
+  messageContent.value = (currentContent ? currentContent + '\n' : '') + gifUrl;
+  showGifPicker.value = false;
+  nextTick(() => {
+    messageInput.value?.focus();
+    adjustTextareaHeight();
+  });
 };
 
 const onFileSelected = (event: Event) => {
