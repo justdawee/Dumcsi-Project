@@ -290,7 +290,9 @@ export const useAppStore = defineStore('app', () => {
             currentVoiceChannelId.value = null;
             selfMuted.value = false;
         }
-        voiceChannelUsers.value.delete(channelId);
+        const updated = new Map(voiceChannelUsers.value);
+        updated.delete(channelId);
+        voiceChannelUsers.value = updated;
     };
 
     const toggleSelfMute = () => {
@@ -301,7 +303,9 @@ export const useAppStore = defineStore('app', () => {
         const profiles = userIds
             .map(id => getUserProfile(id))
             .filter((p): p is UserProfileDto => p !== null);
-        voiceChannelUsers.value.set(channelId, profiles);
+        const updated = new Map(voiceChannelUsers.value);
+        updated.set(channelId, profiles);
+        voiceChannelUsers.value = updated;
     };
 
     // SignalR Event Handlers
@@ -674,16 +678,22 @@ export const useAppStore = defineStore('app', () => {
         if (!profile) return;
         const users = voiceChannelUsers.value.get(channelId) || [];
         if (users.find(u => u.id === userId)) return;
-        voiceChannelUsers.value.set(channelId, [...users, profile]);
+        const updated = new Map(voiceChannelUsers.value);
+        updated.set(channelId, [...users, profile]);
+        voiceChannelUsers.value = updated;
     };
 
     const handleUserLeftVoiceChannel = (channelId: EntityId, userId: EntityId) => {
         const users = voiceChannelUsers.value.get(channelId);
         if (!users) return;
-        voiceChannelUsers.value.set(channelId, users.filter(u => u.id !== userId));
-        if (voiceChannelUsers.value.get(channelId)?.length === 0) {
-            voiceChannelUsers.value.delete(channelId);
+        const updatedUsers = users.filter(u => u.id !== userId);
+        const updated = new Map(voiceChannelUsers.value);
+        if (updatedUsers.length > 0) {
+            updated.set(channelId, updatedUsers);
+        } else {
+            updated.delete(channelId);
         }
+        voiceChannelUsers.value = updated;
     };
 
     const handleUserStartedScreenShare = (channelId: EntityId, userId: EntityId) => {
