@@ -197,7 +197,7 @@ const renderNode = (node: ParsedNode): VNode => {
         onClick: () => {
           // Handle channel mention click - navigate to channel
           if (channelData?.channelId) {
-            // TODO
+            // TODO: Implement channel navigation logic
             //appStore.setCurrentChannel(channelData.channelId);
           }
         }
@@ -211,7 +211,8 @@ const renderNode = (node: ParsedNode): VNode => {
       if (emojiData?.id) {
         // Custom emoji - would need CDN URL
         return h('img', {
-          src: `https://cdn.discordapp.com/emojis/${emojiData.id}.${emojiData.animated ? 'gif' : 'png'}?size=32`,
+          // TODO: Replace with actual CDN URL or path
+          src: `https://192.168.0.50/emojis/${emojiData.id}.${emojiData.animated ? 'gif' : 'png'}?size=32`,
           alt: `:${emojiData.name}:`,
           class: 'inline-block w-5 h-5 mx-0.5 align-text-bottom',
           loading: 'lazy'
