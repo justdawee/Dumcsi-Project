@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dumcsi.Infrastructure", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dumcsi.Api", "src\Dumcsi.Api\Dumcsi.Api.csproj", "{8BB30B9F-8BC2-4258-964E-52784112BF51}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dumcsi.Tests", "src\Dumcsi.Tests\Dumcsi.Tests.csproj", "{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,18 +69,6 @@ Global
 		{8BB30B9F-8BC2-4258-964E-52784112BF51}.Release|x64.Build.0 = Release|Any CPU
 		{8BB30B9F-8BC2-4258-964E-52784112BF51}.Release|x86.ActiveCfg = Release|Any CPU
 		{8BB30B9F-8BC2-4258-964E-52784112BF51}.Release|x86.Build.0 = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|x64.Build.0 = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Debug|x86.Build.0 = Debug|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|x64.ActiveCfg = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|x64.Build.0 = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|x86.ActiveCfg = Release|Any CPU
-		{0D714680-B0A2-41C0-AD99-240DE3D3E4CD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
