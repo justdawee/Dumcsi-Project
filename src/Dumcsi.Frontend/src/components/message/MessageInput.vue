@@ -182,7 +182,6 @@
 </template>
 
 <script lang="ts" setup>
-import axios from "axios";
 import { ref, computed, nextTick, onUnmounted, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
@@ -192,7 +191,6 @@ import { MarkdownParser } from '@/services/markdownParser';
 // Import composables
 import { useAttachments } from '@/composables/useAttachments';
 import { useMentions } from '@/composables/useMentions';
-import { useToast } from '@/composables/useToast';
 import { useTypingIndicator } from '@/composables/useTypingIndicator';
 
 // Component imports
@@ -226,7 +224,6 @@ const gifPickerButton = ref<HTMLElement | null>(null);
 const appStore = useAppStore();
 const { getDisplayName } = useUserDisplay();
 const channelIdRef = computed(() => props.channel.id);
-const { addToast } = useToast();
 
 const {
   attachments,
@@ -409,13 +406,17 @@ const sendFilesDirect = async (files: FileList) => {
 const handleGifSelect = async (gifUrl: string) => {
   if (isSending.value) return;
 
-  messageContent.value = gifUrl;
   showGifPicker.value = false;
-
-  await nextTick();
-
-  if (canSend.value) {
-    await handleSend();
+  isSending.value = true;
+  try {
+    const payload: CreateMessageRequest = {
+      content: gifUrl,
+    };
+    await appStore.sendMessage(props.channel.id, payload);
+  } catch (error) {
+    console.error('Failed to send GIF message:', error);
+  } finally {
+    isSending.value = false;
   }
 };
 
