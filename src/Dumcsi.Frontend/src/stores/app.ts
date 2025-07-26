@@ -28,6 +28,7 @@ import {UserStatus} from '@/services/types';
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
+import { signalRService } from '@/services/signalrService';
 import router from '@/router';
 import {useToast} from '@/composables/useToast';
 import {useAuthStore} from './auth';
@@ -43,6 +44,8 @@ export const useAppStore = defineStore('app', () => {
     const typingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map());
     const voiceChannelUsers = ref<Map<EntityId, UserProfileDto[]>>(new Map());
     const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
+    const currentVoiceChannelId = ref<EntityId | null>(null);
+    const selfMuted = ref(false);
     const connectionState = ref<'disconnected' | 'connecting' | 'connected' | 'reconnecting'>('disconnected');
 
     const isCreateChannelModalOpen = ref(false);
@@ -76,6 +79,20 @@ export const useAppStore = defineStore('app', () => {
         const authStore = useAuthStore();
         return authStore.user?.id || null;
     });
+
+    const getUserProfile = (userId: EntityId): UserProfileDto | null => {
+        const member = members.value.find(m => m.userId === userId);
+        if (!member) return null;
+        return {
+            id: member.userId,
+            username: member.username,
+            globalNickname: member.globalNickname,
+            email: '',
+            avatar: member.avatarUrl,
+            locale: null,
+            verified: null,
+        };
+    };
 
     // Helper for API calls
     const handleApiCall = async <T>(
@@ -259,6 +276,32 @@ export const useAppStore = defineStore('app', () => {
 
     const removeReaction = async (channelId: EntityId, messageId: EntityId, emoji: string) => {
         await messageService.removeReaction(channelId, messageId, emoji);
+    };
+
+    // Voice Channel Actions
+    const joinVoiceChannel = async (channelId: EntityId) => {
+        await signalRService.joinVoiceChannel(channelId);
+        currentVoiceChannelId.value = channelId;
+    };
+
+    const leaveVoiceChannel = async (channelId: EntityId) => {
+        await signalRService.leaveVoiceChannel(channelId);
+        if (currentVoiceChannelId.value === channelId) {
+            currentVoiceChannelId.value = null;
+            selfMuted.value = false;
+        }
+        voiceChannelUsers.value.delete(channelId);
+    };
+
+    const toggleSelfMute = () => {
+        selfMuted.value = !selfMuted.value;
+    };
+
+    const setVoiceChannelUsers = (channelId: EntityId, userIds: EntityId[]) => {
+        const profiles = userIds
+            .map(id => getUserProfile(id))
+            .filter((p): p is UserProfileDto => p !== null);
+        voiceChannelUsers.value.set(channelId, profiles);
     };
 
     // SignalR Event Handlers
@@ -626,15 +669,21 @@ export const useAppStore = defineStore('app', () => {
         }
     };
 
-    const handleUserJoinedVoiceChannel = (channelId: EntityId, user: UserProfileDto) => {
+    const handleUserJoinedVoiceChannel = (channelId: EntityId, userId: EntityId) => {
+        const profile = getUserProfile(userId);
+        if (!profile) return;
         const users = voiceChannelUsers.value.get(channelId) || [];
-        voiceChannelUsers.value.set(channelId, [...users, user]);
+        if (users.find(u => u.id === userId)) return;
+        voiceChannelUsers.value.set(channelId, [...users, profile]);
     };
 
     const handleUserLeftVoiceChannel = (channelId: EntityId, userId: EntityId) => {
         const users = voiceChannelUsers.value.get(channelId);
         if (!users) return;
         voiceChannelUsers.value.set(channelId, users.filter(u => u.id !== userId));
+        if (voiceChannelUsers.value.get(channelId)?.length === 0) {
+            voiceChannelUsers.value.delete(channelId);
+        }
     };
 
     const handleUserStartedScreenShare = (channelId: EntityId, userId: EntityId) => {
@@ -714,6 +763,14 @@ export const useAppStore = defineStore('app', () => {
         addReaction,
         removeReaction,
 
+        // Voice channel
+        joinVoiceChannel,
+        leaveVoiceChannel,
+        toggleSelfMute,
+        setVoiceChannelUsers,
+        currentVoiceChannelId,
+        selfMuted,
+
         // SignalR Event Handlers
         handleReceiveMessage,
         handleMessageUpdated,
@@ -760,6 +817,8 @@ export const useAppStore = defineStore('app', () => {
             typingUsers.value.clear();
             voiceChannelUsers.value.clear();
             screenShares.value.clear();
+            currentVoiceChannelId.value = null;
+            selfMuted.value = false;
             error.value = null;
         },
     };

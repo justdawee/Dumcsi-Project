@@ -27,18 +27,32 @@
             </div>
             <ul :ref="setChannelParent(topic.id)" class="space-y-0.5">
               <li v-for="channel in topic.channels" :key="channel.id">
-                <RouterLink
+                <div v-if="channel.type === ChannelType.Voice"
+                     :class="['channel-item voice-channel', { 'active': appStore.currentVoiceChannelId === channel.id }]"
+                     @click="toggleVoiceChannel(channel)"
+                     @contextmenu.prevent="openChannelMenu($event, channel)"
+                >
+                  <Volume2 class="w-4 h-4 text-text-muted"/>
+                  <span class="truncate">{{ channel.name }}</span>
+                </div>
+                <RouterLink v-else
                     :class="{ 'active': currentChannelId === channel.id }"
                     :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
                     @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
-                  <component :is="channel.type === ChannelType.Voice ? Volume2 : Hash" class="w-4 h-4 text-text-muted"/>
+                  <Hash class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
                   <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
                           title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
                     <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
                   </button>
                 </RouterLink>
+                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length" class="ml-6 mt-1 space-y-0.5">
+                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id" class="flex items-center gap-1 text-xs text-text-muted">
+                    <UserAvatar :avatar-url="user.avatar" :user-id="user.id" :username="user.username" :size="16"/>
+                    <span class="truncate">{{ user.username }}</span>
+                  </li>
+                </ul>
               </li>
             </ul>
           </li>
@@ -301,6 +315,14 @@ const confirmDeleteChannel = async () => {
     isDeleting.value = false;
     isConfirmDeleteOpen.value = false;
     deletingChannel.value = null;
+  }
+};
+
+const toggleVoiceChannel = async (channel: ChannelListItem) => {
+  if (appStore.currentVoiceChannelId === channel.id) {
+    await appStore.leaveVoiceChannel(channel.id);
+  } else {
+    await appStore.joinVoiceChannel(channel.id);
   }
 };
 

@@ -208,9 +208,14 @@ export class SignalRService {
         });
 
         // Voice channel events
-        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId, user: UserProfileDto) => {
-            console.log('SignalR: User joined voice channel', {channelId, user});
-            appStore.handleUserJoinedVoiceChannel(channelId, user);
+        this.connection.on('AllUsersInVoiceChannel', (channelId: EntityId, userIds: EntityId[]) => {
+            console.log('SignalR: Voice channel user list', {channelId, userIds});
+            appStore.setVoiceChannelUsers(channelId, userIds);
+        });
+
+        this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId, userId: EntityId) => {
+            console.log('SignalR: User joined voice channel', {channelId, userId});
+            appStore.handleUserJoinedVoiceChannel(channelId, userId);
         });
 
         this.connection.on('UserLeftVoiceChannel', (channelId: EntityId, userId: EntityId) => {
