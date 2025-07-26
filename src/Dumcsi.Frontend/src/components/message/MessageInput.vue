@@ -97,8 +97,8 @@
     />
 
     <!-- Input Area -->
-    <div class="flex items-start gap-2 bg-bg-surface/80 rounded-lg p-2">
-      <input
+    <div class="flex items-center gap-2 bg-bg-surface/80 rounded-lg p-2">
+    <input
           ref="fileInput"
           class="hidden"
           multiple
@@ -131,7 +131,7 @@
 
         <!-- Edit Mode -->
         <div v-else class="relative">
-          <div v-if="!messageContent" class="absolute text-text-muted pointer-events-none top-2 left-2.5">
+          <div v-if="!messageContent" class="absolute text-text-muted pointer-events-none top-1.5 left-2.5">
             Message #{{ props.channel.name }}
           </div>
 
