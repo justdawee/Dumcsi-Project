@@ -280,7 +280,8 @@ export const useAppStore = defineStore('app', () => {
 
     // Voice Channel Actions
     const joinVoiceChannel = async (channelId: EntityId) => {
-        await signalRService.joinVoiceChannel(channelId);
+        if (!currentServer.value) return;
+        await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
         currentVoiceChannelId.value = channelId;
 
         const uid = currentUserId.value;
@@ -298,14 +299,26 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const leaveVoiceChannel = async (channelId: EntityId) => {
-        await signalRService.leaveVoiceChannel(channelId);
+        if (!currentServer.value) return;
+        await signalRService.leaveVoiceChannel(currentServer.value.id, channelId);
         if (currentVoiceChannelId.value === channelId) {
             currentVoiceChannelId.value = null;
             selfMuted.value = false;
         }
-        const updated = new Map(voiceChannelUsers.value);
-        updated.delete(channelId);
-        voiceChannelUsers.value = updated;
+
+        // Remove only the current user from the map while keeping the others
+        const uid = currentUserId.value;
+        if (uid) {
+            const users = voiceChannelUsers.value.get(channelId) || [];
+            const updatedUsers = users.filter(u => u.id !== uid);
+            const updated = new Map(voiceChannelUsers.value);
+            if (updatedUsers.length > 0) {
+                updated.set(channelId, updatedUsers);
+            } else {
+                updated.delete(channelId);
+            }
+            voiceChannelUsers.value = updated;
+        }
     };
 
     const toggleSelfMute = () => {

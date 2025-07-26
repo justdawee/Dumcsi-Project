@@ -503,10 +503,10 @@ export class SignalRService {
         }
     }
 
-    async joinVoiceChannel(channelId: EntityId): Promise<void> {
+    async joinVoiceChannel(serverId: EntityId, channelId: EntityId): Promise<void> {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
             try {
-                await this.connection.invoke('JoinVoiceChannel', channelId.toString());
+                await this.connection.invoke('JoinVoiceChannel', serverId.toString(), channelId.toString());
             } catch (error) {
                 console.error('Failed to join voice channel:', error);
                 throw error;
@@ -514,10 +514,10 @@ export class SignalRService {
         }
     }
 
-    async leaveVoiceChannel(channelId: EntityId): Promise<void> {
+    async leaveVoiceChannel(serverId: EntityId, channelId: EntityId): Promise<void> {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
             try {
-                await this.connection.invoke('LeaveVoiceChannel', channelId.toString());
+                await this.connection.invoke('LeaveVoiceChannel', serverId.toString(), channelId.toString());
             } catch (error) {
                 console.error('Failed to leave voice channel:', error);
             }
