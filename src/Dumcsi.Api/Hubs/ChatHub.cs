@@ -217,7 +217,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
     
     // --- Voice Chat Metódusok ---
 
-    public async Task JoinVoiceChannel(string channelId)
+    public async Task JoinVoiceChannel(string serverId, string channelId)
     {
         var connectionId = Context.ConnectionId;
         var userId = Context.UserIdentifier;
@@ -243,12 +243,11 @@ public class ChatHub(IPresenceService presenceService) : Hub
             }
 
             await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUserIds);
-
-            await Clients.OthersInGroup(channelId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId));
+            await Clients.Group(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId));
         }
     }
 
-    public async Task LeaveVoiceChannel(string channelId)
+    public async Task LeaveVoiceChannel(string serverId, string channelId)
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, channelId);
 
@@ -267,7 +266,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
-            await Clients.OthersInGroup(channelId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId));
+            await Clients.Group(serverId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId));
         }
     }
 
