@@ -2,7 +2,7 @@
   <div
       v-if="modelValue"
       ref="pickerContainer"
-      class="absolute bottom-full mb-2 w-full max-w-sm rounded-lg shadow-xl bg-bg-main border border-bg-light z-50 flex flex-col"
+      class="absolute bottom-full mb-2 w-full max-w-sm rounded-lg shadow-xl bg-bg-base border border-main-700 z-50 flex flex-col"
   >
     <!-- Fejléc a keresőmezővel -->
     <div class="p-2 border-b border-bg-surface">
@@ -10,7 +10,7 @@
         <input
             ref="searchInput"
             v-model="searchQuery"
-            class="w-full bg-bg-input text-text-default p-2 pl-8 rounded-md border border-bg-light focus:ring-2 focus:ring-primary focus:outline-none"
+            class="w-full bg-bg-input text-text-default p-2 pl-8 rounded-md border border-main-700  focus:ring-2 focus:ring-primary focus:outline-none"
             placeholder="Search Tenor"
             type="text"
         />
@@ -20,9 +20,9 @@
 
     <!-- Kategóriák -->
     <div class="p-2 border-b border-bg-surface">
-      <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+      <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
         <button
-            :class="activeCategory === 'trending' ? 'bg-primary text-white' : 'bg-bg-surface hover:bg-bg-light'"
+            :class="activeCategory === 'trending' ? 'bg-primary text-white' : 'bg-bg-surface hover:bg-main-700'"
             class="px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors"
             @click="showTrending"
         >
@@ -31,7 +31,7 @@
         <button
             v-for="category in categories"
             :key="category.searchterm"
-            :class="activeCategory === category.searchterm ? 'bg-primary text-white' : 'bg-bg-surface hover:bg-bg-light'"
+            :class="activeCategory === category.searchterm ? 'bg-primary text-white' : 'bg-bg-surface hover:bg-main-700'"
             class="px-3 py-1 rounded-full text-sm whitespace-nowrap transition-colors"
             @click="searchByCategory(category.searchterm)"
         >
@@ -43,7 +43,7 @@
     <!-- GIF rács -->
     <div
         ref="scrollableGrid"
-        class="h-80 overflow-y-auto p-2"
+        class="h-80 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800"
         @scroll="handleScroll"
     >
       <div v-if="loading && gifs.length === 0" class="flex justify-center items-center h-full">
@@ -282,24 +282,3 @@ onUnmounted(() => {
   window.removeEventListener('click', handleClickOutside);
 });
 </script>
-
-<style scoped>
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-text-muted) transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: var(--color-text-muted);
-  border-radius: 3px;
-}
-</style>
