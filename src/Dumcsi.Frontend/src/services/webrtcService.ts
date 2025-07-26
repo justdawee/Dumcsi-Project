@@ -1,4 +1,4 @@
-﻿import {signalRService} from './signalrService';
+﻿import type { SignalRService } from './signalrService';
 import type {EntityId} from './types';
 
 interface ConnectionInfo {
@@ -11,10 +11,13 @@ class WebRtcService {
     private audioElements = new Map<string, HTMLAudioElement>();
     private localStream: MediaStream | null = null;
 
-    constructor() {
-        signalRService.on('ReceiveOffer', this.handleReceiveOffer.bind(this));
-        signalRService.on('ReceiveAnswer', this.handleReceiveAnswer.bind(this));
-        signalRService.on('ReceiveIceCandidate', this.handleReceiveIceCandidate.bind(this));
+    private signalRService: SignalRService | null = null;
+
+    setSignalRService(service: SignalRService) {
+        this.signalRService = service;
+        service.on('ReceiveOffer', this.handleReceiveOffer.bind(this));
+        service.on('ReceiveAnswer', this.handleReceiveAnswer.bind(this));
+        service.on('ReceiveIceCandidate', this.handleReceiveIceCandidate.bind(this));
     }
 
     private async ensureLocalStream() {
@@ -65,8 +68,8 @@ class WebRtcService {
         }
 
         pc.onicecandidate = (e) => {
-            if (e.candidate) {
-                signalRService.sendIceCandidate(targetConnectionId, e.candidate);
+            if (e.candidate && this.signalRService) {
+                this.signalRService.sendIceCandidate(targetConnectionId, e.candidate);
             }
         };
 
@@ -81,10 +84,10 @@ class WebRtcService {
             audio.srcObject = e.streams[0];
         };
 
-        if (initiator) {
+        if (initiator && this.signalRService) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            await signalRService.sendOffer(targetConnectionId, offer);
+            await this.signalRService.sendOffer(targetConnectionId, offer);
         }
 
         return pc;
@@ -97,7 +100,9 @@ class WebRtcService {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        await signalRService.sendAnswer(fromConnectionId, answer);
+        if (this.signalRService) {
+            await this.signalRService.sendAnswer(fromConnectionId, answer);
+        }
     }
 
     private async handleReceiveAnswer(fromConnectionId: string, answer: any) {
