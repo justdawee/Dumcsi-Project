@@ -12,7 +12,7 @@
               :class="['flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full', intentClasses.iconContainer]">
             <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true"/>
           </div>
-          <div class="flex-1">
+          <div class="flex-1 overflow-hidden">
             <h3 id="modal-title" class="text-lg font-semibold leading-6 text-text-default">{{ title }}</h3>
             <div class="mt-2">
               <p class="text-sm text-text-muted whitespace-pre-line">
