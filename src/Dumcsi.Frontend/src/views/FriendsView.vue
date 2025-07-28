@@ -1,76 +1,199 @@
 ﻿<template>
-  <div class="flex-1 flex flex-col bg-bg-base">
-    <div class="px-6 py-4 border-b border-border-default flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-text-default">Friends</h1>
-      <button class="btn-primary" @click="showAdd = true">Add Friend</button>
-    </div>
-    <div class="flex flex-1 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-border-default">
-      <div class="flex-1 overflow-y-auto p-4">
-        <h2 class="font-semibold text-text-default mb-2">Friends</h2>
-        <div v-if="store.loading" class="flex items-center justify-center py-6">
-          <Loader2 class="w-6 h-6 text-primary animate-spin" />
+  <div class="flex h-full w-full bg-bg-base">
+    <!-- Friends Sidebar -->
+    <FriendsSidebar />
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Header -->
+      <div class="h-14 px-4 border-b border-border-default flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <Users class="w-6 h-6 text-text-muted" />
+          <h1 class="font-semibold text-text-default">Friends</h1>
+          <div class="flex items-center ml-4">
+            <button
+                v-for="tab in tabs"
+                :key="tab.value"
+                @click="activeTab = tab.value"
+                :class="[
+                'px-4 py-1.5 rounded text-sm font-medium transition-colors',
+                activeTab === tab.value
+                  ? 'bg-main-700 text-text-default'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-main-800'
+              ]"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
         </div>
-        <ul v-else class="space-y-2">
-          <li v-for="f in store.friendsWithStatus" :key="f.userId" class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <UserAvatar :user-id="f.userId" :username="f.username" :size="32" show-online-indicator :is-online="f.online" />
-              <span class="text-text-default">{{ f.username }}</span>
-              <span class="text-xs" :class="f.online ? 'text-green-500' : 'text-text-tertiary'">{{ f.online ? 'Online' : 'Offline' }}</span>
-            </div>
-            <div class="space-x-2">
-              <RouterLink :to="`/dm/${f.userId}`" class="btn-secondary btn-xs">Message</RouterLink>
-              <button class="text-danger text-sm hover:underline" @click="remove(f.userId)">Remove</button>
-            </div>
-          </li>
-        </ul>
+        <button
+            @click="showAddFriend = true"
+            class="btn-success text-sm"
+        >
+          Add Friend
+        </button>
       </div>
-      <div class="w-full md:w-72 overflow-y-auto p-4 space-y-6">
-        <div>
-          <h3 class="font-semibold text-text-default mb-2">Friend Requests</h3>
-          <div v-if="store.requests.length === 0" class="text-sm text-text-muted">No requests</div>
-          <ul v-else class="space-y-2">
-            <li v-for="r in store.requests" :key="r.requestId" class="flex items-center justify-between">
-              <span>{{ r.fromUsername }}</span>
-              <div class="space-x-1">
-                <button class="btn-primary btn-xs" @click="accept(r.requestId)">Accept</button>
-                <button class="btn-secondary btn-xs" @click="decline(r.requestId)">Decline</button>
-              </div>
-            </li>
-          </ul>
+
+      <!-- Content Area -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Loading State -->
+        <div v-if="loading" class="flex items-center justify-center h-full">
+          <Loader2 class="w-8 h-8 text-text-muted animate-spin" />
         </div>
-        <div>
-          <h3 class="font-semibold text-text-default mb-2">DM Settings</h3>
-          <select v-model.number="store.dmFilter" class="form-input w-full" @change="updateDm">
-            <option :value="DmFilterOption.AllowAll">No filter</option>
-            <option :value="DmFilterOption.FriendsOnly">Filter non-friends</option>
-            <option :value="DmFilterOption.AllRequests">Filter all</option>
-          </select>
+
+        <!-- Online Friends -->
+        <div v-else-if="activeTab === 'online'" class="p-4">
+          <div v-if="onlineFriends.length === 0" class="text-center py-16">
+            <UserX class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
+            <p class="text-text-muted">No friends are currently online</p>
+          </div>
+          <div v-else class="space-y-1">
+            <FriendItem
+                v-for="friend in onlineFriends"
+                :key="friend.userId"
+                :friend="friend"
+                @message="startDirectMessage"
+                @remove="removeFriend"
+            />
+          </div>
+        </div>
+
+        <!-- All Friends -->
+        <div v-else-if="activeTab === 'all'" class="p-4">
+          <div v-if="sortedFriends.length === 0" class="text-center py-16">
+            <Users class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
+            <p class="text-text-muted">You don't have any friends yet</p>
+            <button @click="showAddFriend = true" class="btn-primary mt-4">
+              Add a Friend
+            </button>
+          </div>
+          <div v-else class="space-y-1">
+            <FriendItem
+                v-for="friend in sortedFriends"
+                :key="friend.userId"
+                :friend="friend"
+                @message="startDirectMessage"
+                @remove="removeFriend"
+            />
+          </div>
+        </div>
+
+        <!-- Pending Requests -->
+        <div v-else-if="activeTab === 'pending'" class="p-4">
+          <div v-if="friendStore.requests.length === 0" class="text-center py-16">
+            <UserPlus class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
+            <p class="text-text-muted">No pending friend requests</p>
+          </div>
+          <div v-else class="space-y-1">
+            <FriendRequestItem
+                v-for="request in friendStore.requests"
+                :key="request.requestId"
+                :request="request"
+                @accept="acceptRequest"
+                @decline="declineRequest"
+            />
+          </div>
+        </div>
+
+        <!-- DM Settings -->
+        <div v-else-if="activeTab === 'settings'" class="p-4">
+          <div class="max-w-md">
+            <h2 class="text-lg font-semibold text-text-default mb-4">Direct Message Settings</h2>
+            <div class="bg-main-800 rounded-lg p-4">
+              <label class="block text-sm font-medium text-text-secondary mb-2">
+                Who can send you direct messages?
+              </label>
+              <select
+                  v-model.number="friendStore.dmFilter"
+                  @change="updateDmSettings"
+                  class="form-input w-full"
+              >
+                <option :value="0">Everyone</option>
+                <option :value="1">Friends only</option>
+                <option :value="2">No one</option>
+              </select>
+              <p class="text-xs text-text-tertiary mt-2">
+                This setting controls who can start new direct message conversations with you.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <AddFriendModal v-model="showAdd" />
+
+    <!-- Modals -->
+    <AddFriendModal v-model="showAddFriend" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useFriendStore } from '@/stores/friends';
-import { DmFilterOption } from '@/services/types';
+import { Users, UserPlus, UserX, Loader2 } from 'lucide-vue-next';
+import FriendsSidebar from '@/components/friend/FriendsSidebar.vue';
+import FriendItem from '@/components/friend/FriendItem.vue';
+import FriendRequestItem from '@/components/friend/FriendRequestItem.vue';
 import AddFriendModal from '@/components/friend/AddFriendModal.vue';
-import UserAvatar from '@/components/common/UserAvatar.vue';
-import { Loader2 } from 'lucide-vue-next';
+import type { EntityId } from '@/services/types';
 
-const store = useFriendStore();
-const showAdd = ref(false);
+const router = useRouter();
+const friendStore = useFriendStore();
 
-onMounted(() => {
-  store.fetchFriends();
-  store.fetchRequests();
-  store.fetchDmSettings();
+const tabs = [
+  { label: 'Online', value: 'online' },
+  { label: 'All', value: 'all' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Settings', value: 'settings' }
+];
+
+const activeTab = ref('online');
+const showAddFriend = ref(false);
+const loading = ref(true);
+
+const sortedFriends = computed(() =>
+    [...friendStore.friendsWithStatus].sort((a, b) => {
+      if (a.online === b.online) return a.username.localeCompare(b.username);
+      return a.online ? -1 : 1;
+    })
+);
+
+const onlineFriends = computed(() =>
+    sortedFriends.value.filter(f => f.online)
+);
+
+const startDirectMessage = (userId: EntityId) => {
+  router.push(`/dm/${userId}`);
+};
+
+const removeFriend = async (userId: EntityId) => {
+  if (confirm('Are you sure you want to remove this friend?')) {
+    await friendStore.removeFriend(userId);
+  }
+};
+
+const acceptRequest = async (requestId: EntityId) => {
+  await friendStore.acceptRequest(requestId);
+};
+
+const declineRequest = async (requestId: EntityId) => {
+  await friendStore.declineRequest(requestId);
+};
+
+const updateDmSettings = async () => {
+  await friendStore.updateDmSettings(friendStore.dmFilter);
+};
+
+onMounted(async () => {
+  loading.value = true;
+  try {
+    await Promise.all([
+      friendStore.fetchFriends(),
+      friendStore.fetchRequests(),
+      friendStore.fetchDmSettings()
+    ]);
+  } finally {
+    loading.value = false;
+  }
 });
-
-const accept = (id: number) => store.acceptRequest(id);
-const decline = (id: number) => store.declineRequest(id);
-const remove = (id: number) => store.removeFriend(id);
-const updateDm = () => store.updateDmSettings(store.dmFilter);
 </script>

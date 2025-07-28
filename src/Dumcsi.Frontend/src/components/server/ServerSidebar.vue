@@ -13,30 +13,11 @@
       <RouterLink
           :class="{ 'active': isHome }"
           class="server-icon"
-          to="/servers"
+          to="/friends"
       >
         <Home class="w-6 h-6"/>
       </RouterLink>
     </div>
-
-    <div
-        class="relative group w-full px-3"
-        @mouseenter="showTooltip($event, 'Friends')"
-        @mouseleave="hideTooltip"
-    >
-      <div
-          :class="isFriends ? 'h-10' : 'scale-y-0 group-hover:h-5 group-hover:scale-y-100'"
-          class="absolute left-0 top-1/2 -translate-y-1/2 w-1 bg-text-default rounded-r-lg transition-all duration-200 origin-center h-2"
-      ></div>
-      <RouterLink
-          :class="{ 'active': isFriends }"
-          class="server-icon"
-          to="/friends"
-      >
-        <Users class="w-6 h-6" />
-      </RouterLink>
-    </div>
-
     <div class="w-8 h-[2px] bg-border-default rounded-full"/>
 
     <!-- Server List & Add Button Container -->
@@ -151,7 +132,7 @@
 import {ref, computed, onUnmounted} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
-import {Home, Users, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass, Shield} from 'lucide-vue-next';
+import {Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass, Shield} from 'lucide-vue-next';
 import type {Component} from 'vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
@@ -207,8 +188,7 @@ const closeCreateModal = () => {
 };
 
 // --- Computed ---
-const isHome = computed(() => route.name === 'ServerSelect');
-const isFriends = computed(() => route.name === 'Friends');
+const isHome = computed(() => route.name === 'Friends');
 const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
 
 // --- Methods ---
