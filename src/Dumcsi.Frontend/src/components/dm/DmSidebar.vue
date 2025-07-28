@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="w-60 bg-main-950 flex flex-col h-full overflow-hidden">
-    <div class="px-4 h-14 border-b border-l border-r border-border-default shadow-xs flex-shrink-0 flex items-center">
+    <div class="px-4 h-14 border-b border-l border-r border-border-default shadow-xs flex items-center gap-2">
       <h2 class="font-semibold text-text-default truncate">Direct Messages</h2>
     </div>
     <div class="flex-1 overflow-y-auto border-l border-r border-border-default shadow-xs scrollbar-thin min-h-0">
