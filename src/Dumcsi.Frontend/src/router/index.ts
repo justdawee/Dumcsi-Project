@@ -94,13 +94,12 @@ const routes: readonly RouteRecordRaw[] = [
                 component: () => import('@/views/settings/ProfileSettingsView.vue')
             }
         ]
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('@/views/NotFoundView.vue')
     }
-    // Optional: Add a 404 catch-all route
-    //{
-    //  path: '/:pathMatch(.*)*',
-    //  name: 'NotFound',
-    //  component: () => import('@/views/NotFoundView.vue') // You would need to create this component
-    //}
 ];
 
 const router = createRouter({
