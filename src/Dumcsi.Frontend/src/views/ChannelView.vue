@@ -66,66 +66,12 @@
         </div>
       </div>
 
-      <div v-if="isMemberListOpen"
-           class="w-66 bg-main-900 border-l border-main-700 py-4 animate-slide-in flex flex-col"><h3
-          class="font-semibold text-text-default mb-4 px-4">Members - {{ members.length }}</h3>
-        <div v-if="appStore.loading.members" class="flex justify-center items-center h-full px-4">
-          <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
-        </div>
-        <ul v-else class="space-y-3 flex-1 overflow-y-auto scrollbar-thin">
-          <li
-              v-for="member in members"
-              :key="member.userId"
-              class="flex items-center gap-3 cursor-pointer hover:bg-main-700/20 p-1 px-4 rounded member-item"
-              @click="openMemberInfo(member, $event)"
-          >
-            <UserAvatar
-                :avatar-url="member.avatarUrl"
-                :is-typing="isTyping(member.userId)"
-                :size="32"
-                :user-id="member.userId"
-                :username="member.username"
-                indicator-bg-color="var(--color-main-900)"
-                show-online-indicator
-            />
-            <div class="flex-1 min-w-0">
-        <span class="text-gray-300 font-medium text-sm truncate block">
-          {{ getDisplayName(member) }}
-        </span>
-              <span v-if="member.roles.length > 0" class="text-xs text-text-tertiary">
-          {{ member.roles[0].name }}
-        </span>
-            </div>
-            <div v-if="canManageMember(member.userId).value" class="flex gap-1">
-              <button
-                  v-if="permissions.kickMembers"
-                  class="p-1 text-text-muted hover:text-red-400 transition"
-                  title="Kick Member"
-                  @click="kickMember()"
-              >
-                <UserX class="w-4 h-4"/>
-              </button>
-              <button
-                  v-if="permissions.banMembers"
-                  class="p-1 text-text-muted hover:text-red-500 transition"
-                  title="Ban Member"
-                  @click="banMember()"
-              >
-                <Ban class="w-4 h-4"/>
-              </button>
-            </div>
-          </li>
-        </ul>
-      </div>
+      <MemberList
+          v-if="isMemberListOpen"
+          :is-typing="isTyping"
+      />
     </div>
   </div>
-  <UserInfoCard
-      v-if="infoCardMember"
-      v-model="infoCardVisible"
-      :user="infoCardMember"
-      :x="infoCardPos.x"
-      :y="infoCardPos.y"
-  />
   <GlobalFileDrop/>
 </template>
 
@@ -136,28 +82,24 @@ import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {usePermissions} from '@/composables/usePermissions';
-import {useUserDisplay} from '@/composables/useUserDisplay';
 import {debounce} from '@/utils/helpers';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
-import {Hash, Users, Loader2, UserX, Ban} from 'lucide-vue-next';
+import {Hash, Users, Loader2} from 'lucide-vue-next';
 import MessageItem from '@/components/message/MessageItem.vue';
 import MessageInput from '@/components/message/MessageInput.vue';
-import UserAvatar from '@/components/common/UserAvatar.vue';
-import UserInfoCard from '@/components/common/UserInfoCard.vue';
+import MemberList from '@/components/common/MemberList.vue';
 import GlobalFileDrop from '@/components/ui/GlobalFileDrop.vue';
 import {signalRService} from '@/services/signalrService';
 import {
   type CreateMessageRequest,
   type UpdateMessageRequest,
   type EntityId,
-  type ServerMember,
 } from '@/services/types';
 
 const route = useRoute();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const {addToast} = useToast();
-const {getDisplayName} = useUserDisplay();
 
 // Typing indicator text for the current channel using the composable
 const channelIdRef = computed<EntityId>(
@@ -174,39 +116,17 @@ const isTyping = (userId: EntityId) => typingUserIds.value.has(userId);
 
 
 // Permission composable használata
-const {permissions, canManageMember} = usePermissions();
+const {permissions} = usePermissions();
 
 const messagesContainer = ref<HTMLElement | null>(null);
 const isMemberListOpen = ref(true);
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
-const infoCardMember = ref<ServerMember | null>(null);
-const infoCardVisible = ref(false);
-const infoCardPos = ref({x: 0, y: 0});
-
-watch(infoCardVisible, (val) => {
-  if (!val) infoCardMember.value = null;
-});
 
 // State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);
 const messages = computed(() => appStore.messages);
 const channelDescription = computed(() => appStore.currentChannel?.description);
 
-const members = computed(() => {
-  const allMembers = appStore.members;
-  const authStore = useAuthStore();
-  const currentUserId = authStore.user?.id;
-
-  // Ensure self is marked as online
-  if (currentUserId && appStore.connectionState === 'connected') {
-    const selfMember = allMembers.find(m => m.userId === currentUserId);
-    if (selfMember) {
-      selfMember.isOnline = true;
-    }
-  }
-
-  return allMembers;
-});
 
 // --- Core Logic ---
 
@@ -264,24 +184,6 @@ const handleDeleteMessage = (messageId: EntityId) => {
       .catch(() => addToast({type: 'danger', message: 'Failed to delete message.'}));
 };
 
-const kickMember = async () => {
-  addToast({type: 'info', message: 'Kick member functionality coming soon!'});
-};
-
-const banMember = async () => {
-  addToast({type: 'info', message: 'Ban member functionality coming soon!'});
-};
-
-const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
-  event.stopPropagation();
-  const target = event.currentTarget as HTMLElement;
-  const rect = target.getBoundingClientRect();
-  const cardWidth = 256;
-  const offset = 8;
-  infoCardPos.value = {x: rect.left - cardWidth - offset, y: rect.top};
-  infoCardMember.value = member;
-  infoCardVisible.value = true;
-};
 
 
 const handleGlobalDrop = (event: CustomEvent<{ files: FileList; direct: boolean }>) => {
