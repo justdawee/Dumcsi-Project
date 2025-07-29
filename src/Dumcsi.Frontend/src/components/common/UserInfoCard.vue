@@ -16,7 +16,7 @@
               class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50"
               @click.stop="openAddRoleMenu"
           >
-            <Plus class="w-4 h-4 text-white" />
+            <Plus class="w-4 h-4 text-white"/>
           </button>
           <button
               v-if="canManageRoles"
@@ -24,25 +24,25 @@
               class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
               @click.stop.prevent="togglePermissions"
           >
-            <Shield class="w-4 h-4 text-white" />
+            <Shield class="w-4 h-4 text-white"/>
           </button>
           <button
               class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
               @click="emit('update:modelValue', false)"
           >
-            <X class="w-4 h-4 text-white" />
+            <X class="w-4 h-4 text-white"/>
           </button>
         </div>
 
         <div class="flex flex-col items-start px-3 -mt-8 pb-3">
           <UserAvatar
               :avatar-url="avatarUrl"
+              :size="80"
               :user-id="userId"
               :username="user.username"
-              :size="80"
-              show-online-indicator
-              indicator-bg-color="var(--color-main-800)"
               class="rounded-full ring-4 ring-gray-800"
+              indicator-bg-color="var(--color-main-800)"
+              show-online-indicator
           />
           <p class="mt-3 text-lg font-semibold text-white truncate">
             {{ displayName }}
@@ -54,13 +54,13 @@
           <div class="flex items-center space-x-1 mt-2 flex-wrap justify-start">
             <template v-for="role in sortedRoles" :key="role.id">
               <div class="flex items-center gap-1">
-                <div class="relative group w-3 h-3 rounded-full" :style="{ backgroundColor: role.color }">
+                <div :style="{ backgroundColor: role.color }" class="relative group w-3 h-3 rounded-full">
                   <button
                       v-if="canManageRoles"
                       class="absolute inset-0 flex items-center justify-center rounded-full text-[10px] bg-black/60 text-white opacity-0 group-hover:opacity-100"
                       @click.stop="removeRole(role)"
                   >
-                    <X class="w-2 h-2" />
+                    <X class="w-2 h-2"/>
                   </button>
                 </div>
                 <span class="text-xs text-gray-300">{{ role.name }}</span>
@@ -79,20 +79,19 @@
             v-show="showPermissions"
             ref="permPopup"
             :style="permPopupStyle"
-            class="absolute bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 z-50"
+            class="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 z-50"
         >
           <div class="flex flex-wrap gap-1 max-w-[14rem]">
-            <span
-                v-for="perm in permissionNames"
-                :key="perm"
-                class="bg-main-700 text-xs rounded px-2 py-1 text-white"
-            >
-              {{ perm }}
-            </span>
+              <span
+                  v-for="perm in permissionNames"
+                  :key="perm"
+                  class="bg-main-700 text-xs rounded px-2 py-1 text-white"
+              >
+                {{ perm }}
+              </span>
           </div>
         </div>
-
-        <ContextMenu ref="roleMenu" :items="roleMenuItems" />
+        <ContextMenu ref="roleMenu" :items="roleMenuItems"/>
       </div>
     </div>
   </Teleport>
@@ -100,10 +99,10 @@
 
 <script lang="ts" setup>
 import {computed, onMounted, onUnmounted, ref, watch, nextTick} from 'vue';
-import { Permission, type ServerMember, type Role } from '@/services/types';
+import {Permission, type ServerMember, type Role} from '@/services/types';
 import UserAvatar from './UserAvatar.vue';
-import ContextMenu, { type MenuItem } from '@/components/ui/ContextMenu.vue';
-import { Plus, Shield, X } from 'lucide-vue-next';
+import ContextMenu, {type MenuItem} from '@/components/ui/ContextMenu.vue';
+import {Plus, Shield, X} from 'lucide-vue-next';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import {useAppStore} from '@/stores/app';
 import {usePermissions} from '@/composables/usePermissions';
@@ -120,10 +119,10 @@ const emit = defineEmits(['update:modelValue', 'message']);
 
 const cardRef = ref<HTMLElement | null>(null);
 const shieldRef = ref<HTMLElement | null>(null);
-const permPopupStyle = ref<Record<string, string>>({ left: '0px', top: '0px' });
+const permPopupStyle = ref<Record<string, string>>({left: '0px', top: '0px'});
 const visible = computed(() => props.modelValue);
 
-const { getAvatarUrl, getDisplayName } = useUserDisplay();
+const {getAvatarUrl, getDisplayName} = useUserDisplay();
 
 const displayName = computed(() => getDisplayName(props.user));
 const avatarUrl = computed(() => getAvatarUrl(props.user));
@@ -133,7 +132,7 @@ const userId = computed(() => {
 });
 
 const appStore = useAppStore();
-const { permissions, canManageMember, permissionDetails } = usePermissions();
+const {permissions, canManageMember, permissionDetails} = usePermissions();
 
 const canManageRoles = computed(() =>
     permissions.manageRoles.value && canManageMember(props.user.userId).value
@@ -207,12 +206,12 @@ const openAddRoleMenu = (e: MouseEvent) => {
 const togglePermissions = () => {
   showPermissions.value = !showPermissions.value;
   nextTick(() => {
-    if (showPermissions.value && shieldRef.value && cardRef.value) {
+    if (showPermissions.value && shieldRef.value) {
       const shieldRect = shieldRef.value.getBoundingClientRect();
-      const cardRect = cardRef.value.getBoundingClientRect();
+
       permPopupStyle.value = {
-        left: `${shieldRect.left - cardRect.left}px`,
-        top: `${shieldRect.bottom - cardRect.top + 4}px`,
+        left: `${shieldRect.left}px`,
+        top: `${shieldRect.bottom + 4}px`,
       };
     }
   });
@@ -237,7 +236,7 @@ const positionStyle = computed(() => {
       top = 10;
     }
   }
-  return { left: `${left}px`, top: `${top}px` };
+  return {left: `${left}px`, top: `${top}px`};
 });
 
 const handleClickOutside = (e: MouseEvent) => {
