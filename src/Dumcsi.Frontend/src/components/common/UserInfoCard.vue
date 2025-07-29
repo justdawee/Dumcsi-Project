@@ -52,12 +52,6 @@
             {{ mutualServersCount }} Mutual Servers
           </p>
           <div class="flex items-center space-x-1 mt-2 flex-wrap justify-start">
-            <span
-                v-if="isAdmin"
-                class="px-2 py-0.5 bg-red-600 rounded-full text-xs font-medium"
-            >
-              Admin
-            </span>
             <template v-for="role in sortedRoles" :key="role.id">
               <div class="flex items-center gap-1">
                 <div class="relative group w-3 h-3 rounded-full" :style="{ backgroundColor: role.color }">
@@ -148,9 +142,6 @@ const canManageRoles = computed(() =>
 // additional info
 const mutualServersCount = computed(
     () => (props.user as any).mutualServers?.length ?? 0
-);
-const isAdmin = computed(() =>
-    (permissionValue.value & Permission.Administrator) !== 0
 );
 
 const messageUser = () => {
