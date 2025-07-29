@@ -58,15 +58,16 @@
 </template>
 
 <script lang="ts" setup>
-import {ref, computed} from 'vue';
+import {ref} from 'vue';
 import {MessageSquare, Hash, UserPlus, Loader2} from 'lucide-vue-next';
 import serverService from '@/services/serverService';
+import {usePermissions} from "@/composables/usePermissions.ts";
 import type {ServerDetails} from '@/services/types';
-import {Permission} from '@/services/types';
 import {useToast} from '@/composables/useToast';
 import InviteModal from '@/components/modals/InviteModal.vue';
 
 const {addToast} = useToast();
+const {permissions} = usePermissions();
 
 const props = defineProps<{
   server: ServerDetails | null;
@@ -76,12 +77,7 @@ const generatedInviteCode = ref('');
 const generatingInvite = ref(false);
 const isInviteModalOpen = ref(false);
 
-const canInvite = computed(() => {
-  if (!props.server) return false;
-  const userPermissions = props.server.currentUserPermissions;
-  return (userPermissions & Permission.Administrator) === Permission.Administrator ||
-      (userPermissions & Permission.CreateInvite) === Permission.CreateInvite;
-});
+const canInvite = permissions.isOwner || permissions.createInvite;
 
 const handleGenerateInvite = async () => {
   if (!props.server || !canInvite.value) return;
@@ -101,14 +97,3 @@ const handleGenerateInvite = async () => {
   }
 };
 </script>
-
-<style scoped>
-@reference "@/style.css";
-
-.btn-primary {
-  @apply px-4 py-2 bg-primary hover:bg-primary-hover text-white
-  font-medium rounded-lg transition-colors duration-200
-  focus:outline-none focus:ring-2 focus:ring-primary/50
-  disabled:opacity-50 disabled:cursor-not-allowed;
-}
-</style>
