@@ -1,12 +1,12 @@
 <template>
-  <div class="w-60 bg-main-950 flex flex-col h-full overflow-hidden">
-    <div class="px-4 h-14 border-b border-l border-r border-border-default shadow-xs flex-shrink-0 flex items-center">
+  <SidebarContainer>
+    <template #header>
       <h2 class="font-semibold text-text-default truncate">
         {{ server?.name || 'Loading...' }}
       </h2>
-    </div>
+    </template>
 
-    <div class="flex-1 overflow-y-auto border-l border-r border-border-default shadow-xs scrollbar-thin min-h-0">
+    <template #content>
       <div v-if="loading" class="flex items-center justify-center py-8">
         <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
       </div>
@@ -58,32 +58,10 @@
           </li>
         </ul>
       </div>
-    </div>
+    </template>
 
-    <!-- User info section -->
-    <div class="px-2 py-2 bg-main-950 border-t border-l border-r border-border-default">
-      <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-main-800 transition">
-        <UserAvatar
-            :avatar-url="authStore.user?.avatar"
-            :size="32"
-            :user-id="authStore.user?.id"
-            :username="authStore.user?.username || ''"
-        />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-text-default truncate">
-            {{ getDisplayName(authStore.user) }}
-          </p>
-          <div class="text-xs text-text-muted truncate">
-            @{{ authStore.user?.username }}
-          </div>
-        </div>
-        <RouterLink title="Felhasználói beállítások" to="/settings/profile">
-          <Settings class="w-4 h-4 text-text-muted hover:text-text-secondary cursor-pointer"/>
-        </RouterLink>
-      </div>
-    </div>
-
-    <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
+    <template #footer>
+      <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
     <ConfirmModal
         v-model="isConfirmDeleteOpen"
         :is-loading="isDeleting"
@@ -100,7 +78,8 @@
         @channel-updated="handleChannelUpdate"
         @channel-deleted="handleChannelDeleted"
     />
-  </div>
+    </template>
+  </SidebarContainer>
 </template>
 
 <script lang="ts" setup>
@@ -113,6 +92,7 @@ import {useToast} from '@/composables/useToast';
 import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
@@ -125,7 +105,6 @@ import {
   type ServerDetails,
   type TopicListItem
 } from '@/services/types';
-import {useUserDisplay} from '@/composables/useUserDisplay';
 import {usePermissions} from '@/composables/usePermissions';
 
 // --- Props & Store ---
@@ -139,7 +118,6 @@ const router = useRouter();
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const {addToast} = useToast();
-const {getDisplayName} = useUserDisplay();
 const {permissions} = usePermissions();
 
 const insertPointClasses = [

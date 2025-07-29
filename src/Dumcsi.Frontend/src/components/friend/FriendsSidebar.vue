@@ -1,7 +1,6 @@
 ﻿<template>
-  <div class="w-60 bg-main-950 flex flex-col h-full overflow-hidden">
-    <!-- Header with navigation -->
-    <div class="px-4 h-14 border-b border-l border-r border-border-default shadow-xs flex items-center gap-2">
+  <SidebarContainer>
+    <template #header>
       <button
           @click="router.push('/servers')"
           class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-main-700 transition-colors text-text-muted hover:text-text-default"
@@ -15,10 +14,9 @@
         <Users class="w-4 h-4" />
         <span class="text-sm font-medium">Friends</span>
       </button>
-    </div>
+    </template>
 
-    <!-- Direct Messages Section -->
-    <div class="flex-1 overflow-y-auto border-l border-r border-border-default shadow-xs scrollbar-thin min-h-0">
+    <template #content>
       <div class="p-2">
         <div class="flex items-center justify-between px-2 py-1 mb-2">
           <span class="text-xs font-semibold text-text-tertiary uppercase">Direct Messages</span>
@@ -78,31 +76,8 @@
           </RouterLink>
         </div>
       </div>
-    </div>
-
-    <!-- User info section -->
-    <div class="px-2 py-2 bg-main-950 border-t border-l border-r border-border-default">
-      <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-main-800 transition">
-        <UserAvatar
-            :avatar-url="authStore.user?.avatar"
-            :size="32"
-            :user-id="authStore.user?.id"
-            :username="authStore.user?.username || ''"
-        />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-text-default truncate">
-            {{ getDisplayName(authStore.user) }}
-          </p>
-          <div class="text-xs text-text-muted truncate">
-            @{{ authStore.user?.username }}
-          </div>
-        </div>
-        <RouterLink title="Felhasználói beállítások" to="/settings/profile">
-          <Settings class="w-4 h-4 text-text-muted hover:text-text-secondary cursor-pointer"/>
-        </RouterLink>
-      </div>
-    </div>
-  </div>
+    </template>
+  </SidebarContainer>
 </template>
 
 <script setup lang="ts">
@@ -110,16 +85,15 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDmStore } from '@/stores/dm';
-import {Server, Users, Loader2, X, Settings} from 'lucide-vue-next';
+import {Server, Users, Loader2, X} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import type { EntityId } from '@/services/types';
-import {useUserDisplay} from "@/composables/useUserDisplay.ts";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const dmStore = useDmStore();
-const {getDisplayName} = useUserDisplay();
 
 const loading = ref(true);
 
