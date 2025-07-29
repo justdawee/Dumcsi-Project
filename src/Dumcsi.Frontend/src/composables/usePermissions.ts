@@ -1,4 +1,4 @@
-﻿import { computed, type ComputedRef } from 'vue';
+﻿import {computed, type ComputedRef} from 'vue';
 import { useAppStore } from '@/stores/app';
 import { Permission, type ServerDetails, type EntityId, type Role, type ServerListItem } from '@/services/types';
 
@@ -11,12 +11,6 @@ export interface PermissionCheckResult {
 export function usePermissions() {
     const appStore = useAppStore();
 
-    /**
-     * Ellenőrzi, hogy a felhasználónak van-e egy adott jogosultsága az aktuális szerveren.
-     * @param permission A vizsgálandó jogosultság.
-     * @param serverId Opcionális szerver ID. Ha nincs megadva, az aktuális szervert használja.
-     * @returns Igaz, ha a felhasználónak van jogosultsága, egyébként hamis.
-     */
     const hasPermission = (permission: Permission, serverId?: EntityId): boolean => {
         const server: ServerDetails | ServerListItem | null = serverId
             ? appStore.servers.find(s => s.id === serverId) ?? null
@@ -24,45 +18,29 @@ export function usePermissions() {
 
         if (!server) return false;
 
-        // A szerver tulajdonosának minden jogosultsága megvan.
         if (server.isOwner) return true;
 
-        // Ellenőrizzük, hogy a szerver objektum tartalmaz-e jogosultsági adatokat.
         if (!('currentUserPermissions' in server)) return false;
 
         const serverDetails = server as ServerDetails;
 
-        // Az adminisztrátori jogosultság minden mást felülír.
         if ((serverDetails.currentUserPermissions & Permission.Administrator) !== 0) return true;
 
-        // Specifikus jogosultság ellenőrzése bitenkénti ÉS művelettel.
         return (serverDetails.currentUserPermissions & permission) !== 0;
     };
 
-    /**
-     * Ellenőrzi, hogy a felhasználónak van-e több jogosultsága közül legalább egy.
-     */
     const hasAnyPermission = (permissions: Permission[], serverId?: EntityId): boolean => {
         return permissions.some(permission => hasPermission(permission, serverId));
     };
 
-    /**
-     * Ellenőrzi, hogy a felhasználónak van-e minden megadott jogosultsága.
-     */
     const hasAllPermissions = (permissions: Permission[], serverId?: EntityId): boolean => {
         return permissions.every(permission => hasPermission(permission, serverId));
     };
 
-    /**
-     * Reaktív `computed` property egy adott jogosultsághoz.
-     */
     const can = (permission: Permission, serverId?: EntityId): ComputedRef<boolean> => {
         return computed(() => hasPermission(permission, serverId));
     };
 
-    /**
-     * Gyakran használt jogosultságok `computed` property-jei.
-     */
     const permissions = {
         // Üzenetkezelés
         sendMessages: computed(() => hasPermission(Permission.SendMessages)),
@@ -106,9 +84,6 @@ export function usePermissions() {
         isOwner: computed(() => appStore.currentServer?.isOwner ?? false),
     };
 
-    /**
-     * Részletes jogosultság információk lekérése.
-     */
     const getPermissionInfo = (serverId?: EntityId): ComputedRef<PermissionCheckResult> => {
         return computed(() => {
             const server = serverId
@@ -126,9 +101,6 @@ export function usePermissions() {
         });
     };
 
-    /**
-     * Csatorna-specifikus jogosultság ellenőrzés.
-     */
     const canInChannel = (permission: Permission): ComputedRef<boolean> => {
         return computed(() => {
             // TODO: Később itt lehetne csatorna-specifikus felülírásokat kezelni
@@ -136,9 +108,6 @@ export function usePermissions() {
         });
     };
 
-    /**
-     * Helper függvény a jogosultság nevének megjelenítéséhez.
-     */
     const getPermissionDisplayName = (permission: Permission): string => {
         const permissionNames: Record<number, string> = {
             [Permission.None]: 'None',
@@ -170,9 +139,6 @@ export function usePermissions() {
         return permissionNames[permission] || 'Unknown Permission';
     };
 
-    /**
-     * Szerepkör-alapú jogosultság ellenőrzés.
-     */
     const hasPermissionThroughRoles = (permission: Permission): boolean => {
         const member = appStore.members.find(m => m.userId === appStore.currentUserId);
         if (!member) return false;
@@ -188,9 +154,6 @@ export function usePermissions() {
         });
     };
 
-    /**
-     * Megadja a felhasználó legmagasabb rangú szerepkörét.
-     */
     const getHighestRole = (): ComputedRef<Role | null> => {
         return computed(() => {
             const member = appStore.members.find(m => m.userId === appStore.currentUserId);
@@ -201,9 +164,6 @@ export function usePermissions() {
         });
     };
 
-    /**
-     * Ellenőrzi, hogy a felhasználó módosíthat-e egy másik felhasználót.
-     */
     const canManageMember = (targetUserId: EntityId): ComputedRef<boolean> => {
         return computed(() => {
             const server = appStore.currentServer;
@@ -226,9 +186,6 @@ export function usePermissions() {
         });
     };
 
-    /**
-     * Debug segédfüggvény a jogosultságok konzolra írásához.
-     */
     const debugPermissions = (serverId?: EntityId): void => {
         const server = serverId
             ? appStore.servers.find(s => s.id === serverId)
