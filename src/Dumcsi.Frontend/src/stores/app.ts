@@ -696,7 +696,7 @@ export const useAppStore = defineStore('app', () => {
         if (currentServer.value) {
             const index = currentServer.value.roles.findIndex(r => r.id === role.id);
             if (index !== -1) {
-                currentServer.value.roles[index] = {
+                const updatedRole = {
                     id: role.id,
                     name: role.name,
                     color: role.color,
@@ -705,6 +705,15 @@ export const useAppStore = defineStore('app', () => {
                     isHoisted: role.isHoisted,
                     isMentionable: role.isMentionable,
                 };
+                currentServer.value.roles[index] = updatedRole;
+                
+                // Update the role in all members who have this role
+                members.value.forEach(member => {
+                    const memberRoleIndex = member.roles.findIndex(r => r.id === role.id);
+                    if (memberRoleIndex !== -1) {
+                        member.roles[memberRoleIndex] = updatedRole;
+                    }
+                });
             }
         }
     };
