@@ -3,7 +3,7 @@
     <template #header>
       <div class="px-4 w-full">
         <button
-            class="w-full px-1.5 py-1.5 text-sm font-normal text-gray-400 bg-main-800 hover:bg-main-700 rounded-md transition-colors text-center border border-main-600"
+            class="w-full px-1.5 py-2 text-sm font-normal text-gray-400 bg-main-900 hover:bg-main-800 rounded-md transition-colors text-center border border-main-700"
             @click="showSearchModal = true"
         >
           Find or start a conversation
@@ -134,7 +134,7 @@ const hasUnread = (userId: EntityId) => dmStore.unreadMessages.has(userId);
 
 const closeConversation = async (userId: EntityId) => {
   if (currentDmUserId.value === userId) {
-    router.push('/friends');
+    await router.push('/friends');
   }
   dmStore.removeConversation(userId);
 };

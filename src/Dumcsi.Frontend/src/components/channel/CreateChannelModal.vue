@@ -146,7 +146,7 @@ const handleCreateChannel = async () => {
     })
 
     if (form.value.type === 0) {
-      router.push(`/servers/${props.serverId}/channels/${response.id}`)
+      await router.push(`/servers/${props.serverId}/channels/${response.id}`)
     }
   } catch (err) {
     addToast({
