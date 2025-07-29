@@ -1,5 +1,10 @@
 <template>
-  <div class="flex-1 flex flex-col bg-bg-base">
+  <div class="flex h-full w-full bg-bg-base">
+    <!-- Home Sidebar -->
+    <HomeSidebar />
+    
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col bg-bg-base">
     <div class="px-6 py-4 border-b border-border-default flex items-center justify-between">
       <h1 class="text-2xl font-bold text-text-default">Your Servers</h1>
       <div class="flex items-center gap-3">
@@ -103,6 +108,7 @@
         v-model="showCreateModal"
         @close="closeCreateModal"
     />
+    </div>
   </div>
 </template>
 
@@ -115,6 +121,7 @@ import {ChevronDown, LogOut, Loader2, Server, Plus, Edit} from 'lucide-vue-next'
 import CreateServerModal from '@/components/server/CreateServerModal.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import ServerAvatar from "@/components/common/ServerAvatar.vue";
+import HomeSidebar from '@/components/common/HomeSidebar.vue';
 
 const authStore = useAuthStore()
 const appStore = useAppStore()

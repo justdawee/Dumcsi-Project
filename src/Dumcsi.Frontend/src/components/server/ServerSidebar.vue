@@ -188,7 +188,7 @@ const closeCreateModal = () => {
 };
 
 // --- Computed ---
-const isHome = computed(() => route.name === 'Friends');
+const isHome = computed(() => route.name === 'Friends' || route.path === '/servers');
 const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
 
 // --- Methods ---

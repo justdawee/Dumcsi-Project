@@ -1,7 +1,7 @@
 <template>
   <div class="w-60 bg-main-950 flex flex-col h-full overflow-hidden">
     <!-- Header Section -->
-    <div class="px-4 h-14 border-b border-l border-r border-border-default shadow-xs flex-shrink-0 flex items-center">
+    <div class="h-14 border-b border-l border-r border-border-default shadow-xs flex-shrink-0 flex items-center">
       <slot name="header" />
     </div>
 

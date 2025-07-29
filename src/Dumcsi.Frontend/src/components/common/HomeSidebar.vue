@@ -1,95 +1,41 @@
 <template>
   <SidebarContainer>
     <template #header>
-      <button
-          @click="router.push('/servers')"
-          class="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-main-700 transition-colors text-text-muted hover:text-text-default"
-      >
-        <Server class="w-4 h-4" />
-        <span class="text-sm font-medium">Servers</span>
-      </button>
-      <button
-          class="flex items-center gap-2 px-3 py-1.5 rounded bg-main-700 text-text-default"
-      >
-        <Users class="w-4 h-4" />
-        <span class="text-sm font-medium">Home</span>
-      </button>
+      <div class="px-4 w-full">
+        <button
+            class="w-full px-1.5 py-1.5 text-sm font-normal text-gray-400 bg-main-800 hover:bg-main-700 rounded-md transition-colors text-center border border-main-600"
+            @click="showSearchModal = true"
+        >
+          Find or start a conversation
+        </button>
+      </div>
     </template>
 
     <template #content>
       <div class="p-2">
-        <!-- Friends Section -->
-        <div class="mb-4">
-          <div class="flex items-center justify-between px-2 py-1 mb-2">
-            <span class="text-xs font-semibold text-text-tertiary uppercase">Friends</span>
-            <button
-                @click="showAddFriend = true"
-                class="p-1 hover:bg-main-700 rounded transition"
-                title="Add Friend"
-            >
-              <UserPlus class="w-4 h-4 text-text-muted hover:text-text-default" />
-            </button>
-          </div>
 
-          <!-- Loading state -->
-          <div v-if="friendsLoading" class="flex items-center justify-center py-4">
-            <Loader2 class="w-5 h-5 text-text-muted animate-spin" />
-          </div>
-
-          <!-- Online Friends List -->
-          <div v-else class="space-y-0.5 mb-2">
-            <div v-if="onlineFriends.length === 0 && !friendsLoading" class="text-center py-2">
-              <p class="text-xs text-text-tertiary">No friends online</p>
-            </div>
-            
-            <div
-                v-for="friend in onlineFriends.slice(0, 5)"
-                :key="friend.userId"
-                class="friend-item group"
-                @click="startDirectMessage(friend.userId)"
-            >
-              <UserAvatar
-                  :user-id="friend.userId"
-                  :username="friend.username"
-                  :size="24"
-                  class="flex-shrink-0"
-                  show-online-indicator
-              />
-              <div class="flex-1 min-w-0">
-                <span class="text-sm font-medium text-text-default truncate block">
-                  {{ friend.username }}
-                </span>
-              </div>
-              <button
-                  @click.stop="router.push('/friends')"
-                  class="opacity-0 group-hover:opacity-100 transition"
-                  title="View All Friends"
-              >
-                <ExternalLink class="w-4 h-4 text-text-muted hover:text-text-default" />
-              </button>
-            </div>
-
-            <!-- Show more friends link -->
-            <div v-if="onlineFriends.length > 5" class="px-2 py-1">
-              <button
-                  @click="router.push('/friends')"
-                  class="text-xs text-text-muted hover:text-text-secondary"
-              >
-                +{{ onlineFriends.length - 5 }} more friends online
-              </button>
-            </div>
-          </div>
-
-          <!-- View All Friends Button -->
-          <div class="px-2">
-            <button
-                @click="router.push('/friends')"
-                class="text-xs text-text-muted hover:text-text-secondary flex items-center gap-1"
-            >
-              <Users class="w-3 h-3" />
-              View All Friends
-            </button>
-          </div>
+        <!-- Navigation Buttons -->
+        <div class="flex flex-col gap-1 mb-4">
+          <button
+              @click="router.push('/servers')"
+              :class="[
+                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors w-full text-left',
+                isServersActive ? 'bg-main-600 text-white shadow-md' : 'text-text-secondary hover:text-text-default hover:bg-main-700'
+              ]"  
+          >
+            <Server class="w-5 h-5" />
+            <span class="text-sm font-medium">Servers</span>
+          </button>
+          <button
+              @click="router.push('/friends')"
+              :class="[
+                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors w-full text-left',
+                isFriendsActive ? 'bg-main-600 text-white shadow-md' : 'text-text-secondary hover:text-text-default hover:bg-main-700'
+              ]"
+          >
+            <Users class="w-5 h-5" />
+            <span class="text-sm font-medium">Friends</span>
+          </button>
         </div>
 
         <!-- Direct Messages Section -->
@@ -156,30 +102,27 @@
       </div>
     </template>
   </SidebarContainer>
-
-  <!-- Add Friend Modal -->
-  <AddFriendModal v-model="showAddFriend" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDmStore } from '@/stores/dm';
-import { useFriendStore } from '@/stores/friends';
-import { Server, Users, Loader2, X, UserPlus, ExternalLink } from 'lucide-vue-next';
+import { Server, Users, Loader2, X } from 'lucide-vue-next';
 import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
-import AddFriendModal from '@/components/friend/AddFriendModal.vue';
 import type { EntityId } from '@/services/types';
 
 const route = useRoute();
 const router = useRouter();
 const dmStore = useDmStore();
-const friendStore = useFriendStore();
 
 const dmLoading = ref(true);
-const friendsLoading = ref(true);
-const showAddFriend = ref(false);
+const showSearchModal = ref(false);
+
+// Active state logic
+const isServersActive = computed(() => route.path === '/servers');
+const isFriendsActive = computed(() => route.path === '/friends');
 
 const currentDmUserId = computed(() =>
     route.name === 'DirectMessage' ? parseInt(route.params.userId as string) : null
@@ -187,15 +130,7 @@ const currentDmUserId = computed(() =>
 
 const conversations = computed(() => dmStore.conversations);
 
-const onlineFriends = computed(() =>
-    friendStore.friendsWithStatus.filter(f => f.online)
-);
-
 const hasUnread = (userId: EntityId) => dmStore.unreadMessages.has(userId);
-
-const startDirectMessage = (userId: EntityId) => {
-  router.push(`/dm/${userId}`);
-};
 
 const closeConversation = async (userId: EntityId) => {
   if (currentDmUserId.value === userId) {
@@ -212,18 +147,6 @@ onMounted(async () => {
     await dmStore.fetchConversations();
   } finally {
     dmLoading.value = false;
-  }
-
-  // Fetch friends data
-  friendsLoading.value = true;
-  try {
-    await Promise.all([
-      friendStore.fetchFriends(),
-      friendStore.fetchRequests(),
-      friendStore.fetchDmSettings()
-    ]);
-  } finally {
-    friendsLoading.value = false;
   }
 });
 
@@ -245,10 +168,5 @@ watch(() => route.params.userId, async (newUserId) => {
 
 .dm-item.active {
   @apply bg-main-600;
-}
-
-.friend-item {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer
-  hover:bg-main-700 transition-colors;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
   <SidebarContainer>
     <template #header>
-      <h2 class="font-semibold text-text-default truncate">
+      <h2 class="px-4 font-semibold text-text-default truncate">
         {{ server?.name || 'Loading...' }}
       </h2>
     </template>
