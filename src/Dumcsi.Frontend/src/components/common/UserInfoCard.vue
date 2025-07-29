@@ -133,7 +133,7 @@ const userId = computed(() => {
 });
 
 const appStore = useAppStore();
-const { permissions, canManageMember, getPermissionDisplayName } = usePermissions();
+const { permissions, canManageMember, permissionDetails } = usePermissions();
 
 const canManageRoles = computed(() =>
     permissions.manageRoles.value && canManageMember(props.user.userId).value
@@ -175,9 +175,12 @@ const permissionValue = computed(() =>
 
 const permissionNames = computed(() => {
   const names: string[] = [];
+  if (!permissionDetails) return [];
+
   Object.values(Permission).forEach(val => {
     if (typeof val === 'number' && val !== Permission.None && (permissionValue.value & val) !== 0) {
-      names.push(getPermissionDisplayName(val as Permission));
+      const name = permissionDetails[val as Permission]?.name || 'Unknown';
+      names.push(name);
     }
   });
   return names;

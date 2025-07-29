@@ -8,6 +8,8 @@ export interface PermissionCheckResult {
     isAdministrator: boolean;
 }
 
+let permissionDetailsInstance: Record<number, { name: string; description: string }> | null = null;
+
 export function usePermissions() {
     const appStore = useAppStore();
 
@@ -108,36 +110,34 @@ export function usePermissions() {
         });
     };
 
-    const getPermissionDisplayName = (permission: Permission): string => {
-        const permissionNames: Record<number, string> = {
-            [Permission.None]: 'None',
-            [Permission.ViewChannels]: 'View Channels',
-            [Permission.ManageChannels]: 'Manage Channels',
-            [Permission.ManageRoles]: 'Manage Roles',
-            [Permission.ManageEmojis]: 'Manage Emojis',
-            [Permission.ViewAuditLog]: 'View Audit Log',
-            [Permission.ManageServer]: 'Manage Server',
-            [Permission.CreateInvite]: 'Create Invite',
-            [Permission.KickMembers]: 'Kick Members',
-            [Permission.BanMembers]: 'Ban Members',
-            [Permission.SendMessages]: 'Send Messages',
-            [Permission.EmbedLinks]: 'Embed Links',
-            [Permission.AttachFiles]: 'Attach Files',
-            [Permission.AddReactions]: 'Add Reactions',
-            [Permission.UseExternalEmojis]: 'Use External Emojis',
-            [Permission.MentionEveryone]: 'Mention @everyone',
-            [Permission.ManageMessages]: 'Manage Messages',
-            [Permission.ReadMessageHistory]: 'Read Message History',
-            [Permission.Connect]: 'Connect to Voice',
-            [Permission.Speak]: 'Speak in Voice',
-            [Permission.MuteMembers]: 'Mute Members',
-            [Permission.DeafenMembers]: 'Deafen Members',
-            [Permission.MoveMembers]: 'Move Members',
-            [Permission.Administrator]: 'Administrator',
+    if (!permissionDetailsInstance) {
+        permissionDetailsInstance = {
+            [Permission.None]: { name: 'None', description: 'Nothing' },
+            [Permission.ViewChannels]: { name: 'View Channels', description: 'Allows members to view and connect to channels' },
+            [Permission.ManageChannels]: { name: 'Manage Channels', description: 'Allows members to send messages in text channels' },
+            [Permission.ManageRoles]: { name: 'Manage Roles', description: 'Allows members to create, edit, and delete roles' },
+            [Permission.ManageEmojis]: { name: 'Manage Emojis', description: 'Allows members to manage custom emojis' },
+            [Permission.ViewAuditLog]: { name: 'View Audit Log', description: 'Allows members to view the server audit log' },
+            [Permission.ManageServer]: { name: 'Manage Server', description: 'Allows members to manage server settings' },
+            [Permission.CreateInvite]: { name: 'Create Invite', description: 'Allows members to create invites for the server' },
+            [Permission.KickMembers]: { name: 'Kick Members', description: 'Allows members to kick other members from the server' },
+            [Permission.BanMembers]: { name: 'Ban Members', description: 'Allows members to ban other members from the server' },
+            [Permission.SendMessages]: { name: 'Send Messages', description: 'Allows members to send messages in text channels' },
+            [Permission.EmbedLinks]: { name: 'Embed Links', description: 'Allows members to embed links in messages' },
+            [Permission.AttachFiles]: { name: 'Attach Files', description: 'Allows members to attach files in messages' },
+            [Permission.AddReactions]: { name: 'Add Reactions', description: 'Allows members to add reactions to messages' },
+            [Permission.UseExternalEmojis]: { name: 'Use External Emojis', description: 'Allows members to use external emojis in messages' },
+            [Permission.MentionEveryone]: { name: 'Mention @everyone', description: 'Allows members to mention @everyone in messages' },
+            [Permission.ManageMessages]: { name: 'Manage Messages', description: 'Allows members to manage messages in text channels' },
+            [Permission.ReadMessageHistory]: { name: 'Read Message History', description: 'Allows members to read message history in channels' },
+            [Permission.Connect]: { name: 'Connect to Voice', description: 'Allows members to connect to voice channels' },
+            [Permission.Speak]: { name: 'Speak in Voice', description: 'Allows members to speak in voice channels' },
+            [Permission.MuteMembers]: { name: 'Mute Members', description: 'Allows members to mute other members in voice channels' },
+            [Permission.DeafenMembers]: { name: 'Deafen Members', description: 'Allows members to deafen other members in voice channels' },
+            [Permission.MoveMembers]: { name: 'Move Members', description: 'Allows members to move other members between voice channels' },
+            [Permission.Administrator]: { name: 'Administrator', description: 'Grants all permissions and overrides all channel permissions' },
         };
-
-        return permissionNames[permission] || 'Unknown Permission';
-    };
+    }
 
     const hasPermissionThroughRoles = (permission: Permission): boolean => {
         const member = appStore.members.find(m => m.userId === appStore.currentUserId);
@@ -225,7 +225,7 @@ export function usePermissions() {
         // Segédfüggvények
         getPermissionInfo,
         canInChannel,
-        getPermissionDisplayName,
+        permissionDetails: permissionDetailsInstance,
         debugPermissions,
     };
 }
