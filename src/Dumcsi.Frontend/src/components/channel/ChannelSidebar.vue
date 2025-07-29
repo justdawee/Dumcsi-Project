@@ -86,7 +86,6 @@
 import type {Component} from 'vue';
 import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2} from 'lucide-vue-next';
@@ -115,7 +114,6 @@ const props = defineProps<{
 
 const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore();
 const appStore = useAppStore();
 const {addToast} = useToast();
 const {permissions} = usePermissions();

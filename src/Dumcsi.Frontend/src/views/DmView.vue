@@ -1,6 +1,6 @@
 ﻿<template>
   <div class="flex-1 flex h-full overflow-hidden">
-    <DmSidebar />
+    <HomeSidebar />
     <div class="flex-1 bg-bg-base overflow-hidden">
       <RouterView />
     </div>
@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import DmSidebar from '@/components/dm/DmSidebar.vue';
+import HomeSidebar from '@/components/common/HomeSidebar.vue';
 import { useDmStore } from '@/stores/dm';
 
 const dmStore = useDmStore();

@@ -1,7 +1,7 @@
 ﻿<template>
   <div class="flex h-full w-full bg-bg-base">
-    <!-- Friends Sidebar -->
-    <FriendsSidebar />
+    <!-- Home Sidebar -->
+    <HomeSidebar />
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
@@ -131,7 +131,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFriendStore } from '@/stores/friends';
 import { Users, UserPlus, UserX, Loader2 } from 'lucide-vue-next';
-import FriendsSidebar from '@/components/friend/FriendsSidebar.vue';
+import HomeSidebar from '@/components/common/HomeSidebar.vue';
 import FriendItem from '@/components/friend/FriendItem.vue';
 import FriendRequestItem from '@/components/friend/FriendRequestItem.vue';
 import AddFriendModal from '@/components/friend/AddFriendModal.vue';
