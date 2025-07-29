@@ -124,9 +124,9 @@ public class RoleController(
         if (role.Name == "@everyone")
         {
             // Only allow permission updates for default roles
-            if (request.Name != null || request.Color != null || request.Position != null)
+            if (request.Name != null)
             {
-                return BadRequest(ApiResponse.Fail("ROLE_CANNOT_MODIFY_DEFAULT", "Only permissions can be modified for default roles."));
+                return BadRequest(ApiResponse.Fail("ROLE_CANNOT_MODIFY_DEFAULT", "Cannot modify the name of the '@everyone' role."));
             }
         }
 
