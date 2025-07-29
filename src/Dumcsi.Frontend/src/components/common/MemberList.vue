@@ -106,12 +106,14 @@ const isTyping = (userId: EntityId) => props.isTyping(userId);
 
 const getRoleColor = (member: ServerMember): string => {
   if (member.roles.length === 0) {
-    return 'rgb(185 185 185)'; // Default gray color for members without roles
+    return 'rgb(185 185 185)';
   }
-  
-  // Get the highest priority role (roles are typically sorted by priority)
-  const highestRole = member.roles[0];
-  return highestRole.color || 'rgb(185 185 185)';
+
+  const highestRoleId = member.roles[0].id;
+
+  const serverRole = appStore.currentServer?.roles.find(r => r.id === highestRoleId);
+
+  return serverRole?.color ?? member.roles[0].color ?? 'rgb(185 185 185)';
 };
 
 const kickMember = async () => {
