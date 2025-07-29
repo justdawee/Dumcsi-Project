@@ -1,7 +1,7 @@
 <template>
   <SidebarContainer>
     <template #header>
-      <div class="px-4 w-full">
+      <div class="px-2 w-full">
         <button
             class="w-full px-1.5 py-2 text-sm font-normal text-gray-400 bg-main-900 hover:bg-main-800 rounded-md transition-colors text-center border border-main-700"
             @click="showSearchModal = true"
