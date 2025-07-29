@@ -21,11 +21,8 @@
             show-online-indicator
         />
         <div class="flex-1 min-w-0">
-        <span class="text-gray-300 font-medium text-sm truncate block">
+        <span class="font-medium text-sm truncate block" :style="{ color: getRoleColor(member) }">
           {{ getDisplayName(member) }}
-        </span>
-          <span v-if="member.roles.length > 0" class="text-xs text-text-tertiary">
-          {{ member.roles[0].name }}
         </span>
         </div>
         <div v-if="canManageMember(member.userId).value" class="flex gap-1">
@@ -106,6 +103,16 @@ const members = computed(() => {
 });
 
 const isTyping = (userId: EntityId) => props.isTyping(userId);
+
+const getRoleColor = (member: ServerMember): string => {
+  if (member.roles.length === 0) {
+    return 'rgb(185 185 185)'; // Default gray color for members without roles
+  }
+  
+  // Get the highest priority role (roles are typically sorted by priority)
+  const highestRole = member.roles[0];
+  return highestRole.color || 'rgb(185 185 185)';
+};
 
 const kickMember = async () => {
   addToast({ type: 'info', message: 'Kick member functionality coming soon!' });
