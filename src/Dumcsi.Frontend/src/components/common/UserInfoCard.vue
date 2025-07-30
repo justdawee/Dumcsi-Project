@@ -36,7 +36,7 @@
               indicator-bg-color="var(--color-main-800)"
               show-online-indicator
           />
-          <p class="mt-3 text-lg font-semibold text-white truncate">
+          <p class="mt-3 text-lg font-semibold truncate" :style="{ color: displayNameColor }">
             {{ displayName }}
           </p>
           <p class="text-sm text-gray-400 truncate">{{ user.username }}</p>
@@ -156,6 +156,21 @@ const sortedRoles = computed(() => {
     const roles = [...props.user.roles].sort((a, b) => b.position - a.position);
     console.log('UserInfoCard: sortedRoles recomputed for user:', props.user.username, 'roles:', roles);
     return roles;
+});
+
+// Compute display name color based on highest role
+const displayNameColor = computed(() => {
+    if (props.user.roles.length === 0) {
+        return 'rgb(185 185 185)';
+    }
+    
+    const highestRoleId = props.user.roles[0].id;
+    const serverRoles = appStore.currentServer?.roles || [];
+    const serverRole = serverRoles.find(r => r.id === highestRoleId);
+    const color = serverRole?.color ?? props.user.roles[0].color ?? 'rgb(185 185 185)';
+    
+    console.log('UserInfoCard: displayNameColor computed for', props.user.username, 'color:', color);
+    return color;
 });
 
 const showPermissions = ref(false);

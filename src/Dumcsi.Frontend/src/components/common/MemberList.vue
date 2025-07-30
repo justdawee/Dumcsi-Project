@@ -56,7 +56,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, watchEffect } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
@@ -111,6 +111,9 @@ const updateMemberRoleColors = () => {
   const serverRoles = appStore.currentServer?.roles || [];
   const map: Record<EntityId, string> = {};
 
+  console.log('MemberList: recomputing memberRoleColors due to store change');
+  console.log('MemberList: current serverRoles', serverRoles.map(r => ({ id: r.id, color: r.color })));
+
   appStore.members.forEach(member => {
     if (member.roles.length === 0) {
       map[member.userId] = 'rgb(185 185 185)';
@@ -124,16 +127,17 @@ const updateMemberRoleColors = () => {
 
   memberRoleColorMap.value = map;
   console.log('MemberList: memberRoleColors updated, total members:', Object.keys(map).length);
+  console.log('MemberList: role color map', map);
 };
 
-watch(
-    () => [appStore.currentServer?.roles, appStore.members],
-    updateMemberRoleColors,
-    { deep: true, immediate: true }
-);
+watchEffect(() => {
+  updateMemberRoleColors();
+});
 
 const getRoleColor = (member: ServerMember): string => {
-  return memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
+  const color = memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
+  console.log('MemberList: getRoleColor', member.userId, color);
+  return color;
 };
 
 const kickMember = async () => {

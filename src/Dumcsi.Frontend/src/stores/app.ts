@@ -692,6 +692,7 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const handleRoleUpdated = (role: any) => {
+        console.log('AppStore: handleRoleUpdated', role);
         if (currentServer.value) {
             const index = currentServer.value.roles.findIndex(r => r.id === role.id);
             if (index !== -1) {
@@ -709,6 +710,7 @@ export const useAppStore = defineStore('app', () => {
                 currentServer.value.roles = currentServer.value.roles.map(r =>
                     r.id === role.id ? updatedRole : r
                 );
+                console.log('AppStore: roles after update', currentServer.value.roles.map(r => ({id: r.id, color: r.color})));
                 
                 // Update the role in all members who have this role (force reactivity)
                 members.value = members.value.map(member => {
@@ -721,6 +723,7 @@ export const useAppStore = defineStore('app', () => {
                     }
                     return member;
                 });
+                console.log('AppStore: members updated for role', role.id);
             }
         }
     };
