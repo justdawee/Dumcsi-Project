@@ -104,28 +104,36 @@ const members = computed(() => {
 
 const isTyping = (userId: EntityId) => props.isTyping(userId);
 
-// Create a computed property that tracks both server roles and members for reactivity
-const memberRoleColors = computed(() => {
+// Map of memberId -> color, kept in sync with server roles
+const memberRoleColorMap = ref<Record<EntityId, string>>({});
+
+const updateMemberRoleColors = () => {
   const serverRoles = appStore.currentServer?.roles || [];
-  const colorMap = appStore.members.map(member => {
+  const map: Record<EntityId, string> = {};
+
+  appStore.members.forEach(member => {
     if (member.roles.length === 0) {
-      return { userId: member.userId, color: 'rgb(185 185 185)' };
+      map[member.userId] = 'rgb(185 185 185)';
+      return;
     }
-    
+
     const highestRoleId = member.roles[0].id;
     const serverRole = serverRoles.find(r => r.id === highestRoleId);
-    const color = serverRole?.color ?? member.roles[0].color ?? 'rgb(185 185 185)';
-    
-    return { userId: member.userId, color };
+    map[member.userId] = serverRole?.color ?? member.roles[0].color ?? 'rgb(185 185 185)';
   });
-  
-  console.log('MemberList: memberRoleColors recomputed, total members:', colorMap.length);
-  return colorMap;
-});
+
+  memberRoleColorMap.value = map;
+  console.log('MemberList: memberRoleColors updated, total members:', Object.keys(map).length);
+};
+
+watch(
+    () => [appStore.currentServer?.roles, appStore.members],
+    updateMemberRoleColors,
+    { deep: true, immediate: true }
+);
 
 const getRoleColor = (member: ServerMember): string => {
-  const memberColor = memberRoleColors.value.find(mc => mc.userId === member.userId);
-  return memberColor?.color ?? 'rgb(185 185 185)';
+  return memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
 };
 
 const kickMember = async () => {
