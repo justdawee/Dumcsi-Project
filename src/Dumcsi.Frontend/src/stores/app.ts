@@ -10,6 +10,7 @@ import type {
     EntityId,
     MessageDeletedPayload,
     MessageDto,
+    ReactionPayload,
     ServerDetails,
     ServerListItem,
     ServerListItemDto,
@@ -20,16 +21,14 @@ import type {
     UpdateServerRequest,
     UserProfileDto,
     UserServerPayload,
-    ReactionPayload,
 } from '@/services/types';
-
 import {UserStatus} from '@/services/types';
 
 import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
-import { signalRService } from '@/services/signalrService';
-import { webrtcService } from '@/services/webrtcService';
+import {signalRService} from '@/services/signalrService';
+import {webrtcService} from '@/services/webrtcService';
 import router from '@/router';
 import {useToast} from '@/composables/useToast';
 import {useAuthStore} from './auth';
@@ -705,14 +704,22 @@ export const useAppStore = defineStore('app', () => {
                     isHoisted: role.isHoisted,
                     isMentionable: role.isMentionable,
                 };
-                currentServer.value.roles[index] = updatedRole;
+
+                // Update server roles array (this triggers reactivity)
+                currentServer.value.roles = currentServer.value.roles.map(r =>
+                    r.id === role.id ? updatedRole : r
+                );
                 
-                // Update the role in all members who have this role
-                members.value.forEach(member => {
+                // Update the role in all members who have this role (force reactivity)
+                members.value = members.value.map(member => {
                     const memberRoleIndex = member.roles.findIndex(r => r.id === role.id);
                     if (memberRoleIndex !== -1) {
-                        member.roles[memberRoleIndex] = updatedRole;
+                        return {
+                            ...member,
+                            roles: member.roles.map(r => r.id === role.id ? updatedRole : r)
+                        };
                     }
+                    return member;
                 });
             }
         }

@@ -104,16 +104,25 @@ const members = computed(() => {
 
 const isTyping = (userId: EntityId) => props.isTyping(userId);
 
+// Create a computed property that tracks both server roles and members for reactivity
+const memberRoleColors = computed(() => {
+  const serverRoles = appStore.currentServer?.roles || [];
+  return appStore.members.map(member => {
+    if (member.roles.length === 0) {
+      return { userId: member.userId, color: 'rgb(185 185 185)' };
+    }
+    
+    const highestRoleId = member.roles[0].id;
+    const serverRole = serverRoles.find(r => r.id === highestRoleId);
+    const color = serverRole?.color ?? member.roles[0].color ?? 'rgb(185 185 185)';
+    
+    return { userId: member.userId, color };
+  });
+});
+
 const getRoleColor = (member: ServerMember): string => {
-  if (member.roles.length === 0) {
-    return 'rgb(185 185 185)';
-  }
-
-  const highestRoleId = member.roles[0].id;
-
-  const serverRole = appStore.currentServer?.roles.find(r => r.id === highestRoleId);
-
-  return serverRole?.color ?? member.roles[0].color ?? 'rgb(185 185 185)';
+  const memberColor = memberRoleColors.value.find(mc => mc.userId === member.userId);
+  return memberColor?.color ?? 'rgb(185 185 185)';
 };
 
 const kickMember = async () => {
