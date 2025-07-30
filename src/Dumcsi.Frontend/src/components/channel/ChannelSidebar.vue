@@ -12,9 +12,55 @@
       </div>
 
       <div v-else class="py-2">
-        <ul ref="topicsParent" class="space-y-4">
-          <li v-for="topic in topics" :key="topic.id" class="px-2 mb-4">
+        <div ref="topicsParent" class="space-y-4">
+          <!-- Independent Channels (without topic) -->
+          <div v-if="independentChannels.length > 0" class="px-2 mb-4">
             <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
+              <span>Channels</span>
+              <button
+                  v-if="canManageChannels"
+                  class="hover:text-text-secondary transition"
+                  title="Create Channel"
+                  @click="appStore.openCreateChannelModal(server!.id)"
+              >
+                <Plus class="w-4 h-4"/>
+              </button>
+            </div>
+            <ul :ref="setChannelParent('independent')" class="space-y-0.5">
+              <li v-for="channel in independentChannels" :key="channel.id">
+                <div v-if="channel.type === ChannelType.Voice"
+                     :class="['channel-item voice-channel', { 'active': appStore.currentVoiceChannelId === channel.id }]"
+                     @click="toggleVoiceChannel(channel)"
+                     @contextmenu.prevent="openChannelMenu($event, channel)"
+                >
+                  <Volume2 class="w-4 h-4 text-text-muted"/>
+                  <span class="truncate">{{ channel.name }}</span>
+                </div>
+                <RouterLink v-else
+                    :class="{ 'active': currentChannelId === channel.id }"
+                    :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                    @contextmenu.prevent="openChannelMenu($event, channel)"
+                >
+                  <Hash class="w-4 h-4 text-text-muted"/>
+                  <span class="truncate">{{ channel.name }}</span>
+                  <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                    <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
+                  </button>
+                </RouterLink>
+                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length" class="ml-6 mt-1 space-y-0.5">
+                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id" class="flex items-center gap-1 text-xs text-text-muted">
+                    <UserAvatar :avatar-url="user.avatar" :user-id="user.id" :username="user.username" :size="16"/>
+                    <span class="truncate">{{ user.username }}</span>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Topics with channels -->
+          <div v-for="topic in topics" :key="topic.id" class="px-2 mb-4 topic-container" :data-topic-id="topic.id">
+            <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase cursor-move">
               <span>{{ topic.name }}</span>
               <button
                   v-if="canManageChannels"
@@ -55,8 +101,8 @@
                 </ul>
               </li>
             </ul>
-          </li>
-        </ul>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -78,6 +124,37 @@
         @channel-updated="handleChannelUpdate"
         @channel-deleted="handleChannelDeleted"
     />
+    <BaseModal v-model="isCreateTopicModalOpen" title="Create Topic">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+          <input
+            v-model="newTopicName"
+            type="text"
+            placeholder="Enter topic name..."
+            class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            @keydown.enter="createTopic"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button
+            class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
+            @click="isCreateTopicModalOpen = false"
+          >
+            Cancel
+          </button>
+          <button
+            class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+            :disabled="!newTopicName.trim()"
+            @click="createTopic"
+          >
+            Create Topic
+          </button>
+        </div>
+      </template>
+    </BaseModal>
     </template>
   </SidebarContainer>
 </template>
@@ -90,6 +167,7 @@ import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
+import BaseModal from '@/components/modals/BaseModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
@@ -97,6 +175,7 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
 import {animations, insert, tearDown} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
+import serverService from '@/services/serverService';
 import {
   type ChannelDetailDto,
   type ChannelListItem,
@@ -159,9 +238,16 @@ const isConfirmDeleteOpen = ref(false);
 const isDeleting = ref(false);
 const isSavingOrder = ref(false);
 const deletingChannel = ref<ChannelListItem | null>(null);
+const isCreateTopicModalOpen = ref(false);
+const newTopicName = ref('');
 
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
+
+const independentChannels = computed(() => {
+  if (!props.server) return [];
+  return props.server.channels.filter(channel => !channel.topicId);
+});
 
 const [topicsParent, topics] = useDragAndDrop<TopicListItem>([], {
   plugins: [
@@ -179,8 +265,8 @@ const [topicsParent, topics] = useDragAndDrop<TopicListItem>([], {
   onTransfer: () => saveOrder(),
 });
 
-const channelParentRefs = ref<Record<number, HTMLElement | undefined>>({});
-const setChannelParent = (id: number) => (el: Element | ComponentPublicInstance | null) => {
+const channelParentRefs = ref<Record<number | string, HTMLElement | undefined>>({});
+const setChannelParent = (id: number | string) => (el: Element | ComponentPublicInstance | null) => {
   channelParentRefs.value[id] = el as HTMLElement || undefined;
 };
 
@@ -207,11 +293,40 @@ watchEffect((onCleanup) => {
     channelDndParents.forEach(p => tearDown(p));
     channelDndParents = [];
 
-    const configs = topics.value.flatMap(topic => {
+    const configs = [];
+
+    // Add independent channels drag-and-drop if they exist
+    if (independentChannels.value.length > 0) {
+      const independentParent = channelParentRefs.value['independent'];
+      if (independentParent) {
+        channelDndParents.push(independentParent);
+        configs.push({
+          parent: independentParent,
+          values: independentChannels.value,
+          group: 'channels',
+          plugins: [
+            animations(),
+            insert({
+              insertPoint: () => {
+                const div = document.createElement('div');
+                for (const cls of insertPointClasses) div.classList.add(cls);
+                return div;
+              },
+            }),
+          ],
+          draggable: (el: HTMLElement) => canManageChannels.value && el.tagName === 'LI',
+          onSort: () => saveOrder(),
+          onTransfer: () => saveOrder(),
+        });
+      }
+    }
+
+    // Add topic channels drag-and-drop
+    topics.value.forEach(topic => {
       const parent = channelParentRefs.value[topic.id];
-      if (!parent) return [];
+      if (!parent) return;
       channelDndParents.push(parent);
-      return [{
+      configs.push({
         parent,
         values: topic.channels,
         group: 'channels',
@@ -228,10 +343,12 @@ watchEffect((onCleanup) => {
         draggable: (el: HTMLElement) => canManageChannels.value && el.tagName === 'LI',
         onSort: () => saveOrder(),
         onTransfer: () => saveOrder(),
-      }];
+      });
     });
 
-    dragAndDrop(configs);
+    if (configs.length > 0) {
+      dragAndDrop(configs);
+    }
   });
 
   onCleanup(() => {
@@ -266,6 +383,7 @@ const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
   channelMenuItems.value = [
     {label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel)},
     {label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server!.id)},
+    {label: 'Create Topic', icon: Plus, action: () => openCreateTopicModal()},
     {label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel)},
   ];
   channelContextMenu.value?.open(event);
@@ -309,6 +427,12 @@ const saveOrder = async () => {
   const updatePromises: Promise<any>[] = [];
 
   try {
+    // Update independent channels positions (topicId = null)
+    independentChannels.value.forEach((channel, channelIndex) => {
+      updatePromises.push(appStore.updateChannel(channel.id, {position: channelIndex, topicId: null}));
+    });
+
+    // Update topics and their channels positions
     topics.value.forEach((topic, topicIndex) => {
       updatePromises.push(appStore.updateTopic(topic.id, {position: topicIndex}));
       topic.channels.forEach((channel, channelIndex) => {
@@ -345,5 +469,31 @@ const handleChannelDeleted = (deletedChannelId: number) => {
       router.push({name: 'Server', params: {serverId: props.server.id}});
     }
   }
-}
+};
+
+const openCreateTopicModal = () => {
+  newTopicName.value = '';
+  isCreateTopicModalOpen.value = true;
+};
+
+const createTopic = async () => {
+  if (!props.server || !newTopicName.value.trim()) return;
+  
+  try {
+    await serverService.createTopic(props.server.id, { name: newTopicName.value.trim() });
+    await appStore.fetchServer(props.server.id);
+    addToast({
+      message: 'Topic created successfully!',
+      type: 'success'
+    });
+  } catch (error: any) {
+    addToast({
+      message: error.message || 'Failed to create topic',
+      type: 'danger'
+    });
+  } finally {
+    isCreateTopicModalOpen.value = false;
+    newTopicName.value = '';
+  }
+};
 </script>
