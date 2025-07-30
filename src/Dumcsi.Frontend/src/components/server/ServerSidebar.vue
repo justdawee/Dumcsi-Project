@@ -107,6 +107,38 @@
         @close="isManageRolesModalOpen = false"
     />
 
+    <BaseModal v-model="isCreateTopicModalOpen" title="Create Topic">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+          <input
+            v-model="newTopicName"
+            type="text"
+            placeholder="Enter topic name..."
+            class="w-full px-3 py-2 form-input bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            @keydown.enter="createTopic"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button
+            class="px-4 py-2 btn-secondary text-text-muted hover:text-text-default transition-colors"
+            @click="isCreateTopicModalOpen = false"
+          >
+            Cancel
+          </button>
+          <button
+            class="px-4 py-2 btn-primary bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+            :disabled="!newTopicName.trim()"
+            @click="createTopic"
+          >
+            Create Topic
+          </button>
+        </div>
+      </template>
+    </BaseModal>
+
     <ConfirmModal
         v-model="isLeaveConfirmOpen"
         :is-loading="isLeaving"
@@ -140,6 +172,7 @@ import InviteModal from '@/components/modals/InviteModal.vue';
 import EditServerModal from '@/components/modals/EditServerModal.vue';
 import ExploreServersModal from '@/components/modals/ExploreServersModal.vue';
 import CreateServerModal from './CreateServerModal.vue';
+import BaseModal from '@/components/modals/BaseModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
 import {useToast} from '@/composables/useToast';
@@ -173,6 +206,8 @@ const isEditServerModalOpen = ref(false);
 const isExploreModalOpen = ref(false);
 const isLeaveConfirmOpen = ref(false);
 const isLeaving = ref(false);
+const isCreateTopicModalOpen = ref(false);
+const newTopicName = ref('');
 
 const tooltipText = ref('');
 const tooltipTop = ref(0);
@@ -228,6 +263,33 @@ const handleManageRoles = (server: ServerListItem) => {
   isManageRolesModalOpen.value = true;
 };
 
+const handleCreateTopic = (server: ServerListItem) => {
+  selectedServer.value = server;
+  newTopicName.value = '';
+  isCreateTopicModalOpen.value = true;
+};
+
+const createTopic = async () => {
+  if (!selectedServer.value || !newTopicName.value.trim()) return;
+  
+  try {
+    await serverService.createTopic(selectedServer.value.id, { name: newTopicName.value.trim() });
+    await appStore.fetchServer(selectedServer.value.id);
+    addToast({
+      message: 'Topic created successfully!',
+      type: 'success'
+    });
+  } catch (error: any) {
+    addToast({
+      message: error.message || 'Failed to create topic',
+      type: 'danger'
+    });
+  } finally {
+    isCreateTopicModalOpen.value = false;
+    newTopicName.value = '';
+  }
+};
+
 const confirmLeaveServer = async () => {
   if (!selectedServer.value) return;
 
@@ -272,6 +334,7 @@ const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   }
   if (canManageChannels) {
     menuItems.push({label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server)});
+    menuItems.push({label: 'Create Topic', icon: Plus, action: () => handleCreateTopic(server)});
   }
   if (canManageServer) {
     menuItems.push({label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)});
