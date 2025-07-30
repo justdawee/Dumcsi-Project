@@ -736,9 +736,9 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const handleMemberRolesUpdated = (payload: any) => {
-        const member = members.value.find(m => m.userId === payload.memberId);
-        if (member) {
-            member.roles = payload.roles.map((role: any) => ({
+        const memberIndex = members.value.findIndex(m => m.userId === payload.memberId);
+        if (memberIndex !== -1) {
+            const updatedRoles = payload.roles.map((role: any) => ({
                 id: role.id,
                 name: role.name,
                 color: role.color,
@@ -747,6 +747,19 @@ export const useAppStore = defineStore('app', () => {
                 isHoisted: role.isHoisted,
                 isMentionable: role.isMentionable,
             }));
+            
+            // Create a new member object to trigger reactivity
+            const updatedMember = {
+                ...members.value[memberIndex],
+                roles: updatedRoles
+            };
+            
+            // Update the members array with new reference to trigger reactivity
+            members.value = members.value.map((member, index) =>
+                index === memberIndex ? updatedMember : member
+            );
+            
+            console.log('Member roles updated for user:', payload.memberId, 'New roles:', updatedRoles);
         }
     };
 

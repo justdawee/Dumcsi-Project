@@ -107,7 +107,7 @@ const isTyping = (userId: EntityId) => props.isTyping(userId);
 // Create a computed property that tracks both server roles and members for reactivity
 const memberRoleColors = computed(() => {
   const serverRoles = appStore.currentServer?.roles || [];
-  return appStore.members.map(member => {
+  const colorMap = appStore.members.map(member => {
     if (member.roles.length === 0) {
       return { userId: member.userId, color: 'rgb(185 185 185)' };
     }
@@ -118,6 +118,9 @@ const memberRoleColors = computed(() => {
     
     return { userId: member.userId, color };
   });
+  
+  console.log('MemberList: memberRoleColors recomputed, total members:', colorMap.length);
+  return colorMap;
 });
 
 const getRoleColor = (member: ServerMember): string => {

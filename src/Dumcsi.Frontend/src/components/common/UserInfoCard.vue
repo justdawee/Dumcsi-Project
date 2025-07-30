@@ -12,14 +12,6 @@
         <div class="absolute top-2 right-2 flex space-x-2">
           <button
               v-if="canManageRoles"
-              :disabled="availableRoles.length === 0"
-              class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 disabled:opacity-50"
-              @click.stop="openAddRoleMenu"
-          >
-            <Plus class="w-4 h-4 text-white"/>
-          </button>
-          <button
-              v-if="canManageRoles"
               ref="shieldRef"
               class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
               @click.stop.prevent="togglePermissions"
@@ -56,7 +48,7 @@
               <div class="flex items-center gap-1">
                 <div :style="{ backgroundColor: role.color }" class="relative group w-3 h-3 rounded-full">
                   <button
-                      v-if="canManageRoles"
+                      v-if="canManageRoles && role.name !== '@everyone'"
                       class="absolute inset-0 flex items-center justify-center rounded-full text-[10px] bg-black/60 text-white opacity-0 group-hover:opacity-100"
                       @click.stop="removeRole(role)"
                   >
@@ -66,6 +58,14 @@
                 <span class="text-xs text-gray-300">{{ role.name }}</span>
               </div>
             </template>
+            <button
+                v-if="canManageRoles"
+                class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
+                @click.stop="openManageRolesModal"
+                title="Manage Roles"
+            >
+              <Plus class="w-3 h-3 text-white"/>
+            </button>
           </div>
           <button
               class="mt-4 w-full bg-secondary hover:bg-secondary/50 text-white text-sm font-medium py-1.5 rounded"
@@ -91,9 +91,14 @@
               </span>
           </div>
         </div>
-        <ContextMenu ref="roleMenu" :items="roleMenuItems"/>
       </div>
     </div>
+    
+    <!-- Manage Roles Modal -->
+    <ManageUserRolesModal
+        v-model="showManageRolesModal"
+        :user="user"
+    />
   </Teleport>
 </template>
 
@@ -101,7 +106,7 @@
 import {computed, onMounted, onUnmounted, ref, watch, nextTick} from 'vue';
 import {Permission, type ServerMember, type Role} from '@/services/types';
 import UserAvatar from './UserAvatar.vue';
-import ContextMenu, {type MenuItem} from '@/components/ui/ContextMenu.vue';
+import ManageUserRolesModal from './ManageUserRolesModal.vue';
 import {Plus, Shield, X} from 'lucide-vue-next';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import {useAppStore} from '@/stores/app';
@@ -147,26 +152,14 @@ const messageUser = () => {
   emit('message', props.user.userId);
 };
 
-const sortedRoles = computed(() =>
-    [...props.user.roles].sort((a, b) => b.position - a.position)
-);
-
-const availableRoles = computed(() => {
-  const all = appStore.currentServer?.roles || [];
-  const assigned = new Set(props.user.roles.map(r => r.id));
-  return all.filter(r => !assigned.has(r.id) && r.name !== '@everyone');
+const sortedRoles = computed(() => {
+    const roles = [...props.user.roles].sort((a, b) => b.position - a.position);
+    console.log('UserInfoCard: sortedRoles recomputed for user:', props.user.username, 'roles:', roles);
+    return roles;
 });
 
 const showPermissions = ref(false);
-const roleMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
-
-const roleMenuItems = computed<MenuItem[]>(() =>
-    availableRoles.value.map(role => ({
-      label: role.name,
-      icon: Plus,
-      action: () => addRole(role)
-    }))
-);
+const showManageRolesModal = ref(false);
 
 const permissionValue = computed(() =>
     props.user.roles.reduce((acc, r) => acc | r.permissions, 0)
@@ -185,13 +178,6 @@ const permissionNames = computed(() => {
   return names;
 });
 
-const addRole = async (role: Role) => {
-  const serverId = appStore.currentServer?.id;
-  if (!serverId) return;
-  const newIds = [...props.user.roles.map(r => r.id), role.id];
-  await roleService.updateMemberRoles(serverId, props.user.userId, newIds);
-};
-
 const removeRole = async (role: Role) => {
   const serverId = appStore.currentServer?.id;
   if (!serverId) return;
@@ -199,8 +185,8 @@ const removeRole = async (role: Role) => {
   await roleService.updateMemberRoles(serverId, props.user.userId, newIds);
 };
 
-const openAddRoleMenu = (e: MouseEvent) => {
-  roleMenu.value?.open(e);
+const openManageRolesModal = () => {
+  showManageRolesModal.value = true;
 };
 
 const togglePermissions = () => {
@@ -256,6 +242,7 @@ onUnmounted(() => {
 watch(() => props.modelValue, (val) => {
   if (!val) {
     showPermissions.value = false;
+    showManageRolesModal.value = false;
   }
 });
 </script>
