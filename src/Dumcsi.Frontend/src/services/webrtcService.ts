@@ -1,5 +1,6 @@
-﻿import type { SignalRService } from './signalrService';
-import type {EntityId} from './types';
+import SimplePeer from 'simple-peer';
+import type { SignalRService } from './signalrService';
+import type { EntityId } from './types';
 
 interface ConnectionInfo {
     userId: EntityId;
@@ -7,10 +8,9 @@ interface ConnectionInfo {
 }
 
 class WebRtcService {
-    private peers = new Map<string, RTCPeerConnection>();
+    private peers = new Map<string, SimplePeer.Instance>();
     private audioElements = new Map<string, HTMLAudioElement>();
     private localStream: MediaStream | null = null;
-
     private signalRService: SignalRService | null = null;
 
     setSignalRService(service: SignalRService) {
@@ -22,7 +22,7 @@ class WebRtcService {
 
     private async ensureLocalStream() {
         if (!this.localStream) {
-            this.localStream = await navigator.mediaDevices.getUserMedia({audio: true});
+            this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
     }
 
@@ -38,16 +38,15 @@ class WebRtcService {
     async addUser(_channelId: EntityId, _userId: EntityId, connectionId: string) {
         await this.ensureLocalStream();
         if (!this.peers.has(connectionId)) {
-            // A már bent lévő felhasználók nem kezdeményeznek kapcsolatot,
-            // csak várják az érkező offer-t az új tagtól
+            // Existing users don't initiate connection, they wait for offers from new users
             await this.createPeerConnection(connectionId, false);
         }
     }
 
     removeUser(connectionId: string) {
-        const pc = this.peers.get(connectionId);
-        if (pc) {
-            pc.close();
+        const peer = this.peers.get(connectionId);
+        if (peer) {
+            peer.destroy();
             this.peers.delete(connectionId);
         }
         const audio = this.audioElements.get(connectionId);
@@ -60,22 +59,39 @@ class WebRtcService {
 
     private async createPeerConnection(targetConnectionId: string, initiator: boolean) {
         await this.ensureLocalStream();
-        const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
-        this.peers.set(targetConnectionId, pc);
-
-        if (this.localStream) {
-            for (const track of this.localStream.getTracks()) {
-                pc.addTrack(track, this.localStream);
-            }
-        }
-
-        pc.onicecandidate = (e) => {
-            if (e.candidate && this.signalRService) {
-                this.signalRService.sendIceCandidate(targetConnectionId, e.candidate);
+        
+        const peerConfig: SimplePeer.Options = {
+            initiator,
+            config: {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             }
         };
 
-        pc.ontrack = (e) => {
+        // Only add stream if we have one
+        if (this.localStream) {
+            peerConfig.stream = this.localStream;
+        }
+
+        const peer = new SimplePeer(peerConfig);
+
+        this.peers.set(targetConnectionId, peer);
+
+        // Handle signaling data (offers, answers, ice candidates)
+        peer.on('signal', (data) => {
+            if (!this.signalRService) return;
+
+            if (data.type === 'offer') {
+                this.signalRService.sendOffer(targetConnectionId, data);
+            } else if (data.type === 'answer') {
+                this.signalRService.sendAnswer(targetConnectionId, data);
+            } else if ('candidate' in data && data.candidate) {
+                // ICE candidate
+                this.signalRService.sendIceCandidate(targetConnectionId, data);
+            }
+        });
+
+        // Handle incoming stream
+        peer.on('stream', (stream) => {
             let audio = this.audioElements.get(targetConnectionId);
             if (!audio) {
                 audio = new Audio();
@@ -83,49 +99,71 @@ class WebRtcService {
                 this.audioElements.set(targetConnectionId, audio);
                 document.body.appendChild(audio);
             }
-            audio.srcObject = e.streams[0];
-        };
+            audio.srcObject = stream;
+        });
 
-        if (initiator && this.signalRService) {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await this.signalRService.sendOffer(targetConnectionId, offer);
-        }
+        // Handle connection events
+        peer.on('connect', () => {
+            console.log('Peer connected:', targetConnectionId);
+        });
 
-        return pc;
+        peer.on('close', () => {
+            console.log('Peer connection closed:', targetConnectionId);
+            this.removeUser(targetConnectionId);
+        });
+
+        peer.on('error', (err) => {
+            console.error('Peer error:', err);
+            this.removeUser(targetConnectionId);
+        });
+
+        return peer;
     }
 
     private async handleReceiveOffer(fromConnectionId: string, offer: any) {
-        await this.createPeerConnection(fromConnectionId, false);
-        const pc = this.peers.get(fromConnectionId);
-        if (!pc) return;
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        if (this.signalRService) {
-            await this.signalRService.sendAnswer(fromConnectionId, answer);
+        try {
+            // If we don't have a peer connection yet, create one (non-initiator)
+            if (!this.peers.has(fromConnectionId)) {
+                await this.createPeerConnection(fromConnectionId, false);
+            }
+            
+            const peer = this.peers.get(fromConnectionId);
+            if (!peer) return;
+
+            // Signal the offer to simple-peer
+            peer.signal(offer);
+        } catch (error) {
+            console.error('Error handling offer:', error);
         }
     }
 
     private async handleReceiveAnswer(fromConnectionId: string, answer: any) {
-        const pc = this.peers.get(fromConnectionId);
-        if (!pc) return;
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        try {
+            const peer = this.peers.get(fromConnectionId);
+            if (!peer) return;
+
+            // Signal the answer to simple-peer
+            peer.signal(answer);
+        } catch (error) {
+            console.error('Error handling answer:', error);
+        }
     }
 
     private async handleReceiveIceCandidate(fromConnectionId: string, candidate: any) {
-        const pc = this.peers.get(fromConnectionId);
-        if (!pc) return;
         try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-            console.error('Error adding ICE candidate', err);
+            const peer = this.peers.get(fromConnectionId);
+            if (!peer) return;
+
+            // Signal the ICE candidate to simple-peer
+            peer.signal(candidate);
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
         }
     }
 
     setMuted(muted: boolean) {
         if (this.localStream) {
-            this.localStream.getAudioTracks().forEach(t => t.enabled = !muted);
+            this.localStream.getAudioTracks().forEach(track => track.enabled = !muted);
         }
     }
 
@@ -134,7 +172,7 @@ class WebRtcService {
             this.removeUser(id);
         }
         if (this.localStream) {
-            this.localStream.getTracks().forEach(t => t.stop());
+            this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
     }
