@@ -112,26 +112,26 @@
         <div>
           <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
           <input
-            v-model="serverMenu.newTopicName.value"
-            type="text"
-            placeholder="Enter topic name..."
-            class="w-full px-3 py-2 form-input bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            @keydown.enter="serverMenu.createTopic"
+              v-model="serverMenu.newTopicName.value"
+              class="w-full px-3 py-2 form-input bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Enter topic name..."
+              type="text"
+              @keydown.enter="serverMenu.createTopic"
           />
         </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-3">
           <button
-            class="px-4 py-2 btn-secondary text-text-muted hover:text-text-default transition-colors"
-            @click="serverMenu.isCreateTopicModalOpen.value = false"
+              class="px-4 py-2 btn-secondary text-text-muted hover:text-text-default transition-colors"
+              @click="serverMenu.isCreateTopicModalOpen.value = false"
           >
             Cancel
           </button>
           <button
-            class="px-4 py-2 btn-primary bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
-            :disabled="!serverMenu.newTopicName.value.trim()"
-            @click="serverMenu.createTopic"
+              :disabled="!serverMenu.newTopicName.value.trim()"
+              class="px-4 py-2 btn-primary bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+              @click="serverMenu.createTopic"
           >
             Create Topic
           </button>
@@ -175,7 +175,7 @@ import BaseModal from '@/components/modals/BaseModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
 import type {ServerListItem} from '@/services/types';
-import { useServerMenu } from '@/composables/useServerMenu';
+import {useServerMenu} from '@/composables/useServerMenu';
 
 // --- State ---
 const route = useRoute();
