@@ -49,6 +49,7 @@ export const useAppStore = defineStore('app', () => {
     const selfMuted = ref(false);
     const connectionState = ref<'disconnected' | 'connecting' | 'connected' | 'reconnecting'>('disconnected');
 
+
     const isCreateChannelModalOpen = ref(false);
     const createChannelForServerId = ref<EntityId | null>(null);
 

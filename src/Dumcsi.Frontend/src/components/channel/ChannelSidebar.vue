@@ -61,6 +61,19 @@
                       class="flex items-center gap-1 text-xs text-text-muted">
                     <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
                     <span class="truncate">{{ user.username }}</span>
+                    <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
+                         class="ml-auto flex items-center gap-1">
+                      <span v-if="appStore.selfMuted" class="text-red-400" title="Muted">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                      </span>
+                      <span v-else class="text-green-400" title="Speaking">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
+                        </svg>
+                      </span>
+                    </div>
                   </li>
                 </ul>
               </li>
@@ -109,6 +122,19 @@
                       class="flex items-center gap-1 text-xs text-text-muted">
                     <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
                     <span class="truncate">{{ user.username }}</span>
+                    <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
+                         class="ml-auto flex items-center gap-1">
+                      <span v-if="appStore.selfMuted" class="text-red-400" title="Muted">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                      </span>
+                      <span v-else class="text-green-400" title="Speaking">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
+                        </svg>
+                      </span>
+                    </div>
                   </li>
                 </ul>
               </li>

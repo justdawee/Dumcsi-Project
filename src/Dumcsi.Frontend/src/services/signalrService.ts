@@ -24,6 +24,15 @@ export class SignalRService {
     private maxReconnectAttempts = 5;
     private reconnectDelay = 2000;
 
+    constructor() {
+        // Handle page unload to properly cleanup
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', async () => {
+                await this.cleanup();
+            });
+        }
+    }
+
     async initialize(): Promise<void> {
         const authStore = useAuthStore();
 
@@ -161,6 +170,7 @@ export class SignalRService {
             // Re-join current server and channel after reconnection
             const currentServerId = appStore.currentServer?.id;
             const currentChannelId = appStore.currentChannel?.id;
+            const currentVoiceChannelId = appStore.currentVoiceChannelId;
 
             if (currentServerId) {
                 this.joinServer(currentServerId);
@@ -168,6 +178,11 @@ export class SignalRService {
 
             if (currentChannelId) {
                 this.joinChannel(currentChannelId);
+            }
+
+            // Re-join voice channel if user was in one
+            if (currentVoiceChannelId && currentServerId) {
+                this.joinVoiceChannel(currentServerId, currentVoiceChannelId);
             }
         });
 
@@ -378,6 +393,11 @@ export class SignalRService {
             if (appStore.currentChannel?.id) {
                 await this.joinChannel(appStore.currentChannel.id);
             }
+
+            // Re-join voice channel if user was in one
+            if (appStore.currentVoiceChannelId && appStore.currentServer?.id) {
+                await this.joinVoiceChannel(appStore.currentServer.id, appStore.currentVoiceChannelId);
+            }
         } catch (error) {
             console.error('Failed to start SignalR connection:', error);
             appStore.setConnectionState('disconnected');
@@ -397,6 +417,22 @@ export class SignalRService {
                 console.error('Error stopping SignalR connection:', error);
             }
         }
+    }
+
+    private async cleanup(): Promise<void> {
+        const appStore = useAppStore();
+        
+        // If user is in a voice channel, leave it
+        if (appStore.currentVoiceChannelId && appStore.currentServer) {
+            try {
+                await this.leaveVoiceChannel(appStore.currentServer.id, appStore.currentVoiceChannelId);
+            } catch (error) {
+                console.warn('Failed to leave voice channel during cleanup:', error);
+            }
+        }
+        
+        // Stop the connection
+        await this.stop();
     }
 
     private handleConnectionClosed(): void {

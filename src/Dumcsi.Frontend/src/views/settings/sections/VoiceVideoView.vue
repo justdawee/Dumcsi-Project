@@ -26,7 +26,7 @@
           <!-- Input Device Selection -->
           <div class="max-w-md">
             <label class="form-label">Microphone</label>
-            <select v-model="settings.inputDevice" class="form-input">
+            <select v-model="audioSettings.inputDevice" class="form-input">
               <option value="default">Default - System Default</option>
               <option v-for="device in inputDevices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.label || `Microphone ${device.deviceId.slice(0, 8)}` }}
@@ -40,14 +40,14 @@
             <div class="flex items-center space-x-4">
               <Volume2 class="w-4 h-4 text-text-muted"/>
               <input 
-                v-model="settings.inputVolume" 
+                v-model="audioSettings.inputVolume" 
                 type="range" 
                 min="0" 
                 max="100" 
                 class="flex-1 slider"
                 @input="updateInputVolume"
               />
-              <span class="text-sm font-medium min-w-[3rem] text-right">{{ settings.inputVolume }}%</span>
+              <span class="text-sm font-medium min-w-[3rem] text-right">{{ audioSettings.inputVolume }}%</span>
             </div>
             <!-- Volume Meter -->
             <div class="mt-3 w-full bg-bg-base rounded-full h-3 overflow-hidden border border-border-default">
@@ -115,7 +115,7 @@
           <!-- Output Device Selection -->
           <div class="max-w-md">
             <label class="form-label">Audio Output</label>
-            <select v-model="settings.outputDevice" class="form-input">
+            <select v-model="audioSettings.outputDevice" class="form-input">
               <option value="default">Default - System Default</option>
               <option v-for="device in outputDevices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.label || `Audio Output ${device.deviceId.slice(0, 8)}` }}
@@ -129,14 +129,14 @@
             <div class="flex items-center space-x-4">
               <VolumeX class="w-4 h-4 text-text-muted"/>
               <input 
-                v-model="settings.outputVolume" 
+                v-model="audioSettings.outputVolume" 
                 type="range" 
                 min="0" 
                 max="100" 
                 class="flex-1 slider"
                 @input="updateOutputVolume"
               />
-              <span class="text-sm font-medium min-w-[3rem] text-right">{{ settings.outputVolume }}%</span>
+              <span class="text-sm font-medium min-w-[3rem] text-right">{{ audioSettings.outputVolume }}%</span>
             </div>
           </div>
 
@@ -170,7 +170,7 @@
             <!-- Voice Activity -->
             <label class="flex items-start space-x-3 cursor-pointer group">
               <input 
-                v-model="settings.inputMode" 
+                v-model="audioSettings.inputMode" 
                 type="radio" 
                 value="voice-activity" 
                 class="mt-0.5 radio"
@@ -184,7 +184,7 @@
             <!-- Push to Talk -->
             <label class="flex items-start space-x-3 cursor-pointer group">
               <input 
-                v-model="settings.inputMode" 
+                v-model="audioSettings.inputMode" 
                 type="radio" 
                 value="push-to-talk" 
                 class="mt-0.5 radio"
@@ -197,13 +197,13 @@
           </div>
 
           <!-- Voice Activity Settings -->
-          <div v-if="settings.inputMode === 'voice-activity'" class="pl-6 border-l-2 border-primary/30 space-y-4">
+          <div v-if="audioSettings.inputMode === 'voice-activity'" class="pl-6 border-l-2 border-primary/30 space-y-4">
             <div class="max-w-md">
               <label class="form-label">Voice Activity Sensitivity</label>
               <div class="flex items-center space-x-4">
                 <span class="text-sm text-text-muted">Low</span>
                 <input 
-                  v-model="settings.voiceActivitySensitivity" 
+                  v-model="audioSettings.voiceActivitySensitivity" 
                   type="range" 
                   min="0" 
                   max="100" 
@@ -218,7 +218,7 @@
           </div>
 
           <!-- Push to Talk Settings -->
-          <div v-if="settings.inputMode === 'push-to-talk'" class="pl-6 border-l-2 border-primary/30 space-y-4">
+          <div v-if="audioSettings.inputMode === 'push-to-talk'" class="pl-6 border-l-2 border-primary/30 space-y-4">
             <!-- Push to Talk Key -->
             <div class="max-w-md">
               <label class="form-label">Push to Talk Key</label>
@@ -231,7 +231,7 @@
                     : 'border-border-default bg-bg-base hover:bg-bg-hover'
                 ]"
               >
-                {{ isCapturingKey ? 'Press a key...' : (settings.pushToTalkKey || 'Click to set key') }}
+                {{ isCapturingKey ? 'Press a key...' : (audioSettings.pushToTalkKey || 'Click to set key') }}
               </button>
               <p class="mt-2 text-sm text-text-muted">
                 {{ isCapturingKey ? 'Press any key to set as your push-to-talk key' : 'Current push-to-talk key binding' }}
@@ -243,14 +243,14 @@
               <label class="form-label">Release Delay</label>
               <div class="flex items-center space-x-4">
                 <input 
-                  v-model="settings.pushToTalkDelay" 
+                  v-model="audioSettings.pushToTalkDelay" 
                   type="range" 
                   min="0" 
                   max="2000" 
                   step="100"
                   class="flex-1 slider"
                 />
-                <span class="text-sm font-medium min-w-[4rem] text-right">{{ settings.pushToTalkDelay }}ms</span>
+                <span class="text-sm font-medium min-w-[4rem] text-right">{{ audioSettings.pushToTalkDelay }}ms</span>
               </div>
               <p class="mt-2 text-sm text-text-muted">
                 How long to continue transmitting after releasing the push-to-talk key
@@ -277,7 +277,7 @@
               <p class="text-sm text-text-muted mt-1">Reduce background noise from your microphone</p>
             </div>
             <input 
-              v-model="settings.noiseSuppression" 
+              v-model="audioSettings.noiseSuppression" 
               type="checkbox" 
               class="toggle"
             />
@@ -290,7 +290,7 @@
               <p class="text-sm text-text-muted mt-1">Prevent your speakers from being picked up by your microphone</p>
             </div>
             <input 
-              v-model="settings.echoCancellation" 
+              v-model="audioSettings.echoCancellation" 
               type="checkbox" 
               class="toggle"
             />
@@ -303,7 +303,7 @@
               <p class="text-sm text-text-muted mt-1">Automatically adjust microphone sensitivity</p>
             </div>
             <input 
-              v-model="settings.autoGainControl" 
+              v-model="audioSettings.autoGainControl" 
               type="checkbox" 
               class="toggle"
             />
@@ -315,7 +315,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { 
   Mic as MicIcon, 
   Headphones, 
@@ -327,10 +327,11 @@ import {
   Square,
   Loader2
 } from 'lucide-vue-next';
+import { useAudioSettings } from '@/composables/useAudioSettings';
+import { webrtcService } from '@/services/webrtcService';
 
-// Audio devices
-const inputDevices = ref<MediaDeviceInfo[]>([]);
-const outputDevices = ref<MediaDeviceInfo[]>([]);
+// Use shared audio settings
+const { audioSettings, inputDevices, outputDevices, getAudioDevices } = useAudioSettings();
 
 // Audio state
 const inputLevel = ref(0);
@@ -346,45 +347,24 @@ let gainNode: GainNode | null = null;
 let stream: MediaStream | null = null;
 let animationFrame: number | null = null;
 
-// Settings
-const settings = reactive({
-  inputDevice: 'default',
-  outputDevice: 'default',
-  inputVolume: 75,
-  outputVolume: 100,
-  inputMode: 'voice-activity',
-  voiceActivitySensitivity: 50,
-  pushToTalkKey: '',
-  pushToTalkDelay: 200,
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true
-});
-
-// Get available audio devices
-const getAudioDevices = async () => {
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    inputDevices.value = devices.filter(device => device.kind === 'audioinput');
-    outputDevices.value = devices.filter(device => device.kind === 'audiooutput');
-  } catch (error) {
-    console.error('Error getting audio devices:', error);
-  }
+// Auto-mute WebRTC during microphone testing
+const setWebRtcMuteDuringTest = (muted: boolean) => {
+  webrtcService.setMutedForTesting(muted);
 };
 
 // Update input volume
 const updateInputVolume = () => {
   // Adjust gain in real-time if testing
   if (gainNode && audioContext && isTesting.value) {
-    gainNode.gain.setValueAtTime(settings.inputVolume / 100, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(audioSettings.inputVolume / 100, audioContext.currentTime);
   }
-  console.log('Input volume changed to:', settings.inputVolume);
+  console.log('Input volume changed to:', audioSettings.inputVolume);
 };
 
 // Update output volume
 const updateOutputVolume = () => {
   // In a real implementation, this would adjust audio output volume
-  console.log('Output volume changed to:', settings.outputVolume);
+  console.log('Output volume changed to:', audioSettings.outputVolume);
 };
 
 // Microphone test functionality
@@ -400,13 +380,16 @@ const startMicTest = async () => {
   try {
     isTesting.value = true;
     
+    // Mute in WebRTC voice channel during testing
+    setWebRtcMuteDuringTest(true);
+    
     // Get user media
     stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        deviceId: settings.inputDevice !== 'default' ? settings.inputDevice : undefined,
-        echoCancellation: settings.echoCancellation,
-        noiseSuppression: settings.noiseSuppression,
-        autoGainControl: settings.autoGainControl
+        deviceId: audioSettings.inputDevice !== 'default' ? audioSettings.inputDevice : undefined,
+        echoCancellation: audioSettings.echoCancellation,
+        noiseSuppression: audioSettings.noiseSuppression,
+        autoGainControl: audioSettings.autoGainControl
       }
     });
 
@@ -429,7 +412,7 @@ const startMicTest = async () => {
     gainNode.connect(audioContext.destination); // This enables hearing yourself
     
     // Set initial gain based on input volume setting
-    gainNode.gain.setValueAtTime(settings.inputVolume / 100, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(audioSettings.inputVolume / 100, audioContext.currentTime);
 
     // Start monitoring audio levels
     monitorAudioLevel();
@@ -442,6 +425,9 @@ const startMicTest = async () => {
 const stopMicTest = () => {
   isTesting.value = false;
   inputLevel.value = 0;
+  
+  // Unmute in WebRTC voice channel
+  setWebRtcMuteDuringTest(false);
   
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
@@ -506,7 +492,7 @@ const playTestSound = async () => {
     gainNode.connect(audioContext.destination);
     
     oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
-    gainNode.gain.setValueAtTime(0.1 * (settings.outputVolume / 100), audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.1 * (audioSettings.outputVolume / 100), audioContext.currentTime);
     
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 0.5); // Play for 0.5 seconds
@@ -544,21 +530,13 @@ const captureKey = (event: KeyboardEvent) => {
   if (event.altKey) keyName = `Alt + ${keyName}`;
   if (event.shiftKey) keyName = `Shift + ${keyName}`;
   
-  settings.pushToTalkKey = keyName;
+  audioSettings.pushToTalkKey = keyName;
   isCapturingKey.value = false;
 };
 
 // Lifecycle
 onMounted(() => {
   getAudioDevices();
-  
-  // Request microphone permissions to get device labels
-  navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-      stream.getTracks().forEach(track => track.stop());
-      return getAudioDevices();
-    })
-    .catch(console.error);
 });
 
 onUnmounted(() => {

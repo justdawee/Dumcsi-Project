@@ -1,6 +1,26 @@
-import SimplePeer from 'simple-peer/simplepeer.min.js';
 import type { SignalRService } from './signalrService';
 import type { EntityId } from './types';
+import { useAudioSettings } from '@/composables/useAudioSettings';
+
+// Load SimplePeer from CDN
+let SimplePeer: any = null;
+
+const loadSimplePeer = async () => {
+    if (SimplePeer) return SimplePeer;
+    
+    // Load SimplePeer from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js';
+    document.head.appendChild(script);
+    
+    return new Promise((resolve, reject) => {
+        script.onload = () => {
+            SimplePeer = (window as any).SimplePeer;
+            resolve(SimplePeer);
+        };
+        script.onerror = reject;
+    });
+};
 
 interface ConnectionInfo {
     userId: EntityId;
@@ -8,10 +28,28 @@ interface ConnectionInfo {
 }
 
 class WebRtcService {
-    private peers = new Map<string, SimplePeer.Instance>();
+    private peers = new Map<string, any>();
     private audioElements = new Map<string, HTMLAudioElement>();
     private localStream: MediaStream | null = null;
     private signalRService: SignalRService | null = null;
+    private isMutedForTesting = false;
+    private settingsCleanup: (() => void) | null = null;
+    
+    // Audio settings integration
+    private audioSettings = useAudioSettings();
+
+    constructor() {
+        // Handle page unload to clean up connections
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', () => {
+                this.cleanup();
+            });
+
+            window.addEventListener('unload', () => {
+                this.cleanup();
+            });
+        }
+    }
 
     setSignalRService(service: SignalRService) {
         this.signalRService = service;
@@ -22,8 +60,50 @@ class WebRtcService {
 
     private async ensureLocalStream() {
         if (!this.localStream) {
-            this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            await this.createLocalStream();
         }
+    }
+
+    private async createLocalStream() {
+        const { audioSettings } = this.audioSettings;
+        
+        // Create stream with current audio settings
+        const originalStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                deviceId: audioSettings.inputDevice !== 'default' ? audioSettings.inputDevice : undefined,
+                echoCancellation: audioSettings.echoCancellation,
+                noiseSuppression: audioSettings.noiseSuppression,
+                autoGainControl: audioSettings.autoGainControl
+            }
+        });
+
+        // Keep the original stream for peer connections
+        this.localStream = originalStream;
+
+        // Set up audio processing chain for volume control
+        this.setupAudioProcessing();
+        
+        // Listen for settings changes
+        this.setupSettingsListener();
+    }
+
+    private setupAudioProcessing() {
+        if (!this.localStream) return;
+
+        // Update audio settings based on current configuration
+        this.updateInputVolume();
+    }
+
+    private setupSettingsListener() {
+        // Clean up previous listener
+        if (this.settingsCleanup) {
+            this.settingsCleanup();
+        }
+
+        // Listen for audio settings changes
+        this.settingsCleanup = this.audioSettings.onSettingsChange((settings) => {
+            this.handleSettingsChange(settings);
+        });
     }
 
     async connectToExisting(_channelId: EntityId, infos: ConnectionInfo[]) {
@@ -60,7 +140,10 @@ class WebRtcService {
     private async createPeerConnection(targetConnectionId: string, initiator: boolean) {
         await this.ensureLocalStream();
         
-        const peerConfig: SimplePeer.Options = {
+        // Ensure SimplePeer is loaded
+        const SimplePeerClass = await loadSimplePeer();
+        
+        const peerConfig: any = {
             initiator,
             config: {
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -72,7 +155,7 @@ class WebRtcService {
             peerConfig.stream = this.localStream;
         }
 
-        const peer = new SimplePeer(peerConfig);
+        const peer = new SimplePeerClass(peerConfig);
 
         this.peers.set(targetConnectionId, peer);
 
@@ -170,6 +253,111 @@ class WebRtcService {
         }
     }
 
+    private async handleSettingsChange(settings: any) {
+        console.log('Audio settings changed:', settings);
+        
+        // Update input volume in real-time
+        this.updateInputVolume();
+        
+        // Update output volume for all audio elements
+        this.updateOutputVolume();
+        
+        // If device changed, we need to recreate the stream
+        if (this.shouldRecreateStream(settings)) {
+            await this.recreateStream();
+        }
+    }
+
+    private shouldRecreateStream(settings: any): boolean {
+        if (!this.localStream) return false;
+        
+        // Check if critical settings that require stream recreation have changed
+        const currentTrack = this.localStream.getAudioTracks()[0];
+        if (!currentTrack) return true;
+        
+        const currentSettings = currentTrack.getSettings();
+        
+        return (
+            (settings.inputDevice !== 'default' && currentSettings.deviceId !== settings.inputDevice) ||
+            currentSettings.echoCancellation !== settings.echoCancellation ||
+            currentSettings.noiseSuppression !== settings.noiseSuppression ||
+            currentSettings.autoGainControl !== settings.autoGainControl
+        );
+    }
+
+    private async recreateStream() {
+        console.log('Recreating stream with new settings...');
+        
+        // Stop current stream
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream = null;
+        }
+        
+        // Create new stream
+        await this.createLocalStream();
+        
+        // Update all peer connections with new stream
+        this.updatePeerStreams();
+    }
+
+    private updatePeerStreams() {
+        if (!this.localStream) return;
+        
+        // Update all peer connections with the new stream
+        this.peers.forEach((peer) => {
+            // Remove old tracks and add new ones
+            const sender = (peer as any)._pc?.getSenders?.();
+            if (sender) {
+                sender.forEach((s: RTCRtpSender) => {
+                    if (s.track?.kind === 'audio') {
+                        const newTrack = this.localStream?.getAudioTracks()[0];
+                        if (newTrack) {
+                            s.replaceTrack(newTrack);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    private updateInputVolume() {
+        if (this.localStream) {
+            const { audioSettings } = this.audioSettings;
+            let volume = audioSettings.inputVolume / 100;
+            
+            // Apply mute/volume to audio tracks directly
+            const audioTracks = this.localStream.getAudioTracks();
+            audioTracks.forEach(track => {
+                // Use enabled for mute/unmute
+                track.enabled = !this.isMutedForTesting && volume > 0;
+            });
+        }
+    }
+
+    private updateOutputVolume() {
+        const { audioSettings } = this.audioSettings;
+        const volume = audioSettings.outputVolume / 100;
+        
+        // Update all audio elements
+        this.audioElements.forEach((audio) => {
+            audio.volume = volume;
+            
+            // Try to set output device if supported
+            if ('setSinkId' in audio && audioSettings.outputDevice !== 'default') {
+                (audio as any).setSinkId(audioSettings.outputDevice).catch((error: any) => {
+                    console.warn('Failed to set audio output device:', error);
+                });
+            }
+        });
+    }
+
+    // Method to mute during microphone testing
+    setMutedForTesting(muted: boolean) {
+        this.isMutedForTesting = muted;
+        this.updateInputVolume();
+    }
+
     setMuted(muted: boolean) {
         if (this.localStream) {
             this.localStream.getAudioTracks().forEach(track => track.enabled = !muted);
@@ -183,6 +371,25 @@ class WebRtcService {
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
+        }
+    }
+
+    private cleanup() {
+        // Clean up peer connections
+        for (const id of Array.from(this.peers.keys())) {
+            this.removeUser(id);
+        }
+        
+        // Stop local stream
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream = null;
+        }
+        
+        // Clean up settings listener
+        if (this.settingsCleanup) {
+            this.settingsCleanup();
+            this.settingsCleanup = null;
         }
     }
 }
