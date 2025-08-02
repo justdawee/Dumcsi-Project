@@ -2,13 +2,13 @@
   <SidebarContainer>
     <template #header>
       <button
-        class="w-full px-4 py-3 font-semibold text-text-default hover:bg-main-800/50 transition-colors flex items-center justify-between group cursor-pointer"
-        @click="openServerDropdown"
-        ref="serverDropdownTrigger"
+          ref="serverDropdownTrigger"
+          class="w-full px-4 py-3 font-semibold text-text-default hover:bg-main-800/50 transition-colors flex items-center justify-between group cursor-pointer"
+          @click="openServerDropdown"
       >
         <span class="truncate text-left flex-1 mr-2">{{ server?.name || 'Loading...' }}</span>
-        <ChevronDown 
-          :class="['w-4 h-4 flex-shrink-0 transition-transform group-hover:text-text-secondary', { 'rotate-180': isServerDropdownOpen }]"
+        <ChevronDown
+            :class="['w-4 h-4 flex-shrink-0 transition-transform group-hover:text-text-secondary', { 'rotate-180': isServerDropdownOpen }]"
         />
       </button>
     </template>
@@ -44,9 +44,9 @@
                   <span class="truncate">{{ channel.name }}</span>
                 </div>
                 <RouterLink v-else
-                    :class="{ 'active': currentChannelId === channel.id }"
-                    :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
-                    @contextmenu.prevent="openChannelMenu($event, channel)"
+                            :class="{ 'active': currentChannelId === channel.id }"
+                            :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                            @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
                   <Hash class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
@@ -55,9 +55,11 @@
                     <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
                   </button>
                 </RouterLink>
-                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length" class="ml-6 mt-1 space-y-0.5">
-                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id" class="flex items-center gap-1 text-xs text-text-muted">
-                    <UserAvatar :avatar-url="user.avatar" :user-id="user.id" :username="user.username" :size="16"/>
+                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length"
+                    class="ml-6 mt-1 space-y-0.5">
+                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id"
+                      class="flex items-center gap-1 text-xs text-text-muted">
+                    <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
                     <span class="truncate">{{ user.username }}</span>
                   </li>
                 </ul>
@@ -66,8 +68,9 @@
           </div>
 
           <!-- Topics with channels -->
-          <div v-for="topic in topics" :key="topic.id" class="px-2 mb-4 topic-container" :data-topic-id="topic.id">
-            <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase cursor-move">
+          <div v-for="topic in topics" :key="topic.id" :data-topic-id="topic.id" class="px-2 mb-4 topic-container">
+            <div
+                class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase cursor-move">
               <span>{{ topic.name }}</span>
               <button
                   v-if="canManageChannels"
@@ -89,9 +92,9 @@
                   <span class="truncate">{{ channel.name }}</span>
                 </div>
                 <RouterLink v-else
-                    :class="{ 'active': currentChannelId === channel.id }"
-                    :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
-                    @contextmenu.prevent="openChannelMenu($event, channel)"
+                            :class="{ 'active': currentChannelId === channel.id }"
+                            :to="`/servers/${server!.id}/channels/${channel.id}`" class="channel-item group"
+                            @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
                   <Hash class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
@@ -100,9 +103,11 @@
                     <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
                   </button>
                 </RouterLink>
-                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length" class="ml-6 mt-1 space-y-0.5">
-                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id" class="flex items-center gap-1 text-xs text-text-muted">
-                    <UserAvatar :avatar-url="user.avatar" :user-id="user.id" :username="user.username" :size="16"/>
+                <ul v-if="channel.type === ChannelType.Voice && appStore.voiceChannelUsers.get(channel.id)?.length"
+                    class="ml-6 mt-1 space-y-0.5">
+                  <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id"
+                      class="flex items-center gap-1 text-xs text-text-muted">
+                    <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
                     <span class="truncate">{{ user.username }}</span>
                   </li>
                 </ul>
@@ -116,108 +121,110 @@
     <template #footer>
       <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
       <ContextMenu ref="serverDropdownMenu" :items="serverMenuItems"/>
-    <ConfirmModal
-        v-model="isConfirmDeleteOpen"
-        :is-loading="isDeleting"
-        :message="`Are you sure you want to delete the channel #${deletingChannel?.name}? This is permanent.`"
-        confirm-text="Delete Channel"
-        intent="danger"
-        title="Delete Channel"
-        @confirm="confirmDeleteChannel"
-    />
-    <EditChannelModal
-        v-model="isEditModalOpen"
-        :channel="editingChannel"
-        @close="isEditModalOpen = false"
-        @channel-updated="handleChannelUpdate"
-        @channel-deleted="handleChannelDeleted"
-    />
-    <BaseModal v-model="isCreateTopicModalOpen" title="Create Topic">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
-          <input
-            v-model="newTopicName"
-            type="text"
-            placeholder="Enter topic name..."
-            class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            @keydown.enter="createTopic"
-          />
+      <ConfirmModal
+          v-model="isConfirmDeleteOpen"
+          :is-loading="isDeleting"
+          :message="`Are you sure you want to delete the channel #${deletingChannel?.name}? This is permanent.`"
+          confirm-text="Delete Channel"
+          intent="danger"
+          title="Delete Channel"
+          @confirm="confirmDeleteChannel"
+      />
+      <EditChannelModal
+          v-model="isEditModalOpen"
+          :channel="editingChannel"
+          @close="isEditModalOpen = false"
+          @channel-updated="handleChannelUpdate"
+          @channel-deleted="handleChannelDeleted"
+      />
+      <BaseModal v-model="isCreateTopicModalOpen" title="Create Topic">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+            <input
+                v-model="newTopicName"
+                class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                placeholder="Enter topic name..."
+                type="text"
+                @keydown.enter="createTopic"
+            />
+          </div>
         </div>
-      </div>
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <button
-            class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
-            @click="isCreateTopicModalOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
-            :disabled="!newTopicName.trim()"
-            @click="createTopic"
-          >
-            Create Topic
-          </button>
-        </div>
-      </template>
-    </BaseModal>
+        <template #footer>
+          <div class="flex justify-end gap-3">
+            <button
+                class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
+                @click="isCreateTopicModalOpen = false"
+            >
+              Cancel
+            </button>
+            <button
+                :disabled="!newTopicName.trim()"
+                class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+                @click="createTopic"
+            >
+              Create Topic
+            </button>
+          </div>
+        </template>
+      </BaseModal>
     </template>
-    
-    <!-- Server Menu Modals -->
-    <InviteModal
+
+  </SidebarContainer>
+
+  <!-- Server Menu Modals -->
+  <InviteModal
       v-model="serverMenu.isInviteModalOpen.value"
       :invite-code="serverMenu.generatedInviteCode.value"
       :server="serverMenu.selectedServer.value"
-    />
+  />
 
-    <EditServerModal
+  <EditServerModal
       v-model="serverMenu.isEditServerModalOpen.value"
       :server="serverMenu.selectedServer.value"
       @close="serverMenu.isEditServerModalOpen.value = false"
       @server-updated="props.server && appStore.fetchServer(props.server.id)"
-    />
+  />
 
-    <ManageRolesModal
+  <ManageRolesModal
       v-model="serverMenu.isManageRolesModalOpen.value"
       :server="serverMenu.selectedServer.value"
       @close="serverMenu.isManageRolesModalOpen.value = false"
-    />
+  />
 
-    <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
-          <input
+  <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+        <input
             v-model="serverMenu.newTopicName.value"
-            type="text"
-            placeholder="Enter topic name..."
             class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            placeholder="Enter topic name..."
+            type="text"
             @keydown.enter="serverMenu.createTopic"
-          />
-        </div>
+        />
       </div>
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <button
+    </div>
+    <template #footer>
+      <div class="flex justify-end gap-3">
+        <button
             class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
             @click="serverMenu.isCreateTopicModalOpen.value = false"
-          >
-            Cancel
-          </button>
-          <button
-            class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
             :disabled="!serverMenu.newTopicName.value.trim()"
+            class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
             @click="serverMenu.createTopic"
-          >
-            Create Topic
-          </button>
-        </div>
-      </template>
-    </BaseModal>
+        >
+          Create Topic
+        </button>
+      </div>
+    </template>
+  </BaseModal>
 
-    <ConfirmModal
+  <ConfirmModal
       v-model="serverMenu.isLeaveConfirmOpen.value"
       :is-loading="serverMenu.isLeaving.value"
       :message="`Are you sure you want to leave ${serverMenu.selectedServer.value?.name}? You won't be able to rejoin this server unless you are re-invited.`"
@@ -225,8 +232,7 @@
       confirm-text="Leave Server"
       intent="danger"
       @confirm="serverMenu.confirmLeaveServer"
-    />
-  </SidebarContainer>
+  />
 </template>
 
 <script lang="ts" setup>
@@ -578,9 +584,9 @@ const openCreateTopicModal = () => {
 
 const createTopic = async () => {
   if (!props.server || !newTopicName.value.trim()) return;
-  
+
   try {
-    await serverService.createTopic(props.server.id, { name: newTopicName.value.trim() });
+    await serverService.createTopic(props.server.id, {name: newTopicName.value.trim()});
     await appStore.fetchServer(props.server.id);
     addToast({
       message: 'Topic created successfully!',
@@ -600,15 +606,15 @@ const createTopic = async () => {
 // Server dropdown methods
 const openServerDropdown = () => {
   if (!props.server || serverMenuItems.value.length === 0) return;
-  
+
   if (isServerDropdownOpen.value) {
     // If already open, close it
     isServerDropdownOpen.value = false;
     return;
   }
-  
+
   isServerDropdownOpen.value = true;
-  
+
   // Create a synthetic event with the trigger button position
   const triggerRect = serverDropdownTrigger.value?.getBoundingClientRect();
   if (triggerRect) {
@@ -616,13 +622,13 @@ const openServerDropdown = () => {
       clientX: triggerRect.left,
       clientY: triggerRect.bottom + 4
     } as MouseEvent;
-    
+
     serverDropdownMenu.value?.open(syntheticEvent);
   }
 };
 
 // Watch for when the server dropdown menu closes to reset the chevron state
-const { activeMenus } = useContextMenuManager();
+const {activeMenus} = useContextMenuManager();
 
 watchEffect(() => {
   // If there are no active menus and our dropdown was open, close it
