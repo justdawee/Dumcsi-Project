@@ -229,7 +229,10 @@ export class SignalRService {
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
             console.log('SignalR: User joined voice channel', { channelId: cid, userId: uid, connectionId });
             appStore.handleUserJoinedVoiceChannel(cid, uid, connectionId);
-            webrtcService.addUser(cid, uid, connectionId);
+            // Only manage WebRTC peers when we are in the same voice channel
+            if (appStore.currentVoiceChannelId === cid) {
+                webrtcService.addUser(cid, uid, connectionId);
+            }
         });
 
         this.connection.on('UserLeftVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
@@ -237,7 +240,9 @@ export class SignalRService {
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
             console.log('SignalR: User left voice channel', { channelId: cid, userId: uid, connectionId });
             appStore.handleUserLeftVoiceChannel(cid, uid);
-            webrtcService.removeUser(connectionId);
+            if (appStore.currentVoiceChannelId === cid) {
+                webrtcService.removeUser(connectionId);
+            }
         });
 
         this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {
