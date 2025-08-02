@@ -1,9 +1,16 @@
 <template>
   <SidebarContainer>
     <template #header>
-      <h2 class="px-4 font-semibold text-text-default truncate">
-        {{ server?.name || 'Loading...' }}
-      </h2>
+      <button
+        class="w-full px-4 py-3 font-semibold text-text-default hover:bg-main-800/50 transition-colors flex items-center justify-between group cursor-pointer"
+        @click="openServerDropdown"
+        ref="serverDropdownTrigger"
+      >
+        <span class="truncate text-left flex-1 mr-2">{{ server?.name || 'Loading...' }}</span>
+        <ChevronDown 
+          :class="['w-4 h-4 flex-shrink-0 transition-transform group-hover:text-text-secondary', { 'rotate-180': isServerDropdownOpen }]"
+        />
+      </button>
     </template>
 
     <template #content>
@@ -108,6 +115,7 @@
 
     <template #footer>
       <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
+      <ContextMenu ref="serverDropdownMenu" :items="serverMenuItems"/>
     <ConfirmModal
         v-model="isConfirmDeleteOpen"
         :is-loading="isDeleting"
@@ -156,6 +164,68 @@
       </template>
     </BaseModal>
     </template>
+    
+    <!-- Server Menu Modals -->
+    <InviteModal
+      v-model="serverMenu.isInviteModalOpen.value"
+      :invite-code="serverMenu.generatedInviteCode.value"
+      :server="serverMenu.selectedServer.value"
+    />
+
+    <EditServerModal
+      v-model="serverMenu.isEditServerModalOpen.value"
+      :server="serverMenu.selectedServer.value"
+      @close="serverMenu.isEditServerModalOpen.value = false"
+      @server-updated="props.server && appStore.fetchServer(props.server.id)"
+    />
+
+    <ManageRolesModal
+      v-model="serverMenu.isManageRolesModalOpen.value"
+      :server="serverMenu.selectedServer.value"
+      @close="serverMenu.isManageRolesModalOpen.value = false"
+    />
+
+    <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+          <input
+            v-model="serverMenu.newTopicName.value"
+            type="text"
+            placeholder="Enter topic name..."
+            class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            @keydown.enter="serverMenu.createTopic"
+          />
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button
+            class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
+            @click="serverMenu.isCreateTopicModalOpen.value = false"
+          >
+            Cancel
+          </button>
+          <button
+            class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
+            :disabled="!serverMenu.newTopicName.value.trim()"
+            @click="serverMenu.createTopic"
+          >
+            Create Topic
+          </button>
+        </div>
+      </template>
+    </BaseModal>
+
+    <ConfirmModal
+      v-model="serverMenu.isLeaveConfirmOpen.value"
+      :is-loading="serverMenu.isLeaving.value"
+      :message="`Are you sure you want to leave ${serverMenu.selectedServer.value?.name}? You won't be able to rejoin this server unless you are re-invited.`"
+      :title="`Leave '${serverMenu.selectedServer.value?.name}'`"
+      confirm-text="Leave Server"
+      intent="danger"
+      @confirm="serverMenu.confirmLeaveServer"
+    />
   </SidebarContainer>
 </template>
 
@@ -165,13 +235,16 @@ import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPub
 import {useRoute, useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
-import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2} from 'lucide-vue-next';
+import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import BaseModal from '@/components/modals/BaseModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
+import InviteModal from '@/components/modals/InviteModal.vue';
+import EditServerModal from '@/components/modals/EditServerModal.vue';
+import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
 import {useDragAndDrop, dragAndDrop} from '@formkit/drag-and-drop/vue';
 import {animations, insert, tearDown} from '@formkit/drag-and-drop';
 import channelService from '@/services/channelService';
@@ -181,9 +254,12 @@ import {
   type ChannelListItem,
   ChannelType,
   type ServerDetails,
-  type TopicListItem
+  type TopicListItem,
+  type ServerListItem
 } from '@/services/types';
 import {usePermissions} from '@/composables/usePermissions';
+import {useServerMenu} from '@/composables/useServerMenu';
+import {useContextMenuManager} from '@/composables/useContextMenuManager';
 
 // --- Props & Store ---
 const props = defineProps<{
@@ -240,6 +316,14 @@ const isSavingOrder = ref(false);
 const deletingChannel = ref<ChannelListItem | null>(null);
 const isCreateTopicModalOpen = ref(false);
 const newTopicName = ref('');
+
+// Server dropdown states
+const isServerDropdownOpen = ref(false);
+const serverDropdownTrigger = ref<HTMLElement | null>(null);
+const serverDropdownMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+
+// Server menu composable
+const serverMenu = useServerMenu();
 
 // --- Computed ---
 const currentChannelId = computed(() => route.params.channelId ? parseInt(route.params.channelId as string) : null);
@@ -363,6 +447,22 @@ onBeforeUnmount(() => {
 });
 
 const canManageChannels = permissions.manageChannels;
+
+// Server dropdown computed
+const serverMenuItems = computed(() => {
+  if (!props.server) return [];
+  const serverListItem: ServerListItem = {
+    id: props.server.id,
+    name: props.server.name,
+    icon: props.server.icon,
+    isOwner: props.server.isOwner,
+    memberCount: 0, // Not used in context menu
+    description: props.server.description || null,
+    public: false, // Not used in context menu  
+    createdAt: new Date().toISOString() // Not used in context menu
+  };
+  return serverMenu.getServerMenuItems(serverListItem);
+});
 
 // --- Methods ---
 const openEditModal = async (channel: ChannelListItem) => {
@@ -496,4 +596,38 @@ const createTopic = async () => {
     newTopicName.value = '';
   }
 };
+
+// Server dropdown methods
+const openServerDropdown = () => {
+  if (!props.server || serverMenuItems.value.length === 0) return;
+  
+  if (isServerDropdownOpen.value) {
+    // If already open, close it
+    isServerDropdownOpen.value = false;
+    return;
+  }
+  
+  isServerDropdownOpen.value = true;
+  
+  // Create a synthetic event with the trigger button position
+  const triggerRect = serverDropdownTrigger.value?.getBoundingClientRect();
+  if (triggerRect) {
+    const syntheticEvent = {
+      clientX: triggerRect.left,
+      clientY: triggerRect.bottom + 4
+    } as MouseEvent;
+    
+    serverDropdownMenu.value?.open(syntheticEvent);
+  }
+};
+
+// Watch for when the server dropdown menu closes to reset the chevron state
+const { activeMenus } = useContextMenuManager();
+
+watchEffect(() => {
+  // If there are no active menus and our dropdown was open, close it
+  if (activeMenus.value.length === 0 && isServerDropdownOpen.value) {
+    isServerDropdownOpen.value = false;
+  }
+});
 </script>

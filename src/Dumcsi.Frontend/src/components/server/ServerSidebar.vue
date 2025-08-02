@@ -76,7 +76,7 @@
       </div>
     </div>
     <!-- ContextMenu és a hozzá tartozó modális ablakok -->
-    <ContextMenu ref="serverContextMenu" :items="serverMenuItems"/>
+    <ContextMenu ref="serverContextMenu" :items="currentServerMenuItems"/>
 
     <CreateServerModal
         v-model="showCreateModal"
@@ -89,34 +89,34 @@
     />
 
     <InviteModal
-        v-model="isInviteModalOpen"
-        :invite-code="generatedInviteCode"
-        :server="selectedServer"
+        v-model="serverMenu.isInviteModalOpen.value"
+        :invite-code="serverMenu.generatedInviteCode.value"
+        :server="serverMenu.selectedServer.value"
     />
 
     <EditServerModal
-        v-model="isEditServerModalOpen"
-        :server="selectedServer"
-        @close="isEditServerModalOpen = false"
+        v-model="serverMenu.isEditServerModalOpen.value"
+        :server="serverMenu.selectedServer.value"
+        @close="serverMenu.isEditServerModalOpen.value = false"
         @server-updated="appStore.fetchServers()"
     />
 
     <ManageRolesModal
-        v-model="isManageRolesModalOpen"
-        :server="selectedServer"
-        @close="isManageRolesModalOpen = false"
+        v-model="serverMenu.isManageRolesModalOpen.value"
+        :server="serverMenu.selectedServer.value"
+        @close="serverMenu.isManageRolesModalOpen.value = false"
     />
 
-    <BaseModal v-model="isCreateTopicModalOpen" title="Create Topic">
+    <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
           <input
-            v-model="newTopicName"
+            v-model="serverMenu.newTopicName.value"
             type="text"
             placeholder="Enter topic name..."
             class="w-full px-3 py-2 form-input bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            @keydown.enter="createTopic"
+            @keydown.enter="serverMenu.createTopic"
           />
         </div>
       </div>
@@ -124,14 +124,14 @@
         <div class="flex justify-end gap-3">
           <button
             class="px-4 py-2 btn-secondary text-text-muted hover:text-text-default transition-colors"
-            @click="isCreateTopicModalOpen = false"
+            @click="serverMenu.isCreateTopicModalOpen.value = false"
           >
             Cancel
           </button>
           <button
             class="px-4 py-2 btn-primary bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
-            :disabled="!newTopicName.trim()"
-            @click="createTopic"
+            :disabled="!serverMenu.newTopicName.value.trim()"
+            @click="serverMenu.createTopic"
           >
             Create Topic
           </button>
@@ -140,13 +140,13 @@
     </BaseModal>
 
     <ConfirmModal
-        v-model="isLeaveConfirmOpen"
-        :is-loading="isLeaving"
-        :message="`Are you sure you want to leave ${selectedServer?.name}? You won't be able to rejoin this server unless you are re-invited.`"
-        :title="`Leave '${selectedServer?.name}'`"
+        v-model="serverMenu.isLeaveConfirmOpen.value"
+        :is-loading="serverMenu.isLeaving.value"
+        :message="`Are you sure you want to leave ${serverMenu.selectedServer.value?.name}? You won't be able to rejoin this server unless you are re-invited.`"
+        :title="`Leave '${serverMenu.selectedServer.value?.name}'`"
         confirm-text="Leave Server"
         intent="danger"
-        @confirm="confirmLeaveServer"
+        @confirm="serverMenu.confirmLeaveServer"
     />
     <Teleport to="body">
       <div
@@ -162,10 +162,9 @@
 
 <script lang="ts" setup>
 import {ref, computed, onUnmounted} from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import {useRoute} from 'vue-router';
 import {useAppStore} from '@/stores/app';
-import {Home, Plus, UserPlus, PlusCircle, Edit, LogOut, Compass, Shield} from 'lucide-vue-next';
-import type {Component} from 'vue';
+import {Home, Plus, Compass} from 'lucide-vue-next';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
@@ -175,39 +174,18 @@ import CreateServerModal from './CreateServerModal.vue';
 import BaseModal from '@/components/modals/BaseModal.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
-import {useToast} from '@/composables/useToast';
-import serverService from '@/services/serverService';
 import type {ServerListItem} from '@/services/types';
-import { usePermissions } from '@/composables/usePermissions';
+import { useServerMenu } from '@/composables/useServerMenu';
 
 // --- State ---
 const route = useRoute();
-const router = useRouter();
 const appStore = useAppStore();
-const {addToast} = useToast();
-const { permissions } = usePermissions();
+const serverMenu = useServerMenu();
 
-interface MenuItem {
-  label: string;
-  icon: Component;
-  action: () => void;
-  danger?: boolean;
-}
 
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
-const serverMenuItems = ref<MenuItem[]>([]);
-const selectedServer = ref<ServerListItem | null>(null);
-
 const showCreateModal = ref(false);
-const isInviteModalOpen = ref(false);
-const generatedInviteCode = ref('');
-const isManageRolesModalOpen = ref(false);
-const isEditServerModalOpen = ref(false);
 const isExploreModalOpen = ref(false);
-const isLeaveConfirmOpen = ref(false);
-const isLeaving = ref(false);
-const isCreateTopicModalOpen = ref(false);
-const newTopicName = ref('');
 
 const tooltipText = ref('');
 const tooltipTop = ref(0);
@@ -227,128 +205,13 @@ const isHome = computed(() => route.name === 'Friends' || route.path === '/serve
 const currentServerId = computed(() => route.params.serverId ? parseInt(route.params.serverId as string) : null);
 
 // --- Methods ---
-const handleInvite = async (server: ServerListItem) => {
-  try {
-    const response = await serverService.generateInvite(server.id);
-    selectedServer.value = server;
-    generatedInviteCode.value = response.code;
-    isInviteModalOpen.value = true;
-  } catch (error) {
-    addToast({
-      message: 'Failed to generate invite code.',
-      type: 'danger'
-    });
-  }
-};
 
-const handleCreateChannel = (server: ServerListItem) => {
-  if (currentServerId.value !== server.id) {
-    router.push({name: 'Server', params: {serverId: server.id}});
-  }
-  appStore.openCreateChannelModal(server.id);
-};
-
-const handleEditServer = (server: ServerListItem) => {
-  selectedServer.value = server;
-  isEditServerModalOpen.value = true;
-};
-
-const handleLeaveServer = (server: ServerListItem) => {
-  selectedServer.value = server;
-  isLeaveConfirmOpen.value = true;
-};
-
-const handleManageRoles = (server: ServerListItem) => {
-  selectedServer.value = server;
-  isManageRolesModalOpen.value = true;
-};
-
-const handleCreateTopic = (server: ServerListItem) => {
-  selectedServer.value = server;
-  newTopicName.value = '';
-  isCreateTopicModalOpen.value = true;
-};
-
-const createTopic = async () => {
-  if (!selectedServer.value || !newTopicName.value.trim()) return;
-  
-  try {
-    await serverService.createTopic(selectedServer.value.id, { name: newTopicName.value.trim() });
-    await appStore.fetchServer(selectedServer.value.id);
-    addToast({
-      message: 'Topic created successfully!',
-      type: 'success'
-    });
-  } catch (error: any) {
-    addToast({
-      message: error.message || 'Failed to create topic',
-      type: 'danger'
-    });
-  } finally {
-    isCreateTopicModalOpen.value = false;
-    newTopicName.value = '';
-  }
-};
-
-const confirmLeaveServer = async () => {
-  if (!selectedServer.value) return;
-
-  isLeaving.value = true;
-  const serverToLeave = selectedServer.value;
-
-  try {
-    await appStore.leaveServer(serverToLeave.id);
-    addToast({
-      message: `You have successfully left ${serverToLeave.name}.`,
-      type: 'success',
-      title: 'Server Left'
-    });
-    if (currentServerId.value === serverToLeave.id) {
-      router.push({name: 'ServerSelect'});
-    }
-    appStore.fetchServers();
-  } catch (error: any) {
-    addToast({
-      message: 'Server owner cannot leave the server.',
-      type: 'danger',
-      title: 'Leave Failed'
-    });
-  } finally {
-    isLeaving.value = false;
-    isLeaveConfirmOpen.value = false;
-    selectedServer.value = null;
-  }
-};
+// Current server menu items
+const currentServerMenuItems = ref<any[]>([]);
 
 const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
-  const menuItems: MenuItem[] = [];
-  const isCurrentServer = server.id === currentServerId.value;
-
-  const canInvite = isCurrentServer ? permissions.createInvite.value : server.isOwner;
-  const canManageChannels = isCurrentServer ? permissions.manageChannels.value : server.isOwner;
-  const canManageServer = isCurrentServer ? permissions.manageServer.value : server.isOwner;
-  const canManageRoles = isCurrentServer ? permissions.manageRoles.value : server.isOwner;
-
-  if (canInvite) {
-    menuItems.push({label: 'Invite', icon: UserPlus, action: () => handleInvite(server)});
-  }
-  if (canManageChannels) {
-    menuItems.push({label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server)});
-    menuItems.push({label: 'Create Topic', icon: Plus, action: () => handleCreateTopic(server)});
-  }
-  if (canManageServer) {
-    menuItems.push({label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)});
-  }
-
-  if (canManageRoles) {
-    menuItems.push({label: 'Manage Roles', icon: Shield, action: () => handleManageRoles(server)});
-  }
-
-  if (!server.isOwner) {
-    menuItems.push({label: 'Leave Server', icon: LogOut, danger: true, action: () => handleLeaveServer(server)});
-  }
-
-  serverMenuItems.value = menuItems;
+  const menuItems = serverMenu.getServerMenuItems(server);
+  currentServerMenuItems.value = menuItems;
   if (menuItems.length > 0) {
     serverContextMenu.value?.open(event);
   }
