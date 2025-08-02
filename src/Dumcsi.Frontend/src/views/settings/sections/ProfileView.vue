@@ -1,7 +1,8 @@
 <template>
   <!-- Main container with vertical scroll -->
-  <div class="h-full w-full p-4 sm:p-8 bg-bg-base text-text-default overflow-y-auto scrollbar-thin">
-    <div class="w-full mx-auto">
+  <div class="h-full w-full bg-gradient-to-br from-bg-base via-bg-base to-bg-surface/20 text-text-default overflow-y-auto scrollbar-thin">
+    <!-- Content Container -->
+    <div class="max-w-4xl mx-auto p-4 sm:p-8">
 
       <!-- Page Header -->
       <header class="mb-8 flex items-center space-x-4">
@@ -66,20 +67,26 @@
             </div>
 
             <!-- Form Fields -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label class="form-label" for="username">Username</label>
-                <input id="username" :value="profileForm.username" class="form-input-disabled" disabled type="text"/>
+            <div class="space-y-6">
+              <!-- Username and Email Row -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+                <div>
+                  <label class="form-label" for="username">Username</label>
+                  <input id="username" :value="profileForm.username" class="form-input-disabled" disabled type="text"/>
+                </div>
+                <div>
+                  <label class="form-label" for="email">Email Address</label>
+                  <input id="email" :value="profileForm.email" class="form-input-disabled" disabled type="email"/>
+                </div>
               </div>
-              <div>
-                <label class="form-label" for="email">Email Address</label>
-                <input id="email" :value="profileForm.email" class="form-input-disabled" disabled type="email"/>
-              </div>
-              <div class="sm:col-span-2">
+              
+              <!-- Display Name - Constrained Width -->
+              <div class="max-w-md">
                 <label class="form-label" for="globalNickname">Display Name</label>
                 <input id="globalNickname" v-model="profileForm.globalNickname" class="form-input"
                        placeholder="How you appear to others"
                        type="text"/>
+                <p class="mt-2 text-sm text-text-muted">This is how you'll appear to other users in servers and direct messages.</p>
               </div>
             </div>
           </div>

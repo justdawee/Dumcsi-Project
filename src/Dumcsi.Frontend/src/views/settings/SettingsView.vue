@@ -55,7 +55,7 @@
     </div>
 
     <!-- Settings Content -->
-    <div class="flex-1 min-w-0 w-full">
+    <div class="flex-1 min-w-150">
       <component :is="currentComponent" />
     </div>
   </div>

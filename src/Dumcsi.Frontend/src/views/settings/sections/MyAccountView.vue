@@ -1,7 +1,8 @@
 <template>
   <!-- Main container with vertical scroll -->
-  <div class="h-full w-full p-4 sm:p-8 bg-bg-base text-text-default overflow-y-auto scrollbar-thin">
-    <div class="w-full mx-auto">
+  <div class="h-full w-full bg-gradient-to-br from-bg-base via-bg-base to-bg-surface/20 text-text-default overflow-y-auto scrollbar-thin">
+    <!-- Content Container -->
+    <div class="max-w-4xl mx-auto p-4 sm:p-8">
 
       <!-- Page Header -->
       <header class="mb-8 flex items-center space-x-4">
@@ -21,7 +22,7 @@
           <p class="mt-1 text-sm text-text-muted">Your basic account details</p>
         </div>
         <div class="p-6 space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
             <div>
               <label class="form-label">Username</label>
               <div class="form-input-disabled">{{ authStore.user?.username }}</div>
@@ -41,7 +42,7 @@
             <h2 class="text-lg font-semibold leading-6">Change Password</h2>
             <p class="mt-1 text-sm text-text-muted">For your security, we recommend using a strong password.</p>
           </div>
-          <div class="p-6 space-y-6">
+          <div class="p-6 space-y-6 max-w-md">
             <div>
               <label class="form-label" for="current-password">Current Password</label>
               <input id="current-password" v-model="passwordForm.currentPassword" class="form-input" required
