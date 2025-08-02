@@ -16,7 +16,8 @@ export const RouteNames = {
     DIRECT_MESSAGE: 'DirectMessage',
     SERVER: 'Server',
     CHANNEL: 'Channel',
-    USER_SETTINGS: 'UserSettings',
+    SETTINGS: 'Settings',
+    USER_SETTINGS: 'UserSettings', // Kept for backward compatibility
 };
 
 declare module 'vue-router' {
@@ -89,9 +90,15 @@ const routes: readonly RouteRecordRaw[] = [
                 ]
             },
             {
+                path: 'settings/:section?',
+                name: RouteNames.SETTINGS,
+                component: () => import('@/views/settings/SettingsView.vue')
+            },
+            {
+                // Legacy route - redirect to new settings structure
                 path: 'settings/profile',
                 name: RouteNames.USER_SETTINGS,
-                component: () => import('@/views/settings/ProfileSettingsView.vue')
+                redirect: { name: RouteNames.SETTINGS, params: { section: 'profile' } }
             }
         ]
     },

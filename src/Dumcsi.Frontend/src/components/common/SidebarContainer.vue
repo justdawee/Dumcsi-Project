@@ -27,7 +27,7 @@
             @{{ authStore.user?.username }}
           </div>
         </div>
-        <RouterLink title="Felhasználói beállítások" to="/settings/profile">
+        <RouterLink title="Settings" to="/settings">
           <Settings class="w-4 h-4 text-text-muted hover:text-text-secondary cursor-pointer"/>
         </RouterLink>
       </div>
