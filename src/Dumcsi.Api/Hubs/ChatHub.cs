@@ -64,6 +64,9 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 }
             }
 
+            // Clean up voice channel connections on disconnect
+            await CleanupVoiceChannelConnection(Context.ConnectionId, userId);
+
             // Handle offline status
             var wentOffline = await presenceService.UserDisconnected(userId, Context.ConnectionId);
             if (wentOffline)
@@ -269,6 +272,42 @@ public class ChatHub(IPresenceService presenceService) : Hub
         if (userId != null)
         {
             await Clients.Group(serverId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId), Context.ConnectionId);
+        }
+    }
+
+    private async Task CleanupVoiceChannelConnection(string connectionId, string userId)
+    {
+        // Find all voice channels this connection was in and remove it
+        var channelsToCleanup = new List<string>();
+        
+        foreach (var kvp in VoiceChannelUsers)
+        {
+            var channelId = kvp.Key;
+            var connections = kvp.Value;
+            
+            bool wasInChannel = false;
+            lock (connections)
+            {
+                wasInChannel = connections.Remove(connectionId);
+                if (connections.Count == 0)
+                {
+                    channelsToCleanup.Add(channelId);
+                }
+            }
+            
+            // If the user was in this voice channel, notify others
+            if (wasInChannel && userId != null && long.TryParse(userId, out var userIdLong))
+            {
+                // We need to find the server ID to notify properly
+                // For now, we'll send to all groups - this isn't perfect but works
+                await Clients.All.SendAsync("UserLeftVoiceChannel", channelId, userIdLong, connectionId);
+            }
+        }
+        
+        // Remove empty voice channel collections
+        foreach (var channelId in channelsToCleanup)
+        {
+            VoiceChannelUsers.TryRemove(channelId, out _);
         }
     }
 
