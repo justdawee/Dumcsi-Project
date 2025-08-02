@@ -17,7 +17,6 @@
     "lucide-vue-next": "^0.533.0",
     "pinia": "^3.0.3",
     "postcss": "^8.5.6",
-    "simple-peer": "^9.11.1",
     "tailwindcss": "^4.1.11",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
@@ -27,7 +26,6 @@
     "@tailwindcss/vite": "^4.1.11",
     "@types/lodash": "^4.17.20",
     "@types/node": "^24.0.8",
-    "@types/simple-peer": "^9.11.8",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/devtools": "^8.0.0",
     "@vue/tsconfig": "^0.7.0",

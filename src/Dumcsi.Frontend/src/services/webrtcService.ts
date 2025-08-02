@@ -1,4 +1,4 @@
-import SimplePeer from 'simple-peer';
+import SimplePeer from 'simple-peer/simplepeer.min.js';
 import type { SignalRService } from './signalrService';
 import type { EntityId } from './types';
 
@@ -77,7 +77,7 @@ class WebRtcService {
         this.peers.set(targetConnectionId, peer);
 
         // Handle signaling data (offers, answers, ice candidates)
-        peer.on('signal', (data) => {
+        peer.on('signal', (data: any) => {
             if (!this.signalRService) return;
 
             if (data.type === 'offer') {
@@ -91,7 +91,7 @@ class WebRtcService {
         });
 
         // Handle incoming stream
-        peer.on('stream', (stream) => {
+        peer.on('stream', (stream: any) => {
             let audio = this.audioElements.get(targetConnectionId);
             if (!audio) {
                 audio = new Audio();
@@ -100,6 +100,15 @@ class WebRtcService {
                 document.body.appendChild(audio);
             }
             audio.srcObject = stream;
+            
+            // Explicitly try to play the audio
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((error: any) => {
+                    console.warn('Audio autoplay failed:', error);
+                    // You could show a "Click to enable audio" button to the user here
+                });
+            }
         });
 
         // Handle connection events
@@ -112,7 +121,7 @@ class WebRtcService {
             this.removeUser(targetConnectionId);
         });
 
-        peer.on('error', (err) => {
+        peer.on('error', (err: any) => {
             console.error('Peer error:', err);
             this.removeUser(targetConnectionId);
         });
