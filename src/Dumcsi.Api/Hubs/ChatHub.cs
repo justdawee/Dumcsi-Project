@@ -25,7 +25,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             // Get all currently online users
             var onlineUsers = await presenceService.GetOnlineUsers();
             var onlineUserIds = onlineUsers.Select(long.Parse).ToList();
-        
+
             // Send the list of online users to the newly connected client
             await Clients.Caller.SendAsync("Connected", onlineUserIds);
 
@@ -36,6 +36,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 await Clients.Others.SendAsync("UserOnline", long.Parse(userId));
             }
         }
+
         await base.OnConnectedAsync();
     }
 
@@ -74,10 +75,10 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 await Clients.Others.SendAsync("UserOffline", long.Parse(userId));
             }
         }
-        
+
         await base.OnDisconnectedAsync(exception);
     }
-    
+
     // --- Server Csoportok ---
     public async Task JoinServer(string serverId)
     {
@@ -88,14 +89,14 @@ public class ChatHub(IPresenceService presenceService) : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, serverId);
     }
-    
+
     // --- Text Chat Metódusok ---
     public async Task<ChannelJoinResponse> JoinChannel(string channelId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, channelId);
 
         var response = new ChannelJoinResponse();
-    
+
         // Get typing users
         if (TypingUsers.TryGetValue(channelId, out var users))
         {
@@ -108,7 +109,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
         {
             response.TypingUserIds = new List<long>();
         }
-    
+
         // Get online users in this channel
         // First, get all channel members (you'll need to inject the appropriate service)
         // For now, we'll return all online users - you should filter by channel members
@@ -137,49 +138,48 @@ public class ChatHub(IPresenceService presenceService) : Hub
             }
         }
     }
-    
+
     public async Task SendTypingIndicator(string channelId)
-{
-    var userId = Context.UserIdentifier;
-    if (userId != null && long.TryParse(userId, out var userIdLong))
     {
-        var timerKey = $"{channelId}:{userId}";
-        
-        if (TypingTimers.TryRemove(timerKey, out var existingTimer))
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
         {
-            existingTimer.Cancel();
-            existingTimer.Dispose();
-        }
-        
-        var users = TypingUsers.GetOrAdd(channelId, _ => new HashSet<long>());
-        bool wasAdded;
-        lock (users)
-        {
-            wasAdded = users.Add(userIdLong);
-        }
-        
-        if (wasAdded)
-        {
-            await Clients.OthersInGroup(channelId).SendAsync("UserTyping", long.Parse(channelId), userIdLong);
-        }
-        
-        var cts = new CancellationTokenSource();
-        TypingTimers[timerKey] = cts;
-        
-        _ = Task.Delay(5000, cts.Token).ContinueWith(async (_) =>
-        {
-            await RemoveTypingUser(channelId, userIdLong);
-            
-            var pairToRemove = new KeyValuePair<string, CancellationTokenSource>(timerKey, cts);
-            if (((ICollection<KeyValuePair<string, CancellationTokenSource>>)TypingTimers).Remove(pairToRemove))
+            var timerKey = $"{channelId}:{userId}";
+
+            if (TypingTimers.TryRemove(timerKey, out var existingTimer))
             {
-                cts.Dispose();
+                existingTimer.Cancel();
+                existingTimer.Dispose();
             }
 
-        }, TaskContinuationOptions.OnlyOnRanToCompletion);
+            var users = TypingUsers.GetOrAdd(channelId, _ => new HashSet<long>());
+            bool wasAdded;
+            lock (users)
+            {
+                wasAdded = users.Add(userIdLong);
+            }
+
+            if (wasAdded)
+            {
+                await Clients.OthersInGroup(channelId).SendAsync("UserTyping", long.Parse(channelId), userIdLong);
+            }
+
+            var cts = new CancellationTokenSource();
+            TypingTimers[timerKey] = cts;
+
+            _ = Task.Delay(5000, cts.Token).ContinueWith(async (_) =>
+            {
+                await RemoveTypingUser(channelId, userIdLong);
+
+                var pairToRemove = new KeyValuePair<string, CancellationTokenSource>(timerKey, cts);
+                if (((ICollection<KeyValuePair<string, CancellationTokenSource>>)TypingTimers).Remove(pairToRemove))
+                {
+                    cts.Dispose();
+                }
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
     }
-}
-    
+
     public async Task StopTypingIndicator(string channelId)
     {
         var userId = Context.UserIdentifier;
@@ -196,7 +196,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             await RemoveTypingUser(channelId, userIdLong);
         }
     }
-    
+
     private async Task RemoveTypingUser(string channelId, long userIdLong)
     {
         if (TypingUsers.TryGetValue(channelId, out var users))
@@ -213,11 +213,12 @@ public class ChatHub(IPresenceService presenceService) : Hub
 
             if (wasRemoved)
             {
-                await Clients.OthersInGroup(channelId).SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
+                await Clients.OthersInGroup(channelId)
+                    .SendAsync("UserStoppedTyping", long.Parse(channelId), userIdLong);
             }
         }
     }
-    
+
     // --- Voice Chat Metódusok ---
 
     public async Task JoinVoiceChannel(string serverId, string channelId)
@@ -248,7 +249,8 @@ public class ChatHub(IPresenceService presenceService) : Hub
             }
 
             await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUsers);
-            await Clients.OthersInGroup(serverId).SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
+            await Clients.OthersInGroup(serverId)
+                .SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
         }
     }
 
@@ -271,7 +273,8 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
-            await Clients.Group(serverId).SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId), Context.ConnectionId);
+            await Clients.Group(serverId)
+                .SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId), Context.ConnectionId);
         }
     }
 
@@ -279,12 +282,12 @@ public class ChatHub(IPresenceService presenceService) : Hub
     {
         // Find all voice channels this connection was in and remove it
         var channelsToCleanup = new List<string>();
-        
+
         foreach (var kvp in VoiceChannelUsers)
         {
             var channelId = kvp.Key;
             var connections = kvp.Value;
-            
+
             bool wasInChannel = false;
             lock (connections)
             {
@@ -294,7 +297,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
                     channelsToCleanup.Add(channelId);
                 }
             }
-            
+
             // If the user was in this voice channel, notify others
             if (wasInChannel && userId != null && long.TryParse(userId, out var userIdLong))
             {
@@ -303,7 +306,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 await Clients.All.SendAsync("UserLeftVoiceChannel", channelId, userIdLong, connectionId);
             }
         }
-        
+
         // Remove empty voice channel collections
         foreach (var channelId in channelsToCleanup)
         {
@@ -329,7 +332,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
         // Az ICE candidate-et továbbítjuk a másik kliensnek
         await Clients.Client(targetConnectionId).SendAsync("ReceiveIceCandidate", Context.ConnectionId, iceCandidate);
     }
-    
+
     // --- Képernyőmegosztás kezelése ---
     public async Task StartScreenShare(string channelId)
     {
@@ -338,14 +341,14 @@ public class ChatHub(IPresenceService presenceService) : Hub
         // A kliensek ezután tudnak majd kapcsolódási ajánlatot (offer) küldeni neki.
         await Clients.OthersInGroup(channelId).SendAsync("UserStartedScreenShare", Context.ConnectionId);
     }
-    
+
     public async Task StopScreenShare(string channelId)
     {
         // Értesítjük a többieket, hogy a képernyőmegosztás véget ért,
         // így lebonthatják a kapcsolódó P2P kapcsolatot.
         await Clients.OthersInGroup(channelId).SendAsync("UserStoppedScreenShare", Context.ConnectionId);
     }
-    
+
     // --- Response class ---
     public class ChannelJoinResponse
     {
