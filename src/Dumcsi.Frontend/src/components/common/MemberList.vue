@@ -21,7 +21,7 @@
             show-online-indicator
         />
         <div class="flex-1 min-w-0">
-        <span class="font-medium text-sm truncate block" :style="{ color: getRoleColor(member) }">
+        <span :style="{ color: getRoleColor(member) }" class="font-medium text-sm truncate block">
           {{ getDisplayName(member) }}
         </span>
         </div>
@@ -56,16 +56,16 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, watchEffect } from 'vue';
-import { useAuthStore } from '@/stores/auth';
-import { useAppStore } from '@/stores/app';
-import { useToast } from '@/composables/useToast';
-import { usePermissions } from '@/composables/usePermissions';
-import { useUserDisplay } from '@/composables/useUserDisplay';
-import { Loader2, UserX, Ban } from 'lucide-vue-next';
+import {computed, ref, watch, watchEffect} from 'vue';
+import {useAuthStore} from '@/stores/auth';
+import {useAppStore} from '@/stores/app';
+import {useToast} from '@/composables/useToast';
+import {usePermissions} from '@/composables/usePermissions';
+import {useUserDisplay} from '@/composables/useUserDisplay';
+import {Ban, Loader2, UserX} from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import UserInfoCard from '@/components/common/UserInfoCard.vue';
-import type { EntityId, ServerMember } from '@/services/types';
+import type {EntityId, ServerMember} from '@/services/types';
 
 interface Props {
   isTyping: (userId: EntityId) => boolean;
@@ -75,13 +75,13 @@ const props = defineProps<Props>();
 
 const authStore = useAuthStore();
 const appStore = useAppStore();
-const { addToast } = useToast();
-const { getDisplayName } = useUserDisplay();
-const { permissions, canManageMember } = usePermissions();
+const {addToast} = useToast();
+const {getDisplayName} = useUserDisplay();
+const {permissions, canManageMember} = usePermissions();
 
 const infoCardMember = ref<ServerMember | null>(null);
 const infoCardVisible = ref(false);
-const infoCardPos = ref({ x: 0, y: 0 });
+const infoCardPos = ref({x: 0, y: 0});
 
 watch(infoCardVisible, (val) => {
   if (!val) infoCardMember.value = null;
@@ -111,9 +111,6 @@ const updateMemberRoleColors = () => {
   const serverRoles = appStore.currentServer?.roles || [];
   const map: Record<EntityId, string> = {};
 
-  console.log('MemberList: recomputing memberRoleColors due to store change');
-  console.log('MemberList: current serverRoles', serverRoles.map(r => ({ id: r.id, color: r.color })));
-
   appStore.members.forEach(member => {
     if (member.roles.length === 0) {
       map[member.userId] = 'rgb(185 185 185)';
@@ -126,8 +123,6 @@ const updateMemberRoleColors = () => {
   });
 
   memberRoleColorMap.value = map;
-  console.log('MemberList: memberRoleColors updated, total members:', Object.keys(map).length);
-  console.log('MemberList: role color map', map);
 };
 
 watchEffect(() => {
@@ -135,17 +130,15 @@ watchEffect(() => {
 });
 
 const getRoleColor = (member: ServerMember): string => {
-  const color = memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
-  console.log('MemberList: getRoleColor', member.userId, color);
-  return color;
+  return memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
 };
 
 const kickMember = async () => {
-  addToast({ type: 'info', message: 'Kick member functionality coming soon!' });
+  addToast({type: 'info', message: 'Kick member functionality coming soon!'});
 };
 
 const banMember = async () => {
-  addToast({ type: 'info', message: 'Ban member functionality coming soon!' });
+  addToast({type: 'info', message: 'Ban member functionality coming soon!'});
 };
 
 const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
@@ -154,7 +147,7 @@ const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
   const rect = target.getBoundingClientRect();
   const cardWidth = 256;
   const offset = 8;
-  infoCardPos.value = { x: rect.left - cardWidth - offset, y: rect.top };
+  infoCardPos.value = {x: rect.left - cardWidth - offset, y: rect.top};
   infoCardMember.value = member;
   infoCardVisible.value = true;
 };
