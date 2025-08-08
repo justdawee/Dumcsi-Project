@@ -41,12 +41,11 @@
 import { ref, computed, onMounted } from 'vue';
 import { Volume2, Mic, MicOff, PhoneOff } from 'lucide-vue-next';
 import { useAppStore } from '@/stores/app';
-import { useLiveKitIntegration } from '@/composables/useLiveKitIntegration';
+import { livekitService } from '@/services/livekitService';
 import ScreenShareButton from './ScreenShareButton.vue';
 import ScreenShareViewer from './ScreenShareViewer.vue';
 
 const appStore = useAppStore();
-const { livekitService } = useLiveKitIntegration();
 
 const isConnected = computed(() => appStore.currentVoiceChannelId !== null);
 const isMuted = computed(() => appStore.selfMuted);
