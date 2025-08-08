@@ -59,6 +59,7 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IFileStorageService, MinioFileStorageService>();
 builder.Services.AddSingleton<IPresenceService, PresenceService>();
+builder.Services.AddScoped<ILiveKitService, LiveKitService>();
 
 
 var app = builder.Build();
