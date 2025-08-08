@@ -11,6 +11,11 @@ export function useLiveKitIntegration() {
   const unwatch = watch(
     () => appStore.currentVoiceChannelId,
     async (newChannelId, oldChannelId) => {
+      // Skip if channel hasn't actually changed
+      if (newChannelId === oldChannelId) {
+        return;
+      }
+
       try {
         // Disconnect from previous LiveKit room if any
         if (oldChannelId && livekitService.getRoom()) {
@@ -21,9 +26,13 @@ export function useLiveKitIntegration() {
         if (newChannelId) {
           const user = authStore.user;
           const userId = appStore.currentUserId;
-          
-          if (user && userId) {
-            const participantName = user.username || `User_${userId}`;
+
+          // Only connect if current user is actually in the channel user list
+          const channelUsers = appStore.voiceChannelUsers.get(newChannelId) || [];
+
+          if (user && userId && channelUsers.some(u => u.id === userId)) {
+            const rawName = user.username || `User_${userId}`;
+            const participantName = rawName.replace(/[^a-zA-Z0-9_-]/g, '') || `User_${userId}`;
             await livekitService.connectToRoom(newChannelId, participantName);
             console.log('Connected to LiveKit room for channel:', newChannelId);
           }
