@@ -1,0 +1,30 @@
+using Dumcsi.Backend.Models.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Dumcsi.Backend.Data.Configurations;
+
+public class ChannelConfiguration : IEntityTypeConfiguration<Channel>
+{
+    public void Configure(EntityTypeBuilder<Channel> builder)
+    {
+        builder.HasKey(x => x.Id);
+        
+        builder.Property(x => x.Name)
+            .IsRequired()
+            .HasMaxLength(100);
+        
+        builder.Property(x => x.Description)
+            .HasMaxLength(500);
+        
+        builder.HasOne(x => x.Topic)
+            .WithMany(t => t.Channels)
+            .HasForeignKey(x => x.TopicId)
+            .OnDelete(DeleteBehavior.SetNull);
+        
+        builder.HasOne(x => x.Server)
+            .WithMany(x => x.Channels)
+            .HasForeignKey(x => x.ServerId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
