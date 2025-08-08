@@ -16,7 +16,7 @@ import type { EntityId } from './types';
 export interface LiveKitTokenRequest {
     roomName: string;
     participantName: string;
-    role?: number; // 0=Subscriber, 1=Publisher, 2=Admin  
+    role?: number; // 0=Subscriber, 1=Publisher, 2=Admin
     tokenExpirationMinutes?: number;
 }
 
@@ -25,7 +25,7 @@ export interface LiveKitServerInfo {
     version: string;
 }
 
-class LiveKitService {
+export class LiveKitService {
     private room: Room | null = null;
     private isConnected = false;
     private screenShareTrack: LocalTrackPublication | null = null;
