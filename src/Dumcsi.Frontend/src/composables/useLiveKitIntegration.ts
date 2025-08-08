@@ -7,7 +7,6 @@ export function useLiveKitIntegration() {
   const appStore = useAppStore();
   const authStore = useAuthStore();
 
-  // Watch for voice channel changes and sync with LiveKit
   const unwatch = watch(
     () => appStore.currentVoiceChannelId,
     async (newChannelId, oldChannelId) => {
