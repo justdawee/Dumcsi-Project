@@ -1,6 +1,9 @@
 using Dumcsi.Backend.Models.DTOs;
 using Microsoft.Extensions.Configuration;
-using Livekit.Server.Sdk.Dotnet;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
 
 namespace Dumcsi.Backend.Services.External;
 
@@ -20,18 +23,30 @@ public class LiveKitService : ILiveKitService
 
     public async Task<LiveKitTokenResponseDto> GenerateTokenAsync(LiveKitTokenRequestDto request)
     {
-        // Create video grants based on role using official LiveKit SDK
-        var videoGrants = CreateVideoGrants(request);
+        var videoGrant = CreateVideoGrantClaims(request);
 
-        // Use the official LiveKit SDK
-        var accessToken = new AccessToken(_apiKey, _apiSecret)
-            .WithIdentity(request.ParticipantName)
-            .WithName(request.ParticipantName)
-            .WithGrants(videoGrants)
-            .WithTtl(request.TokenExpiration);
+        var now = DateTime.UtcNow;
+        var expiresAt = now.Add(request.TokenExpiration);
 
-        var tokenString = accessToken.ToJwt();
-        var expiresAt = DateTime.UtcNow.Add(request.TokenExpiration);
+        var handler = new JsonWebTokenHandler();
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Issuer = _apiKey,
+            Subject = new ClaimsIdentity(new[] { new Claim(JwtRegisteredClaimNames.Sub, request.ParticipantName) }),
+            Expires = expiresAt,
+            NotBefore = now,
+            IssuedAt = now,
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_apiSecret)),
+                SecurityAlgorithms.HmacSha256),
+            Claims = new Dictionary<string, object>
+            {
+                ["name"] = request.ParticipantName,
+                ["video"] = videoGrant
+            }
+        };
+
+        var tokenString = handler.CreateToken(tokenDescriptor);
 
         return await Task.FromResult(new LiveKitTokenResponseDto
         {
@@ -44,44 +59,44 @@ public class LiveKitService : ILiveKitService
         });
     }
 
-    private VideoGrants CreateVideoGrants(LiveKitTokenRequestDto request)
+    private IDictionary<string, object> CreateVideoGrantClaims(LiveKitTokenRequestDto request)
     {
         return request.Role switch
         {
-            LiveKitParticipantRole.Subscriber => new VideoGrants
+            LiveKitParticipantRole.Subscriber => new Dictionary<string, object>
             {
-                Room = request.RoomName,
-                RoomJoin = true,
-                CanSubscribe = true,
-                CanPublish = false
-            },
-            
-            LiveKitParticipantRole.Publisher => new VideoGrants
-            {
-                Room = request.RoomName,
-                RoomJoin = true,
-                CanSubscribe = true,
-                CanPublish = true,
-                CanPublishData = true
-            },
-            
-            LiveKitParticipantRole.Admin => new VideoGrants
-            {
-                Room = request.RoomName,
-                RoomJoin = true,
-                CanSubscribe = true,
-                CanPublish = true,
-                CanPublishData = true,
-                RoomAdmin = true,
-                RoomCreate = true
+                ["room"] = request.RoomName,
+                ["roomJoin"] = true,
+                ["canSubscribe"] = true,
+                ["canPublish"] = false
             },
 
-            _ => new VideoGrants
+            LiveKitParticipantRole.Publisher => new Dictionary<string, object>
             {
-                Room = request.RoomName,
-                RoomJoin = true,
-                CanSubscribe = true,
-                CanPublish = false
+                ["room"] = request.RoomName,
+                ["roomJoin"] = true,
+                ["canSubscribe"] = true,
+                ["canPublish"] = true,
+                ["canPublishData"] = true
+            },
+
+            LiveKitParticipantRole.Admin => new Dictionary<string, object>
+            {
+                ["room"] = request.RoomName,
+                ["roomJoin"] = true,
+                ["canSubscribe"] = true,
+                ["canPublish"] = true,
+                ["canPublishData"] = true,
+                ["roomAdmin"] = true,
+                ["roomCreate"] = true
+            },
+
+            _ => new Dictionary<string, object>
+            {
+                ["room"] = request.RoomName,
+                ["roomJoin"] = true,
+                ["canSubscribe"] = true,
+                ["canPublish"] = false
             }
         };
     }
