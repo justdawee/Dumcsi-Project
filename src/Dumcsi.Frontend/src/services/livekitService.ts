@@ -13,11 +13,15 @@ import {
 import api from './api';
 import type { EntityId } from './types';
 
+// Note: PascalCase property names are required by the backend
+// LiveKit controller. Using camelCase here would result in
+// a 400 Bad Request response because the properties would not
+// bind correctly on the server.
 export interface LiveKitTokenRequest {
-    roomName: string;
-    participantName: string;
-    role?: number; // 0=Subscriber, 1=Publisher, 2=Admin
-    tokenExpirationMinutes?: number;
+    RoomName: string;
+    ParticipantName: string;
+    Role?: number; // 0=Subscriber, 1=Publisher, 2=Admin
+    TokenExpirationMinutes?: number;
 }
 
 export interface LiveKitServerInfo {
@@ -44,12 +48,14 @@ export class LiveKitService {
     }
 
     async getAccessToken(roomName: string, participantName: string): Promise<string> {
-        const response = await api.post('/LiveKit/token', {
-            roomName,
-            participantName,
-            role: 1, // Publisher role to allow screen sharing
-            tokenExpirationMinutes: 360
-        });
+        const request: LiveKitTokenRequest = {
+            RoomName: roomName,
+            ParticipantName: participantName,
+            Role: 1, // Publisher role to allow screen sharing
+            TokenExpirationMinutes: 360
+        };
+
+        const response = await api.post('/LiveKit/token', request);
         return response.data.data.token; // Extract token from ApiResponse wrapper
     }
 
