@@ -1,9 +1,6 @@
 using Dumcsi.Backend.Models.DTOs;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
-using System.Text;
+using Livekit.Server.Sdk.Dotnet;
 
 namespace Dumcsi.Backend.Services.External;
 
@@ -23,30 +20,16 @@ public class LiveKitService : ILiveKitService
 
     public async Task<LiveKitTokenResponseDto> GenerateTokenAsync(LiveKitTokenRequestDto request)
     {
-        var videoGrant = CreateVideoGrantClaims(request);
+        var videoGrants = CreateVideoGrants(request);
+        var expiresAt = DateTime.UtcNow.Add(request.TokenExpiration);
 
-        var now = DateTime.UtcNow;
-        var expiresAt = now.Add(request.TokenExpiration);
+        var token = new AccessToken(_apiKey, _apiSecret)
+            .WithIdentity(request.ParticipantName)
+            .WithName(request.ParticipantName)
+            .WithGrants(videoGrants)
+            .WithTtl(request.TokenExpiration);
 
-        var handler = new JsonWebTokenHandler();
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Issuer = _apiKey,
-            Subject = new ClaimsIdentity(new[] { new Claim(JwtRegisteredClaimNames.Sub, request.ParticipantName) }),
-            Expires = expiresAt,
-            NotBefore = now,
-            IssuedAt = now,
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_apiSecret)),
-                SecurityAlgorithms.HmacSha256),
-            Claims = new Dictionary<string, object>
-            {
-                ["name"] = request.ParticipantName,
-                ["video"] = videoGrant
-            }
-        };
-
-        var tokenString = handler.CreateToken(tokenDescriptor);
+        var tokenString = token.ToJwt();
 
         return await Task.FromResult(new LiveKitTokenResponseDto
         {
@@ -59,44 +42,44 @@ public class LiveKitService : ILiveKitService
         });
     }
 
-    private IDictionary<string, object> CreateVideoGrantClaims(LiveKitTokenRequestDto request)
+    private VideoGrants CreateVideoGrants(LiveKitTokenRequestDto request)
     {
         return request.Role switch
         {
-            LiveKitParticipantRole.Subscriber => new Dictionary<string, object>
+            LiveKitParticipantRole.Subscriber => new VideoGrants
             {
-                ["room"] = request.RoomName,
-                ["roomJoin"] = true,
-                ["canSubscribe"] = true,
-                ["canPublish"] = false
+                Room = request.RoomName,
+                RoomJoin = true,
+                CanSubscribe = true,
+                CanPublish = false
             },
 
-            LiveKitParticipantRole.Publisher => new Dictionary<string, object>
+            LiveKitParticipantRole.Publisher => new VideoGrants
             {
-                ["room"] = request.RoomName,
-                ["roomJoin"] = true,
-                ["canSubscribe"] = true,
-                ["canPublish"] = true,
-                ["canPublishData"] = true
+                Room = request.RoomName,
+                RoomJoin = true,
+                CanSubscribe = true,
+                CanPublish = true,
+                CanPublishData = true
             },
 
-            LiveKitParticipantRole.Admin => new Dictionary<string, object>
+            LiveKitParticipantRole.Admin => new VideoGrants
             {
-                ["room"] = request.RoomName,
-                ["roomJoin"] = true,
-                ["canSubscribe"] = true,
-                ["canPublish"] = true,
-                ["canPublishData"] = true,
-                ["roomAdmin"] = true,
-                ["roomCreate"] = true
+                Room = request.RoomName,
+                RoomJoin = true,
+                CanSubscribe = true,
+                CanPublish = true,
+                CanPublishData = true,
+                RoomAdmin = true,
+                RoomCreate = true
             },
 
-            _ => new Dictionary<string, object>
+            _ => new VideoGrants
             {
-                ["room"] = request.RoomName,
-                ["roomJoin"] = true,
-                ["canSubscribe"] = true,
-                ["canPublish"] = false
+                Room = request.RoomName,
+                RoomJoin = true,
+                CanSubscribe = true,
+                CanPublish = false
             }
         };
     }
