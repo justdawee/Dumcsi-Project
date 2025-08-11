@@ -86,12 +86,21 @@ const updateScreenShares = () => {
 
   screenShares.value = newScreenShares;
   
-  // Update video elements
+  // Update video elements with better error handling
   setTimeout(() => {
     newScreenShares.forEach(share => {
       const videoElement = videoRefs.value.get(share.participant.identity);
       if (videoElement && share.videoTrack) {
-        share.videoTrack.attach(videoElement);
+        try {
+          // Detach any existing track first
+          if (videoElement.srcObject) {
+            share.videoTrack.detach(videoElement);
+          }
+          // Attach the new track
+          share.videoTrack.attach(videoElement);
+        } catch (error) {
+          console.error('Failed to attach screen share track:', error);
+        }
       }
     });
   }, 100);
@@ -108,7 +117,7 @@ const onTrackUnsubscribed = (track: RemoteTrack, publication: RemoteTrackPublica
   if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
     console.log('Screen share track unsubscribed from', participant.identity);
     
-    // Detach track from video element
+    // Detach track from video element before updating
     const videoElement = videoRefs.value.get(participant.identity);
     if (videoElement) {
       track.detach(videoElement);

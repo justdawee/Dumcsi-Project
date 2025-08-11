@@ -3,7 +3,6 @@ import {
     RoomEvent, 
     RemoteParticipant, 
     LocalParticipant, 
-    createLocalScreenTracks,
     Track,
     LocalTrackPublication,
     RemoteTrackPublication,
@@ -42,7 +41,7 @@ export class LiveKitService {
         // For now, return the default LiveKit server configuration
         // The backend endpoint doesn't return server URL yet
         return {
-            url: import.meta.env.VITE_LIVEKIT_URL || 'ws://localhost:7880',
+            url: import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.0.50:7880',
             version: '1.0.0'
         };
     }
@@ -99,41 +98,47 @@ export class LiveKitService {
             throw new Error('Not connected to room');
         }
 
-        if (this.screenShareTrack) {
+        if (this.isScreenSharing()) {
             console.warn('Screen share already active');
             return;
         }
 
         try {
-            const tracks = await createLocalScreenTracks({
-                audio: true,
-                video: true
-            });
-
-            for (const track of tracks) {
-                const publication = await this.room.localParticipant.publishTrack(track, {
-                    source: Track.Source.ScreenShare
-                });
-                
-                if (track.kind === 'video') {
-                    this.screenShareTrack = publication;
-                }
-            }
-
+            // Use the simplified LiveKit API
+            await this.room.localParticipant.setScreenShareEnabled(true);
+            
+            // Update our tracking
+            this.updateScreenShareTrack();
             console.log('Screen share started successfully');
         } catch (error) {
             console.error('Failed to start screen share:', error);
+            
+            // Provide more specific error messages
+            if (error instanceof Error) {
+                if (error.name === 'NotAllowedError') {
+                    throw new Error('Screen sharing permission denied by user');
+                } else if (error.name === 'NotFoundError') {
+                    throw new Error('No screen available for sharing');
+                } else if (error.name === 'AbortError') {
+                    throw new Error('Screen sharing cancelled by user');
+                } else if (error.name === 'NotSupportedError') {
+                    throw new Error('Screen sharing not supported in this browser');
+                }
+            }
             throw error;
         }
     }
 
     async stopScreenShare(): Promise<void> {
-        if (!this.room || !this.screenShareTrack) {
+        if (!this.room) {
             return;
         }
 
         try {
-            await this.room.localParticipant.unpublishTrack(this.screenShareTrack.track!);
+            // Use the simplified LiveKit API
+            await this.room.localParticipant.setScreenShareEnabled(false);
+            
+            // Update our tracking
             this.screenShareTrack = null;
             console.log('Screen share stopped successfully');
         } catch (error) {
@@ -143,7 +148,22 @@ export class LiveKitService {
     }
 
     isScreenSharing(): boolean {
-        return this.screenShareTrack !== null;
+        if (!this.room) return false;
+        
+        // Check if local participant has an active screen share track
+        const localParticipant = this.room.localParticipant;
+        const screenSharePublication = localParticipant.getTrackPublication(Track.Source.ScreenShare);
+        
+        return screenSharePublication !== undefined && screenSharePublication.track !== undefined;
+    }
+
+    private updateScreenShareTrack(): void {
+        if (!this.room) return;
+        
+        const localParticipant = this.room.localParticipant;
+        const screenSharePublication = localParticipant.getTrackPublication(Track.Source.ScreenShare);
+        
+        this.screenShareTrack = screenSharePublication || null;
     }
 
     getRoom(): Room | null {

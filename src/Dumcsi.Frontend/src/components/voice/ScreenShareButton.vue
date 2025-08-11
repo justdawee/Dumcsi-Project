@@ -78,12 +78,18 @@ const toggleScreenShare = async () => {
     console.error('Screen share error:', error);
     
     let errorMessage = 'Failed to toggle screen sharing';
-    if (error.name === 'NotAllowedError') {
+    
+    // Use the error message from the service if available
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.name === 'NotAllowedError') {
       errorMessage = 'Screen sharing permission denied';
     } else if (error.name === 'NotFoundError') {
       errorMessage = 'No screen available for sharing';
     } else if (error.name === 'AbortError') {
       errorMessage = 'Screen sharing cancelled by user';
+    } else if (error.name === 'NotSupportedError') {
+      errorMessage = 'Screen sharing not supported in this browser';
     }
     
     addToast({ message: errorMessage, type: 'danger' });
