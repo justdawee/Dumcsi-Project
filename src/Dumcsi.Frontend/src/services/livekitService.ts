@@ -7,8 +7,10 @@ import {
     LocalTrackPublication,
     RemoteTrackPublication,
     RemoteTrack,
-    ConnectionState
+    ConnectionState,
+    createLocalScreenTracks
 } from 'livekit-client';
+import type { ScreenShareCaptureOptions } from 'livekit-client';
 import api from './api';
 import type { EntityId } from './types';
 
@@ -26,6 +28,13 @@ export interface LiveKitTokenRequest {
 export interface LiveKitServerInfo {
     url: string;
     version: string;
+}
+
+export interface ScreenShareQualitySettings {
+    width: number;
+    height: number;
+    frameRate?: number;
+    includeAudio: boolean;
 }
 
 export class LiveKitService {
@@ -93,7 +102,7 @@ export class LiveKitService {
         }
     }
 
-    async startScreenShare(): Promise<void> {
+    async startScreenShare(qualitySettings?: ScreenShareQualitySettings): Promise<void> {
         if (!this.room || !this.isConnected) {
             throw new Error('Not connected to room');
         }
@@ -104,12 +113,64 @@ export class LiveKitService {
         }
 
         try {
-            // Use the simplified LiveKit API
-            await this.room.localParticipant.setScreenShareEnabled(true);
+            if (qualitySettings) {
+                // Use advanced screen sharing with quality settings and audio
+                const captureOptions: ScreenShareCaptureOptions = {
+                    audio: qualitySettings.includeAudio,
+                    video: true,
+                    // Enable system audio capture if requested
+                    systemAudio: qualitySettings.includeAudio ? 'include' : 'exclude',
+                    // Suppress local audio playback to avoid echo
+                    suppressLocalAudioPlayback: qualitySettings.includeAudio,
+                    // Allow current tab selection for better UX
+                    selfBrowserSurface: 'include',
+                    // Enable surface switching for dynamic capture changes
+                    surfaceSwitching: 'include'
+                };
+
+                // Create screen tracks with custom options
+                const tracks = await createLocalScreenTracks(captureOptions);
+                
+                // Publish the tracks with quality constraints
+                for (const track of tracks) {
+                    const publishOptions: any = {
+                        name: track.source === Track.Source.ScreenShare ? 'screen' : 'screen-audio',
+                        source: track.source
+                    };
+
+                    // Apply video constraints for screen share tracks
+                    if (track.source === Track.Source.ScreenShare && track.kind === 'video') {
+                        // Apply resolution constraints via video encoding
+                        publishOptions.videoEncoding = {
+                            maxBitrate: this.getBitrateForResolution(qualitySettings.width, qualitySettings.height, qualitySettings.frameRate),
+                            maxFramerate: qualitySettings.frameRate
+                        };
+
+                        // Try to apply constraints directly to the video track
+                        const videoTrack = track.mediaStreamTrack;
+                        if (videoTrack && typeof videoTrack.applyConstraints === 'function') {
+                            try {
+                                await videoTrack.applyConstraints({
+                                    width: { ideal: qualitySettings.width },
+                                    height: { ideal: qualitySettings.height },
+                                    frameRate: { ideal: qualitySettings.frameRate }
+                                });
+                            } catch (constraintError) {
+                                console.warn('Failed to apply video constraints:', constraintError);
+                            }
+                        }
+                    }
+
+                    await this.room.localParticipant.publishTrack(track, publishOptions);
+                }
+            } else {
+                // Use the simplified LiveKit API for basic screen sharing
+                await this.room.localParticipant.setScreenShareEnabled(true);
+            }
             
             // Update our tracking
             this.updateScreenShareTrack();
-            console.log('Screen share started successfully');
+            console.log('Screen share started successfully', qualitySettings ? `with quality ${qualitySettings.width}x${qualitySettings.height} and audio: ${qualitySettings.includeAudio}` : '');
         } catch (error) {
             console.error('Failed to start screen share:', error);
             
@@ -123,6 +184,8 @@ export class LiveKitService {
                     throw new Error('Screen sharing cancelled by user');
                 } else if (error.name === 'NotSupportedError') {
                     throw new Error('Screen sharing not supported in this browser');
+                } else if (error.name === 'NotReadableError') {
+                    throw new Error('Screen capture failed - screen may be in use by another application');
                 }
             }
             throw error;
@@ -166,8 +229,47 @@ export class LiveKitService {
         this.screenShareTrack = screenSharePublication || null;
     }
 
+    private getBitrateForResolution(width: number, height: number, frameRate: number = 30): number {
+        // Calculate appropriate bitrate based on resolution and frame rate
+        // Formula: pixels * frame_rate * bits_per_pixel
+        const pixels = width * height;
+        const bitsPerPixel = 0.08; // Conservative estimate for screen content (less than video content)
+        
+        // Base calculation
+        let bitrate = pixels * frameRate * bitsPerPixel;
+        
+        // Apply quality-based adjustments based on resolution and frame rate
+        const maxBitrates = {
+            '4k': frameRate >= 60 ? 12_000_000 : frameRate >= 30 ? 8_000_000 : 6_000_000,
+            '1080p': frameRate >= 60 ? 6_000_000 : frameRate >= 30 ? 4_000_000 : 2_500_000,
+            '720p': frameRate >= 60 ? 3_000_000 : frameRate >= 30 ? 2_000_000 : 1_200_000,
+            '480p': frameRate >= 60 ? 1_500_000 : frameRate >= 30 ? 1_000_000 : 600_000
+        };
+
+        let maxBitrate: number;
+        if (pixels >= 3840 * 2160) { // 4K
+            maxBitrate = maxBitrates['4k'];
+        } else if (pixels >= 1920 * 1080) { // 1080p
+            maxBitrate = maxBitrates['1080p'];
+        } else if (pixels >= 1280 * 720) { // 720p
+            maxBitrate = maxBitrates['720p'];
+        } else { // 480p and below
+            maxBitrate = maxBitrates['480p'];
+        }
+
+        bitrate = Math.min(bitrate, maxBitrate);
+        
+        // Ensure minimum bitrate (scale with frame rate)
+        const minBitrate = Math.max(200_000, frameRate * 8_000); // Minimum 200 Kbps or 8 Kbps per FPS
+        return Math.max(bitrate, minBitrate);
+    }
+
     getRoom(): Room | null {
         return this.room;
+    }
+
+    isRoomConnected(): boolean {
+        return this.room !== null && this.room.state === 'connected' && this.isConnected;
     }
 
     getRemoteParticipants(): RemoteParticipant[] {
@@ -179,11 +281,21 @@ export class LiveKitService {
         return this.room?.localParticipant || null;
     }
 
+    getTotalParticipantCount(): number {
+        if (!this.room || !this.isRoomConnected()) {
+            return 0;
+        }
+        
+        // Count remote participants + local participant
+        return this.room.remoteParticipants.size + 1;
+    }
+
     private setupRoomEventListeners(): void {
         if (!this.room) return;
 
         this.room.on(RoomEvent.Connected, () => {
             console.log('Room connected');
+            this.isConnected = true;
         });
 
         this.room.on(RoomEvent.Disconnected, (reason) => {

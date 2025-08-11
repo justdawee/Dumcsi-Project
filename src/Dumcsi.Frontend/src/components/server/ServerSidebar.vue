@@ -1,5 +1,10 @@
 <template>
-  <div class="w-[72px] bg-main-950 flex flex-col items-center py-3 space-y-2">
+  <div 
+    :class="[
+      'w-[72px] bg-main-950 flex flex-col items-center py-3 space-y-2',
+      appStore.currentVoiceChannelId ? 'h-[calc(100vh-200px)]' : 'h-full'
+    ]"
+  >
     <!-- Home/Direct Messages -->
     <div
         class="relative group w-full px-3"

@@ -47,6 +47,7 @@ export const useAppStore = defineStore('app', () => {
     const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
     const currentVoiceChannelId = ref<EntityId | null>(null);
     const selfMuted = ref(false);
+    const selfDeafened = ref(false);
     const connectionState = ref<'disconnected' | 'connecting' | 'connected' | 'reconnecting'>('disconnected');
 
 
@@ -329,6 +330,21 @@ export const useAppStore = defineStore('app', () => {
     const toggleSelfMute = () => {
         selfMuted.value = !selfMuted.value;
         webrtcService.setMuted(selfMuted.value);
+    };
+
+    const toggleSelfDeafen = () => {
+        selfDeafened.value = !selfDeafened.value;
+        // When deafening, also mute
+        if (selfDeafened.value) {
+            selfMuted.value = true;
+            webrtcService.setMuted(true);
+        } else {
+            // When undeafening, also unmute
+            selfMuted.value = false;
+            webrtcService.setMuted(false);
+        }
+        // Note: WebRTC service would need to implement setDeafened method
+        // webrtcService.setDeafened(selfDeafened.value);
     };
 
     const setVoiceChannelUsers = (channelId: EntityId, userIds: EntityId[]) => {
@@ -875,6 +891,7 @@ export const useAppStore = defineStore('app', () => {
         joinVoiceChannel,
         leaveVoiceChannel,
         toggleSelfMute,
+        toggleSelfDeafen,
         setVoiceChannelUsers,
         setVoiceChannelConnections,
         addVoiceChannelConnection,
@@ -882,6 +899,7 @@ export const useAppStore = defineStore('app', () => {
         currentVoiceChannelId,
         voiceChannelConnections,
         selfMuted,
+        selfDeafened,
 
         // SignalR Event Handlers
         handleReceiveMessage,

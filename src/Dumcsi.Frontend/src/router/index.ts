@@ -16,6 +16,7 @@ export const RouteNames = {
     DIRECT_MESSAGE: 'DirectMessage',
     SERVER: 'Server',
     CHANNEL: 'Channel',
+    VOICE_CHANNEL: 'VoiceChannel',
     SETTINGS: 'Settings',
     USER_SETTINGS: 'UserSettings', // Kept for backward compatibility
 };
@@ -86,6 +87,11 @@ const routes: readonly RouteRecordRaw[] = [
                         path: 'channels/:channelId',
                         name: RouteNames.CHANNEL,
                         component: () => import('@/views/ChannelView.vue')
+                    },
+                    {
+                        path: 'voice/:channelId',
+                        name: RouteNames.VOICE_CHANNEL,
+                        component: () => import('@/views/VoiceChannelView.vue')
                     }
                 ]
             },

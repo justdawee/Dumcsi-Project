@@ -60,19 +60,16 @@
                   <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id"
                       class="flex items-center gap-1 text-xs text-text-muted">
                     <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
-                    <span class="truncate">{{ user.username }}</span>
+                    <button 
+                      @click="handleUserClick(user, channel)"
+                      class="truncate hover:text-text-default transition-colors text-left flex-1"
+                    >
+                      {{ user.username }}
+                    </button>
                     <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
                          class="ml-auto flex items-center gap-1">
-                      <span v-if="appStore.selfMuted" class="text-red-400" title="Muted">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                        </svg>
-                      </span>
-                      <span v-else class="text-green-400" title="Speaking">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 01 15 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
-                        </svg>
-                      </span>
+                      <VolumeX v-if="appStore.selfDeafened" class="w-3 h-3 text-red-400" title="Deafened" />
+                      <MicOff v-else-if="appStore.selfMuted" class="w-3 h-3 text-red-400" title="Muted" />
                     </div>
                   </li>
                 </ul>
@@ -121,19 +118,16 @@
                   <li v-for="user in appStore.voiceChannelUsers.get(channel.id)" :key="user.id"
                       class="flex items-center gap-1 text-xs text-text-muted">
                     <UserAvatar :avatar-url="user.avatar" :size="16" :user-id="user.id" :username="user.username"/>
-                    <span class="truncate">{{ user.username }}</span>
+                    <button 
+                      @click="handleUserClick(user, channel)"
+                      class="truncate hover:text-text-default transition-colors text-left flex-1"
+                    >
+                      {{ user.username }}
+                    </button>
                     <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
                          class="ml-auto flex items-center gap-1">
-                      <span v-if="appStore.selfMuted" class="text-red-400" title="Muted">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                        </svg>
-                      </span>
-                      <span v-else class="text-green-400" title="Speaking">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 01 15 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
-                        </svg>
-                      </span>
+                      <VolumeX v-if="appStore.selfDeafened" class="w-3 h-3 text-red-400" title="Deafened" />
+                      <MicOff v-else-if="appStore.selfMuted" class="w-3 h-3 text-red-400" title="Muted" />
                     </div>
                   </li>
                 </ul>
@@ -265,9 +259,10 @@
 import type {Component} from 'vue';
 import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
+import { RouteNames } from '@/router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
-import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown} from 'lucide-vue-next';
+import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown, MicOff, VolumeX} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import BaseModal from '@/components/modals/BaseModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -546,9 +541,34 @@ const confirmDeleteChannel = async () => {
 
 const toggleVoiceChannel = async (channel: ChannelListItem) => {
   if (appStore.currentVoiceChannelId === channel.id) {
-    await appStore.leaveVoiceChannel(channel.id);
+    // If already connected to this voice channel, navigate to voice view
+    router.push({
+      name: RouteNames.VOICE_CHANNEL,
+      params: { 
+        serverId: props.server?.id || route.params.serverId,
+        channelId: channel.id 
+      }
+    });
   } else {
+    // Join the voice channel
     await appStore.joinVoiceChannel(channel.id);
+  }
+};
+
+const handleUserClick = (user: any, channel: ChannelListItem) => {
+  // If clicking on a user in a voice channel and we're connected to that channel,
+  // navigate to voice view to see their video/screenshare
+  if (appStore.currentVoiceChannelId === channel.id) {
+    router.push({
+      name: RouteNames.VOICE_CHANNEL,
+      params: { 
+        serverId: props.server?.id || route.params.serverId,
+        channelId: channel.id 
+      },
+      query: {
+        focusUser: user.id // Pass user ID to focus on their video/screenshare
+      }
+    });
   }
 };
 

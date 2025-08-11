@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Volume2, Mic, MicOff, PhoneOff } from 'lucide-vue-next';
 import { useAppStore } from '@/stores/app';
 import { livekitService } from '@/services/livekitService';
@@ -72,23 +72,36 @@ const disconnectVoice = async () => {
 };
 
 const updateParticipantCount = () => {
-  const participants = livekitService.getRemoteParticipants();
-  participantCount.value = participants.length + 1; // +1 for local participant
+  participantCount.value = livekitService.getTotalParticipantCount();
+  console.log('Updated participant count:', participantCount.value);
 };
-
 
 // Set up LiveKit event listeners
 onMounted(() => {
-  livekitService.onParticipantConnected(() => {
+  // Set up event listeners
+  const onParticipantConnected = () => {
+    console.log('Participant connected event received');
     updateParticipantCount();
-  });
+  };
   
-  livekitService.onParticipantDisconnected(() => {
+  const onParticipantDisconnected = () => {
+    console.log('Participant disconnected event received');
     updateParticipantCount();
-  });
+  };
+  
+  livekitService.onParticipantConnected(onParticipantConnected);
+  livekitService.onParticipantDisconnected(onParticipantDisconnected);
+  
+  // Update participant count every second to ensure we stay in sync
+  const updateInterval = setInterval(updateParticipantCount, 1000);
   
   // Initial participant count update
   updateParticipantCount();
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    clearInterval(updateInterval);
+  });
 });
 </script>
 
