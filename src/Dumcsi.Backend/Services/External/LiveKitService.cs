@@ -60,7 +60,8 @@ public class LiveKitService : ILiveKitService
                 RoomJoin = true,
                 CanSubscribe = true,
                 CanPublish = true,
-                CanPublishData = true
+                CanPublishData = true,
+                CanUpdateOwnMetadata = true
             },
 
             LiveKitParticipantRole.Admin => new VideoGrants
@@ -70,6 +71,7 @@ public class LiveKitService : ILiveKitService
                 CanSubscribe = true,
                 CanPublish = true,
                 CanPublishData = true,
+                CanUpdateOwnMetadata = true,
                 RoomAdmin = true,
                 RoomCreate = true
             },
