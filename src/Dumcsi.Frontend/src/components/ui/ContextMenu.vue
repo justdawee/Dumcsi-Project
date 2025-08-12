@@ -3,7 +3,7 @@
       v-if="visible"
       ref="contextMenu"
       :style="{ top: `${y}px`, left: `${x}px` }"
-      class="fixed z-50 bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50"
+      class="fixed z-[10000] bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50"
   >
     <ul class="space-y-1">
       <li v-for="item in items" :key="item.label">
@@ -59,9 +59,38 @@ const open = (event: MouseEvent) => {
   menuId.value = openMenu(closeLogic);
   visible.value = true;
 
-  // positioning the context menu
+  // positioning the context menu with viewport bounds checking
   x.value = event.clientX;
   y.value = event.clientY;
+
+  // Wait for the menu to render, then adjust position if needed
+  setTimeout(() => {
+    if (contextMenu.value) {
+      const menuRect = contextMenu.value.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      // Adjust horizontal position if menu would overflow right edge
+      if (x.value + menuRect.width > viewportWidth) {
+        x.value = viewportWidth - menuRect.width - 10; // 10px margin from edge
+      }
+
+      // Adjust vertical position if menu would overflow bottom edge
+      if (y.value + menuRect.height > viewportHeight) {
+        y.value = viewportHeight - menuRect.height - 10; // 10px margin from edge
+      }
+
+      // Ensure menu doesn't go off left edge
+      if (x.value < 10) {
+        x.value = 10;
+      }
+
+      // Ensure menu doesn't go off top edge
+      if (y.value < 10) {
+        y.value = 10;
+      }
+    }
+  }, 0);
 
   document.addEventListener('click', handleClickOutside, true);
 };
