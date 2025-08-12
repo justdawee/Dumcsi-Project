@@ -84,6 +84,22 @@ export const useAppStore = defineStore('app', () => {
     });
 
     const getUserProfile = (userId: EntityId): UserProfileDto | null => {
+        const authStore = useAuthStore();
+        
+        // Check if this is the current user and get profile from auth store if available
+        if (userId === authStore.user?.id && authStore.user) {
+            return {
+                id: authStore.user.id,
+                username: authStore.user.username,
+                globalNickname: authStore.user.globalNickname || null,
+                email: authStore.user.email || '',
+                avatar: authStore.user.avatar || null,
+                locale: authStore.user.locale || null,
+                verified: authStore.user.verified || null,
+            };
+        }
+        
+        // Otherwise look in server members
         const member = members.value.find(m => m.userId === userId);
         if (!member) return null;
         return {
@@ -130,6 +146,14 @@ export const useAppStore = defineStore('app', () => {
         if (result) {
             currentServer.value = result;
             await fetchServerMembers(serverId);
+            
+            // Join the server SignalR group to receive server-wide events (including voice channel updates)
+            try {
+                await signalRService.joinServer(serverId);
+                console.log('✅ SignalR: Joined server group for voice channel updates');
+            } catch (error) {
+                console.warn('❌ SignalR: Failed to join server group:', error);
+            }
         }
     };
 
@@ -284,52 +308,57 @@ export const useAppStore = defineStore('app', () => {
     // Voice Channel Actions
     const joinVoiceChannel = async (channelId: EntityId) => {
         if (!currentServer.value) return;
-        await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
+        
+        // 1. Set current voice channel IMMEDIATELY for UI
         currentVoiceChannelId.value = channelId;
-        webrtcService.setMuted(selfMuted.value);
-
-        const uid = currentUserId.value;
-        if (uid) {
-            const profile = getUserProfile(uid);
-            if (profile) {
-                const users = voiceChannelUsers.value.get(channelId) || [];
-                if (!users.find(u => u.id === uid)) {
-                    const updated = new Map(voiceChannelUsers.value);
-                    updated.set(channelId, [...users, profile]);
-                    voiceChannelUsers.value = updated;
-                }
-            }
+        
+        // 2. Join via SignalR (this will notify ALL server members and get voice channel updates)
+        try {
+            await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
+            console.log('✅ SignalR: Voice channel joined successfully');
+        } catch (error) {
+            console.error('❌ SignalR: Failed to join voice channel:', error);
         }
+        
+        // 3. Initialize WebRTC for voice (SignalR will handle signaling)
+        // LiveKit is NOT used for voice channels - only for video/screen sharing
+        webrtcService.setMuted(selfMuted.value);
+        console.log('✅ WebRTC: Voice channel setup complete');
     };
 
     const leaveVoiceChannel = async (channelId: EntityId) => {
         if (!currentServer.value) return;
-        await signalRService.leaveVoiceChannel(currentServer.value.id, channelId);
+        
+        // 1. Update UI state IMMEDIATELY
         if (currentVoiceChannelId.value === channelId) {
             currentVoiceChannelId.value = null;
             selfMuted.value = false;
             voiceChannelConnections.value.delete(channelId);
-            webrtcService.leaveChannel();
         }
-
-        // Remove only the current user from the map while keeping the others
-        const uid = currentUserId.value;
-        if (uid) {
-            const users = voiceChannelUsers.value.get(channelId) || [];
-            const updatedUsers = users.filter(u => u.id !== uid);
-            const updated = new Map(voiceChannelUsers.value);
-            if (updatedUsers.length > 0) {
-                updated.set(channelId, updatedUsers);
-            } else {
-                updated.delete(channelId);
-            }
-            voiceChannelUsers.value = updated;
+        
+        // 2. Leave via SignalR (notify ALL server members)
+        try {
+            await signalRService.leaveVoiceChannel(currentServer.value.id, channelId);
+            console.log('✅ SignalR: Voice channel left successfully');
+        } catch (error) {
+            console.error('❌ SignalR: Failed to leave voice channel:', error);
         }
+        
+        // 3. Cleanup WebRTC voice connections
+        webrtcService.leaveChannel();
+        console.log('✅ WebRTC: Voice channel cleanup complete');
+        
+        // Note: LiveKit is only used for video/screen sharing and is managed separately
     };
 
     const toggleSelfMute = () => {
         selfMuted.value = !selfMuted.value;
+        
+        // Update WebRTC for voice (SignalR voice channels)
         webrtcService.setMuted(selfMuted.value);
+        
+        // LiveKit is only used for video/screen sharing, not voice
+        // So we don't need to update microphone for LiveKit here
     };
 
     const toggleSelfDeafen = () => {
@@ -343,8 +372,8 @@ export const useAppStore = defineStore('app', () => {
             selfMuted.value = false;
             webrtcService.setMuted(false);
         }
-        // Note: WebRTC service would need to implement setDeafened method
-        // webrtcService.setDeafened(selfDeafened.value);
+        // Note: LiveKit is only used for video/screen sharing, not voice
+        // WebRTC handles all voice functionality
     };
 
     const setVoiceChannelUsers = (channelId: EntityId, userIds: EntityId[]) => {
