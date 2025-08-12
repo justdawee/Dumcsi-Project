@@ -239,8 +239,7 @@ public class ChatHub(IPresenceService presenceService) : Hub
             var existingUsers = new List<object>();
             foreach (var cid in connections)
             {
-                if (cid == connectionId) continue; // Don't send back our own connection ID
-
+                // Include ALL users in voice channel, including self
                 var uid = await presenceService.GetUserIdByConnectionId(cid);
                 if (uid != null && long.TryParse(uid, out var parsed))
                 {
@@ -248,8 +247,11 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 }
             }
 
+            // Send current voice channel users to the joining user (including themselves)
             await Clients.Client(connectionId).SendAsync("AllUsersInVoiceChannel", channelId, existingUsers);
-            await Clients.OthersInGroup(serverId)
+            
+            // Notify ALL users in the server about the new voice channel user
+            await Clients.Group(serverId)
                 .SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
         }
     }
