@@ -2,7 +2,7 @@
   <div 
     :class="[
       'w-[72px] bg-main-950 flex flex-col items-center py-3 space-y-2',
-      appStore.currentVoiceChannelId ? 'h-[calc(100vh-200px)]' : 'h-full'
+      appStore.currentVoiceChannelId ? 'h-173' : 'h-216'
     ]"
   >
     <!-- Home/Direct Messages -->
@@ -25,8 +25,8 @@
     </div>
     <div class="w-8 h-[2px] bg-border-default rounded-full"/>
 
-    <!-- Server List & Add Button Container -->
-    <div class="flex-1 space-y-2 w-full overflow-y-auto scrollbar-thin px-3">
+    <!-- Server List Container -->
+    <div class="flex-1 space-y-2 w-full overflow-y-auto px-3 pb-2 scrollbar-hidden">
       <!-- Server List -->
       <div
           v-for="server in appStore.servers"
@@ -67,13 +67,14 @@
           <Plus class="w-6 h-6"/>
         </button>
       </div>
-      <!-- Public Server List -->
-      <div class="relative group"
+
+      <!-- Explore Servers Button -->
+      <div class="relative group flex-shrink-0"
            @mouseenter="showTooltip($event, 'Explore Servers')"
            @mouseleave="hideTooltip"
       >
         <button
-            class="server-icon bg-main-700 hover:bg-accent text-text-muted hover:text-text-default mx-auto"
+            class="server-icon bg-main-700 hover:bg-accent text-text-muted hover:text-text-default"
             @click="isExploreModalOpen = true"
         >
           <Compass class="w-6 h-6"/>
@@ -251,3 +252,14 @@ onUnmounted(() => {
   }
 });
 </script>
+
+<style scoped>
+.scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+</style>
