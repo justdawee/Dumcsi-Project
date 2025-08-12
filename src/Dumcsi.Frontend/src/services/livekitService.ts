@@ -41,10 +41,10 @@ export class LiveKitService {
     private room: Room | null = null;
     private isConnected = false;
     private screenShareTrack: LocalTrackPublication | null = null;
-    private onParticipantConnectedCallback: ((participant: RemoteParticipant) => void) | null = null;
-    private onParticipantDisconnectedCallback: ((participant: RemoteParticipant) => void) | null = null;
-    private onTrackSubscribedCallback: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void) | null = null;
-    private onTrackUnsubscribedCallback: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void) | null = null;
+    private onParticipantConnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
+    private onParticipantDisconnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
+    private onTrackSubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
+    private onTrackUnsubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
 
     async getServerInfo(): Promise<LiveKitServerInfo> {
         // For now, return the default LiveKit server configuration
@@ -67,24 +67,35 @@ export class LiveKitService {
         return response.data.data.token; // Extract token from ApiResponse wrapper
     }
 
-    async connectToRoom(channelId: EntityId, participantName: string): Promise<void> {
+    async connectToRoom(channelId: EntityId, participantName?: string): Promise<void> {
         try {
+            // Use default participant name if not provided
+            const effectiveParticipantName = participantName || `user_${Date.now()}`;
+            console.log(`🔄 LiveKit connecting: ${effectiveParticipantName} to room channel_${channelId}`);
+            
             if (this.room) {
+                console.log('Disconnecting from existing room first');
                 await this.disconnectFromRoom();
             }
 
             const serverInfo = await this.getServerInfo();
-            const token = await this.getAccessToken(`channel_${channelId}`, participantName);
+            console.log('LiveKit server info:', serverInfo);
+            
+            const roomName = `channel_${channelId}`;
+            console.log(`Getting access token for room: ${roomName}, participant: ${effectiveParticipantName}`);
+            const token = await this.getAccessToken(roomName, effectiveParticipantName);
 
             this.room = new Room();
             this.setupRoomEventListeners();
 
+            console.log(`Connecting to ${serverInfo.url} with room ${roomName}`);
             await this.room.connect(serverInfo.url, token);
             this.isConnected = true;
             
-            console.log('Successfully connected to LiveKit room');
+            console.log(`✅ ${effectiveParticipantName} successfully connected to LiveKit room ${roomName}`);
+            console.log('Room participants count:', this.room.remoteParticipants.size);
         } catch (error) {
-            console.error('Failed to connect to LiveKit room:', error);
+            console.error(`❌ Failed to connect to LiveKit room:`, error);
             throw error;
         }
     }
@@ -274,7 +285,8 @@ export class LiveKitService {
 
     getRemoteParticipants(): RemoteParticipant[] {
         if (!this.room) return [];
-        return Array.from(this.room.remoteParticipants.values());
+        const participants = Array.from(this.room.remoteParticipants.values());
+        return participants;
     }
 
     getLocalParticipant(): LocalParticipant | null {
@@ -294,7 +306,9 @@ export class LiveKitService {
         if (!this.room) return;
 
         this.room.on(RoomEvent.Connected, () => {
-            console.log('Room connected');
+            console.log('LiveKit: Room connected successfully');
+            console.log('LiveKit: Local participant identity:', this.room?.localParticipant?.identity);
+            console.log('LiveKit: Remote participants on connect:', this.room?.remoteParticipants.size);
             this.isConnected = true;
         });
 
@@ -304,31 +318,23 @@ export class LiveKitService {
         });
 
         this.room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-            console.log('Participant connected:', participant.identity);
-            if (this.onParticipantConnectedCallback) {
-                this.onParticipantConnectedCallback(participant);
-            }
+            console.log('🎉 LiveKit: Participant connected:', participant.identity);
+            this.onParticipantConnectedCallbacks.forEach(callback => callback(participant));
         });
 
         this.room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
             console.log('Participant disconnected:', participant.identity);
-            if (this.onParticipantDisconnectedCallback) {
-                this.onParticipantDisconnectedCallback(participant);
-            }
+            this.onParticipantDisconnectedCallbacks.forEach(callback => callback(participant));
         });
 
         this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
             console.log('Track subscribed:', track.kind, 'from', participant.identity);
-            if (this.onTrackSubscribedCallback) {
-                this.onTrackSubscribedCallback(track, publication, participant);
-            }
+            this.onTrackSubscribedCallbacks.forEach(callback => callback(track, publication, participant));
         });
 
         this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
             console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
-            if (this.onTrackUnsubscribedCallback) {
-                this.onTrackUnsubscribedCallback(track, publication, participant);
-            }
+            this.onTrackUnsubscribedCallbacks.forEach(callback => callback(track, publication, participant));
         });
 
         this.room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
@@ -336,30 +342,30 @@ export class LiveKitService {
         });
     }
 
-    // Event listener registration methods
+    // Event listener registration methods (now supports multiple callbacks)
     onParticipantConnected(callback: (participant: RemoteParticipant) => void): void {
-        this.onParticipantConnectedCallback = callback;
+        this.onParticipantConnectedCallbacks.push(callback);
     }
 
     onParticipantDisconnected(callback: (participant: RemoteParticipant) => void): void {
-        this.onParticipantDisconnectedCallback = callback;
+        this.onParticipantDisconnectedCallbacks.push(callback);
     }
 
     onTrackSubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
-        this.onTrackSubscribedCallback = callback;
+        this.onTrackSubscribedCallbacks.push(callback);
     }
 
     onTrackUnsubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
-        this.onTrackUnsubscribedCallback = callback;
+        this.onTrackUnsubscribedCallbacks.push(callback);
     }
 
     // Cleanup method
     cleanup(): void {
         this.disconnectFromRoom();
-        this.onParticipantConnectedCallback = null;
-        this.onParticipantDisconnectedCallback = null;
-        this.onTrackSubscribedCallback = null;
-        this.onTrackUnsubscribedCallback = null;
+        this.onParticipantConnectedCallbacks = [];
+        this.onParticipantDisconnectedCallbacks = [];
+        this.onTrackSubscribedCallbacks = [];
+        this.onTrackUnsubscribedCallbacks = [];
     }
 }
 
