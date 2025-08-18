@@ -45,6 +45,7 @@ export class LiveKitService {
     private onParticipantDisconnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
     private onTrackSubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
     private onTrackUnsubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
+    private onLocalScreenShareStoppedCallbacks: Array<() => void> = [];
 
     async getServerInfo(): Promise<LiveKitServerInfo> {
         // Check for environment variable first
@@ -235,6 +236,22 @@ export class LiveKitService {
             
             // Update our tracking
             this.updateScreenShareTrack();
+            // Attach 'ended' listeners to detect user stopping from browser UI
+            const localPub = this.room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+            const localTrack = localPub?.track as any;
+            const mediaTrack: MediaStreamTrack | undefined = localTrack?.mediaStreamTrack;
+            if (mediaTrack) {
+                const onEnded = () => {
+                    console.log('LiveKit: Local screen share track ended by browser');
+                    this.screenShareTrack = null;
+                    this.triggerLocalScreenShareStopped();
+                };
+                try {
+                    mediaTrack.addEventListener('ended', onEnded, { once: true } as any);
+                } catch (e) {
+                    console.warn('Failed to bind ended listener to screen share track', e);
+                }
+            }
             console.log('Screen share started successfully', qualitySettings ? `with quality ${qualitySettings.width}x${qualitySettings.height} and audio: ${qualitySettings.includeAudio}` : '');
         } catch (error) {
             console.error('Failed to start screen share:', error);
@@ -394,6 +411,20 @@ export class LiveKitService {
         this.room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
             console.log('Connection state changed:', state);
         });
+
+        // Detect when local screen share is unpublished (e.g., user stops from browser UI)
+        this.room.on(RoomEvent.LocalTrackUnpublished as any, (_pub: any, _participant: LocalParticipant) => {
+            try {
+                // If the unpublished track was the screen share, trigger callbacks
+                const hasScreen = this.isScreenSharing();
+                if (!hasScreen) {
+                    this.screenShareTrack = null;
+                    this.triggerLocalScreenShareStopped();
+                }
+            } catch (e) {
+                console.warn('Error handling LocalTrackUnpublished', e);
+            }
+        });
     }
 
     // Event listener registration methods (now supports multiple callbacks)
@@ -413,6 +444,16 @@ export class LiveKitService {
         this.onTrackUnsubscribedCallbacks.push(callback);
     }
 
+    onLocalScreenShareStopped(callback: () => void): void {
+        this.onLocalScreenShareStoppedCallbacks.push(callback);
+    }
+
+    private triggerLocalScreenShareStopped(): void {
+        this.onLocalScreenShareStoppedCallbacks.forEach(cb => {
+            try { cb(); } catch { /* noop */ }
+        });
+    }
+
     // Cleanup method
     cleanup(): void {
         this.disconnectFromRoom();
@@ -420,6 +461,7 @@ export class LiveKitService {
         this.onParticipantDisconnectedCallbacks = [];
         this.onTrackSubscribedCallbacks = [];
         this.onTrackUnsubscribedCallbacks = [];
+        this.onLocalScreenShareStoppedCallbacks = [];
     }
 }
 
