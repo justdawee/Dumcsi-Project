@@ -234,6 +234,13 @@ class WebRtcService {
             const peer = this.peers.get(fromConnectionId);
             if (!peer) return;
 
+            // Avoid applying an answer when already in a stable state (duplicate/late answers)
+            const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
+            if (pc && pc.signalingState === 'stable') {
+                console.warn('Ignoring duplicate/late answer for peer in stable state:', fromConnectionId);
+                return;
+            }
+
             // Signal the answer to simple-peer
             peer.signal(answer);
         } catch (error) {
