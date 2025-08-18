@@ -384,7 +384,7 @@ const setParticipantVideoRef = (el: HTMLVideoElement | null, userId: number) => 
     // Attach if track already available
     const track = screenShareTracks.value.get(userId);
     if (track) {
-      try { (track as any).attach?.(el); } catch (e) { console.warn('Attach failed', e); }
+      try { (track as any).attach?.(el); } catch { /* ignore */ }
     }
   } else {
     const existing = map.get(userId);
@@ -405,7 +405,7 @@ const setMainVideoRef = (el: HTMLVideoElement | null) => {
   if (el && current && current.id) {
     const track = screenShareTracks.value.get(current.id);
     if (track) {
-      try { (track as any).attach?.(el); } catch (e) { console.warn('Attach main failed', e); }
+      try { (track as any).attach?.(el); } catch { /* ignore */ }
     }
   }
 };
@@ -436,12 +436,7 @@ const participants = computed(() => {
   const currentUserId = appStore.currentUserId;
   const screenShareUsers = appStore.screenShares.get(channelId.value) || new Set();
   
-  console.log('🎯 VoiceChannelView participants:', {
-    currentUser: currentUserId,
-    allUsers: users.length,
-    usernames: users.map(u => u.username),
-    screenSharing: Array.from(screenShareUsers)
-  });
+  
   
   // Map users to participants
   return users.map(user => ({
@@ -588,11 +583,11 @@ const toggleScreenShare = async () => {
   
   try {
     if (isScreenSharing.value) {
-      console.log('🛑 Stopping screen share...');
+      
       
       // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
-      console.log('✅ LiveKit screen share stopped');
+      
       
       // 2. Clear local screen share track immediately
       const currentUserId = appStore.currentUserId;
@@ -600,22 +595,22 @@ const toggleScreenShare = async () => {
         const nextTrackMap = new Map(screenShareTracks.value);
         nextTrackMap.delete(currentUserId);
         screenShareTracks.value = nextTrackMap;
-        console.log('🧹 Cleared local screen share track');
+        
       }
       
       // 3. Notify via SignalR that we stopped screen sharing
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
-      console.log('✅ SignalR stop notification sent');
+      
       
       // 4. Force update streams to ensure clean state
       setTimeout(() => {
         updateLiveKitStreams();
-        console.log('🔄 Forced stream update after stopping screen share');
+        
       }, 200);
       
       addToast({ message: 'Screen sharing stopped', type: 'success' });
     } else {
-      console.log('🎬 Starting screen share...');
+      
       
       // 1. Start screen share in LiveKit
       const qualitySettings = {
@@ -626,17 +621,17 @@ const toggleScreenShare = async () => {
       };
       
       await livekitService.startScreenShare(qualitySettings);
-      console.log('✅ LiveKit screen share started');
+      
       
       // 3. Force update LiveKit streams to ensure own stream is captured
       setTimeout(() => {
         updateLiveKitStreams();
-        console.log('🔄 Forced LiveKit streams update after screen share start');
+        
       }, 500);
       
       // 2. Notify via SignalR that we started screen sharing
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
-      console.log('✅ SignalR start notification sent');
+      
       
       addToast({ message: 'Screen sharing started', type: 'success' });
     }
@@ -646,7 +641,7 @@ const toggleScreenShare = async () => {
     // isScreenSharing is derived from store; no manual override
   } finally {
     isScreenShareLoading.value = false;
-    console.log('🏁 Screen share loading state cleared');
+    
   }
 };
 
@@ -744,8 +739,7 @@ const handleControlsMouseLeave = () => {
 const ensureLiveKitConnection = async (): Promise<boolean> => {
   // Check if already connected
   if (livekitService.isRoomConnected()) {
-    console.log('✅ LiveKit already connected - room state:', livekitService.getRoom()?.state);
-    console.log('📊 Current participants:', livekitService.getRemoteParticipants().length);
+    
     return true;
   }
 
@@ -756,22 +750,17 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
   }
 
   try {
-    console.log('🔄 Attempting LiveKit connection...', {
-      channelId: channelId.value,
-      serverId: appStore.currentServer.id,
-      currentUserId: appStore.currentUserId
-    });
+    
 
     // Use numeric user id as LiveKit identity so mapping works across clients
     const identity = String(appStore.currentUserId ?? `user_${Date.now()}`);
     await livekitService.connectToRoom(channelId.value, identity);
-    console.log('✅ LiveKit connected successfully');
-    console.log('📊 Post-connection participants:', livekitService.getRemoteParticipants().length);
+    
     
     // Force a stream update after connecting
     setTimeout(() => {
       updateLiveKitStreams();
-      console.log('🔄 Forced stream update after LiveKit connection');
+      
     }, 1000);
     
     return true;
@@ -784,12 +773,12 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
 // Keep participants' media in sync with LiveKit events
 const updateLiveKitStreams = () => {
   if (!livekitService.isRoomConnected()) {
-    console.log('⚠️ updateLiveKitStreams: Not connected to LiveKit room');
+    
     return;
   }
 
   const liveKitParticipants = livekitService.getRemoteParticipants();
-  console.log('🔄 updateLiveKitStreams: Processing', liveKitParticipants.length, 'remote participants');
+  
 
   // Build new maps to trigger reactivity
   const newScreenMap = new Map<number, RemoteTrack>();
@@ -799,23 +788,23 @@ const updateLiveKitStreams = () => {
     p.trackPublications.forEach(pub => {
       const uid = resolveUserIdForIdentity(p.identity);
       if (!uid) {
-        console.warn('⚠️ Could not resolve userId for identity', p.identity);
+        
         return;
       }
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
         newScreenMap.set(uid, pub.track as RemoteTrack);
-        console.log('🖥️ Added screen share track for user', uid);
+        
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
         screenShareLoading.value = nextLoading;
-        console.log('✅ Cleared loading state for user', uid);
+          
         // Attach to any existing video element
         const el = screenVideoRefs.value.get(uid);
         if (el) { try { (pub.track as any).attach?.(el); } catch {} }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        console.log('📹 Added camera stream for user', uid);
+        
       }
     });
   });
@@ -828,17 +817,17 @@ const updateLiveKitStreams = () => {
       if (!uid) return;
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
         newScreenMap.set(uid, pub.track as any);
-        console.log('🖥️ Added LOCAL screen share track for user', uid);
+    
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
         screenShareLoading.value = nextLoading;
-        console.log('✅ Cleared LOCAL loading state for user', uid);
+        
         const el = screenVideoRefs.value.get(uid);
         if (el) { try { (pub.track as any).attach?.(el); } catch {} }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        console.log('📹 Added LOCAL camera stream for user', uid);
+        
       }
     });
   }
@@ -849,8 +838,7 @@ const updateLiveKitStreams = () => {
   screenShareTracks.value = newScreenMap;
   cameraStreams.value = newCamMap;
   
-  console.log(`📊 Stream update complete: ${prevScreenShareCount} -> ${newScreenShareCount} screen shares,`, 
-    `${newCamMap.size} cameras, loading states:`, Array.from(screenShareLoading.value));
+  
 };
 
 // React to SignalR signals that someone started/stopped screen sharing
@@ -859,13 +847,7 @@ watch(
   (_str) => {
     const current = appStore.screenShares.get(channelId.value || -1) || new Set<number>();
 
-    console.log('📺 Screen sharing state changed:', {
-      channelId: channelId.value,
-      currentSharers: Array.from(current),
-      livekitConnected: livekitService.isRoomConnected(),
-      currentScreenStreams: Array.from(screenShareTracks.value.keys()),
-      loadingStates: Array.from(screenShareLoading.value)
-    });
+    
 
     // Ensure we are connected to LiveKit to receive screen shares
     if (current.size > 0 && !livekitService.isRoomConnected()) {
@@ -873,7 +855,7 @@ watch(
         // After connecting, update streams soon after join
         setTimeout(() => updateLiveKitStreams(), 500);
       }).catch(() => {
-        console.warn('LiveKit connection failed; cannot receive screen shares.');
+        
       });
     } else {
       // Force update streams when screen sharing state changes
@@ -885,24 +867,24 @@ watch(
       const firstSharerId = Array.from(current)[0];
       const sharerParticipant = participants.value.find(p => p.id === firstSharerId);
       if (sharerParticipant && (!selectedParticipant.value || !selectedParticipant.value.isScreenSharing)) {
-        console.log('🎯 Auto-selecting screen sharer for main view:', sharerParticipant.username);
+        
         selectedParticipant.value = sharerParticipant;
       }
     }
 
     // If no one is sharing anymore, reset selection and clear all states
     if (current.size === 0) {
-      console.log('📺 No more screen sharers, cleaning up states');
+      
       
       // Reset selected participant if they were only selected for screen sharing
       if (selectedParticipant.value && !selectedParticipant.value.videoStream) {
-        console.log('🎯 Resetting selected participant:', selectedParticipant.value.username);
+        
         selectedParticipant.value = null;
       }
       
       // Clear any lingering loading states
       screenShareLoading.value = new Set();
-      console.log('🧹 Cleared all screen share loading states');
+      
       
       // Clear all screen share tracks and detach any attached elements
       screenVideoRefs.value.forEach((el, uid) => {
@@ -910,14 +892,14 @@ watch(
         try { (t as any)?.detach?.(el); } catch {}
       });
       screenShareTracks.value = new Map();
-      console.log('🧹 Cleared all screen share streams');
+      
     }
     
     // If current selected participant is no longer screen sharing, deselect them
     if (selectedParticipant.value && 
         !current.has(selectedParticipant.value.id) && 
         !selectedParticipant.value.videoStream) {
-      console.log('🎯 Deselecting participant who stopped screen sharing:', selectedParticipant.value.username);
+      
       selectedParticipant.value = null;
     }
   },
@@ -930,7 +912,7 @@ watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStre
 onMounted(async () => {
   // Check if user is actually in the voice channel
   if (!appStore.currentVoiceChannelId || appStore.currentVoiceChannelId !== channelId.value) {
-    console.warn('User not in voice channel, redirecting back');
+    
     router.go(-1);
     return;
   }
@@ -957,29 +939,9 @@ onMounted(async () => {
   // LiveKit events: update media maps in real time
   const onTrackSub = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     const uid = resolveUserIdForIdentity(participant.identity);
-    console.log('🎯 Track subscribed:', {
-      kind: track.kind,
-      source: publication.source,
-      participant: participant.identity,
-      uid,
-      isScreenShare: publication.source === Track.Source.ScreenShare,
-      hasMediaStreamTrack: !!publication.track?.mediaStreamTrack
-    });
-    if (!uid) {
-      console.warn('⚠️ Ignoring subscribed track; identity could not be resolved:', participant.identity);
-      return;
-    }
-    console.log('🎯 Track subscribed:', {
-      kind: track.kind,
-      source: publication.source,
-      participant: participant.identity,
-      uid,
-      isScreenShare: publication.source === Track.Source.ScreenShare,
-      hasMediaStreamTrack: !!publication.track?.mediaStreamTrack
-    });
-    
+    if (!uid) return;
+
     if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
-      console.log('🖥️ Screen share track received from participant', uid);
       const next = new Map(screenShareTracks.value);
       next.set(uid, track);
       screenShareTracks.value = next;
@@ -990,7 +952,6 @@ onMounted(async () => {
       const el = screenVideoRefs.value.get(uid);
       if (el) { try { (track as any).attach?.(el); } catch {} }
     } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source !== Track.Source.ScreenShare) {
-      console.log('📹 Camera track received from participant', uid);
       const next = new Map(cameraStreams.value);
       next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
       cameraStreams.value = next;
@@ -1029,7 +990,7 @@ onMounted(async () => {
 
   // React when local user stops screen share via browser UI
   livekitService.onLocalScreenShareStopped(async () => {
-    console.log('📺 Detected local screen share stopped via browser UI');
+    
     // derived via store
     // Remove local screen share track and loading
     const uid = appStore.currentUserId as number | null;
@@ -1045,7 +1006,7 @@ onMounted(async () => {
     try {
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
     } catch (e) {
-      console.warn('Failed to notify SignalR about local screen share stop', e);
+      
     }
     // Refresh streams and selection state
     setTimeout(() => updateLiveKitStreams(), 100);

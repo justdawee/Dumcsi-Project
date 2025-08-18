@@ -154,7 +154,7 @@ const messageUser = () => {
 
 const sortedRoles = computed(() => {
     const roles = [...props.user.roles].sort((a, b) => b.position - a.position);
-    console.log('UserInfoCard: sortedRoles recomputed for user:', props.user.username, 'roles:', roles);
+    
     return roles;
 });
 
@@ -169,7 +169,7 @@ const displayNameColor = computed(() => {
     const serverRole = serverRoles.find(r => r.id === highestRoleId);
     const color = serverRole?.color ?? props.user.roles[0].color ?? 'rgb(185 185 185)';
     
-    console.log('UserInfoCard: displayNameColor computed for', props.user.username, 'color:', color);
+    
     return color;
 });
 

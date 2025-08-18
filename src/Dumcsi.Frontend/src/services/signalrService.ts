@@ -42,7 +42,7 @@ export class SignalRService {
         }
 
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            console.log('SignalR: Already connected');
+            // already connected
             return;
         }
 
@@ -67,7 +67,7 @@ export class SignalRService {
             this.setupEventHandlers();
 
             await this.connection.start();
-            console.log('SignalR: Connected successfully');
+            // connected
 
             // Register WebRTC listeners now that the connection exists
             webrtcService.setSignalRService(this);
@@ -86,85 +86,85 @@ export class SignalRService {
 
         // Message events
         this.connection.on('ReceiveMessage', (message: MessageDto) => {
-            console.log('SignalR: Received message', message);
+            
             appStore.handleReceiveMessage(message);
         });
 
         this.connection.on('MessageUpdated', (message: MessageDto) => {
-            console.log('SignalR: Message updated', message);
+            
             appStore.handleMessageUpdated(message);
         });
 
         this.connection.on('MessageDeleted', (payload: MessageDeletedPayload) => {
-            console.log('SignalR: Message deleted', payload);
+            
             appStore.handleMessageDeleted(payload);
         });
 
         this.connection.on('ReactionAdded', (payload: ReactionPayload) => {
-            console.log('SignalR: Reaction added', payload);
+            
             appStore.handleReactionAdded(payload);
         });
 
         this.connection.on('ReactionRemoved', (payload: ReactionPayload) => {
-            console.log('SignalR: Reaction removed', payload);
+            
             appStore.handleReactionRemoved(payload);
         });
 
         // Channel events
         this.connection.on('ChannelCreated', (channel: ChannelDetailDto) => {
-            console.log('SignalR: Channel created', channel);
+            
             appStore.handleChannelCreated(channel);
         });
 
         this.connection.on('ChannelUpdated', (channel: ChannelDetailDto) => {
-            console.log('SignalR: Channel updated', channel);
+            
             appStore.handleChannelUpdated(channel);
         });
 
         this.connection.on('ChannelDeleted', (payload: ChannelDeletedPayload) => {
-            console.log('SignalR: Channel deleted', payload);
+            
             appStore.handleChannelDeleted(payload);
         });
 
         this.connection.on('TopicCreated', (topic: TopicListItem) => {
-            console.log('SignalR: Topic created', topic);
+            
             appStore.handleTopicCreated(topic);
         });
 
         this.connection.on('TopicUpdated', (topic: TopicListItem) => {
-            console.log('SignalR: Topic updated', topic);
+            
             appStore.handleTopicUpdated(topic);
         });
 
         this.connection.on('TopicDeleted', (payload: { TopicId: EntityId; ServerId: EntityId }) => {
-            console.log('SignalR: Topic deleted', payload);
+            
             appStore.handleTopicDeleted(payload);
         });
 
         // User events
         this.connection.on('UserUpdated', (user: UserProfileDto) => {
-            console.log('SignalR: User updated', user);
+            
             appStore.handleUserUpdated(user);
         });
 
         this.connection.on('UserOnline', (userId: EntityId) => {
-            console.log('SignalR: User online', userId);
+            
             appStore.handleUserOnline(userId);
         });
 
         this.connection.on('UserOffline', (userId: EntityId) => {
-            console.log('SignalR: User offline', userId);
+            
             appStore.handleUserOffline(userId);
         });
 
         // Connection lifecycle events
         this.connection.onreconnecting(() => {
-            console.log('SignalR: Reconnecting...');
+            
             appStore.setConnectionState('reconnecting');
         });
 
         this.connection.onreconnected(() => {
-            console.log('SignalR: Reconnected');
+            
             appStore.setConnectionState('connected');
 
             // Re-join current server and channel after reconnection
@@ -187,12 +187,12 @@ export class SignalRService {
         });
 
         this.connection.onclose(() => {
-            console.log('SignalR: Connection closed');
+            
             appStore.setConnectionState('disconnected');
         });
 
         this.connection.on('Connected', (onlineUserIds: EntityId[]) => {
-            console.log('SignalR: Received online users on connect', onlineUserIds);
+            
 
             // Set all online users
             appStore.onlineUsers = new Set(onlineUserIds);
@@ -217,12 +217,12 @@ export class SignalRService {
 
         // Typing indicator
         this.connection.on('UserTyping', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User typing', {channelId, userId});
+            
             appStore.handleUserTyping(channelId, userId);
         });
 
         this.connection.on('UserStoppedTyping', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User stopped typing', {channelId, userId});
+            
             appStore.handleUserStoppedTyping(channelId, userId);
         });
 
@@ -233,7 +233,7 @@ export class SignalRService {
                 userId: typeof u.userId === 'string' ? parseInt(u.userId, 10) : u.userId,
                 connectionId: u.connectionId as string,
             }));
-            console.log('SignalR: Voice channel user list', { channelId: cid, users: infos });
+            
             appStore.setVoiceChannelUsers(cid, infos.map(i => i.userId));
             appStore.setVoiceChannelConnections(cid, infos);
             webrtcService.connectToExisting(cid, infos);
@@ -242,7 +242,7 @@ export class SignalRService {
         this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-            console.log('SignalR: User joined voice channel', { channelId: cid, userId: uid, connectionId });
+            
             appStore.handleUserJoinedVoiceChannel(cid, uid, connectionId);
             // Only manage WebRTC peers when we are in the same voice channel
             if (appStore.currentVoiceChannelId === cid) {
@@ -253,7 +253,7 @@ export class SignalRService {
         this.connection.on('UserLeftVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-            console.log('SignalR: User left voice channel', { channelId: cid, userId: uid, connectionId });
+            
             appStore.handleUserLeftVoiceChannel(cid, uid);
             if (appStore.currentVoiceChannelId === cid) {
                 webrtcService.removeUser(connectionId);
@@ -261,80 +261,80 @@ export class SignalRService {
         });
 
         this.connection.on('UserStartedScreenShare', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User started screen share', {channelId, userId});
+            
             appStore.handleUserStartedScreenShare(channelId, userId);
         });
 
         this.connection.on('UserStoppedScreenShare', (channelId: EntityId, userId: EntityId) => {
-            console.log('SignalR: User stopped screen share', {channelId, userId});
+            
             appStore.handleUserStoppedScreenShare(channelId, userId);
         });
 
         // Server events
         this.connection.on('ServerCreated', (server: ServerListItemDto) => {
-            console.log('SignalR: Server created', server);
+            
             appStore.handleServerCreated(server);
         });
 
         this.connection.on('ServerUpdated', (server: ServerListItemDto) => {
-            console.log('SignalR: Server updated', server);
+            
             appStore.handleServerUpdated(server);
         });
 
         this.connection.on('ServerDeleted', (serverId: EntityId) => {
-            console.log('SignalR: Server deleted', serverId);
+            
             appStore.handleServerDeleted(serverId);
         });
 
         this.connection.on('UserJoinedServer', (payload: UserServerPayload) => {
-            console.log('SignalR: User joined server', payload);
+            
             appStore.handleUserJoinedServer(payload);
         });
 
         this.connection.on('UserLeftServer', (payload: UserServerPayload) => {
-            console.log('SignalR: User left server', payload);
+            
             appStore.handleUserLeftServer(payload);
         });
 
         this.connection.on('UserKickedFromServer', (payload: UserServerPayload) => {
-            console.log('SignalR: User kicked from server', payload);
+            
             appStore.handleUserKickedFromServer(payload);
         });
 
         this.connection.on('UserBannedFromServer', (payload: UserServerPayload) => {
-            console.log('SignalR: User banned from server', payload);
+            
             appStore.handleUserBannedFromServer(payload);
         });
 
         // Role events
         this.connection.on('RoleCreated', (role: any) => {
-            console.log('SignalR: Role created', role);
+            
             appStore.handleRoleCreated(role);
         });
 
         this.connection.on('RoleUpdated', (role: any) => {
-            console.log('SignalR: Role updated', role);
+            
             appStore.handleRoleUpdated(role);
         });
 
         this.connection.on('RoleDeleted', (roleId: EntityId) => {
-            console.log('SignalR: Role deleted', roleId);
+            
             appStore.handleRoleDeleted(roleId);
         });
 
         this.connection.on('MemberRolesUpdated', (payload: any) => {
-            console.log('SignalR: Member roles updated', payload);
+            
             appStore.handleMemberRolesUpdated(payload);
         });
 
         // Connection events
         this.connection.onclose((error) => {
-            console.log('SignalR: Connection closed', error);
+            
             this.handleConnectionClosed();
         });
 
         this.connection.onreconnecting((error) => {
-            console.log('SignalR: Reconnecting...', error);
+            
             const {addToast} = useToast();
             addToast({
                 type: 'warning',
@@ -345,7 +345,7 @@ export class SignalRService {
         });
 
         this.connection.onreconnected((connectionId) => {
-            console.log('SignalR: Reconnected', connectionId);
+            
             const {addToast} = useToast();
             addToast({
                 type: 'success',
@@ -358,7 +358,7 @@ export class SignalRService {
 
     async start(): Promise<void> {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            console.log('SignalR already connected');
+            
             return;
         }
 
@@ -375,7 +375,7 @@ export class SignalRService {
             appStore.setConnectionState('connecting');
 
             await this.initialize();
-            console.log('SignalR connection started');
+            
 
             // Set connected state
             appStore.setConnectionState('connected');
@@ -412,7 +412,7 @@ export class SignalRService {
 
             try {
                 await this.connection.stop();
-                console.log('SignalR connection stopped');
+                
             } catch (error) {
                 console.error('Error stopping SignalR connection:', error);
             }

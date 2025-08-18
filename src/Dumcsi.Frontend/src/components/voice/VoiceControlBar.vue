@@ -73,19 +73,19 @@ const disconnectVoice = async () => {
 
 const updateParticipantCount = () => {
   participantCount.value = livekitService.getTotalParticipantCount();
-  console.log('Updated participant count:', participantCount.value);
+  
 };
 
 // Set up LiveKit event listeners
 onMounted(() => {
   // Set up event listeners
   const onParticipantConnected = () => {
-    console.log('Participant connected event received');
+    
     updateParticipantCount();
   };
   
   const onParticipantDisconnected = () => {
-    console.log('Participant disconnected event received');
+    
     updateParticipantCount();
   };
   

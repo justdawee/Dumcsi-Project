@@ -108,14 +108,14 @@ const updateScreenShares = () => {
 
 const onTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
   if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
-    console.log('Screen share track subscribed from', participant.identity);
+    
     updateScreenShares();
   }
 };
 
 const onTrackUnsubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
   if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
-    console.log('Screen share track unsubscribed from', participant.identity);
+    
     
     // Detach track from video element before updating
     const videoElement = videoRefs.value.get(participant.identity);
@@ -128,7 +128,7 @@ const onTrackUnsubscribed = (track: RemoteTrack, publication: RemoteTrackPublica
 };
 
 const onParticipantDisconnected = (participant: RemoteParticipant) => {
-  console.log('Participant disconnected:', participant.identity);
+  
   videoRefs.value.delete(participant.identity);
   updateScreenShares();
 };

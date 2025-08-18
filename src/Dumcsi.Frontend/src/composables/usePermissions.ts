@@ -192,20 +192,16 @@ export function usePermissions() {
             : appStore.currentServer;
 
         if (!server || !('currentUserPermissions' in server)) {
-            console.log('No permission data available for debugging.');
+            
             return;
         }
 
         const serverDetails = server as ServerDetails;
-        console.log('=== Permission Debug ===');
-        console.log('Server:', serverDetails.name);
-        console.log('Is Owner:', serverDetails.isOwner);
-        console.log('Permission Value:', serverDetails.currentUserPermissions);
-        console.log('Active Permissions:');
+        // debug output removed
 
         Object.entries(Permission).forEach(([key, value]) => {
             if (typeof value === 'number' && (serverDetails.currentUserPermissions & value) !== 0) {
-                console.log(`- ${key}: ✓`);
+                
             }
         });
     };

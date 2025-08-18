@@ -215,7 +215,7 @@ const renderNode = (node: ParsedNode): VNode => {
         'data-user-id': userData?.userId,
         onClick: () => {
           // Handle user mention click
-          console.log('User mention clicked:', userData);
+          
         }
       }, displayName);
 

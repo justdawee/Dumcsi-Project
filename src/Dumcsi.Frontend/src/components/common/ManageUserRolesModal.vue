@@ -146,19 +146,19 @@ const availableRoles = computed(() => {
   
   // Priority 1: Use server roles from appStore if available
   if (serverRoles.length > 0) {
-    console.log('ManageUserRolesModal: Using server roles from appStore:', serverRoles.length);
+    
     return serverRoles.filter(role => role.name !== '@everyone');
   }
   
   // Priority 2: Use fetched roles if available
   if (fetchedRoles.value.length > 0) {
-    console.log('ManageUserRolesModal: Using fetched roles:', fetchedRoles.value.length);
+    
     return fetchedRoles.value.filter(role => role.name !== '@everyone');
   }
   
   // Priority 3: Extract roles from all members as fallback
   if (appStore.members.length > 0) {
-    console.log('ManageUserRolesModal: Extracting roles from members');
+    
     const allMemberRoles = new Map();
     appStore.members.forEach(member => {
       member.roles.forEach(role => {
@@ -168,11 +168,11 @@ const availableRoles = computed(() => {
       });
     });
     const rolesFromMembers = Array.from(allMemberRoles.values());
-    console.log('ManageUserRolesModal: Found roles from members:', rolesFromMembers.length);
+    
     return rolesFromMembers;
   }
   
-  console.log('ManageUserRolesModal: No roles found anywhere');
+  
   return [];
 });
 

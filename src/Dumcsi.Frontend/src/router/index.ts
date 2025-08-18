@@ -152,7 +152,7 @@ router.beforeEach(async (to, _from, next) => {
 
         if (appStore.connectionState !== 'connected' &&
             appStore.connectionState !== 'connecting') {
-            console.log('Router guard: Starting SignalR…');
+            // starting SignalR on authenticated routes
             try {
                 await signalRService.start();
             } catch (err) {

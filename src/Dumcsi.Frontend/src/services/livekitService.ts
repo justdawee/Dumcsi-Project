@@ -54,11 +54,7 @@ export class LiveKitService {
         // Default to configured server, with localhost fallback for development
         const defaultUrl = envUrl || 'ws://192.168.0.50:7880';
         
-        console.log('LiveKit server configuration:', {
-            envUrl,
-            defaultUrl,
-            isProduction: import.meta.env.PROD
-        });
+        // minimal server info without verbose logging
         
         return {
             url: defaultUrl,
@@ -82,18 +78,15 @@ export class LiveKitService {
         try {
             // Use default participant name if not provided
             const effectiveParticipantName = participantName || `user_${Date.now()}`;
-            console.log(`🔄 LiveKit connecting: ${effectiveParticipantName} to room channel_${channelId}`);
             
             if (this.room) {
-                console.log('Disconnecting from existing room first');
                 await this.disconnectFromRoom();
             }
 
             const serverInfo = await this.getServerInfo();
-            console.log('LiveKit server info:', serverInfo);
             
             const roomName = `channel_${channelId}`;
-            console.log(`Getting access token for room: ${roomName}, participant: ${effectiveParticipantName}`);
+            
             const token = await this.getAccessToken(roomName, effectiveParticipantName);
 
             // Create room with proper LiveKit options
@@ -106,8 +99,7 @@ export class LiveKitService {
             
             this.setupRoomEventListeners();
 
-            console.log(`Connecting to ${serverInfo.url} with room ${roomName}`);
-            console.log('Using enhanced WebRTC configuration for connectivity');
+            
             
             // Connect with enhanced WebRTC configuration
             await this.room.connect(serverInfo.url, token, {
@@ -126,10 +118,6 @@ export class LiveKitService {
                 autoSubscribe: true,
             });
             this.isConnected = true;
-            
-            console.log(`✅ ${effectiveParticipantName} successfully connected to LiveKit room ${roomName}`);
-            console.log('Room participants count:', this.room.remoteParticipants.size);
-            console.log('Connection state:', this.room.state);
         } catch (error) {
             console.error(`❌ Failed to connect to LiveKit room:`, error);
             
@@ -164,7 +152,7 @@ export class LiveKitService {
             await this.room.disconnect();
             this.room = null;
             this.isConnected = false;
-            console.log('Disconnected from LiveKit room');
+            
         }
     }
 
@@ -174,7 +162,7 @@ export class LiveKitService {
         }
 
         if (this.isScreenSharing()) {
-            console.warn('Screen share already active');
+            // already active
             return;
         }
 
@@ -221,9 +209,7 @@ export class LiveKitService {
                                     height: { ideal: qualitySettings.height },
                                     frameRate: { ideal: qualitySettings.frameRate }
                                 });
-                            } catch (constraintError) {
-                                console.warn('Failed to apply video constraints:', constraintError);
-                            }
+                            } catch (_constraintError) { /* ignore */ }
                         }
                     }
 
@@ -242,17 +228,17 @@ export class LiveKitService {
             const mediaTrack: MediaStreamTrack | undefined = localTrack?.mediaStreamTrack;
             if (mediaTrack) {
                 const onEnded = () => {
-                    console.log('LiveKit: Local screen share track ended by browser');
+                    // Local screen share track ended
                     this.screenShareTrack = null;
                     this.triggerLocalScreenShareStopped();
                 };
                 try {
                     mediaTrack.addEventListener('ended', onEnded, { once: true } as any);
-                } catch (e) {
-                    console.warn('Failed to bind ended listener to screen share track', e);
+                } catch (_e) {
+                    // ignore bind errors
                 }
             }
-            console.log('Screen share started successfully', qualitySettings ? `with quality ${qualitySettings.width}x${qualitySettings.height} and audio: ${qualitySettings.includeAudio}` : '');
+            
         } catch (error) {
             console.error('Failed to start screen share:', error);
             
@@ -285,7 +271,6 @@ export class LiveKitService {
             
             // Update our tracking
             this.screenShareTrack = null;
-            console.log('Screen share stopped successfully');
         } catch (error) {
             console.error('Failed to stop screen share:', error);
             throw error;
@@ -377,39 +362,30 @@ export class LiveKitService {
         if (!this.room) return;
 
         this.room.on(RoomEvent.Connected, () => {
-            console.log('LiveKit: Room connected successfully');
-            console.log('LiveKit: Local participant identity:', this.room?.localParticipant?.identity);
-            console.log('LiveKit: Remote participants on connect:', this.room?.remoteParticipants.size);
             this.isConnected = true;
         });
 
-        this.room.on(RoomEvent.Disconnected, (reason) => {
-            console.log('Room disconnected:', reason);
+        this.room.on(RoomEvent.Disconnected, (_reason) => {
             this.isConnected = false;
         });
 
         this.room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
-            console.log('🎉 LiveKit: Participant connected:', participant.identity);
             this.onParticipantConnectedCallbacks.forEach(callback => callback(participant));
         });
 
         this.room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
-            console.log('Participant disconnected:', participant.identity);
             this.onParticipantDisconnectedCallbacks.forEach(callback => callback(participant));
         });
 
         this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-            console.log('Track subscribed:', track.kind, 'from', participant.identity);
             this.onTrackSubscribedCallbacks.forEach(callback => callback(track, publication, participant));
         });
 
         this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-            console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
             this.onTrackUnsubscribedCallbacks.forEach(callback => callback(track, publication, participant));
         });
 
-        this.room.on(RoomEvent.ConnectionStateChanged, (state: ConnectionState) => {
-            console.log('Connection state changed:', state);
+        this.room.on(RoomEvent.ConnectionStateChanged, (_state: ConnectionState) => {
         });
 
         // Detect when local screen share is unpublished (e.g., user stops from browser UI)
@@ -421,9 +397,7 @@ export class LiveKitService {
                     this.screenShareTrack = null;
                     this.triggerLocalScreenShareStopped();
                 }
-            } catch (e) {
-                console.warn('Error handling LocalTrackUnpublished', e);
-            }
+            } catch (_e) { /* ignore */ }
         });
     }
 

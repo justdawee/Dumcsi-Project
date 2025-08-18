@@ -37,7 +37,7 @@ export function useLiveKitIntegration() {
               const rawName = user.username || `User_${userId}`;
               const participantName = rawName.replace(/[^a-zA-Z0-9_-]/g, '') || `User_${userId}`;
               await livekitService.connectToRoom(newChannelId, participantName);
-              console.log('Connected to LiveKit room for channel:', newChannelId);
+              
             }
           }
         } catch (error) {

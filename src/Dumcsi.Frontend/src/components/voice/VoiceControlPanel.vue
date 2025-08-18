@@ -270,7 +270,7 @@ const toggleCamera = () => {
 const ensureLiveKitConnection = async (): Promise<boolean> => {
   // Check if already connected
   if (livekitService.isRoomConnected()) {
-    console.log('✅ VoiceControlPanel: LiveKit already connected');
+    
     return true;
   }
 
@@ -281,16 +281,13 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
   }
 
   try {
-    console.log('🔄 VoiceControlPanel: Attempting LiveKit connection...', {
-      channelId: appStore.currentVoiceChannelId,
-      serverId: appStore.currentServer.id
-    });
+    
 
     const authStore = useAuthStore();
     const username = authStore.user?.username || `user_${appStore.currentUserId}`;
     
     await livekitService.connectToRoom(appStore.currentVoiceChannelId, username);
-    console.log('✅ VoiceControlPanel: LiveKit connected successfully');
+    
     return true;
   } catch (error) {
     console.error('❌ VoiceControlPanel: Failed to connect to LiveKit:', error);
@@ -303,17 +300,17 @@ const toggleScreenShare = async () => {
   
   try {
     if (isScreenSharing.value) {
-      console.log('🛑 VoiceControlPanel: Stopping screen share...');
+      
       
       // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
       activeQuality.value = null;
       activeAudioEnabled.value = false;
-      console.log('✅ VoiceControlPanel: LiveKit screen share stopped');
+      
       
       // 2. Notify via SignalR that we stopped screen sharing
       await signalRService.stopScreenShare(currentServer.id.toString(), currentChannelId.toString());
-      console.log('✅ VoiceControlPanel: SignalR stop notification sent');
+      
       
       addToast({ message: 'Screen sharing stopped', type: 'success' });
     } else {
@@ -332,7 +329,7 @@ const toggleScreenShare = async () => {
       }
 
       isScreenShareLoading.value = true;
-      console.log('🎬 VoiceControlPanel: Starting screen share...');
+      
       await livekitService.startScreenShare({
         width: selectedQuality.value.width,
         height: selectedQuality.value.height,
@@ -370,7 +367,7 @@ const toggleScreenShare = async () => {
     isScreenSharing.value = livekitService.isScreenSharing();
   } finally {
     isScreenShareLoading.value = false;
-    console.log('🏁 VoiceControlPanel: Screen share loading state cleared');
+    
   }
 };
 

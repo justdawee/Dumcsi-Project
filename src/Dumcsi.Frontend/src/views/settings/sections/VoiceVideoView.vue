@@ -358,13 +358,13 @@ const updateInputVolume = () => {
   if (gainNode && audioContext && isTesting.value) {
     gainNode.gain.setValueAtTime(audioSettings.inputVolume / 100, audioContext.currentTime);
   }
-  console.log('Input volume changed to:', audioSettings.inputVolume);
+  
 };
 
 // Update output volume
 const updateOutputVolume = () => {
   // In a real implementation, this would adjust audio output volume
-  console.log('Output volume changed to:', audioSettings.outputVolume);
+  
 };
 
 // Microphone test functionality

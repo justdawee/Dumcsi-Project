@@ -187,20 +187,14 @@ class WebRtcService {
             // Explicitly try to play the audio
             const playPromise = audio.play();
             if (playPromise !== undefined) {
-                playPromise.catch((error: any) => {
-                    console.warn('Audio autoplay failed:', error);
-                    // You could show a "Click to enable audio" button to the user here
-                });
+                playPromise.catch(() => { /* ignore autoplay failures */ });
             }
         });
 
         // Handle connection events
-        peer.on('connect', () => {
-            console.log('Peer connected:', targetConnectionId);
-        });
+        peer.on('connect', () => {});
 
         peer.on('close', () => {
-            console.log('Peer connection closed:', targetConnectionId);
             this.removeUser(targetConnectionId);
         });
 
@@ -236,10 +230,7 @@ class WebRtcService {
 
             // Avoid applying an answer when already in a stable state (duplicate/late answers)
             const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
-            if (pc && pc.signalingState === 'stable') {
-                console.warn('Ignoring duplicate/late answer for peer in stable state:', fromConnectionId);
-                return;
-            }
+            if (pc && pc.signalingState === 'stable') return;
 
             // Signal the answer to simple-peer
             peer.signal(answer);
@@ -261,7 +252,7 @@ class WebRtcService {
     }
 
     private async handleSettingsChange(settings: any) {
-        console.log('Audio settings changed:', settings);
+        // react to audio settings change
         
         // Update input volume in real-time
         this.updateInputVolume();
@@ -293,7 +284,7 @@ class WebRtcService {
     }
 
     private async recreateStream() {
-        console.log('Recreating stream with new settings...');
+        // recreate stream with new settings
         
         // Stop current stream
         if (this.localStream) {

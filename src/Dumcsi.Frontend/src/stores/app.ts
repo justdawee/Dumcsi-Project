@@ -150,9 +150,9 @@ export const useAppStore = defineStore('app', () => {
             // Join the server SignalR group to receive server-wide events (including voice channel updates)
             try {
                 await signalRService.joinServer(serverId);
-                console.log('✅ SignalR: Joined server group for voice channel updates');
+                
             } catch (error) {
-                console.warn('❌ SignalR: Failed to join server group:', error);
+                
             }
         }
     };
@@ -315,14 +315,12 @@ export const useAppStore = defineStore('app', () => {
         // 2. Join via SignalR (this will notify ALL server members and get voice channel updates)
         try {
             await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
-            console.log('✅ SignalR: Voice channel joined successfully');
         } catch (error) {
             console.error('❌ SignalR: Failed to join voice channel:', error);
         }
         
         // 3. Initialize WebRTC for voice (SignalR will handle signaling)
         webrtcService.setMuted(selfMuted.value);
-        console.log('✅ WebRTC: Voice channel setup complete');
         
         // 4. Connect to LiveKit immediately for video/screen sharing readiness
         try {
@@ -331,14 +329,8 @@ export const useAppStore = defineStore('app', () => {
             const authStore = useAuthStore();
             const username = authStore.user?.username || `user_${currentUserId.value}`;
             
-            console.log('🔄 LiveKit: Attempting connection...', {
-                channelId,
-                username,
-                isAlreadyConnected: livekitModule.livekitService.isRoomConnected()
-            });
-            
             await livekitModule.livekitService.connectToRoom(channelId, username);
-            console.log('✅ LiveKit: Connected and ready for video/screen sharing');
+            
         } catch (error) {
             console.error('❌ LiveKit: Failed to connect (video/screen sharing will be unavailable):', error);
         }
@@ -357,20 +349,19 @@ export const useAppStore = defineStore('app', () => {
         // 2. Leave via SignalR (notify ALL server members)
         try {
             await signalRService.leaveVoiceChannel(currentServer.value.id, channelId);
-            console.log('✅ SignalR: Voice channel left successfully');
+            
         } catch (error) {
             console.error('❌ SignalR: Failed to leave voice channel:', error);
         }
         
         // 3. Cleanup WebRTC voice connections
         webrtcService.leaveChannel();
-        console.log('✅ WebRTC: Voice channel cleanup complete');
+        
         
         // 4. Disconnect from LiveKit (video/screen sharing)
         try {
             const livekitModule = await import('@/services/livekitService');
             await livekitModule.livekitService.disconnectFromRoom();
-            console.log('✅ LiveKit: Disconnected successfully');
         } catch (error) {
             console.warn('⚠️ LiveKit: Failed to disconnect cleanly:', error);
         }
@@ -763,7 +754,7 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const handleRoleUpdated = (role: any) => {
-        console.log('AppStore: handleRoleUpdated', role);
+        
         if (currentServer.value) {
             const index = currentServer.value.roles.findIndex(r => r.id === role.id);
             if (index !== -1) {
@@ -781,7 +772,7 @@ export const useAppStore = defineStore('app', () => {
                 currentServer.value.roles = currentServer.value.roles.map(r =>
                     r.id === role.id ? updatedRole : r
                 );
-                console.log('AppStore: roles after update', currentServer.value.roles.map(r => ({id: r.id, color: r.color})));
+                
                 
                 // Update the role in all members who have this role (force reactivity)
                 members.value = members.value.map(member => {
@@ -794,7 +785,7 @@ export const useAppStore = defineStore('app', () => {
                     }
                     return member;
                 });
-                console.log('AppStore: members updated for role', role.id);
+                
             }
         }
     };
@@ -833,7 +824,7 @@ export const useAppStore = defineStore('app', () => {
                 index === memberIndex ? updatedMember : member
             );
             
-            console.log('Member roles updated for user:', payload.memberId, 'New roles:', updatedRoles);
+            
         }
     };
 

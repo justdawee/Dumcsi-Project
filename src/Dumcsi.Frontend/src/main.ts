@@ -36,12 +36,12 @@ authStore.$subscribe((_, state) => {
 
     authStateTimeout = setTimeout(async () => {
         if (state.token && !signalRService.isConnected && authStore.isAuthenticated) {
-            console.log('User authenticated, starting SignalR...');
+            // start SignalR when authenticated
             await signalRService.start();
         }
 
         if (!state.token && signalRService.isConnected) {
-            console.log('User logged out, stopping SignalR...');
+            // stop SignalR when logged out
             await signalRService.stop();
         }
     }, 100);
