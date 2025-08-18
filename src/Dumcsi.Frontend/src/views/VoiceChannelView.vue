@@ -297,7 +297,6 @@ import {useToast} from '@/composables/useToast';
 import {livekitService} from '@/services/livekitService';
 import {webrtcService} from '@/services/webrtcService';
 import {signalRService} from '@/services/signalrService';
-import {useAuthStore} from '@/stores/auth';
 import { Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication } from 'livekit-client';
 import {
   Lock,
@@ -360,7 +359,13 @@ const controlsLocked = ref(false);
 
 // Voice controls state
 const isCameraOn = ref(false);
-const isScreenSharing = ref(false);
+const isScreenSharing = computed(() => {
+  const uid = appStore.currentUserId;
+  const cid = channelId.value;
+  if (!uid || !cid) return false;
+  const set = appStore.screenShares.get(cid) || new Set();
+  return set.has(uid);
+});
 const isScreenShareLoading = ref(false);
 
 
@@ -587,7 +592,6 @@ const toggleScreenShare = async () => {
       
       // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
-      isScreenSharing.value = false;
       console.log('✅ LiveKit screen share stopped');
       
       // 2. Clear local screen share track immediately
@@ -622,7 +626,6 @@ const toggleScreenShare = async () => {
       };
       
       await livekitService.startScreenShare(qualitySettings);
-      isScreenSharing.value = true;
       console.log('✅ LiveKit screen share started');
       
       // 3. Force update LiveKit streams to ensure own stream is captured
@@ -640,7 +643,7 @@ const toggleScreenShare = async () => {
   } catch (error: any) {
     console.error('Screen share error:', error);
     addToast({ message: error.message || 'Failed to toggle screen sharing', type: 'danger' });
-    isScreenSharing.value = livekitService.isScreenSharing();
+    // isScreenSharing is derived from store; no manual override
   } finally {
     isScreenShareLoading.value = false;
     console.log('🏁 Screen share loading state cleared');
@@ -789,7 +792,7 @@ const updateLiveKitStreams = () => {
   console.log('🔄 updateLiveKitStreams: Processing', liveKitParticipants.length, 'remote participants');
 
   // Build new maps to trigger reactivity
-  const newScreenMap = new Map<number, RemoteTrack>(screenShareTracks.value);
+  const newScreenMap = new Map<number, RemoteTrack>();
   const newCamMap = new Map<number, MediaStream>(cameraStreams.value);
 
   liveKitParticipants.forEach(p => {
@@ -800,7 +803,7 @@ const updateLiveKitStreams = () => {
         return;
       }
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
-        newScreenMap.set(uid, pub.track);
+        newScreenMap.set(uid, pub.track as RemoteTrack);
         console.log('🖥️ Added screen share track for user', uid);
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
@@ -824,7 +827,7 @@ const updateLiveKitStreams = () => {
       const uid = appStore.currentUserId as number | null;
       if (!uid) return;
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
-        newScreenMap.set(uid, pub.track);
+        newScreenMap.set(uid, pub.track as any);
         console.log('🖥️ Added LOCAL screen share track for user', uid);
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
@@ -940,7 +943,7 @@ onMounted(async () => {
   
   // Update screen sharing and camera state from LiveKit if connected
   if (livekitService.isRoomConnected()) {
-    isScreenSharing.value = livekitService.isScreenSharing();
+    // screen share state is derived from store
     
     const localParticipant = livekitService.getLocalParticipant();
     if (localParticipant) {
@@ -1024,6 +1027,33 @@ onMounted(async () => {
   livekitService.onTrackUnsubscribed(onTrackUnsub);
   livekitService.onParticipantDisconnected(onParticipantDisc);
 
+  // React when local user stops screen share via browser UI
+  livekitService.onLocalScreenShareStopped(async () => {
+    console.log('📺 Detected local screen share stopped via browser UI');
+    // derived via store
+    // Remove local screen share track and loading
+    const uid = appStore.currentUserId as number | null;
+    if (uid) {
+      const nextTracks = new Map(screenShareTracks.value);
+      nextTracks.delete(uid);
+      screenShareTracks.value = nextTracks;
+      const nextL = new Set(screenShareLoading.value);
+      nextL.delete(uid);
+      screenShareLoading.value = nextL;
+    }
+    // Notify others via SignalR so participants clear loading
+    try {
+      await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
+    } catch (e) {
+      console.warn('Failed to notify SignalR about local screen share stop', e);
+    }
+    // Refresh streams and selection state
+    setTimeout(() => updateLiveKitStreams(), 100);
+    if (selectedParticipant.value && !(selectedParticipant.value.videoStream)) {
+      selectedParticipant.value = null;
+    }
+  });
+
   // Keep main video element attached to current screen-share track
   watch([mainScreenShare, screenShareTracks], () => {
     const m = mainScreenShare.value;
@@ -1031,7 +1061,7 @@ onMounted(async () => {
     if (!el) return;
     try {
       // Detach any previously attached track
-      screenShareTracks.value.forEach((t, uid) => {
+      screenShareTracks.value.forEach((t) => {
         try { (t as any).detach?.(el); } catch {}
       });
       if (m) {
