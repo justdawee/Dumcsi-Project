@@ -2,7 +2,7 @@
   <div 
     :class="[
       'w-[72px] bg-main-950 flex flex-col items-center py-3 space-y-2',
-      appStore.currentVoiceChannelId ? 'h-173' : 'h-216'
+      appStore.currentVoiceChannelId ? 'h-183' : 'h-216'
     ]"
   >
     <!-- Home/Direct Messages -->
