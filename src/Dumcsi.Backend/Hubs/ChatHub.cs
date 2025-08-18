@@ -336,17 +336,27 @@ public class ChatHub(IPresenceService presenceService) : Hub
     }
 
     // --- Screen sharing management ---
-    public async Task StartScreenShare(string channelId)
+    public async Task StartScreenShare(string serverId, string channelId)
     {
-        // Notify other users in the channel group that this connection is sharing screen.
-        // Clients can then send connection offers to establish peer connections.
-        await Clients.OthersInGroup(channelId).SendAsync("UserStartedScreenShare", Context.ConnectionId);
+        var userId = Context.UserIdentifier;
+        if (userId != null)
+        {
+            // Notify ALL users in the server that this user started screen sharing
+            // This ensures everyone gets the signal, not just those in the voice channel
+            await Clients.Group(serverId)
+                .SendAsync("UserStartedScreenShare", long.Parse(channelId), long.Parse(userId));
+        }
     }
 
-    public async Task StopScreenShare(string channelId)
+    public async Task StopScreenShare(string serverId, string channelId)
     {
-        // Notify others that screen sharing has ended so they can tear down P2P connections.
-        await Clients.OthersInGroup(channelId).SendAsync("UserStoppedScreenShare", Context.ConnectionId);
+        var userId = Context.UserIdentifier;
+        if (userId != null)
+        {
+            // Notify ALL users in the server that this user stopped screen sharing
+            await Clients.Group(serverId)
+                .SendAsync("UserStoppedScreenShare", long.Parse(channelId), long.Parse(userId));
+        }
     }
 
     // --- Response class ---
