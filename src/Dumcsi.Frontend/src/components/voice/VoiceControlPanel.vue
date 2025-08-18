@@ -120,6 +120,8 @@ import {
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
 import { livekitService } from '@/services/livekitService';
+import { signalRService } from '@/services/signalrService';
+import { useAuthStore } from '@/stores/auth';
 import type { ScreenShareQualitySettings } from '@/services/livekitService';
 import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import ScreenShareQualitySelector from './ScreenShareQualitySelector.vue';
@@ -184,20 +186,79 @@ const toggleCamera = () => {
   // TODO: Implement actual camera functionality
 };
 
+// LiveKit connection management
+const ensureLiveKitConnection = async (): Promise<boolean> => {
+  // Check if already connected
+  if (livekitService.isRoomConnected()) {
+    console.log('✅ VoiceControlPanel: LiveKit already connected');
+    return true;
+  }
+
+  // Try to connect if not connected
+  if (!appStore.currentServer || !appStore.currentVoiceChannelId) {
+    console.error('❌ VoiceControlPanel: Cannot connect to LiveKit - missing server or channel info');
+    return false;
+  }
+
+  try {
+    console.log('🔄 VoiceControlPanel: Attempting LiveKit connection...', {
+      channelId: appStore.currentVoiceChannelId,
+      serverId: appStore.currentServer.id
+    });
+
+    const authStore = useAuthStore();
+    const username = authStore.user?.username || `user_${appStore.currentUserId}`;
+    
+    await livekitService.connectToRoom(appStore.currentVoiceChannelId, username);
+    console.log('✅ VoiceControlPanel: LiveKit connected successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ VoiceControlPanel: Failed to connect to LiveKit:', error);
+    return false;
+  }
+};
+
 const toggleScreenShare = async () => {
   if (isScreenShareLoading.value) return;
+  
+  // Ensure LiveKit connection (try fallback connection if needed)
+  const isConnected = await ensureLiveKitConnection();
+  if (!isConnected) {
+    addToast({ message: 'Failed to connect to voice channel for screen sharing', type: 'danger' });
+    return;
+  }
+  
+  // Get current server and channel info for SignalR notifications
+  const currentServer = appStore.currentServer;
+  const currentChannelId = appStore.currentVoiceChannelId;
+  
+  if (!currentServer || !currentChannelId) {
+    addToast({ message: 'Voice channel information unavailable', type: 'danger' });
+    return;
+  }
   
   isScreenShareLoading.value = true;
   
   try {
     if (isScreenSharing.value) {
+      console.log('🛑 VoiceControlPanel: Stopping screen share...');
+      
+      // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
       isScreenSharing.value = false;
       activeQuality.value = null;
       activeAudioEnabled.value = false;
+      console.log('✅ VoiceControlPanel: LiveKit screen share stopped');
+      
+      // 2. Notify via SignalR that we stopped screen sharing
+      await signalRService.stopScreenShare(currentServer.id.toString(), currentChannelId.toString());
+      console.log('✅ VoiceControlPanel: SignalR stop notification sent');
+      
       addToast({ message: 'Screen sharing stopped', type: 'success' });
     } else {
-      // Create quality settings from selected options
+      console.log('🎬 VoiceControlPanel: Starting screen share...');
+      
+      // 1. Start screen share in LiveKit
       const qualitySettings: ScreenShareQualitySettings = {
         width: selectedQuality.value.width,
         height: selectedQuality.value.height,
@@ -212,6 +273,11 @@ const toggleScreenShare = async () => {
         frameRate: selectedFPS.value
       };
       activeAudioEnabled.value = includeAudio.value;
+      console.log('✅ VoiceControlPanel: LiveKit screen share started');
+      
+      // 2. Notify via SignalR that we started screen sharing
+      await signalRService.startScreenShare(currentServer.id.toString(), currentChannelId.toString());
+      console.log('✅ VoiceControlPanel: SignalR start notification sent');
       
       const audioText = includeAudio.value ? ' with audio' : '';
       addToast({ 
@@ -220,7 +286,7 @@ const toggleScreenShare = async () => {
       });
     }
   } catch (error: any) {
-    console.error('Screen share error:', error);
+    console.error('VoiceControlPanel: Screen share error:', error);
     
     let errorMessage = 'Failed to toggle screen sharing';
     
@@ -242,6 +308,7 @@ const toggleScreenShare = async () => {
     isScreenSharing.value = livekitService.isScreenSharing();
   } finally {
     isScreenShareLoading.value = false;
+    console.log('🏁 VoiceControlPanel: Screen share loading state cleared');
   }
 };
 

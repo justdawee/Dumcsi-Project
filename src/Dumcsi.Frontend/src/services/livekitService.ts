@@ -47,10 +47,20 @@ export class LiveKitService {
     private onTrackUnsubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
 
     async getServerInfo(): Promise<LiveKitServerInfo> {
-        // For now, return the default LiveKit server configuration
-        // The backend endpoint doesn't return server URL yet
+        // Check for environment variable first
+        const envUrl = import.meta.env.VITE_LIVEKIT_URL;
+        
+        // Default to configured server, with localhost fallback for development
+        const defaultUrl = envUrl || 'ws://192.168.0.50:7880';
+        
+        console.log('LiveKit server configuration:', {
+            envUrl,
+            defaultUrl,
+            isProduction: import.meta.env.PROD
+        });
+        
         return {
-            url: import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.0.50:7880',
+            url: defaultUrl,
             version: '1.0.0'
         };
     }
@@ -85,17 +95,61 @@ export class LiveKitService {
             console.log(`Getting access token for room: ${roomName}, participant: ${effectiveParticipantName}`);
             const token = await this.getAccessToken(roomName, effectiveParticipantName);
 
-            this.room = new Room();
+            // Create room with proper LiveKit options
+            this.room = new Room({
+                // Enable adaptive streaming
+                adaptiveStream: true,
+                // Dynacast for better bandwidth management
+                dynacast: true,
+            });
+            
             this.setupRoomEventListeners();
 
             console.log(`Connecting to ${serverInfo.url} with room ${roomName}`);
-            await this.room.connect(serverInfo.url, token);
+            console.log('Using enhanced WebRTC configuration for connectivity');
+            
+            // Connect with enhanced WebRTC configuration
+            await this.room.connect(serverInfo.url, token, {
+                // Configure ICE servers for better NAT traversal
+                rtcConfig: {
+                    iceServers: [
+                        // Google's public STUN servers
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        // Additional STUN servers for redundancy
+                        { urls: 'stun:stun.cloudflare.com:3478' },
+                    ],
+                    iceCandidatePoolSize: 10,
+                },
+                // Auto-subscribe to tracks
+                autoSubscribe: true,
+            });
             this.isConnected = true;
             
             console.log(`✅ ${effectiveParticipantName} successfully connected to LiveKit room ${roomName}`);
             console.log('Room participants count:', this.room.remoteParticipants.size);
+            console.log('Connection state:', this.room.state);
         } catch (error) {
             console.error(`❌ Failed to connect to LiveKit room:`, error);
+            
+            // Provide more specific error information
+            if (error instanceof Error) {
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                // Check for common connection issues
+                if (error.message.includes('could not establish pc connection')) {
+                    console.error('💡 WebRTC peer connection failed. This could be due to:');
+                    console.error('   - Network connectivity issues');
+                    console.error('   - Firewall blocking WebRTC traffic');
+                    console.error('   - NAT traversal problems (STUN/TURN configuration)');
+                    console.error('   - LiveKit server WebRTC configuration issues');
+                }
+            }
+            
             throw error;
         }
     }

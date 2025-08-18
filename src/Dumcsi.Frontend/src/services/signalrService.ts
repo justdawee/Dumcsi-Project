@@ -606,6 +606,26 @@ export class SignalRService {
         }
     }
 
+    async startScreenShare(serverId: string, channelId: string): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('StartScreenShare', serverId, channelId);
+            } catch (error) {
+                console.error('Failed to notify screen share start:', error);
+            }
+        }
+    }
+
+    async stopScreenShare(serverId: string, channelId: string): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('StopScreenShare', serverId, channelId);
+            } catch (error) {
+                console.error('Failed to notify screen share stop:', error);
+            }
+        }
+    }
+
     /**
      * Allows external components to subscribe to SignalR events.
      */

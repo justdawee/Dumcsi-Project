@@ -45,15 +45,34 @@
           <!-- Main Screen Share View -->
           <div v-if="mainScreenShare" class="h-full flex flex-col">
             <div class="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
-              <video 
-                ref="mainVideo"
-                :srcObject="mainScreenShare.stream"
+              <!-- Screen share video when track is available -->
+              <video
+                v-if="screenShareTracks.get(mainScreenShare.user.id)"
+                :ref="setMainVideoRef as any"
                 autoplay
                 playsinline
                 muted
                 class="w-full h-full object-contain"
-                @loadedmetadata="(e: Event) => (e.target as HTMLVideoElement)?.play()"
               />
+
+              <!-- Loading state when screen sharing is starting but track not ready -->
+              <div v-else class="w-full h-full flex flex-col items-center justify-center">
+                <UserAvatar 
+                  :user-id="mainScreenShare.user.id" 
+                  :username="mainScreenShare.user.username" 
+                  :avatar-url="mainScreenShare.user.avatar" 
+                  :size="128" 
+                />
+                <div class="mt-6 flex flex-col items-center">
+                  <svg class="animate-spin h-8 w-8 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                  <span class="text-white text-lg">Starting screen share...</span>
+                  <span class="text-white/70 text-sm mt-1">Connecting to {{ mainScreenShare.user.username }}'s screen</span>
+                </div>
+              </div>
+              
               <div class="absolute bottom-4 left-4 bg-black/70 rounded px-3 py-1">
                 <span class="text-white text-sm font-medium">{{ mainScreenShare.user.username }}</span>
                 <span class="text-white/70 text-xs ml-1">is sharing their screen</span>
@@ -97,21 +116,50 @@
                 :class="participantClasses"
                 class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer hover:ring-2 hover:ring-primary transition-all"
               >
-              <video 
-                v-if="participant.videoStream || participant.screenShareStream"
-                :srcObject="participant.videoStream || participant.screenShareStream"
-                autoplay
-                playsinline
-                muted
-                class="w-full h-full object-cover"
-                @loadedmetadata="(e: Event) => (e.target as HTMLVideoElement)?.play()"
-              />
-              <div v-else class="w-full h-full flex items-center justify-center">
-                <UserAvatar :user-id="participant.id" :username="participant.username" :avatar-url="participant.avatar" :size="64" />
+              <!-- Media tile -->
+              <div class="w-full h-full group">
+                <template v-if="participant.hasScreenShare">
+                  <video
+                    :ref="(el: any) => setParticipantVideoRef(el, participant.id)"
+                    autoplay
+                    playsinline
+                    muted
+                    class="w-full h-full object-cover"
+                  />
+                </template>
+                <template v-else-if="participant.videoStream">
+                  <video 
+                    :srcObject="participant.videoStream"
+                    autoplay
+                    playsinline
+                    muted
+                    class="w-full h-full object-cover"
+                    @loadedmetadata="(e: Event) => (e.target as HTMLVideoElement)?.play()"
+                  />
+                </template>
+                <template v-else>
+                  <div class="w-full h-full flex items-center justify-center relative">
+                    <UserAvatar :user-id="participant.id" :username="participant.username" :avatar-url="participant.avatar" :size="64" />
+                    <!-- Screen share loading indicator -->
+                    <div v-if="participant.isScreenShareLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                      <svg class="animate-spin h-6 w-6 text-white mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                      <span class="text-white text-xs">Starting screen share...</span>
+                    </div>
+                  </div>
+                </template>
               </div>
               
-              <!-- User Info Overlay -->
-              <div class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1">
+              <!-- User Info Overlay (hidden until hover when media present) -->
+              <div 
+                class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 transition-opacity"
+                :class="{
+                  'opacity-0 group-hover:opacity-100': participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading,
+                  'opacity-100': !(participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading)
+                }"
+              >
                 <div class="flex items-center gap-2">
                   <span class="text-white text-sm font-medium">
                     {{ participant.username }}
@@ -123,7 +171,7 @@
               </div>
 
               <!-- Screen Share Indicator -->
-              <div v-if="participant.screenShareStream" class="absolute top-2 right-2 bg-blue-600 rounded px-2 py-1">
+              <div v-if="participant.isScreenSharing" class="absolute top-2 right-2 bg-blue-600 rounded px-2 py-1">
                 <Monitor class="w-4 h-4 text-white" />
               </div>
               </div>
@@ -248,7 +296,9 @@ import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {livekitService} from '@/services/livekitService';
 import {webrtcService} from '@/services/webrtcService';
+import {signalRService} from '@/services/signalrService';
 import {useAuthStore} from '@/stores/auth';
+import { Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication } from 'livekit-client';
 import {
   Lock,
   Mic,
@@ -276,6 +326,8 @@ interface VoiceParticipant {
   isScreenSharing?: boolean;
   videoStream?: MediaStream;
   screenShareStream?: MediaStream;
+  hasScreenShare?: boolean;
+  isScreenShareLoading?: boolean;
   user: {
     id: number;
     username: string;
@@ -312,6 +364,65 @@ const isScreenSharing = ref(false);
 const isScreenShareLoading = ref(false);
 
 
+// Track media streams and loading state per participant (LiveKit)
+// Use LiveKit's RemoteTrack for screen share and attach to <video> for reliability
+const screenShareTracks = ref<Map<number, RemoteTrack>>(new Map());
+const cameraStreams = ref<Map<number, MediaStream>>(new Map());
+const screenShareLoading = ref<Set<number>>(new Set());
+
+// Video element refs per participant for screen share attachment
+const screenVideoRefs = ref<Map<number, HTMLVideoElement>>(new Map());
+const setParticipantVideoRef = (el: HTMLVideoElement | null, userId: number) => {
+  const map = screenVideoRefs.value;
+  if (el) {
+    map.set(userId, el);
+    // Attach if track already available
+    const track = screenShareTracks.value.get(userId);
+    if (track) {
+      try { (track as any).attach?.(el); } catch (e) { console.warn('Attach failed', e); }
+    }
+  } else {
+    const existing = map.get(userId);
+    if (existing) {
+      const track = screenShareTracks.value.get(userId);
+      try { (track as any)?.detach?.(existing); } catch {}
+      map.delete(userId);
+    }
+  }
+};
+
+// Main screen share video ref
+const mainVideoRef = ref<HTMLVideoElement | null>(null);
+const setMainVideoRef = (el: HTMLVideoElement | null) => {
+  mainVideoRef.value = el;
+  // Attempt to attach current main track when set
+  const current = mainScreenShare.value;
+  if (el && current && current.id) {
+    const track = screenShareTracks.value.get(current.id);
+    if (track) {
+      try { (track as any).attach?.(el); } catch (e) { console.warn('Attach main failed', e); }
+    }
+  }
+};
+
+// Map LiveKit identity -> app userId
+const resolveUserIdForIdentity = (identity: string): number | null => {
+  // If identity is numeric, use it directly
+  const asNum = Number(identity);
+  if (!Number.isNaN(asNum) && Number.isFinite(asNum)) return asNum;
+
+  // Try to match by username from current channel user list
+  const users = appStore.voiceChannelUsers.get(channelId.value) || [];
+  const byUsername = users.find(u => u.username === identity);
+  if (byUsername) return typeof byUsername.id === 'string' ? parseInt(byUsername.id as any, 10) : byUsername.id;
+
+  // Try to match by currently computed participants
+  const p = participants.value.find(p => p.username === identity);
+  if (p) return p.id;
+
+  return null;
+};
+
 // Participants from SignalR voice channel data
 const participants = computed(() => {
   if (!channelId.value) return [];
@@ -335,8 +446,10 @@ const participants = computed(() => {
     isMuted: user.id === currentUserId ? appStore.selfMuted : false,
     isDeafened: user.id === currentUserId ? appStore.selfDeafened : false,
     isScreenSharing: screenShareUsers.has(user.id),
-    videoStream: undefined as MediaStream | undefined,
-    screenShareStream: undefined as MediaStream | undefined,
+    videoStream: cameraStreams.value.get(user.id),
+    // Use track presence for ready state; store-based flag for intent state
+    hasScreenShare: screenShareTracks.value.has(user.id),
+    isScreenShareLoading: screenShareUsers.has(user.id) && !screenShareTracks.value.get(user.id),
     user: {
       id: user.id,
       username: user.username,
@@ -348,27 +461,37 @@ const participants = computed(() => {
 
 const participantCount = computed(() => participants.value.length); // All participants including current user
 
-// Video display logic
+// Main Screen Share - only show when there's actual screen sharing happening
 const mainScreenShare = computed(() => {
-  // Prioritize selected participant if they have video/screenshare
-  if (selectedParticipant.value && (selectedParticipant.value.screenShareStream || selectedParticipant.value.videoStream)) {
+  // If a selected participant is sharing their screen with a track, prioritize them
+  if (selectedParticipant.value && screenShareTracks.value.get(selectedParticipant.value.id)) {
     return {
       ...selectedParticipant.value,
-      stream: selectedParticipant.value.screenShareStream || selectedParticipant.value.videoStream,
+      stream: null,
       user: selectedParticipant.value
     };
   }
-  
-  // Otherwise, show first participant with screenshare
-  const screenShareParticipant = participants.value.find(p => p.screenShareStream);
+
+  // Show the first available screen share that actually has a track
+  const screenShareParticipant = participants.value.find(p => screenShareTracks.value.get(p.id));
   if (screenShareParticipant) {
     return {
       ...screenShareParticipant,
-      stream: screenShareParticipant.screenShareStream,
+      stream: null,
       user: screenShareParticipant
     };
   }
-  
+
+  // Show loading state if anyone is actively sharing (store flag) but track not ready
+  const loadingScreenSharer = participants.value.find(p => p.isScreenSharing && !screenShareTracks.value.get(p.id));
+  if (loadingScreenSharer) {
+    return {
+      ...loadingScreenSharer,
+      stream: null,
+      user: loadingScreenSharer
+    };
+  }
+
   return null;
 });
 
@@ -416,15 +539,11 @@ const toggleDeafen = async () => {
 };
 
 const toggleCamera = async () => {
-  // Connect to LiveKit if not connected (only for video/screen sharing)
-  if (!livekitService.isRoomConnected()) {
-    try {
-      await connectToLiveKit();
-    } catch (error: any) {
-      console.error('Failed to connect to LiveKit for camera:', error);
-      addToast({ message: 'Failed to connect for video features', type: 'danger' });
-      return;
-    }
+  // Ensure LiveKit connection (try fallback connection if needed)
+  const isConnected = await ensureLiveKitConnection();
+  if (!isConnected) {
+    addToast({ message: 'Failed to connect to voice channel for camera', type: 'danger' });
+    return;
   }
   
   try {
@@ -453,25 +572,48 @@ const toggleCamera = async () => {
 const toggleScreenShare = async () => {
   if (isScreenShareLoading.value) return;
   
-  // Connect to LiveKit if not connected (only for video/screen sharing)
-  if (!livekitService.isRoomConnected()) {
-    try {
-      await connectToLiveKit();
-    } catch (error: any) {
-      console.error('Failed to connect to LiveKit for screen share:', error);
-      addToast({ message: 'Failed to connect for screen sharing', type: 'danger' });
-      return;
-    }
+  // Ensure LiveKit connection (try fallback connection if needed)
+  const isConnected = await ensureLiveKitConnection();
+  if (!isConnected) {
+    addToast({ message: 'Failed to connect to voice channel for screen sharing', type: 'danger' });
+    return;
   }
   
   isScreenShareLoading.value = true;
   
   try {
     if (isScreenSharing.value) {
+      console.log('🛑 Stopping screen share...');
+      
+      // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
       isScreenSharing.value = false;
+      console.log('✅ LiveKit screen share stopped');
+      
+      // 2. Clear local screen share track immediately
+      const currentUserId = appStore.currentUserId;
+      if (currentUserId) {
+        const nextTrackMap = new Map(screenShareTracks.value);
+        nextTrackMap.delete(currentUserId);
+        screenShareTracks.value = nextTrackMap;
+        console.log('🧹 Cleared local screen share track');
+      }
+      
+      // 3. Notify via SignalR that we stopped screen sharing
+      await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
+      console.log('✅ SignalR stop notification sent');
+      
+      // 4. Force update streams to ensure clean state
+      setTimeout(() => {
+        updateLiveKitStreams();
+        console.log('🔄 Forced stream update after stopping screen share');
+      }, 200);
+      
       addToast({ message: 'Screen sharing stopped', type: 'success' });
     } else {
+      console.log('🎬 Starting screen share...');
+      
+      // 1. Start screen share in LiveKit
       const qualitySettings = {
         width: 1920,
         height: 1080,
@@ -481,6 +623,18 @@ const toggleScreenShare = async () => {
       
       await livekitService.startScreenShare(qualitySettings);
       isScreenSharing.value = true;
+      console.log('✅ LiveKit screen share started');
+      
+      // 3. Force update LiveKit streams to ensure own stream is captured
+      setTimeout(() => {
+        updateLiveKitStreams();
+        console.log('🔄 Forced LiveKit streams update after screen share start');
+      }, 500);
+      
+      // 2. Notify via SignalR that we started screen sharing
+      await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
+      console.log('✅ SignalR start notification sent');
+      
       addToast({ message: 'Screen sharing started', type: 'success' });
     }
   } catch (error: any) {
@@ -489,6 +643,7 @@ const toggleScreenShare = async () => {
     isScreenSharing.value = livekitService.isScreenSharing();
   } finally {
     isScreenShareLoading.value = false;
+    console.log('🏁 Screen share loading state cleared');
   }
 };
 
@@ -582,55 +737,192 @@ const handleControlsMouseLeave = () => {
 };
 
 
-// LiveKit connection for video/screen sharing only
-const connectToLiveKit = async () => {
-  if (!appStore.currentServer || !channelId.value) return;
-  
+// LiveKit connection management
+const ensureLiveKitConnection = async (): Promise<boolean> => {
+  // Check if already connected
+  if (livekitService.isRoomConnected()) {
+    console.log('✅ LiveKit already connected - room state:', livekitService.getRoom()?.state);
+    console.log('📊 Current participants:', livekitService.getRemoteParticipants().length);
+    return true;
+  }
+
+  // Try to connect if not connected
+  if (!appStore.currentServer || !channelId.value) {
+    console.error('❌ Cannot connect to LiveKit: missing server or channel info');
+    return false;
+  }
+
   try {
-    // Connect to LiveKit room for video features only
-    // Use username from auth store for LiveKit identity
-    const authStore = useAuthStore();
-    const username = authStore.user?.username || `user_${appStore.currentUserId}`;
-    await livekitService.connectToRoom(channelId.value, username);
+    console.log('🔄 Attempting LiveKit connection...', {
+      channelId: channelId.value,
+      serverId: appStore.currentServer.id,
+      currentUserId: appStore.currentUserId
+    });
+
+    // Use numeric user id as LiveKit identity so mapping works across clients
+    const identity = String(appStore.currentUserId ?? `user_${Date.now()}`);
+    await livekitService.connectToRoom(channelId.value, identity);
+    console.log('✅ LiveKit connected successfully');
+    console.log('📊 Post-connection participants:', livekitService.getRemoteParticipants().length);
+    
+    // Force a stream update after connecting
+    setTimeout(() => {
+      updateLiveKitStreams();
+      console.log('🔄 Forced stream update after LiveKit connection');
+    }, 1000);
+    
+    return true;
   } catch (error) {
-    console.error('Failed to connect to LiveKit:', error);
-    throw error;
+    console.error('❌ Failed to connect to LiveKit:', error);
+    return false;
   }
 };
 
-// Watch for LiveKit participant updates for video streams
-watch(() => participants.value, () => {
-  updateLiveKitStreams();
-}, { deep: true });
-
+// Keep participants' media in sync with LiveKit events
 const updateLiveKitStreams = () => {
-  if (!livekitService.isRoomConnected()) return;
-  
-  // Update video and screen share streams from LiveKit participants
+  if (!livekitService.isRoomConnected()) {
+    console.log('⚠️ updateLiveKitStreams: Not connected to LiveKit room');
+    return;
+  }
+
   const liveKitParticipants = livekitService.getRemoteParticipants();
-  
-  participants.value.forEach(participant => {
-    const liveKitParticipant = liveKitParticipants.find(p => 
-      p.identity === participant.id.toString()
-    );
-    
-    if (liveKitParticipant) {
-      // Update streams from LiveKit tracks
-      liveKitParticipant.trackPublications.forEach(publication => {
-        if (publication.kind === 'video' && publication.track?.mediaStreamTrack) {
-          const stream = new MediaStream([publication.track.mediaStreamTrack]);
-          
-          // Determine if it's camera or screen share based on track name
-          if (publication.trackName?.includes('screen')) {
-            participant.screenShareStream = stream;
-          } else {
-            participant.videoStream = stream;
-          }
-        }
-      });
-    }
+  console.log('🔄 updateLiveKitStreams: Processing', liveKitParticipants.length, 'remote participants');
+
+  // Build new maps to trigger reactivity
+  const newScreenMap = new Map<number, RemoteTrack>(screenShareTracks.value);
+  const newCamMap = new Map<number, MediaStream>(cameraStreams.value);
+
+  liveKitParticipants.forEach(p => {
+    p.trackPublications.forEach(pub => {
+      const uid = resolveUserIdForIdentity(p.identity);
+      if (!uid) {
+        console.warn('⚠️ Could not resolve userId for identity', p.identity);
+        return;
+      }
+      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
+        newScreenMap.set(uid, pub.track);
+        console.log('🖥️ Added screen share track for user', uid);
+        const nextLoading = new Set(screenShareLoading.value);
+        nextLoading.delete(uid);
+        screenShareLoading.value = nextLoading;
+        console.log('✅ Cleared loading state for user', uid);
+        // Attach to any existing video element
+        const el = screenVideoRefs.value.get(uid);
+        if (el) { try { (pub.track as any).attach?.(el); } catch {} }
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
+        const stream = new MediaStream([pub.track.mediaStreamTrack]);
+        newCamMap.set(uid, stream);
+        console.log('📹 Added camera stream for user', uid);
+      }
+    });
   });
+
+  // Include local participant (so the sharer sees their own tile update)
+  const local = livekitService.getLocalParticipant();
+  if (local) {
+    local.trackPublications.forEach(pub => {
+      const uid = appStore.currentUserId as number | null;
+      if (!uid) return;
+      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
+        newScreenMap.set(uid, pub.track);
+        console.log('🖥️ Added LOCAL screen share track for user', uid);
+        const nextLoading = new Set(screenShareLoading.value);
+        nextLoading.delete(uid);
+        screenShareLoading.value = nextLoading;
+        console.log('✅ Cleared LOCAL loading state for user', uid);
+        const el = screenVideoRefs.value.get(uid);
+        if (el) { try { (pub.track as any).attach?.(el); } catch {} }
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
+        const stream = new MediaStream([pub.track.mediaStreamTrack]);
+        newCamMap.set(uid, stream);
+        console.log('📹 Added LOCAL camera stream for user', uid);
+      }
+    });
+  }
+
+  const prevScreenShareCount = screenShareTracks.value.size;
+  const newScreenShareCount = newScreenMap.size;
+  
+  screenShareTracks.value = newScreenMap;
+  cameraStreams.value = newCamMap;
+  
+  console.log(`📊 Stream update complete: ${prevScreenShareCount} -> ${newScreenShareCount} screen shares,`, 
+    `${newCamMap.size} cameras, loading states:`, Array.from(screenShareLoading.value));
 };
+
+// React to SignalR signals that someone started/stopped screen sharing
+watch(
+  () => Array.from(appStore.screenShares.get(channelId.value || -1) || new Set<number>()).join(','),
+  (_str) => {
+    const current = appStore.screenShares.get(channelId.value || -1) || new Set<number>();
+
+    console.log('📺 Screen sharing state changed:', {
+      channelId: channelId.value,
+      currentSharers: Array.from(current),
+      livekitConnected: livekitService.isRoomConnected(),
+      currentScreenStreams: Array.from(screenShareTracks.value.keys()),
+      loadingStates: Array.from(screenShareLoading.value)
+    });
+
+    // Ensure we are connected to LiveKit to receive screen shares
+    if (current.size > 0 && !livekitService.isRoomConnected()) {
+      ensureLiveKitConnection().then(() => {
+        // After connecting, update streams soon after join
+        setTimeout(() => updateLiveKitStreams(), 500);
+      }).catch(() => {
+        console.warn('LiveKit connection failed; cannot receive screen shares.');
+      });
+    } else {
+      // Force update streams when screen sharing state changes
+      updateLiveKitStreams();
+    }
+
+    // Auto-select the first screen sharer for main view (this ensures everyone sees the screen share)
+    if (current.size > 0) {
+      const firstSharerId = Array.from(current)[0];
+      const sharerParticipant = participants.value.find(p => p.id === firstSharerId);
+      if (sharerParticipant && (!selectedParticipant.value || !selectedParticipant.value.isScreenSharing)) {
+        console.log('🎯 Auto-selecting screen sharer for main view:', sharerParticipant.username);
+        selectedParticipant.value = sharerParticipant;
+      }
+    }
+
+    // If no one is sharing anymore, reset selection and clear all states
+    if (current.size === 0) {
+      console.log('📺 No more screen sharers, cleaning up states');
+      
+      // Reset selected participant if they were only selected for screen sharing
+      if (selectedParticipant.value && !selectedParticipant.value.videoStream) {
+        console.log('🎯 Resetting selected participant:', selectedParticipant.value.username);
+        selectedParticipant.value = null;
+      }
+      
+      // Clear any lingering loading states
+      screenShareLoading.value = new Set();
+      console.log('🧹 Cleared all screen share loading states');
+      
+      // Clear all screen share tracks and detach any attached elements
+      screenVideoRefs.value.forEach((el, uid) => {
+        const t = screenShareTracks.value.get(uid);
+        try { (t as any)?.detach?.(el); } catch {}
+      });
+      screenShareTracks.value = new Map();
+      console.log('🧹 Cleared all screen share streams');
+    }
+    
+    // If current selected participant is no longer screen sharing, deselect them
+    if (selectedParticipant.value && 
+        !current.has(selectedParticipant.value.id) && 
+        !selectedParticipant.value.videoStream) {
+      console.log('🎯 Deselecting participant who stopped screen sharing:', selectedParticipant.value.username);
+      selectedParticipant.value = null;
+    }
+  },
+  { immediate: true }
+);
+
+// Refresh mapped streams when participants change
+watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStreams());
 
 onMounted(async () => {
   // Check if user is actually in the voice channel
@@ -658,6 +950,98 @@ onMounted(async () => {
     // Update streams
     updateLiveKitStreams();
   }
+  
+  // LiveKit events: update media maps in real time
+  const onTrackSub = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+    const uid = resolveUserIdForIdentity(participant.identity);
+    console.log('🎯 Track subscribed:', {
+      kind: track.kind,
+      source: publication.source,
+      participant: participant.identity,
+      uid,
+      isScreenShare: publication.source === Track.Source.ScreenShare,
+      hasMediaStreamTrack: !!publication.track?.mediaStreamTrack
+    });
+    if (!uid) {
+      console.warn('⚠️ Ignoring subscribed track; identity could not be resolved:', participant.identity);
+      return;
+    }
+    console.log('🎯 Track subscribed:', {
+      kind: track.kind,
+      source: publication.source,
+      participant: participant.identity,
+      uid,
+      isScreenShare: publication.source === Track.Source.ScreenShare,
+      hasMediaStreamTrack: !!publication.track?.mediaStreamTrack
+    });
+    
+    if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
+      console.log('🖥️ Screen share track received from participant', uid);
+      const next = new Map(screenShareTracks.value);
+      next.set(uid, track);
+      screenShareTracks.value = next;
+      const nextLoading = new Set(screenShareLoading.value);
+      nextLoading.delete(uid);
+      screenShareLoading.value = nextLoading;
+      // Attach if element exists
+      const el = screenVideoRefs.value.get(uid);
+      if (el) { try { (track as any).attach?.(el); } catch {} }
+    } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source !== Track.Source.ScreenShare) {
+      console.log('📹 Camera track received from participant', uid);
+      const next = new Map(cameraStreams.value);
+      next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
+      cameraStreams.value = next;
+    }
+  };
+
+  const onTrackUnsub = (_track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+    const uid = resolveUserIdForIdentity(participant.identity);
+    if (!uid) return;
+    if (publication.source === Track.Source.ScreenShare && publication.kind === 'video') {
+      const el = screenVideoRefs.value.get(uid);
+      if (el) { try { (_track as any).detach?.(el); } catch {} }
+      const next = new Map(screenShareTracks.value);
+      next.delete(uid);
+      screenShareTracks.value = next;
+    } else if (publication.kind === 'video' && publication.source !== Track.Source.ScreenShare) {
+      const next = new Map(cameraStreams.value);
+      next.delete(uid);
+      cameraStreams.value = next;
+    }
+  };
+
+  const onParticipantDisc = (participant: RemoteParticipant) => {
+    const uid = resolveUserIdForIdentity(participant.identity);
+    if (!uid) return;
+    const el = screenVideoRefs.value.get(uid);
+    if (el) { const t = screenShareTracks.value.get(uid); try { (t as any)?.detach?.(el); } catch {} }
+    const nextS = new Map(screenShareTracks.value); nextS.delete(uid); screenShareTracks.value = nextS;
+    const nextC = new Map(cameraStreams.value); nextC.delete(uid); cameraStreams.value = nextC;
+    const nextL = new Set(screenShareLoading.value); nextL.delete(uid); screenShareLoading.value = nextL;
+  };
+
+  livekitService.onTrackSubscribed(onTrackSub);
+  livekitService.onTrackUnsubscribed(onTrackUnsub);
+  livekitService.onParticipantDisconnected(onParticipantDisc);
+
+  // Keep main video element attached to current screen-share track
+  watch([mainScreenShare, screenShareTracks], () => {
+    const m = mainScreenShare.value;
+    const el = mainVideoRef.value;
+    if (!el) return;
+    try {
+      // Detach any previously attached track
+      screenShareTracks.value.forEach((t, uid) => {
+        try { (t as any).detach?.(el); } catch {}
+      });
+      if (m) {
+        const t = screenShareTracks.value.get(m.id);
+        if (t) {
+          (t as any).attach?.(el);
+        }
+      }
+    } catch {}
+  });
   
   // Auto-focus on user if specified
   autoFocusUser();

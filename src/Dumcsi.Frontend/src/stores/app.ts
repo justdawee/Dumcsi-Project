@@ -321,9 +321,27 @@ export const useAppStore = defineStore('app', () => {
         }
         
         // 3. Initialize WebRTC for voice (SignalR will handle signaling)
-        // LiveKit is NOT used for voice channels - only for video/screen sharing
         webrtcService.setMuted(selfMuted.value);
         console.log('✅ WebRTC: Voice channel setup complete');
+        
+        // 4. Connect to LiveKit immediately for video/screen sharing readiness
+        try {
+            // Import livekitService dynamically to avoid circular dependencies
+            const livekitModule = await import('@/services/livekitService');
+            const authStore = useAuthStore();
+            const username = authStore.user?.username || `user_${currentUserId.value}`;
+            
+            console.log('🔄 LiveKit: Attempting connection...', {
+                channelId,
+                username,
+                isAlreadyConnected: livekitModule.livekitService.isRoomConnected()
+            });
+            
+            await livekitModule.livekitService.connectToRoom(channelId, username);
+            console.log('✅ LiveKit: Connected and ready for video/screen sharing');
+        } catch (error) {
+            console.error('❌ LiveKit: Failed to connect (video/screen sharing will be unavailable):', error);
+        }
     };
 
     const leaveVoiceChannel = async (channelId: EntityId) => {
@@ -348,7 +366,14 @@ export const useAppStore = defineStore('app', () => {
         webrtcService.leaveChannel();
         console.log('✅ WebRTC: Voice channel cleanup complete');
         
-        // Note: LiveKit is only used for video/screen sharing and is managed separately
+        // 4. Disconnect from LiveKit (video/screen sharing)
+        try {
+            const livekitModule = await import('@/services/livekitService');
+            await livekitModule.livekitService.disconnectFromRoom();
+            console.log('✅ LiveKit: Disconnected successfully');
+        } catch (error) {
+            console.warn('⚠️ LiveKit: Failed to disconnect cleanly:', error);
+        }
     };
 
     const toggleSelfMute = () => {
