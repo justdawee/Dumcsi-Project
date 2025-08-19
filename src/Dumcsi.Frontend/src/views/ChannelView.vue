@@ -119,6 +119,8 @@ const isTyping = (userId: EntityId) => typingUserIds.value.has(userId);
 const {permissions} = usePermissions();
 
 const messagesContainer = ref<HTMLElement | null>(null);
+// Track whether we should auto-follow new messages (only when near bottom)
+const shouldAutoFollow = ref(true);
 const isMemberListOpen = ref(true);
 const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
 
@@ -140,6 +142,14 @@ const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
   }
 };
 
+const updateAutoFollow = () => {
+  const el = messagesContainer.value;
+  if (!el) return;
+  // distance to bottom; small threshold to treat near-bottom as bottom
+  const distance = el.scrollHeight - (el.scrollTop + el.clientHeight);
+  shouldAutoFollow.value = distance < 120; // px threshold
+};
+
 const loadChannelData = async (channelId: EntityId) => {
   const previousId = appStore.currentChannel?.id;
   if (signalRService.isConnected && previousId && previousId !== channelId) {
@@ -159,10 +169,15 @@ const loadChannelData = async (channelId: EntityId) => {
 // --- Event Handlers ---
 
 const debouncedScrollHandler = debounce(() => {
-  if (messagesContainer.value && messagesContainer.value.scrollTop < 100) {
+  const el = messagesContainer.value;
+  if (!el) return;
+  // Near top: potential place to load older messages (left as TODO)
+  if (el.scrollTop < 100) {
     // loadMoreMessages implementáció
   }
-}, 200);
+  // Update whether we should follow new messages
+  updateAutoFollow();
+}, 100);
 
 const handleSendMessage = async (payload: CreateMessageRequest) => {
   if (!currentChannel.value) return;
@@ -195,6 +210,42 @@ const handleGlobalDrop = (event: CustomEvent<{ files: FileList; direct: boolean 
   }
 };
 
+// Keyboard shortcut handlers
+const handleToggleMemberList = () => {
+  isMemberListOpen.value = !isMemberListOpen.value;
+};
+
+const handleEditLastMessage = () => {
+  // Find the last message by the current user that can be edited
+  const currentUserId = authStore.user?.id;
+  if (!currentUserId || !appStore.messages.length) return;
+  
+  // Find the last message sent by the current user
+  const userMessages = appStore.messages
+    .filter(msg => msg.author.id === currentUserId)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  
+  if (userMessages.length > 0) {
+    const lastMessage = userMessages[0];
+    
+    // For now, just show a toast indicating which message would be edited
+    // In a full implementation, this would trigger an inline edit mode in MessageItem
+    addToast({
+      type: 'info',
+      message: `Would edit: "${lastMessage.content.substring(0, 50)}${lastMessage.content.length > 50 ? '...' : ''}"`,
+      duration: 3000
+    });
+    
+    console.log('🔧 Edit last message triggered for:', lastMessage.content);
+  } else {
+    addToast({
+      type: 'warning',
+      message: 'No messages to edit',
+      duration: 3000
+    });
+  }
+};
+
 // --- Lifecycle & Watchers ---
 
 onMounted(() => {
@@ -202,7 +253,15 @@ onMounted(() => {
   if (channelId) {
     loadChannelData(channelId);
   }
+  // Initial follow state
+  shouldAutoFollow.value = true;
+  // Also update follow state on resize (layout changes could shift scroll)
+  window.addEventListener('resize', updateAutoFollow);
   window.addEventListener('global-files-dropped', handleGlobalDrop as EventListener);
+  
+  // Listen for keyboard shortcut events
+  window.addEventListener('toggleMemberList', handleToggleMemberList);
+  window.addEventListener('editLastMessage', handleEditLastMessage);
 });
 
 onUnmounted(() => {
@@ -210,7 +269,12 @@ onUnmounted(() => {
   if (id && signalRService.isConnected) {
     signalRService.leaveChannel(id);
   }
+  window.removeEventListener('resize', updateAutoFollow);
   window.removeEventListener('global-files-dropped', handleGlobalDrop as EventListener);
+  
+  // Remove keyboard shortcut event listeners
+  window.removeEventListener('toggleMemberList', handleToggleMemberList);
+  window.removeEventListener('editLastMessage', handleEditLastMessage);
 });
 
 watch(() => route.params.channelId, (newId) => {
@@ -219,4 +283,14 @@ watch(() => route.params.channelId, (newId) => {
     loadChannelData(newChannelId);
   }
 }, {immediate: true});
+
+// Auto-follow incoming messages only when near the bottom
+watch(
+  () => appStore.messages.length,
+  async (newLen, oldLen) => {
+    if (newLen > oldLen && shouldAutoFollow.value) {
+      await scrollToBottom('smooth');
+    }
+  }
+);
 </script>
