@@ -8,10 +8,10 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <Volume2 class="w-5 h-5 text-text-muted" />
+              <Volume2 class="w-5 h-5 text-text-muted"/>
               <h1 class="text-lg font-semibold text-text-default">{{ voiceChannelName }}</h1>
               <div class="flex items-center gap-1 ml-2">
-                <Users class="w-4 h-4 text-text-muted" />
+                <Users class="w-4 h-4 text-text-muted"/>
                 <span class="text-sm text-text-muted">{{ participantCount }}</span>
               </div>
             </div>
@@ -20,11 +20,11 @@
           <div class="flex items-center gap-2">
             <!-- Voice Settings Button -->
             <button
-              @click="showVoiceSettings = true"
-              class="w-8 h-8 rounded hover:bg-main-800 flex items-center justify-center transition-colors"
-              title="Voice settings"
+                class="w-8 h-8 rounded hover:bg-main-800 flex items-center justify-center transition-colors"
+                title="Voice settings"
+                @click="showVoiceSettings = true"
             >
-              <Settings class="w-4 h-4 text-text-muted" />
+              <Settings class="w-4 h-4 text-text-muted"/>
             </button>
           </div>
         </div>
@@ -34,70 +34,74 @@
       <div class="flex-1 p-4 overflow-hidden">
         <div v-if="participants.length === 0" class="h-full flex items-center justify-center">
           <div class="text-center">
-            <Volume2 class="w-16 h-16 mx-auto mb-4 text-text-tertiary" />
+            <Volume2 class="w-16 h-16 mx-auto mb-4 text-text-tertiary"/>
             <h3 class="text-lg font-medium text-text-default mb-2">No one else is here</h3>
             <p class="text-text-muted">Invite someone to start a conversation</p>
           </div>
         </div>
 
         <div v-else class="h-full">
-          
+
           <!-- Main Screen Share View -->
           <div v-if="mainScreenShare" class="h-full flex flex-col">
             <div class="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
               <!-- Screen share video when track is available -->
               <video
-                v-if="screenShareTracks.get(mainScreenShare.user.id)"
-                :ref="setMainVideoRef as any"
-                autoplay
-                playsinline
-                muted
-                class="w-full h-full object-contain"
+                  v-if="screenShareTracks.get(mainScreenShare.user.id)"
+                  :ref="mainVideoVNodeRef"
+                  autoplay
+                  class="w-full h-full object-contain"
+                  muted
+                  playsinline
               />
 
               <!-- Loading state when screen sharing is starting but track not ready -->
               <div v-else class="w-full h-full flex flex-col items-center justify-center">
-                <UserAvatar 
-                  :user-id="mainScreenShare.user.id" 
-                  :username="mainScreenShare.user.username" 
-                  :avatar-url="mainScreenShare.user.avatar" 
-                  :size="128" 
+                <UserAvatar
+                    :avatar-url="mainScreenShare.user.avatar"
+                    :size="128"
+                    :user-id="mainScreenShare.user.id"
+                    :username="mainScreenShare.user.username"
                 />
                 <div class="mt-6 flex flex-col items-center">
-                  <svg class="animate-spin h-8 w-8 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg class="animate-spin h-8 w-8 text-white mb-3" fill="none" viewBox="0 0 24 24"
+                       xmlns="http://www.w3.org/2000/svg">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor"></path>
                   </svg>
                   <span class="text-white text-lg">Starting screen share...</span>
-                  <span class="text-white/70 text-sm mt-1">Connecting to {{ mainScreenShare.user.username }}'s screen</span>
+                  <span class="text-white/70 text-sm mt-1">Connecting to {{
+                      mainScreenShare.user.username
+                    }}'s screen</span>
                 </div>
               </div>
-              
+
               <div class="absolute bottom-4 left-4 bg-black/70 rounded px-3 py-1">
                 <span class="text-white text-sm font-medium">{{ mainScreenShare.user.username }}</span>
                 <span class="text-white/70 text-xs ml-1">is sharing their screen</span>
               </div>
             </div>
-            
+
             <!-- Other Participants Strip -->
             <div class="flex gap-2 max-h-24">
-              <div 
-                v-for="participant in otherParticipants" 
-                :key="participant.id"
-                @click="selectMainView(participant)"
-                class="w-32 h-20 bg-main-800 rounded cursor-pointer hover:ring-2 hover:ring-primary transition-all relative overflow-hidden"
+              <div
+                  v-for="participant in otherParticipants"
+                  :key="participant.id"
+                  class="w-32 h-20 bg-main-800 rounded cursor-pointer hover:ring-2 hover:ring-primary transition-all relative overflow-hidden"
+                  @click="selectMainView(participant)"
               >
-                <video 
-                  v-if="participant.videoStream"
-                  :srcObject="participant.videoStream"
-                  autoplay
-                  playsinline
-                  muted
-                  class="w-full h-full object-cover"
-                  @loadedmetadata="(e: Event) => (e.target as HTMLVideoElement)?.play()"
+                <video
+                    v-if="participant.videoStream"
+                    :srcObject="participant.videoStream"
+                    autoplay
+                    class="w-full h-full object-cover"
+                    muted
+                    playsinline
+                    @loadedmetadata="onVideoLoadedMetadata"
                 />
                 <div v-else class="w-full h-full flex items-center justify-center">
-                  <UserAvatar :user-id="participant.id" :username="participant.username" :avatar-url="participant.avatar" :size="32" />
+                  <UserAvatar :avatar-url="participant.avatar" :size="32"
+                              :user-id="participant.id" :username="participant.username"/>
                 </div>
                 <div class="absolute bottom-1 left-1 bg-black/70 rounded px-1">
                   <span class="text-white text-xs">{{ participant.username }}</span>
@@ -109,195 +113,199 @@
           <!-- Grid View (when no main screen share) -->
           <div v-else class="h-full p-2">
             <div :class="gridLayoutClasses">
-              <div 
-                v-for="participant in participants" 
-                :key="participant.id"
-                @click="selectMainView(participant)"
-                :class="participantClasses"
-                class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+              <div
+                  v-for="participant in participants"
+                  :key="participant.id"
+                  :class="participantClasses"
+                  class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                  @click="selectMainView(participant)"
               >
-              <!-- Media tile -->
-              <div class="w-full h-full group">
-                <template v-if="participant.hasScreenShare">
-                  <video
-                    :ref="(el: any) => setParticipantVideoRef(el, participant.id)"
+                <!-- Media tile -->
+                <div class="w-full h-full group">
+                  <template v-if="participant.hasScreenShare">
+                    <video
+                    :ref="createVideoRefForUser(participant.id)"
                     autoplay
-                    playsinline
-                    muted
                     class="w-full h-full object-cover"
-                  />
-                </template>
-                <template v-else-if="participant.videoStream">
-                  <video 
-                    :srcObject="participant.videoStream"
-                    autoplay
-                    playsinline
                     muted
-                    class="w-full h-full object-cover"
-                    @loadedmetadata="(e: Event) => (e.target as HTMLVideoElement)?.play()"
+                    playsinline
                   />
-                </template>
-                <template v-else>
-                  <div class="w-full h-full flex items-center justify-center relative">
-                    <UserAvatar :user-id="participant.id" :username="participant.username" :avatar-url="participant.avatar" :size="64" />
-                    <!-- Screen share loading indicator -->
-                    <div v-if="participant.isScreenShareLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                      <svg class="animate-spin h-6 w-6 text-white mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                      </svg>
-                      <span class="text-white text-xs">Starting screen share...</span>
+                  </template>
+                  <template v-else-if="participant.videoStream">
+                    <video
+                        :srcObject="participant.videoStream"
+                        autoplay
+                        class="w-full h-full object-cover"
+                        muted
+                        playsinline
+                        @loadedmetadata="onVideoLoadedMetadata"
+                    />
+                  </template>
+                  <template v-else>
+                    <div class="w-full h-full flex items-center justify-center relative">
+                      <UserAvatar :avatar-url="participant.avatar" :size="64"
+                                  :user-id="participant.id" :username="participant.username"/>
+                      <!-- Screen share loading indicator -->
+                      <div v-if="participant.isScreenShareLoading"
+                           class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                        <svg class="animate-spin h-6 w-6 text-white mb-2" fill="none" viewBox="0 0 24 24"
+                             xmlns="http://www.w3.org/2000/svg">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                  stroke-width="4"></circle>
+                          <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor"></path>
+                        </svg>
+                        <span class="text-white text-xs">Starting screen share...</span>
+                      </div>
                     </div>
-                  </div>
-                </template>
-              </div>
-              
-              <!-- User Info Overlay (hidden until hover when media present) -->
-              <div 
-                class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 transition-opacity"
-                :class="{
+                  </template>
+                </div>
+
+                <!-- User Info Overlay (hidden until hover when media present) -->
+                <div
+                    :class="{
                   'opacity-0 group-hover:opacity-100': participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading,
                   'opacity-100': !(participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading)
                 }"
-              >
-                <div class="flex items-center gap-2">
+                    class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 transition-opacity"
+                >
+                  <div class="flex items-center gap-2">
                   <span class="text-white text-sm font-medium">
                     {{ participant.username }}
                     <span v-if="participant.isCurrentUser" class="text-green-400 font-bold">(You)</span>
                   </span>
-                  <MicOff v-if="participant.isMuted" class="w-3 h-3 text-red-400" />
-                  <VolumeX v-else-if="participant.isDeafened" class="w-3 h-3 text-red-400" />
+                    <div class="flex items-center gap-1">
+                      <!-- Screen sharing icon (leftmost) -->
+                      <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" title="Screen Sharing"/>
+                      <!-- Prioritize deafen over mute -->
+                      <VolumeX v-if="participant.isDeafened" class="w-3 h-3 text-red-400" title="Deafened"/>
+                      <MicOff v-else-if="participant.isMuted" class="w-3 h-3 text-red-400" title="Muted"/>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <!-- Screen Share Indicator -->
-              <div v-if="participant.isScreenSharing" class="absolute top-2 right-2 bg-blue-600 rounded px-2 py-1">
-                <Monitor class="w-4 h-4 text-white" />
-              </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Auto-hiding Voice Controls -->
-      <div 
-        class="voice-controls absolute bottom-0 left-0 right-0 transition-transform duration-300"
-        :class="{
+        <!-- Auto-hiding Voice Controls -->
+        <div
+            :class="{
           'translate-y-full': !showControls && !controlsLocked,
           'translate-y-0': showControls || controlsLocked
         }"
-        @mouseenter="handleControlsMouseEnter"
-        @mouseleave="handleControlsMouseLeave"
-      >
-        <div class="p-6">
-          <div class="flex items-center justify-center gap-6">
-            <!-- Primary Controls Group (Mic + Deafen) -->
-            <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
-              <!-- Mute Button -->
-              <button
-                @click="toggleMute"
-                :class="[
+            class="voice-controls absolute bottom-0 left-0 right-0 transition-transform duration-300"
+            @mouseenter="handleControlsMouseEnter"
+            @mouseleave="handleControlsMouseLeave"
+        >
+          <div class="p-6">
+            <div class="flex items-center justify-center gap-6">
+              <!-- Primary Controls Group (Mic + Deafen) -->
+              <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <!-- Mute Button -->
+                <button
+                    :class="[
                   'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                   appStore.selfMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
                 ]"
-                :title="appStore.selfMuted ? 'Unmute' : 'Mute'"
-              >
-                <Mic v-if="!appStore.selfMuted" class="w-5 h-5 text-white" />
-                <MicOff v-else class="w-5 h-5 text-white" />
-              </button>
+                    :title="appStore.selfMuted ? 'Unmute' : 'Mute'"
+                    @click="toggleMute"
+                >
+                  <Mic v-if="!appStore.selfMuted" class="w-5 h-5 text-white"/>
+                  <MicOff v-else class="w-5 h-5 text-white"/>
+                </button>
 
-              <!-- Deafen Button -->
-              <button
-                @click="toggleDeafen"
-                :class="[
+                <!-- Deafen Button -->
+                <button
+                    :class="[
                   'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                   appStore.selfDeafened ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
                 ]"
-                :title="appStore.selfDeafened ? 'Undeafen' : 'Deafen'"
-              >
-                <Volume2 v-if="!appStore.selfDeafened" class="w-5 h-5 text-white" />
-                <VolumeX v-else class="w-5 h-5 text-white" />
-              </button>
-            </div>
+                    :title="appStore.selfDeafened ? 'Undeafen' : 'Deafen'"
+                    @click="toggleDeafen"
+                >
+                  <Volume2 v-if="!appStore.selfDeafened" class="w-5 h-5 text-white"/>
+                  <VolumeX v-else class="w-5 h-5 text-white"/>
+                </button>
+              </div>
 
-            <!-- Camera + Screen Share Group -->
-            <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
-              <!-- Camera Button -->
-              <button
-                @click="toggleCamera"
-                :class="[
+              <!-- Camera + Screen Share Group -->
+              <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <!-- Camera Button -->
+                <button
+                    :class="[
                   'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                   isCameraOn ? 'bg-green-600 hover:bg-green-700' : 'bg-main-700 hover:bg-main-600'
                 ]"
-                :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
-              >
-                <Video v-if="isCameraOn" class="w-5 h-5 text-white" />
-                <VideoOff v-else class="w-5 h-5 text-white" />
-              </button>
+                    :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
+                    @click="toggleCamera"
+                >
+                  <Video v-if="isCameraOn" class="w-5 h-5 text-white"/>
+                  <VideoOff v-else class="w-5 h-5 text-white"/>
+                </button>
 
-              <!-- Screen Share Button -->
-              <button
-                @click="toggleScreenShare"
-                :class="[
+                <!-- Screen Share Button -->
+                <button
+                    :class="[
                   'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                   isScreenSharing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-main-700 hover:bg-main-600'
                 ]"
-                :title="isScreenSharing ? 'Stop screen share' : 'Share screen'"
-                :disabled="isScreenShareLoading"
-              >
-                <Monitor v-if="isScreenSharing" class="w-5 h-5 text-white" />
-                <MonitorSpeaker v-else class="w-5 h-5 text-white" />
-              </button>
-            </div>
+                    :disabled="isScreenShareLoading"
+                    :title="isScreenSharing ? 'Stop screen share' : 'Share screen'"
+                    @click="toggleScreenShare"
+                >
+                  <Monitor v-if="isScreenSharing" class="w-5 h-5 text-white"/>
+                  <MonitorSpeaker v-else class="w-5 h-5 text-white"/>
+                </button>
+              </div>
 
-            <!-- Disconnect Button (Individual) -->
-            <div class="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
-              <button
-                @click="disconnectVoice"
-                class="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-colors"
-                title="Disconnect"
-              >
-                <PhoneOff class="w-5 h-5 text-white" />
-              </button>
-            </div>
+              <!-- Disconnect Button (Individual) -->
+              <div class="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <button
+                    class="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-colors"
+                    title="Disconnect"
+                    @click="disconnectVoice"
+                >
+                  <PhoneOff class="w-5 h-5 text-white"/>
+                </button>
+              </div>
 
-            <!-- Lock Controls Button -->
-            <div class="bg-black/60 backdrop-blur-sm rounded-full px-3 py-2 ml-4">
-              <button
-                @click="controlsLocked = !controlsLocked"
-                :class="[
+              <!-- Lock Controls Button -->
+              <div class="bg-black/60 backdrop-blur-sm rounded-full px-3 py-2 ml-4">
+                <button
+                    :class="[
                   'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
                   controlsLocked ? 'bg-primary' : 'hover:bg-main-700'
                 ]"
-                :title="controlsLocked ? 'Unlock controls' : 'Lock controls visible'"
-              >
-                <Lock v-if="controlsLocked" class="w-4 h-4 text-white" />
-                <Unlock v-else class="w-4 h-4 text-text-muted" />
-              </button>
+                    :title="controlsLocked ? 'Unlock controls' : 'Lock controls visible'"
+                    @click="controlsLocked = !controlsLocked"
+                >
+                  <Lock v-if="controlsLocked" class="w-4 h-4 text-white"/>
+                  <Unlock v-else class="w-4 h-4 text-text-muted"/>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Voice Connection Details Modal -->
-    <VoiceConnectionDetails
-      :is-open="showVoiceSettings"
-      @close="showVoiceSettings = false"
-    />
+      <!-- Voice Connection Details Modal -->
+      <VoiceConnectionDetails
+          :is-open="showVoiceSettings"
+          @close="showVoiceSettings = false"
+      />
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue';
+<script lang="ts" setup>
+import {computed, onMounted, onUnmounted, ref, watch, type ComponentPublicInstance} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {livekitService} from '@/services/livekitService';
 import {webrtcService} from '@/services/webrtcService';
 import {signalRService} from '@/services/signalrService';
-import { Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication } from 'livekit-client';
+import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
 import {
   Lock,
   Mic,
@@ -337,7 +345,7 @@ interface VoiceParticipant {
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
-const { addToast } = useToast();
+const {addToast} = useToast();
 
 // Props from route params
 const channelId = computed(() => parseInt(route.params.channelId as string));
@@ -384,13 +392,19 @@ const setParticipantVideoRef = (el: HTMLVideoElement | null, userId: number) => 
     // Attach if track already available
     const track = screenShareTracks.value.get(userId);
     if (track) {
-      try { (track as any).attach?.(el); } catch { /* ignore */ }
+      try {
+        (track as any).attach?.(el);
+      } catch { /* ignore */
+      }
     }
   } else {
     const existing = map.get(userId);
     if (existing) {
       const track = screenShareTracks.value.get(userId);
-      try { (track as any)?.detach?.(existing); } catch {}
+      try {
+        (track as any)?.detach?.(existing);
+      } catch {
+      }
       map.delete(userId);
     }
   }
@@ -405,9 +419,23 @@ const setMainVideoRef = (el: HTMLVideoElement | null) => {
   if (el && current && current.id) {
     const track = screenShareTracks.value.get(current.id);
     if (track) {
-      try { (track as any).attach?.(el); } catch { /* ignore */ }
+      try {
+        (track as any).attach?.(el);
+      } catch { /* ignore */
+      }
     }
   }
+};
+
+// Helpers to satisfy Vue's VNodeRef function signature (el, refs)
+type VNodeRefFunction = (el: Element | ComponentPublicInstance | null, refs?: Record<string, any>) => void;
+const createVideoRefForUser = (userId: number): VNodeRefFunction => {
+  return (el) => {
+    setParticipantVideoRef(el as HTMLVideoElement | null, userId);
+  };
+};
+const mainVideoVNodeRef: VNodeRefFunction = (el) => {
+  setMainVideoRef(el as HTMLVideoElement | null);
 };
 
 // Map LiveKit identity -> app userId
@@ -431,13 +459,12 @@ const resolveUserIdForIdentity = (identity: string): number | null => {
 // Participants from SignalR voice channel data
 const participants = computed(() => {
   if (!channelId.value) return [];
-  
+
   const users = appStore.voiceChannelUsers.get(channelId.value) || [];
   const currentUserId = appStore.currentUserId;
   const screenShareUsers = appStore.screenShares.get(channelId.value) || new Set();
-  
-  
-  
+
+
   // Map users to participants
   return users.map(user => ({
     id: user.id,
@@ -504,11 +531,11 @@ const gridLayoutClasses = computed(() => {
   const base = 'h-full grid content-center justify-items-center gap-2';
   const count = participants.value.length;
 
-  if (count <= 1)  return `${base} grid-cols-1`;
-  if (count <= 2)  return `${base} grid-cols-2`;
-  if (count <= 4)  return `${base} grid-cols-2`;
-  if (count <= 6)  return `${base} grid-cols-3`;
-  if (count <= 9)  return `${base} grid-cols-3`;
+  if (count <= 1) return `${base} grid-cols-1`;
+  if (count <= 2) return `${base} grid-cols-2`;
+  if (count <= 4) return `${base} grid-cols-2`;
+  if (count <= 6) return `${base} grid-cols-3`;
+  if (count <= 9) return `${base} grid-cols-3`;
   if (count <= 12) return `${base} grid-cols-4`;
   return `${base} grid-cols-4`;
 });
@@ -542,76 +569,76 @@ const toggleCamera = async () => {
   // Ensure LiveKit connection (try fallback connection if needed)
   const isConnected = await ensureLiveKitConnection();
   if (!isConnected) {
-    addToast({ message: 'Failed to connect to voice channel for camera', type: 'danger' });
+    addToast({message: 'Failed to connect to voice channel for camera', type: 'danger'});
     return;
   }
-  
+
   try {
     const localParticipant = livekitService.getLocalParticipant();
     if (!localParticipant) return;
-    
+
     const isCameraEnabled = localParticipant.isCameraEnabled;
-    
+
     // Toggle camera
     await localParticipant.setCameraEnabled(!isCameraEnabled);
-    
+
     isCameraOn.value = !isCameraEnabled;
-    addToast({ 
-      message: isCameraOn.value ? 'Camera turned on' : 'Camera turned off', 
-      type: 'success' 
+    addToast({
+      message: isCameraOn.value ? 'Camera turned on' : 'Camera turned off',
+      type: 'success'
     });
   } catch (error: any) {
     console.error('Camera toggle error:', error);
-    addToast({ 
-      message: error.message || 'Failed to toggle camera', 
-      type: 'danger' 
+    addToast({
+      message: error.message || 'Failed to toggle camera',
+      type: 'danger'
     });
   }
 };
 
 const toggleScreenShare = async () => {
   if (isScreenShareLoading.value) return;
-  
+
   // Ensure LiveKit connection (try fallback connection if needed)
   const isConnected = await ensureLiveKitConnection();
   if (!isConnected) {
-    addToast({ message: 'Failed to connect to voice channel for screen sharing', type: 'danger' });
+    addToast({message: 'Failed to connect to voice channel for screen sharing', type: 'danger'});
     return;
   }
-  
+
   isScreenShareLoading.value = true;
-  
+
   try {
     if (isScreenSharing.value) {
-      
-      
+
+
       // 1. Stop screen share in LiveKit
       await livekitService.stopScreenShare();
-      
-      
+
+
       // 2. Clear local screen share track immediately
       const currentUserId = appStore.currentUserId;
       if (currentUserId) {
         const nextTrackMap = new Map(screenShareTracks.value);
         nextTrackMap.delete(currentUserId);
         screenShareTracks.value = nextTrackMap;
-        
+
       }
-      
+
       // 3. Notify via SignalR that we stopped screen sharing
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
-      
-      
+
+
       // 4. Force update streams to ensure clean state
       setTimeout(() => {
         updateLiveKitStreams();
-        
+
       }, 200);
-      
-      addToast({ message: 'Screen sharing stopped', type: 'success' });
+
+      addToast({message: 'Screen sharing stopped', type: 'success'});
     } else {
-      
-      
+
+
       // 1. Start screen share in LiveKit
       const qualitySettings = {
         width: 1920,
@@ -619,29 +646,29 @@ const toggleScreenShare = async () => {
         frameRate: 30,
         includeAudio: false
       };
-      
+
       await livekitService.startScreenShare(qualitySettings);
-      
-      
+
+
       // 3. Force update LiveKit streams to ensure own stream is captured
       setTimeout(() => {
         updateLiveKitStreams();
-        
+
       }, 500);
-      
+
       // 2. Notify via SignalR that we started screen sharing
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
-      
-      
-      addToast({ message: 'Screen sharing started', type: 'success' });
+
+
+      addToast({message: 'Screen sharing started', type: 'success'});
     }
   } catch (error: any) {
     console.error('Screen share error:', error);
-    addToast({ message: error.message || 'Failed to toggle screen sharing', type: 'danger' });
+    addToast({message: error.message || 'Failed to toggle screen sharing', type: 'danger'});
     // isScreenSharing is derived from store; no manual override
   } finally {
     isScreenShareLoading.value = false;
-    
+
   }
 };
 
@@ -649,7 +676,7 @@ const disconnectVoice = async () => {
   if (appStore.currentVoiceChannelId) {
     const serverId = route.params.serverId;
     await appStore.leaveVoiceChannel(appStore.currentVoiceChannelId);
-    addToast({ message: 'Disconnected from voice channel', type: 'success' });
+    addToast({message: 'Disconnected from voice channel', type: 'success'});
 
     setTimeout(() => {
       router.push(`/servers/${serverId}`);
@@ -679,7 +706,7 @@ let hideControlsTimer: number;
 
 const resetHideTimer = () => {
   if (controlsLocked.value) return;
-  
+
   clearTimeout(hideControlsTimer);
   showControls.value = true;
   hideControlsTimer = setTimeout(() => {
@@ -697,13 +724,13 @@ const currentMouseY = ref(0);
 // Check if mouse is currently within VoiceChannelView
 const isMouseInVoiceView = () => {
   if (!voiceChannelViewRef.value) return false;
-  
+
   const rect = voiceChannelViewRef.value.getBoundingClientRect();
   return (
-    currentMouseX.value >= rect.left &&
-    currentMouseX.value <= rect.right &&
-    currentMouseY.value >= rect.top &&
-    currentMouseY.value <= rect.bottom
+      currentMouseX.value >= rect.left &&
+      currentMouseX.value <= rect.right &&
+      currentMouseY.value >= rect.top &&
+      currentMouseY.value <= rect.bottom
   );
 };
 
@@ -711,7 +738,7 @@ const handleMouseMove = (event: MouseEvent) => {
   // Update current mouse position
   currentMouseX.value = event.clientX;
   currentMouseY.value = event.clientY;
-  
+
   // Check if mouse is within the VoiceChannelView bounds
   if (isMouseInVoiceView()) {
     resetHideTimer();
@@ -739,7 +766,7 @@ const handleControlsMouseLeave = () => {
 const ensureLiveKitConnection = async (): Promise<boolean> => {
   // Check if already connected
   if (livekitService.isRoomConnected()) {
-    
+
     return true;
   }
 
@@ -750,19 +777,19 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
   }
 
   try {
-    
+
 
     // Use numeric user id as LiveKit identity so mapping works across clients
     const identity = String(appStore.currentUserId ?? `user_${Date.now()}`);
     await livekitService.connectToRoom(channelId.value, identity);
-    
-    
+
+
     // Force a stream update after connecting
     setTimeout(() => {
       updateLiveKitStreams();
-      
+
     }, 1000);
-    
+
     return true;
   } catch (error) {
     console.error('❌ Failed to connect to LiveKit:', error);
@@ -773,12 +800,12 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
 // Keep participants' media in sync with LiveKit events
 const updateLiveKitStreams = () => {
   if (!livekitService.isRoomConnected()) {
-    
+
     return;
   }
 
   const liveKitParticipants = livekitService.getRemoteParticipants();
-  
+
 
   // Build new maps to trigger reactivity
   const newScreenMap = new Map<number, RemoteTrack>();
@@ -788,23 +815,28 @@ const updateLiveKitStreams = () => {
     p.trackPublications.forEach(pub => {
       const uid = resolveUserIdForIdentity(p.identity);
       if (!uid) {
-        
+
         return;
       }
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
         newScreenMap.set(uid, pub.track as RemoteTrack);
-        
+
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
         screenShareLoading.value = nextLoading;
-          
+
         // Attach to any existing video element
         const el = screenVideoRefs.value.get(uid);
-        if (el) { try { (pub.track as any).attach?.(el); } catch {} }
+        if (el) {
+          try {
+            (pub.track as any).attach?.(el);
+          } catch {
+          }
+        }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        
+
       }
     });
   });
@@ -817,93 +849,97 @@ const updateLiveKitStreams = () => {
       if (!uid) return;
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
         newScreenMap.set(uid, pub.track as any);
-    
+
         const nextLoading = new Set(screenShareLoading.value);
         nextLoading.delete(uid);
         screenShareLoading.value = nextLoading;
-        
+
         const el = screenVideoRefs.value.get(uid);
-        if (el) { try { (pub.track as any).attach?.(el); } catch {} }
+        if (el) {
+          try {
+            (pub.track as any).attach?.(el);
+          } catch {
+          }
+        }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        
+
       }
     });
   }
 
-  const prevScreenShareCount = screenShareTracks.value.size;
-  const newScreenShareCount = newScreenMap.size;
-  
   screenShareTracks.value = newScreenMap;
   cameraStreams.value = newCamMap;
-  
-  
+
+
 };
 
 // React to SignalR signals that someone started/stopped screen sharing
 watch(
-  () => Array.from(appStore.screenShares.get(channelId.value || -1) || new Set<number>()).join(','),
-  (_str) => {
-    const current = appStore.screenShares.get(channelId.value || -1) || new Set<number>();
+    () => Array.from(appStore.screenShares.get(channelId.value || -1) || new Set<number>()).join(','),
+    (_str) => {
+      const current = appStore.screenShares.get(channelId.value || -1) || new Set<number>();
 
-    
 
-    // Ensure we are connected to LiveKit to receive screen shares
-    if (current.size > 0 && !livekitService.isRoomConnected()) {
-      ensureLiveKitConnection().then(() => {
-        // After connecting, update streams soon after join
-        setTimeout(() => updateLiveKitStreams(), 500);
-      }).catch(() => {
-        
-      });
-    } else {
-      // Force update streams when screen sharing state changes
-      updateLiveKitStreams();
-    }
+      // Ensure we are connected to LiveKit to receive screen shares
+      if (current.size > 0 && !livekitService.isRoomConnected()) {
+        ensureLiveKitConnection().then(() => {
+          // After connecting, update streams soon after join
+          setTimeout(() => updateLiveKitStreams(), 500);
+        }).catch(() => {
 
-    // Auto-select the first screen sharer for main view (this ensures everyone sees the screen share)
-    if (current.size > 0) {
-      const firstSharerId = Array.from(current)[0];
-      const sharerParticipant = participants.value.find(p => p.id === firstSharerId);
-      if (sharerParticipant && (!selectedParticipant.value || !selectedParticipant.value.isScreenSharing)) {
-        
-        selectedParticipant.value = sharerParticipant;
+        });
+      } else {
+        // Force update streams when screen sharing state changes
+        updateLiveKitStreams();
       }
-    }
 
-    // If no one is sharing anymore, reset selection and clear all states
-    if (current.size === 0) {
-      
-      
-      // Reset selected participant if they were only selected for screen sharing
-      if (selectedParticipant.value && !selectedParticipant.value.videoStream) {
-        
+      // Auto-select the first screen sharer for main view (this ensures everyone sees the screen share)
+      if (current.size > 0) {
+        const firstSharerId = Array.from(current)[0];
+        const sharerParticipant = participants.value.find(p => p.id === firstSharerId);
+        if (sharerParticipant && (!selectedParticipant.value || !selectedParticipant.value.isScreenSharing)) {
+
+          selectedParticipant.value = sharerParticipant;
+        }
+      }
+
+      // If no one is sharing anymore, reset selection and clear all states
+      if (current.size === 0) {
+
+
+        // Reset selected participant if they were only selected for screen sharing
+        if (selectedParticipant.value && !selectedParticipant.value.videoStream) {
+
+          selectedParticipant.value = null;
+        }
+
+        // Clear any lingering loading states
+        screenShareLoading.value = new Set();
+
+
+        // Clear all screen share tracks and detach any attached elements
+        screenVideoRefs.value.forEach((el, uid) => {
+          const t = screenShareTracks.value.get(uid);
+          try {
+            (t as any)?.detach?.(el);
+          } catch {
+          }
+        });
+        screenShareTracks.value = new Map();
+
+      }
+
+      // If current selected participant is no longer screen sharing, deselect them
+      if (selectedParticipant.value &&
+          !current.has(selectedParticipant.value.id) &&
+          !selectedParticipant.value.videoStream) {
+
         selectedParticipant.value = null;
       }
-      
-      // Clear any lingering loading states
-      screenShareLoading.value = new Set();
-      
-      
-      // Clear all screen share tracks and detach any attached elements
-      screenVideoRefs.value.forEach((el, uid) => {
-        const t = screenShareTracks.value.get(uid);
-        try { (t as any)?.detach?.(el); } catch {}
-      });
-      screenShareTracks.value = new Map();
-      
-    }
-    
-    // If current selected participant is no longer screen sharing, deselect them
-    if (selectedParticipant.value && 
-        !current.has(selectedParticipant.value.id) && 
-        !selectedParticipant.value.videoStream) {
-      
-      selectedParticipant.value = null;
-    }
-  },
-  { immediate: true }
+    },
+    {immediate: true}
 );
 
 // Refresh mapped streams when participants change
@@ -912,30 +948,30 @@ watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStre
 onMounted(async () => {
   // Check if user is actually in the voice channel
   if (!appStore.currentVoiceChannelId || appStore.currentVoiceChannelId !== channelId.value) {
-    
+
     router.go(-1);
     return;
   }
 
   // Start auto-hide timer
   resetHideTimer();
-  
+
   // Listen for mouse movement
   document.addEventListener('mousemove', handleMouseMove);
-  
+
   // Update screen sharing and camera state from LiveKit if connected
   if (livekitService.isRoomConnected()) {
     // screen share state is derived from store
-    
+
     const localParticipant = livekitService.getLocalParticipant();
     if (localParticipant) {
       isCameraOn.value = localParticipant.isCameraEnabled;
     }
-    
+
     // Update streams
     updateLiveKitStreams();
   }
-  
+
   // LiveKit events: update media maps in real time
   const onTrackSub = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     const uid = resolveUserIdForIdentity(participant.identity);
@@ -950,7 +986,12 @@ onMounted(async () => {
       screenShareLoading.value = nextLoading;
       // Attach if element exists
       const el = screenVideoRefs.value.get(uid);
-      if (el) { try { (track as any).attach?.(el); } catch {} }
+      if (el) {
+        try {
+          (track as any).attach?.(el);
+        } catch {
+        }
+      }
     } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source !== Track.Source.ScreenShare) {
       const next = new Map(cameraStreams.value);
       next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
@@ -963,7 +1004,12 @@ onMounted(async () => {
     if (!uid) return;
     if (publication.source === Track.Source.ScreenShare && publication.kind === 'video') {
       const el = screenVideoRefs.value.get(uid);
-      if (el) { try { (_track as any).detach?.(el); } catch {} }
+      if (el) {
+        try {
+          (_track as any).detach?.(el);
+        } catch {
+        }
+      }
       const next = new Map(screenShareTracks.value);
       next.delete(uid);
       screenShareTracks.value = next;
@@ -978,10 +1024,22 @@ onMounted(async () => {
     const uid = resolveUserIdForIdentity(participant.identity);
     if (!uid) return;
     const el = screenVideoRefs.value.get(uid);
-    if (el) { const t = screenShareTracks.value.get(uid); try { (t as any)?.detach?.(el); } catch {} }
-    const nextS = new Map(screenShareTracks.value); nextS.delete(uid); screenShareTracks.value = nextS;
-    const nextC = new Map(cameraStreams.value); nextC.delete(uid); cameraStreams.value = nextC;
-    const nextL = new Set(screenShareLoading.value); nextL.delete(uid); screenShareLoading.value = nextL;
+    if (el) {
+      const t = screenShareTracks.value.get(uid);
+      try {
+        (t as any)?.detach?.(el);
+      } catch {
+      }
+    }
+    const nextS = new Map(screenShareTracks.value);
+    nextS.delete(uid);
+    screenShareTracks.value = nextS;
+    const nextC = new Map(cameraStreams.value);
+    nextC.delete(uid);
+    cameraStreams.value = nextC;
+    const nextL = new Set(screenShareLoading.value);
+    nextL.delete(uid);
+    screenShareLoading.value = nextL;
   };
 
   livekitService.onTrackSubscribed(onTrackSub);
@@ -990,7 +1048,7 @@ onMounted(async () => {
 
   // React when local user stops screen share via browser UI
   livekitService.onLocalScreenShareStopped(async () => {
-    
+
     // derived via store
     // Remove local screen share track and loading
     const uid = appStore.currentUserId as number | null;
@@ -1006,7 +1064,7 @@ onMounted(async () => {
     try {
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
     } catch (e) {
-      
+
     }
     // Refresh streams and selection state
     setTimeout(() => updateLiveKitStreams(), 100);
@@ -1023,7 +1081,10 @@ onMounted(async () => {
     try {
       // Detach any previously attached track
       screenShareTracks.value.forEach((t) => {
-        try { (t as any).detach?.(el); } catch {}
+        try {
+          (t as any).detach?.(el);
+        } catch {
+        }
       });
       if (m) {
         const t = screenShareTracks.value.get(m.id);
@@ -1031,9 +1092,10 @@ onMounted(async () => {
           (t as any).attach?.(el);
         }
       }
-    } catch {}
+    } catch {
+    }
   });
-  
+
   // Auto-focus on user if specified
   autoFocusUser();
 });
@@ -1042,6 +1104,16 @@ onUnmounted(() => {
   clearTimeout(hideControlsTimer);
   document.removeEventListener('mousemove', handleMouseMove);
 });
+
+// Ensure videos start playing after metadata loads (avoid TS in template)
+const onVideoLoadedMetadata = (e: Event) => {
+  const el = e.target as HTMLVideoElement | null;
+  try {
+    el?.play?.();
+  } catch {
+  }
+};
+
 </script>
 
 <style scoped>

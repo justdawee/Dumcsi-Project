@@ -257,9 +257,16 @@ class WebRtcService {
             const peer = this.peers.get(fromConnectionId);
             if (!peer) return;
 
-            // Avoid applying an answer when already in a stable state (duplicate/late answers)
+            // Guard against invalid state for applying an answer
             const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
-            if (pc && pc.signalingState === 'stable') return;
+            if (pc) {
+                const state = pc.signalingState;
+                // Only accept an answer when we have a local offer outstanding
+                if (state !== 'have-local-offer' && state !== 'have-local-pranswer') {
+                    // Ignore duplicate/late answers or glare scenarios
+                    return;
+                }
+            }
 
             // Signal the answer to simple-peer
             peer.signal(answer);

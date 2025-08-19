@@ -67,12 +67,24 @@
                       {{ user.username }}
                     </button>
                     <div class="ml-auto flex items-center gap-1">
+                      <!-- Mute icon (leftmost) -->
+                      <MicOff 
+                        v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
+                        class="w-3 h-3 text-red-400" title="Muted" />
+                      
+                      <!-- Deafen icon (center) -->
                       <VolumeX 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
                         class="w-3 h-3 text-red-400" title="Deafened" />
-                      <MicOff 
-                        v-else-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
-                        class="w-3 h-3 text-red-400" title="Muted" />
+                      
+                      <!-- LIVE icon (rightmost) -->
+                      <span 
+                        v-if="appStore.screenShares.get(channel.id)?.has(user.id)"
+                        class="px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded uppercase tracking-wide"
+                        title="Screen Sharing"
+                      >
+                        LIVE
+                      </span>
                     </div>
                   </li>
                 </ul>
@@ -128,12 +140,24 @@
                       {{ user.username }}
                     </button>
                     <div class="ml-auto flex items-center gap-1">
+                      <!-- Mute icon (leftmost) -->
+                      <MicOff 
+                        v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
+                        class="w-3 h-3 text-red-400" title="Muted" />
+                      
+                      <!-- Deafen icon (center) -->
                       <VolumeX 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
                         class="w-3 h-3 text-red-400" title="Deafened" />
-                      <MicOff 
-                        v-else-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
-                        class="w-3 h-3 text-red-400" title="Muted" />
+                      
+                      <!-- LIVE icon (rightmost) -->
+                      <span 
+                        v-if="appStore.screenShares.get(channel.id)?.has(user.id)"
+                        class="px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded uppercase tracking-wide"
+                        title="Screen Sharing"
+                      >
+                        LIVE
+                      </span>
                     </div>
                   </li>
                 </ul>
