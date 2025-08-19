@@ -25,6 +25,7 @@ export class SignalRService {
     reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectDelay = 2000;
+    private connectingWaiters: Array<(v: void) => void> = [];
 
     constructor() {
         // Handle page unload to properly cleanup
@@ -107,10 +108,33 @@ export class SignalRService {
             webrtcService.setSignalRService(this);
 
             this.reconnectAttempts = 0;
+
+            // notify any waiters
+            this.connectingWaiters.splice(0).forEach(w => { try { w(); } catch {} });
         } catch (error) {
             console.error('SignalR: Failed to start connection', error);
             this.handleConnectionClosed();
         }
+    }
+
+    private async ensureConnected(timeoutMs: number = 8000): Promise<void> {
+        const authStore = useAuthStore();
+        if (!authStore.isAuthenticated) return;
+        const state = this.connection?.state;
+        if (state === signalR.HubConnectionState.Connected) return;
+
+        if (!this.connection || state === signalR.HubConnectionState.Disconnected) {
+            await this.start();
+            if (this.connection?.state === signalR.HubConnectionState.Connected) return;
+        }
+
+        // Wait until connected or timeout
+        await new Promise<void>((resolve, reject) => {
+            const t = setTimeout(() => {
+                reject(new Error('SignalR connect timeout'));
+            }, timeoutMs);
+            this.connectingWaiters.push(() => { clearTimeout(t); resolve(); });
+        }).catch(() => {});
     }
 
     private setupEventHandlers(): void {
@@ -559,86 +583,84 @@ export class SignalRService {
     }
 
     async joinServer(serverId: EntityId): Promise<void> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                await this.connection.invoke('JoinServer', serverId.toString());
-            } catch (error) {
-                console.error('Failed to join server:', error);
-            }
+        await this.ensureConnected();
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
+        try {
+            await this.connection.invoke('JoinServer', serverId.toString());
+        } catch (error) {
+            console.error('Failed to join server:', error);
         }
     }
 
     async leaveServer(serverId: EntityId): Promise<void> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                await this.connection.invoke('LeaveServer', serverId.toString());
-            } catch (error) {
-                console.error('Failed to leave server:', error);
-            }
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
+        try {
+            await this.connection.invoke('LeaveServer', serverId.toString());
+        } catch (error) {
+            console.error('Failed to leave server:', error);
         }
     }
 
     async joinChannel(channelId: EntityId): Promise<EntityId[]> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                const result = await this.connection.invoke<{
-                    typingUserIds: EntityId[],
-                    onlineUserIds: EntityId[]
-                }>('JoinChannel', channelId.toString());
+        await this.ensureConnected();
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return [];
+        try {
+            const result = await this.connection.invoke<{
+                typingUserIds: EntityId[],
+                onlineUserIds: EntityId[]
+            }>('JoinChannel', channelId.toString());
 
-                if (result) {
-                    const appStore = useAppStore();
+            if (result) {
+                const appStore = useAppStore();
 
-                    // Update typing users
-                    appStore.setTypingUsers(channelId, result.typingUserIds || []);
+                // Update typing users
+                appStore.setTypingUsers(channelId, result.typingUserIds || []);
 
-                    // Update online users
-                    const updatedOnlineUsers = new Set(appStore.onlineUsers);
-                    (result.onlineUserIds || []).forEach(id => updatedOnlineUsers.add(id));
-                    appStore.onlineUsers = updatedOnlineUsers;
+                // Update online users
+                const updatedOnlineUsers = new Set(appStore.onlineUsers);
+                (result.onlineUserIds || []).forEach(id => updatedOnlineUsers.add(id));
+                appStore.onlineUsers = updatedOnlineUsers;
 
-                    // Update member online status
-                    appStore.members.forEach(member => {
-                        member.isOnline = appStore.onlineUsers.has(member.userId);
-                    });
+                // Update member online status
+                appStore.members.forEach(member => {
+                    member.isOnline = appStore.onlineUsers.has(member.userId);
+                });
 
-                    // Ensure self is online
-                    const authStore = useAuthStore();
-                    if (authStore.user?.id) {
-                        appStore.onlineUsers.add(authStore.user.id);
-                        const selfMember = appStore.members.find(m => m.userId === authStore.user?.id);
-                        if (selfMember) {
-                            selfMember.isOnline = true;
-                        }
+                // Ensure self is online
+                const authStore = useAuthStore();
+                if (authStore.user?.id) {
+                    appStore.onlineUsers.add(authStore.user.id);
+                    const selfMember = appStore.members.find(m => m.userId === authStore.user?.id);
+                    if (selfMember) {
+                        selfMember.isOnline = true;
                     }
-
-                    return result.typingUserIds || [];
                 }
-            } catch (error) {
-                console.error('Failed to join channel:', error);
+
+                return result.typingUserIds || [];
             }
+        } catch (error) {
+            console.error('Failed to join channel:', error);
         }
         return [];
     }
 
     async leaveChannel(channelId: EntityId): Promise<void> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                await this.connection.invoke('LeaveChannel', channelId.toString());
-            } catch (error) {
-                console.error('Failed to leave channel:', error);
-            }
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
+        try {
+            await this.connection.invoke('LeaveChannel', channelId.toString());
+        } catch (error) {
+            console.error('Failed to leave channel:', error);
         }
     }
 
     async joinVoiceChannel(serverId: EntityId, channelId: EntityId): Promise<void> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                await this.connection.invoke('JoinVoiceChannel', serverId.toString(), channelId.toString());
-            } catch (error) {
-                console.error('Failed to join voice channel:', error);
-                throw error;
-            }
+        await this.ensureConnected();
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
+        try {
+            await this.connection.invoke('JoinVoiceChannel', serverId.toString(), channelId.toString());
+        } catch (error) {
+            console.error('Failed to join voice channel:', error);
+            throw error;
         }
     }
 
@@ -656,12 +678,11 @@ export class SignalRService {
     }
 
     async leaveVoiceChannel(serverId: EntityId, channelId: EntityId): Promise<void> {
-        if (this.connection?.state === signalR.HubConnectionState.Connected) {
-            try {
-                await this.connection.invoke('LeaveVoiceChannel', serverId.toString(), channelId.toString());
-            } catch (error) {
-                console.error('Failed to leave voice channel:', error);
-            }
+        if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
+        try {
+            await this.connection.invoke('LeaveVoiceChannel', serverId.toString(), channelId.toString());
+        } catch (error) {
+            console.error('Failed to leave voice channel:', error);
         }
     }
 

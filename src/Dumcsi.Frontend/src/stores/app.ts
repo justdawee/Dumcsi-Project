@@ -365,7 +365,15 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const sendMessage = async (channelId: EntityId, payload: CreateMessageRequest) => {
-        return await messageService.sendMessage(channelId, payload);
+        const msg = await messageService.sendMessage(channelId, payload);
+        // Optimistically ensure the message appears for the sender
+        if (currentChannel.value?.id === channelId) {
+            const exists = messages.value.some(m => m.id === msg.id);
+            if (!exists) {
+                messages.value.push(msg);
+            }
+        }
+        return msg;
     };
 
     const updateMessage = async (channelId: EntityId, messageId: EntityId, payload: UpdateMessageRequest) => {
@@ -557,8 +565,12 @@ export const useAppStore = defineStore('app', () => {
 
     // SignalR Event Handlers
     const handleReceiveMessage = (message: MessageDto) => {
-        if (currentChannel.value?.id === message.channelId) {
+        if (currentChannel.value?.id !== message.channelId) return;
+        const idx = messages.value.findIndex(m => m.id === message.id);
+        if (idx === -1) {
             messages.value.push(message);
+        } else {
+            messages.value[idx] = message;
         }
     };
 

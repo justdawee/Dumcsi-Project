@@ -21,8 +21,8 @@
           <MessageContentParser
               v-if="!isEditing"
               :content="message.content"
-              :mentions="message.mentions"
-              :mention-role-ids="message.mentionRoleIds"
+              :mentioned-user-ids="message.mentions.map(user => user.id)"
+              :mentioned-role-ids="message.mentionRoleIds"
               class="text-text-secondary"
           />
           <MessageEdit

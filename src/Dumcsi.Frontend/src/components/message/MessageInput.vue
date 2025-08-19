@@ -182,7 +182,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, nextTick, onUnmounted, watch } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { formatFileSize } from '@/utils/helpers';
@@ -465,8 +465,47 @@ const handleSend = async () => {
   }
 };
 
+// Keyboard shortcut event handlers
+const handleToggleGifPicker = () => {
+  showGifPicker.value = !showGifPicker.value;
+};
+
+const handleTriggerFileUpload = () => {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+};
+
+const handleEditLastMessage = () => {
+  // Only allow editing if the input is empty
+  if (messageContent.value.trim() !== '') return;
+  
+  // Emit event to parent to handle last message editing
+  const event = new CustomEvent('requestEditLastMessage');
+  window.dispatchEvent(event);
+};
+
+onMounted(() => {
+  // Focus on input when mounted
+  nextTick(() => {
+    if (messageInput.value) {
+      messageInput.value.focus();
+    }
+  });
+
+  // Listen for keyboard shortcut events
+  window.addEventListener('toggleGifPicker', handleToggleGifPicker);
+  window.addEventListener('triggerFileUpload', handleTriggerFileUpload);
+  window.addEventListener('editLastMessage', handleEditLastMessage);
+});
+
 onUnmounted(() => {
   stopTypingIndicator();
+  
+  // Remove keyboard shortcut event listeners
+  window.removeEventListener('toggleGifPicker', handleToggleGifPicker);
+  window.removeEventListener('triggerFileUpload', handleTriggerFileUpload);
+  window.removeEventListener('editLastMessage', handleEditLastMessage);
 });
 
 defineExpose({

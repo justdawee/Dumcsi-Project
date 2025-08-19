@@ -1,15 +1,17 @@
 ﻿<template>
-  <span class="message-content">
+  <span class="message-content" v-bind="$attrs">
     <template v-for="item in parsedNodesWithIndex" :key="item.idx">
       <component :is="renderNode(item.node)" />
     </template>
+
+    <!-- Keep modal within single-root to avoid extraneous attrs warning -->
+    <AttachmentPreviewModal
+        v-if="selectedGif"
+        v-model="showGifPreview"
+        :attachment="selectedGif"
+        @update:modelValue="onGifPreviewClose"
+    />
   </span>
-  <AttachmentPreviewModal
-      v-if="selectedGif"
-      v-model="showGifPreview"
-      :attachment="selectedGif"
-      @update:modelValue="onGifPreviewClose"
-  />
 </template>
 
 <script lang="ts" setup>
