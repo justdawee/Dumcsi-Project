@@ -28,6 +28,7 @@ import serverService from '@/services/serverService';
 import channelService from '@/services/channelService';
 import messageService from '@/services/messageService';
 import {signalRService} from '@/services/signalrService';
+import {saveVoiceSession, clearVoiceSession} from '@/services/voiceSession';
 import {webrtcService} from '@/services/webrtcService';
 import router from '@/router';
 import {useToast} from '@/composables/useToast';
@@ -323,6 +324,10 @@ export const useAppStore = defineStore('app', () => {
         } catch (error) {
             console.error('❌ SignalR: Failed to join voice channel:', error);
         }
+        // Persist a resumable voice session so we can auto-reconnect after refresh for a short window
+        try {
+            saveVoiceSession(currentServer.value.id as number, channelId as number);
+        } catch {}
         // Initialize own voice state for channel
         if (currentUserId.value) {
             setUserVoiceState(channelId, currentUserId.value, { muted: selfMuted.value, deafened: selfDeafened.value });
@@ -353,19 +358,30 @@ export const useAppStore = defineStore('app', () => {
             voiceChannelConnections.value.delete(channelId);
         }
         
-        // 2. Leave via SignalR (notify ALL server members)
+        // 2. If we were screen sharing, stop it and notify peers first
+        try {
+            const livekitModule = await import('@/services/livekitService');
+            if (livekitModule.livekitService.isScreenSharing()) {
+                try { await livekitModule.livekitService.stopScreenShare(); } catch {}
+                try { await signalRService.stopScreenShare(String(currentServer.value.id), String(channelId)); } catch {}
+            }
+        } catch {}
+
+        // 3. Leave via SignalR (notify ALL server members)
         try {
             await signalRService.leaveVoiceChannel(currentServer.value.id, channelId);
             
         } catch (error) {
             console.error('❌ SignalR: Failed to leave voice channel:', error);
         }
+        // User intentionally left; clear resumable session
+        try { clearVoiceSession(); } catch {}
         
-        // 3. Cleanup WebRTC voice connections
+        // 4. Cleanup WebRTC voice connections
         webrtcService.leaveChannel();
         
         
-        // 4. Disconnect from LiveKit (video/screen sharing)
+        // 5. Disconnect from LiveKit (video/screen sharing)
         try {
             const livekitModule = await import('@/services/livekitService');
             await livekitModule.livekitService.disconnectFromRoom();

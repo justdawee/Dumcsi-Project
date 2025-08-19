@@ -28,6 +28,7 @@ import {watch, onMounted, onUnmounted} from 'vue'
 import {useRoute} from 'vue-router'
 import {useAppStore} from '@/stores/app'
 import {signalRService} from '@/services/signalrService'
+import {getVoiceSession, isSessionFresh} from '@/services/voiceSession'
 import ChannelSidebar from '@/components/channel/ChannelSidebar.vue'
 import ServerWelcome from '@/components/server/ServerWelcome.vue'
 import CreateChannelModal from '@/components/channel/CreateChannelModal.vue';
@@ -51,6 +52,19 @@ const loadServer = async (serverId: number) => {
   if (signalRService.isConnected) {
     await signalRService.joinServer(serverId);
   }
+
+  // Attempt auto-reconnect to voice channel for a short window after refresh
+  try {
+    const session = getVoiceSession();
+    if (
+      session &&
+      session.serverId === serverId &&
+      isSessionFresh(session) &&
+      !appStore.currentVoiceChannelId
+    ) {
+      await appStore.joinVoiceChannel(session.channelId);
+    }
+  } catch {}
 };
 
 // Handle channel creation event

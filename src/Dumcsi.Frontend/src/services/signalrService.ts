@@ -3,6 +3,8 @@ import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {webrtcService} from './webrtcService.ts';
+import {livekitService} from '@/services/livekitService';
+import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
 import type {
     MessageDto,
     UserProfileDto,
@@ -28,9 +30,41 @@ export class SignalRService {
         // Handle page unload to properly cleanup
         if (typeof window !== 'undefined') {
             window.addEventListener('beforeunload', async () => {
+                try {
+                    const appStore = useAppStore();
+                    // If currently in a voice channel, persist a fresh timestamp
+                    if (appStore.currentServer?.id && appStore.currentVoiceChannelId) {
+                        saveVoiceSession(appStore.currentServer.id, appStore.currentVoiceChannelId as number);
+                    }
+                } catch {}
                 await this.cleanup();
             });
         }
+    }
+
+    private async ensureScreenShareStoppedIfRejoining(serverId: EntityId, channelId: EntityId): Promise<void> {
+        try {
+            // Ensure local LiveKit screen share is turned off
+            try {
+                if (livekitService.isScreenSharing()) {
+                    await livekitService.stopScreenShare();
+                }
+            } catch { /* ignore */ }
+
+            // Notify peers via SignalR to clear any stale UI state
+            try {
+                await this.stopScreenShare(String(serverId), String(channelId));
+            } catch { /* ignore */ }
+
+            // Clear local UI indicator immediately
+            try {
+                const appStore = useAppStore();
+                const authStore = useAuthStore();
+                if (authStore.user?.id) {
+                    appStore.handleUserStoppedScreenShare(channelId as number, authStore.user.id);
+                }
+            } catch { /* ignore */ }
+        } catch { /* ignore */ }
     }
 
     async initialize(): Promise<void> {
@@ -161,9 +195,14 @@ export class SignalRService {
         this.connection.onreconnecting(() => {
             
             appStore.setConnectionState('reconnecting');
+
+            // Mark the time we lost connection for voice auto-reconnect window
+            if (appStore.currentServer?.id && appStore.currentVoiceChannelId) {
+                try { saveVoiceSession(appStore.currentServer.id, appStore.currentVoiceChannelId as number); } catch {}
+            }
         });
 
-        this.connection.onreconnected(() => {
+        this.connection.onreconnected(async () => {
             
             appStore.setConnectionState('connected');
 
@@ -180,9 +219,13 @@ export class SignalRService {
                 this.joinChannel(currentChannelId);
             }
 
-            // Re-join voice channel if user was in one
+            // Re-join voice channel if user was in one and session is fresh
             if (currentVoiceChannelId && currentServerId) {
-                this.joinVoiceChannel(currentServerId, currentVoiceChannelId);
+                const session = getVoiceSession();
+                if (session && session.serverId === currentServerId && session.channelId === currentVoiceChannelId && isSessionFresh(session)) {
+                    await this.joinVoiceChannel(currentServerId, currentVoiceChannelId);
+                    await this.ensureScreenShareStoppedIfRejoining(currentServerId, currentVoiceChannelId);
+                }
             }
         });
 
@@ -415,9 +458,13 @@ export class SignalRService {
                 await this.joinChannel(appStore.currentChannel.id);
             }
 
-            // Re-join voice channel if user was in one
+            // Re-join voice channel if user was in one and session is fresh
             if (appStore.currentVoiceChannelId && appStore.currentServer?.id) {
-                await this.joinVoiceChannel(appStore.currentServer.id, appStore.currentVoiceChannelId);
+                const session = getVoiceSession();
+                if (session && session.serverId === appStore.currentServer.id && session.channelId === appStore.currentVoiceChannelId && isSessionFresh(session)) {
+                    await this.joinVoiceChannel(appStore.currentServer.id, appStore.currentVoiceChannelId);
+                    await this.ensureScreenShareStoppedIfRejoining(appStore.currentServer.id, appStore.currentVoiceChannelId);
+                }
             }
         } catch (error) {
             console.error('Failed to start SignalR connection:', error);
@@ -443,6 +490,14 @@ export class SignalRService {
     private async cleanup(): Promise<void> {
         const appStore = useAppStore();
         
+        // If we were screen sharing, explicitly stop and notify before tearing down connection
+        try {
+            if (appStore.currentServer?.id && appStore.currentVoiceChannelId && livekitService.isScreenSharing()) {
+                try { await livekitService.stopScreenShare(); } catch {}
+                try { await this.stopScreenShare(String(appStore.currentServer.id), String(appStore.currentVoiceChannelId)); } catch {}
+            }
+        } catch { /* ignore */ }
+
         // If user is in a voice channel, leave it
         if (appStore.currentVoiceChannelId && appStore.currentServer) {
             try {
