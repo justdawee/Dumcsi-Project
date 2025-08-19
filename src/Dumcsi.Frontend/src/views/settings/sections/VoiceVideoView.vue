@@ -223,19 +223,25 @@
             <div class="max-w-md">
               <label class="form-label">Push to Talk Key</label>
               <button 
-                @click="startKeyCapture"
+                @click="startPTTKeyCapture"
                 :class="[
                   'w-full px-4 py-3 rounded-lg border transition-colors',
-                  isCapturingKey 
+                  isRecordingPTTKey 
                     ? 'border-primary bg-primary/10 text-primary' 
                     : 'border-border-default bg-bg-base hover:bg-bg-hover'
                 ]"
               >
-                {{ isCapturingKey ? 'Press a key...' : (audioSettings.pushToTalkKey || 'Click to set key') }}
+                {{ isRecordingPTTKey ? 'Press a key...' : (voiceSettings.pushToTalkKey || 'Click to set key') }}
               </button>
               <p class="mt-2 text-sm text-text-muted">
-                {{ isCapturingKey ? 'Press any key to set as your push-to-talk key' : 'Current push-to-talk key binding' }}
+                {{ isRecordingPTTKey ? 'Press any key to set as your push-to-talk key' : 'Current push-to-talk key binding' }}
               </p>
+              <div v-if="isPushToTalkActive" class="mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <div class="flex items-center">
+                  <div class="w-3 h-3 rounded-full bg-green-500 mr-2 animate-pulse"></div>
+                  <span class="text-sm text-green-600 dark:text-green-400 font-medium">Push-to-talk is active</span>
+                </div>
+              </div>
             </div>
 
             <!-- Push to Talk Delay -->
@@ -243,14 +249,15 @@
               <label class="form-label">Release Delay</label>
               <div class="flex items-center space-x-4">
                 <input 
-                  v-model="audioSettings.pushToTalkDelay" 
+                  v-model="voiceSettings.pushToTalkReleaseDelay" 
                   type="range" 
                   min="0" 
                   max="2000" 
-                  step="100"
+                  step="20"
                   class="flex-1 slider"
+                  @input="updateReleaseDelay"
                 />
-                <span class="text-sm font-medium min-w-[4rem] text-right">{{ audioSettings.pushToTalkDelay }}ms</span>
+                <span class="text-sm font-medium min-w-[4rem] text-right">{{ voiceSettings.pushToTalkReleaseDelay }}ms</span>
               </div>
               <p class="mt-2 text-sm text-text-muted">
                 How long to continue transmitting after releasing the push-to-talk key
@@ -315,7 +322,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { 
   Mic as MicIcon, 
   Headphones, 
@@ -328,16 +335,25 @@ import {
   Loader2
 } from 'lucide-vue-next';
 import { useAudioSettings } from '@/composables/useAudioSettings';
+import { useVoiceSettings } from '@/composables/useVoiceSettings';
 import { webrtcService } from '@/services/webrtcService';
 
 // Use shared audio settings
 const { audioSettings, inputDevices, outputDevices, getAudioDevices } = useAudioSettings();
 
+// Use voice settings for push-to-talk
+const { 
+  voiceSettings, 
+  isPushToTalkActive, 
+  isRecordingPTTKey, 
+  updateVoiceSettings,
+  recordPTTKey 
+} = useVoiceSettings();
+
 // Audio state
 const inputLevel = ref(0);
 const isTesting = ref(false);
 const playingTestSound = ref(false);
-const isCapturingKey = ref(false);
 
 // Audio contexts
 let audioContext: AudioContext | null = null;
@@ -507,32 +523,36 @@ const playTestSound = async () => {
   }
 };
 
-// Key capture for push-to-talk
-const startKeyCapture = () => {
-  isCapturingKey.value = true;
-  document.addEventListener('keydown', captureKey, { once: true });
-  
-  // Auto-cancel after 10 seconds
-  setTimeout(() => {
-    if (isCapturingKey.value) {
-      isCapturingKey.value = false;
-      document.removeEventListener('keydown', captureKey);
-    }
-  }, 10000);
+// PTT key capture using voice settings
+const startPTTKeyCapture = async () => {
+  try {
+    const newKey = await recordPTTKey();
+    updateVoiceSettings({ pushToTalkKey: newKey });
+  } catch (error) {
+    console.error('Failed to capture PTT key:', error);
+  }
 };
 
-const captureKey = (event: KeyboardEvent) => {
-  event.preventDefault();
-  
-  let keyName = event.key;
-  if (event.key === ' ') keyName = 'Space';
-  if (event.ctrlKey) keyName = `Ctrl + ${keyName}`;
-  if (event.altKey) keyName = `Alt + ${keyName}`;
-  if (event.shiftKey) keyName = `Shift + ${keyName}`;
-  
-  audioSettings.pushToTalkKey = keyName;
-  isCapturingKey.value = false;
+// Update release delay
+const updateReleaseDelay = () => {
+  updateVoiceSettings({ 
+    pushToTalkReleaseDelay: voiceSettings.value.pushToTalkReleaseDelay 
+  });
 };
+
+// Sync audio settings input mode with voice settings
+watch(() => audioSettings.inputMode, (newMode) => {
+  const voiceMode = newMode === 'push-to-talk' ? 'pushToTalk' : 'voiceActivity';
+  updateVoiceSettings({ inputMode: voiceMode });
+});
+
+// Sync voice settings back to audio settings
+watch(() => voiceSettings.value.inputMode, (newMode) => {
+  const audioMode = newMode === 'pushToTalk' ? 'push-to-talk' : 'voice-activity';
+  if (audioSettings.inputMode !== audioMode) {
+    audioSettings.inputMode = audioMode;
+  }
+});
 
 // Lifecycle
 onMounted(() => {
@@ -541,9 +561,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopMicTest();
-  if (isCapturingKey.value) {
-    document.removeEventListener('keydown', captureKey);
-  }
 });
 </script>
 
