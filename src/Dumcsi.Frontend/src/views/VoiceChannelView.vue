@@ -583,6 +583,10 @@ const toggleCamera = async () => {
     await localParticipant.setCameraEnabled(!isCameraEnabled);
 
     isCameraOn.value = !isCameraEnabled;
+    
+    // Force update streams after camera toggle (delay to ensure track changes are processed)
+    setTimeout(() => updateLiveKitStreams(), 300);
+    
     addToast({
       message: isCameraOn.value ? 'Camera turned on' : 'Camera turned off',
       type: 'success'
@@ -807,9 +811,9 @@ const updateLiveKitStreams = () => {
   const liveKitParticipants = livekitService.getRemoteParticipants();
 
 
-  // Build new maps to trigger reactivity
+  // Build new maps to trigger reactivity (start fresh to remove inactive streams)
   const newScreenMap = new Map<number, RemoteTrack>();
-  const newCamMap = new Map<number, MediaStream>(cameraStreams.value);
+  const newCamMap = new Map<number, MediaStream>();
 
   liveKitParticipants.forEach(p => {
     p.trackPublications.forEach(pub => {
@@ -818,7 +822,7 @@ const updateLiveKitStreams = () => {
 
         return;
       }
-      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
+      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
         newScreenMap.set(uid, pub.track as RemoteTrack);
 
         const nextLoading = new Set(screenShareLoading.value);
@@ -833,21 +837,22 @@ const updateLiveKitStreams = () => {
           } catch {
           }
         }
-      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera && !pub.isMuted) {
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-
+        console.log('🎥 Added camera stream for remote user', uid);
       }
     });
   });
 
-  // Include local participant (so the sharer sees their own tile update)
+  // Include local participant (so the user sees their own camera/screen share)
   const local = livekitService.getLocalParticipant();
   if (local) {
     local.trackPublications.forEach(pub => {
       const uid = appStore.currentUserId as number | null;
       if (!uid) return;
-      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video') {
+      
+      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
         newScreenMap.set(uid, pub.track as any);
 
         const nextLoading = new Set(screenShareLoading.value);
@@ -861,12 +866,20 @@ const updateLiveKitStreams = () => {
           } catch {
           }
         }
-      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source !== Track.Source.ScreenShare) {
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera && !pub.isMuted) {
+        // Handle local camera track specifically
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-
+        console.log('🎥 Added local camera stream for user', uid);
       }
     });
+  }
+
+  // Log changes for debugging
+  const oldCamCount = cameraStreams.value.size;
+  const newCamCount = newCamMap.size;
+  if (oldCamCount !== newCamCount) {
+    console.log('🎥 Camera streams updated:', oldCamCount, '->', newCamCount);
   }
 
   screenShareTracks.value = newScreenMap;
@@ -992,10 +1005,11 @@ onMounted(async () => {
         } catch {
         }
       }
-    } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source !== Track.Source.ScreenShare) {
+    } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source === Track.Source.Camera) {
       const next = new Map(cameraStreams.value);
       next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
       cameraStreams.value = next;
+      console.log('🎥 Updated camera stream for remote user', uid);
     }
   };
 
@@ -1013,10 +1027,11 @@ onMounted(async () => {
       const next = new Map(screenShareTracks.value);
       next.delete(uid);
       screenShareTracks.value = next;
-    } else if (publication.kind === 'video' && publication.source !== Track.Source.ScreenShare) {
+    } else if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
       const next = new Map(cameraStreams.value);
       next.delete(uid);
       cameraStreams.value = next;
+      console.log('🎥 Removed camera stream for user', uid);
     }
   };
 
@@ -1045,6 +1060,59 @@ onMounted(async () => {
   livekitService.onTrackSubscribed(onTrackSub);
   livekitService.onTrackUnsubscribed(onTrackUnsub);
   livekitService.onParticipantDisconnected(onParticipantDisc);
+
+  // React to mute/unmute of camera tracks (including local)
+  livekitService.onTrackMuted((publication: any, participant: any) => {
+    try {
+      if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
+        const uid = resolveUserIdForIdentity(participant?.identity);
+        if (!uid) return;
+        const next = new Map(cameraStreams.value);
+        next.delete(uid);
+        cameraStreams.value = next;
+      }
+    } catch {}
+  });
+  livekitService.onTrackUnmuted((publication: any, participant: any) => {
+    try {
+      if (publication?.kind === 'video' && publication?.source === Track.Source.Camera && publication?.track?.mediaStreamTrack) {
+        const uid = resolveUserIdForIdentity(participant?.identity);
+        if (!uid) return;
+        const next = new Map(cameraStreams.value);
+        next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
+        cameraStreams.value = next;
+      }
+    } catch {}
+  });
+
+  // Listen for local track publications (when current user enables camera)
+  if (livekitService.getLocalParticipant()) {
+    const localParticipant = livekitService.getLocalParticipant()!;
+    
+    localParticipant.on('trackPublished', (publication) => {
+      console.log('🎥 Local track published:', publication.source, publication.kind);
+      if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
+        // Force update streams when local camera is enabled
+        setTimeout(() => updateLiveKitStreams(), 100);
+      }
+    });
+
+    localParticipant.on('trackUnpublished', (publication) => {
+      console.log('🎥 Local track unpublished:', publication.source, publication.kind);
+      if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
+        // Remove local camera stream when disabled
+        const uid = appStore.currentUserId as number | null;
+        if (uid) {
+          const next = new Map(cameraStreams.value);
+          next.delete(uid);
+          cameraStreams.value = next;
+          console.log('🎥 Removed local camera stream for user', uid);
+        }
+        // Force update streams to ensure UI reflects the change
+        setTimeout(() => updateLiveKitStreams(), 100);
+      }
+    });
+  }
 
   // React when local user stops screen share via browser UI
   livekitService.onLocalScreenShareStopped(async () => {

@@ -45,6 +45,8 @@ export class LiveKitService {
     private onParticipantDisconnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
     private onTrackSubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
     private onTrackUnsubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
+    private onTrackMutedCallbacks: ((publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
+    private onTrackUnmutedCallbacks: ((publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
     private onLocalScreenShareStoppedCallbacks: Array<() => void> = [];
 
     async getServerInfo(): Promise<LiveKitServerInfo> {
@@ -385,6 +387,14 @@ export class LiveKitService {
             this.onTrackUnsubscribedCallbacks.forEach(callback => callback(track, publication, participant));
         });
 
+        // Track muted/unmuted events (covers local and remote)
+        this.room.on(RoomEvent.TrackMuted as any, (publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+            this.onTrackMutedCallbacks.forEach(cb => cb(publication, participant));
+        });
+        this.room.on(RoomEvent.TrackUnmuted as any, (publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+            this.onTrackUnmutedCallbacks.forEach(cb => cb(publication, participant));
+        });
+
         this.room.on(RoomEvent.ConnectionStateChanged, (_state: ConnectionState) => {
         });
 
@@ -418,6 +428,14 @@ export class LiveKitService {
         this.onTrackUnsubscribedCallbacks.push(callback);
     }
 
+    onTrackMuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackMutedCallbacks.push(callback);
+    }
+
+    onTrackUnmuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackUnmutedCallbacks.push(callback);
+    }
+
     onLocalScreenShareStopped(callback: () => void): void {
         this.onLocalScreenShareStoppedCallbacks.push(callback);
     }
@@ -436,6 +454,8 @@ export class LiveKitService {
         this.onTrackSubscribedCallbacks = [];
         this.onTrackUnsubscribedCallbacks = [];
         this.onLocalScreenShareStoppedCallbacks = [];
+        this.onTrackMutedCallbacks = [];
+        this.onTrackUnmutedCallbacks = [];
     }
 }
 
