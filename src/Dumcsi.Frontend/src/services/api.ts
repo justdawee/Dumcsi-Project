@@ -46,6 +46,23 @@ const setupInterceptors = () => {
                 console.error("Session expired or token is invalid. Logging out.");
                 authStore.logout();
                 router.push({name: 'Login'});
+                return Promise.reject(error);
+            }
+
+            // Handle 403 for server access denied
+            if (error.response?.status === 403 && error.config?.url?.includes('/server/')) {
+                console.warn("Access denied to server. User may have been removed.");
+                // Extract server ID from URL if possible to handle specific cases
+                const serverIdMatch = error.config.url.match(/\/server\/(\d+)/);
+                if (serverIdMatch) {
+                    const serverId = parseInt(serverIdMatch[1]);
+                    // Redirect to server select page
+                    if (router.currentRoute.value.params.serverId && 
+                        parseInt(router.currentRoute.value.params.serverId as string) === serverId) {
+                        router.push({name: 'ServerSelect'});
+                    }
+                }
+                return Promise.reject(error);
             }
 
             return Promise.reject(error);

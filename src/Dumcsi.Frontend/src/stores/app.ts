@@ -144,18 +144,47 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const fetchServer = async (serverId: EntityId) => {
-        const result = await handleApiCall('server', () => serverService.getServer(serverId));
-        if (result) {
-            currentServer.value = result;
-            await fetchServerMembers(serverId);
-            
-            // Join the server SignalR group to receive server-wide events (including voice channel updates)
-            try {
-                await signalRService.joinServer(serverId);
+        try {
+            const result = await serverService.getServer(serverId);
+            if (result) {
+                currentServer.value = result;
+                await fetchServerMembers(serverId);
                 
-            } catch (error) {
-                
+                // Join the server SignalR group to receive server-wide events (including voice channel updates)
+                try {
+                    await signalRService.joinServer(serverId);
+                    
+                } catch (error) {
+                    
+                }
             }
+        } catch (err: any) {
+            // Handle 403 specifically - user is not a member of this server
+            if (err.response?.status === 403) {
+                console.warn('Access denied to server', serverId, 'User may have been removed');
+                // Remove server from user's server list if it exists
+                servers.value = servers.value.filter(s => s.id !== serverId);
+                // Clear current server if it's the one being accessed
+                if (currentServer.value?.id === serverId) {
+                    currentServer.value = null;
+                }
+                // Redirect to server select
+                router.push({ name: 'ServerSelect' });
+                addToast({
+                    type: 'warning',
+                    message: 'You no longer have access to this server.',
+                    duration: 5000
+                });
+                return;
+            }
+            
+            // Handle other errors with generic error handling
+            error.value = err.message || 'An error occurred';
+            console.error(err);
+            addToast({
+                type: 'danger',
+                message: error.value || 'An unknown error occurred',
+            });
         }
     };
 
@@ -231,10 +260,35 @@ export const useAppStore = defineStore('app', () => {
 
     // Channel Actions
     const fetchChannel = async (channelId: EntityId) => {
-        const result = await handleApiCall('channel', () => channelService.getChannel(channelId));
-        if (result) {
-            currentChannel.value = result;
-            await fetchMessages(channelId);
+        try {
+            const result = await channelService.getChannel(channelId);
+            if (result) {
+                currentChannel.value = result;
+                await fetchMessages(channelId);
+            }
+        } catch (err: any) {
+            // Handle 403 specifically - user doesn't have access to this channel/server
+            if (err.response?.status === 403) {
+                console.warn('Access denied to channel', channelId, 'User may have been removed from server');
+                // Clear current channel
+                currentChannel.value = null;
+                // Redirect to server select
+                router.push({ name: 'ServerSelect' });
+                addToast({
+                    type: 'warning',
+                    message: 'You no longer have access to this channel.',
+                    duration: 5000
+                });
+                return;
+            }
+            
+            // Handle other errors with generic error handling
+            error.value = err.message || 'An error occurred';
+            console.error(err);
+            addToast({
+                type: 'danger',
+                message: error.value || 'An unknown error occurred',
+            });
         }
     };
 
@@ -282,8 +336,32 @@ export const useAppStore = defineStore('app', () => {
 
     // Message Actions
     const fetchMessages = async (channelId: EntityId) => {
-        const result = await handleApiCall('messages', () => messageService.getMessages(channelId));
-        if (result) messages.value = result;
+        try {
+            const result = await messageService.getMessages(channelId);
+            if (result) messages.value = result;
+        } catch (err: any) {
+            // Handle 403 specifically - user doesn't have access to this channel
+            if (err.response?.status === 403) {
+                console.warn('Access denied to messages for channel', channelId);
+                // Clear messages and redirect to server select
+                messages.value = [];
+                router.push({ name: 'ServerSelect' });
+                addToast({
+                    type: 'warning',
+                    message: 'You no longer have access to this channel.',
+                    duration: 5000
+                });
+                return;
+            }
+            
+            // Handle other errors with generic error handling
+            error.value = err.message || 'An error occurred';
+            console.error('Error fetching messages:', err);
+            addToast({
+                type: 'danger',
+                message: error.value || 'Failed to load messages',
+            });
+        }
     };
 
     const sendMessage = async (channelId: EntityId, payload: CreateMessageRequest) => {
@@ -646,6 +724,29 @@ export const useAppStore = defineStore('app', () => {
     };
 
     const handleUserLeftServer = (payload: UserServerPayload) => {
+        // Check if the current user is being kicked/left
+        if (payload.userId === currentUserId.value) {
+            // Remove server from user's server list
+            servers.value = servers.value.filter(s => s.id !== payload.serverId);
+            
+            // If currently viewing this server, redirect to home
+            if (currentServer.value?.id === payload.serverId) {
+                currentServer.value = null;
+                router.push('/servers');
+            }
+            
+            // Show notification if it was a kick (with reason)
+            if (payload.reason) {
+                addToast({
+                    type: 'warning',
+                    message: `You have been removed from the server. Reason: ${payload.reason}`,
+                    duration: 5000
+                });
+            }
+            return; // Early return, no need to update member lists
+        }
+        
+        // Handle other users leaving the server
         if (currentServer.value?.id === payload.serverId) {
             members.value = members.value.filter(m => m.userId !== payload.userId);
             if (currentServer.value && currentServer.value.memberCount > 0) {

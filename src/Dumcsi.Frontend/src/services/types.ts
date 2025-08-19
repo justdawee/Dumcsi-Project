@@ -496,6 +496,7 @@ export interface UserServerPayload {
     serverId: EntityId;
     serverName?: string;
     user?: UserProfileDto;
+    reason?: string;
 }
 
 export interface ChannelDeletedPayload {

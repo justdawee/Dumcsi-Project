@@ -159,6 +159,36 @@ router.beforeEach(async (to, _from, next) => {
                 console.error('Router guard: Failed to start SignalR:', err);
             }
         }
+
+        // Check server membership for server routes
+        if (to.name === RouteNames.SERVER || to.name === RouteNames.CHANNEL || to.name === RouteNames.VOICE_CHANNEL) {
+            const serverId = parseInt(to.params.serverId as string);
+            
+            if (serverId && !isNaN(serverId)) {
+                // Load servers if not already loaded
+                if (appStore.servers.length === 0) {
+                    try {
+                        await appStore.fetchServers();
+                    } catch (err) {
+                        console.error('Failed to fetch servers:', err);
+                        next({ name: RouteNames.SERVER_SELECT });
+                        return;
+                    }
+                }
+
+                // Check if user is member of the server
+                const isMember = appStore.servers.some(server => server.id === serverId);
+                if (!isMember) {
+                    // User is not a member of this server, redirect to server select
+                    next({ name: RouteNames.SERVER_SELECT });
+                    return;
+                }
+            } else {
+                // Invalid server ID, redirect to server select
+                next({ name: RouteNames.SERVER_SELECT });
+                return;
+            }
+        }
     }
     next();
 });
