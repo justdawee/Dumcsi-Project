@@ -106,7 +106,7 @@ const updateScreenShares = () => {
   }, 100);
 };
 
-const onTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+const onTrackSubscribed = (track: RemoteTrack, publication: RemoteTrackPublication, _participant: RemoteParticipant) => {
   if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
     
     updateScreenShares();

@@ -191,7 +191,7 @@ import { useToast } from '@/composables/useToast';
 import { livekitService } from '@/services/livekitService';
 import { signalRService } from '@/services/signalrService';
 import { useAuthStore } from '@/stores/auth';
-import type { ScreenShareQualitySettings } from '@/services/livekitService';
+// import type { ScreenShareQualitySettings } from '@/services/livekitService';
 import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import { ChevronDown } from 'lucide-vue-next';
 
@@ -309,7 +309,7 @@ const toggleScreenShare = async () => {
       
       
       // 2. Notify via SignalR that we stopped screen sharing
-      await signalRService.stopScreenShare(currentServer.id.toString(), currentChannelId.toString());
+      await signalRService.stopScreenShare(appStore.currentServer!.id.toString(), appStore.currentVoiceChannelId!.toString());
       
       
       addToast({ message: 'Screen sharing stopped', type: 'success' });
@@ -364,7 +364,7 @@ const toggleScreenShare = async () => {
     addToast({ message: errorMessage, type: 'danger' });
     
     // Reset state on error
-    isScreenSharing.value = livekitService.isScreenSharing();
+    // isScreenSharing.value = livekitService.isScreenSharing();
   } finally {
     isScreenShareLoading.value = false;
     

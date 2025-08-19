@@ -199,7 +199,7 @@ export function usePermissions() {
         const serverDetails = server as ServerDetails;
         // debug output removed
 
-        Object.entries(Permission).forEach(([key, value]) => {
+        Object.entries(Permission).forEach(([, value]) => {
             if (typeof value === 'number' && (serverDetails.currentUserPermissions & value) !== 0) {
                 
             }

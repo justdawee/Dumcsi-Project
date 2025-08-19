@@ -73,6 +73,26 @@ const messageService = {
             throw new Error(response.data.message);
         }
     },
+
+    async searchMessages(params: {
+        serverId?: EntityId;
+        channelId?: EntityId;
+        authorId?: EntityId;
+        q?: string;
+        has?: string; // link|embed|file
+        before?: string; // ISO date
+        after?: string;  // ISO date
+        limit?: number;
+    }): Promise<MessageDto[]> {
+        const response = await api.get<ApiResponse<MessageDto[]>>(
+            `/messages/search`,
+            { params }
+        );
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        return response.data.data;
+    },
 };
 
 export default messageService;

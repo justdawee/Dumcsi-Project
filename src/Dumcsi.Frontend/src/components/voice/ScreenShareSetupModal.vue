@@ -78,7 +78,7 @@ export interface ScreenShareSetup {
   includeAudio: boolean;
 }
 
-const props = defineProps<{ isOpen: boolean }>();
+defineProps<{ isOpen: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'confirm', value: ScreenShareSetup): void }>();
 
 const resolutionOptions = [

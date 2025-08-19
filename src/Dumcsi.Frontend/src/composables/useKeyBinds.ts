@@ -183,10 +183,15 @@ export function useKeyBinds() {
             name: 'Search in Channel',
             category: 'main-functions',
             description: 'Search within the current channel',
+            scope: 'channel',
             defaultKey: { windows: 'Ctrl+F', mac: '⌘+F' },
             currentKey: storedBinds['search-channel'],
             action: () => {
-              console.log('🔧 Channel search not implemented yet');
+              // Focus the search input in ChannelView
+              const searchInput = document.querySelector('input[placeholder*="Search messages"]') as HTMLInputElement;
+              if (searchInput) {
+                searchInput.focus();
+              }
             }
           },
           {
