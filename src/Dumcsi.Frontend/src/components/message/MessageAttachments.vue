@@ -10,12 +10,14 @@
           :src="attachment.fileUrl"
           :alt="attachment.fileName"
           class="preview-media rounded-lg cursor-pointer"
+          @load="notifyMediaLoaded"
           @click="openPreview(attachment)"
       />
       <template v-else-if="isVideo(attachment)">
         <video
             controls
             class="preview-media rounded-lg"
+            @loadedmetadata="notifyMediaLoaded"
         >
           <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
         </video>
@@ -60,6 +62,12 @@ defineProps<{
   attachments: AttachmentDto[];
   message?: MessageDto;
 }>();
+
+const notifyMediaLoaded = () => {
+  try {
+    window.dispatchEvent(new CustomEvent('messageMediaLoaded'));
+  } catch {}
+};
 
 const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
 const isVideo = (a: AttachmentDto) => a.contentType?.startsWith('video/');

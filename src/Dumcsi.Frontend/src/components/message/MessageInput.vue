@@ -511,6 +511,8 @@ onUnmounted(() => {
 defineExpose({
   addFiles: handleFileSelect,
   sendFilesDirect,
+  focusInput: () => messageInput.value?.focus(),
+  isFocused: () => document.activeElement === messageInput.value,
 });
 </script>
 

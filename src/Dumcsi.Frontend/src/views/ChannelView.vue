@@ -45,6 +45,16 @@
         </div>
 
         <div class="relative px-4 pb-6">
+          <!-- Jump to present button -->
+          <button
+              v-if="showJumpToPresent"
+              class="absolute right-6 -top-10 z-10 bg-primary text-white text-sm font-medium px-3 py-1.5 rounded-full shadow hover:bg-primary/90 transition"
+              title="Jump to latest messages"
+              @click="jumpToPresent"
+          >
+            Jump to present
+            <span v-if="pendingNewCount > 0" class="ml-2 bg-white/20 px-1.5 py-0.5 rounded text-xs">{{ pendingNewCount }}</span>
+          </button>
           <MessageInput
               v-if="currentChannel && permissions.sendMessages"
               ref="messageInputRef"
@@ -119,6 +129,7 @@ const isTyping = (userId: EntityId) => typingUserIds.value.has(userId);
 const {permissions} = usePermissions();
 
 const messagesContainer = ref<HTMLElement | null>(null);
+const mediaLoadedHandler = () => { if (shouldAutoFollow.value) scrollToBottomWithFocusPreserved('auto'); };
 // Track whether we should auto-follow new messages (only when near bottom)
 const shouldAutoFollow = ref(true);
 const isMemberListOpen = ref(true);
@@ -128,6 +139,11 @@ const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
 const currentChannel = computed(() => appStore.currentChannel);
 const messages = computed(() => appStore.messages);
 const channelDescription = computed(() => appStore.currentChannel?.description);
+
+// Jump to present state
+const pendingNewCount = ref(0);
+const showJumpToPresent = computed(() => !shouldAutoFollow.value && (pendingNewCount.value > 0 || lastDistanceFromBottom.value > 200));
+const lastDistanceFromBottom = ref(0);
 
 
 // --- Core Logic ---
@@ -142,11 +158,22 @@ const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
   }
 };
 
+const scrollToBottomWithFocusPreserved = async (behavior: 'smooth' | 'auto' = 'auto') => {
+  const hadFocus = !!messageInputRef.value?.isFocused?.();
+  await scrollToBottom(behavior);
+  if (hadFocus) {
+    // restore focus after scroll
+    await nextTick();
+    messageInputRef.value?.focusInput?.();
+  }
+};
+
 const updateAutoFollow = () => {
   const el = messagesContainer.value;
   if (!el) return;
   // distance to bottom; small threshold to treat near-bottom as bottom
   const distance = el.scrollHeight - (el.scrollTop + el.clientHeight);
+  lastDistanceFromBottom.value = distance;
   shouldAutoFollow.value = distance < 120; // px threshold
 };
 
@@ -163,7 +190,7 @@ const loadChannelData = async (channelId: EntityId) => {
     appStore.setTypingUsers(channelId, typingIds);
   }
 
-  await scrollToBottom();
+  await scrollToBottomWithFocusPreserved();
 };
 
 // --- Event Handlers ---
@@ -177,16 +204,24 @@ const debouncedScrollHandler = debounce(() => {
   }
   // Update whether we should follow new messages
   updateAutoFollow();
+  if (shouldAutoFollow.value) {
+    pendingNewCount.value = 0;
+  }
 }, 100);
 
 const handleSendMessage = async (payload: CreateMessageRequest) => {
   if (!currentChannel.value) return;
   try {
     await appStore.sendMessage(currentChannel.value.id, payload);
-    await scrollToBottom('smooth');
+    await scrollToBottomWithFocusPreserved('smooth');
   } catch {
     addToast({type: 'danger', message: 'Failed to send message.'});
   }
+};
+
+const jumpToPresent = async () => {
+  pendingNewCount.value = 0;
+  await scrollToBottomWithFocusPreserved('smooth');
 };
 
 const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessageRequest }) => {
@@ -257,6 +292,8 @@ onMounted(() => {
   shouldAutoFollow.value = true;
   // Also update follow state on resize (layout changes could shift scroll)
   window.addEventListener('resize', updateAutoFollow);
+  // Scroll when media (images/gifs/videos) finish loading while following
+  window.addEventListener('messageMediaLoaded', mediaLoadedHandler as EventListener);
   window.addEventListener('global-files-dropped', handleGlobalDrop as EventListener);
   
   // Listen for keyboard shortcut events
@@ -275,6 +312,7 @@ onUnmounted(() => {
   // Remove keyboard shortcut event listeners
   window.removeEventListener('toggleMemberList', handleToggleMemberList);
   window.removeEventListener('editLastMessage', handleEditLastMessage);
+  window.removeEventListener('messageMediaLoaded', mediaLoadedHandler as EventListener);
 });
 
 watch(() => route.params.channelId, (newId) => {
@@ -289,7 +327,12 @@ watch(
   () => appStore.messages.length,
   async (newLen, oldLen) => {
     if (newLen > oldLen && shouldAutoFollow.value) {
-      await scrollToBottom('smooth');
+      await scrollToBottomWithFocusPreserved('smooth');
+      // Schedule a couple of follow-up scrolls to account for images/gifs sizing in
+      setTimeout(() => { if (shouldAutoFollow.value) scrollToBottomWithFocusPreserved('auto'); }, 80);
+      setTimeout(() => { if (shouldAutoFollow.value) scrollToBottomWithFocusPreserved('auto'); }, 220);
+    } else if (newLen > oldLen && !shouldAutoFollow.value) {
+      pendingNewCount.value += (newLen - oldLen);
     }
   }
 );

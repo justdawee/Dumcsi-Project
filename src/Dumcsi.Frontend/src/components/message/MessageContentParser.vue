@@ -195,7 +195,10 @@ const renderNode = (node: ParsedNode): VNode => {
           alt: 'GIF',
           class: 'preview-media rounded-lg cursor-pointer',
           loading: 'lazy',
-          onClick: () => openGifPreview(url)
+          onClick: () => openGifPreview(url),
+          onLoad: () => {
+            try { window.dispatchEvent(new CustomEvent('messageMediaLoaded')); } catch {}
+          }
         });
       }
       return h('a', {
