@@ -379,6 +379,17 @@ public class ServerController(
             return NotFound(ApiResponse.Fail("INVITE_CREATE_PREREQUISITES_NOT_FOUND", "Server or creator not found."));
         }
 
+        // Validate channel if specified
+        Channel? channel = null;
+        if (request.ChannelId.HasValue)
+        {
+            channel = await dbContext.Channels.FindAsync([request.ChannelId.Value], cancellationToken);
+            if (channel == null || channel.ServerId != id)
+            {
+                return BadRequest(ApiResponse.Fail("INVITE_INVALID_CHANNEL", "Invalid channel specified."));
+            }
+        }
+
         var expiresAt = request.ExpiresInHours.HasValue
             ? SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromHours(request.ExpiresInHours.Value))
             : (Instant?)null;
@@ -387,6 +398,7 @@ public class ServerController(
         {
             Code = Guid.NewGuid().ToString("N")[..8].ToUpper(),
             Server = server,
+            Channel = channel,
             Creator = creator,
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
             MaxUses = request.MaxUses,
@@ -400,13 +412,64 @@ public class ServerController(
         await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteCreated, null,
             AuditLogTargetType.Invite, new { invite.Code });
 
-        return OkResponse(new { invite.Code });
+        var response = new InviteDtos.CreateInviteResponseDto
+        {
+            Code = invite.Code,
+            ExpiresInHours = request.ExpiresInHours,
+            MaxUses = invite.MaxUses,
+            IsTemporary = invite.IsTemporary,
+            CreatedAt = invite.CreatedAt,
+            ExpiresAt = invite.ExpiresAt
+        };
+
+        return OkResponse(response);
     }
 
-    [HttpDelete("{id}/invite")]
-    public async Task<IActionResult> DeleteInvite(long id, CancellationToken cancellationToken)
+    [HttpGet("{id}/invites")]
+    public async Task<IActionResult> GetServerInvites(long id, CancellationToken cancellationToken)
     {
-        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.CreateInvite))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("INVITE_FORBIDDEN_LIST", "You don't have permission to view invites."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var currentTime = SystemClock.Instance.GetCurrentInstant();
+        
+        var invites = await dbContext.Invites
+            .AsNoTracking()
+            .Include(i => i.Creator)
+            .Include(i => i.Channel)
+            .Where(i => i.ServerId == id)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new InviteDtos.InviteDto
+            {
+                Code = i.Code,
+                ServerId = i.ServerId,
+                ChannelId = i.ChannelId,
+                ChannelName = i.Channel != null ? i.Channel.Name : null,
+                CreatorId = i.CreatorId,
+                CreatorUsername = i.Creator.Username,
+                CreatorAvatar = i.Creator.Avatar,
+                MaxUses = i.MaxUses,
+                CurrentUses = i.CurrentUses,
+                ExpiresAt = i.ExpiresAt,
+                IsTemporary = i.IsTemporary,
+                CreatedAt = i.CreatedAt,
+                IsExpired = i.ExpiresAt.HasValue && i.ExpiresAt.Value < currentTime,
+                IsMaxUsesReached = i.MaxUses > 0 && i.CurrentUses >= i.MaxUses
+            })
+            .ToListAsync(cancellationToken);
+
+        return OkResponse(invites);
+    }
+
+    [HttpDelete("{id}/invite/{inviteCode}")]
+    public async Task<IActionResult> DeleteInvite(long id, string inviteCode, CancellationToken cancellationToken)
+    {
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.CreateInvite))
         {
             return StatusCode(403,
                 ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You don't have permission to delete invites."));
@@ -414,10 +477,18 @@ public class ServerController(
 
         await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var invite = await dbContext.Invites.FindAsync([id], cancellationToken);
+        var invite = await dbContext.Invites.FirstOrDefaultAsync(i => i.Code == inviteCode && i.ServerId == id, cancellationToken);
         if (invite == null)
         {
             return NotFound(ApiResponse.Fail("INVITE_NOT_FOUND", "Invite not found."));
+        }
+
+        // Only allow creators or users with ManageServer permission to delete invites
+        if (invite.CreatorId != CurrentUserId && 
+            !await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("INVITE_FORBIDDEN_DELETE", "You can only delete your own invites or need ManageServer permission."));
         }
 
         dbContext.Invites.Remove(invite);
@@ -427,6 +498,37 @@ public class ServerController(
             AuditLogTargetType.Invite, new { invite.Code });
 
         return OkResponse("Invite deleted successfully.");
+    }
+
+    [HttpDelete("{id}/invites/cleanup")]
+    public async Task<IActionResult> CleanupExpiredInvites(long id, CancellationToken cancellationToken)
+    {
+        if (!await permissionService.HasPermissionForServerAsync(CurrentUserId, id, Permission.ManageServer))
+        {
+            return StatusCode(403,
+                ApiResponse.Fail("INVITE_FORBIDDEN_CLEANUP", "You don't have permission to cleanup invites."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var currentTime = SystemClock.Instance.GetCurrentInstant();
+        
+        var expiredInvites = await dbContext.Invites
+            .Where(i => i.ServerId == id && 
+                       ((i.ExpiresAt.HasValue && i.ExpiresAt.Value < currentTime) ||
+                        (i.MaxUses > 0 && i.CurrentUses >= i.MaxUses)))
+            .ToListAsync(cancellationToken);
+
+        if (expiredInvites.Count > 0)
+        {
+            dbContext.Invites.RemoveRange(expiredInvites);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            await auditLogService.LogAsync(id, CurrentUserId, AuditLogActionType.InviteDeleted, null,
+                AuditLogTargetType.Invite, new { CleanedUp = expiredInvites.Count });
+        }
+
+        return OkResponse(new { CleanedUp = expiredInvites.Count });
     }
 
     [HttpPost("{id}/leave")]
