@@ -313,14 +313,6 @@
         @apply bg-gray-700 text-white;
     }
 
-    .channel-item.voice-channel {
-        @apply opacity-50 cursor-pointer;
-    }
-
-    .channel-item.voice-channel:hover {
-        @apply opacity-100;
-    }
-
     .drop-indicator {
         @apply h-0.5 bg-green-500 rounded;
     }
