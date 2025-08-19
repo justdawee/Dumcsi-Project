@@ -45,6 +45,7 @@ export const useAppStore = defineStore('app', () => {
     const voiceChannelUsers = ref<Map<EntityId, UserProfileDto[]>>(new Map());
     const voiceChannelConnections = ref<Map<EntityId, Map<EntityId, string>>>(new Map());
     const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
+    const voiceStates = ref<Map<EntityId, Map<EntityId, { muted: boolean; deafened: boolean }>>>(new Map());
     const currentVoiceChannelId = ref<EntityId | null>(null);
     const selfMuted = ref(false);
     const selfDeafened = ref(false);
@@ -312,15 +313,21 @@ export const useAppStore = defineStore('app', () => {
         // 1. Set current voice channel IMMEDIATELY for UI
         currentVoiceChannelId.value = channelId;
         
-        // 2. Join via SignalR (this will notify ALL server members and get voice channel updates)
+        // 2. Initialize WebRTC for voice (start microphone access)
+        await webrtcService.joinVoiceChannel();
+        webrtcService.setMuted(selfMuted.value);
+        
+        // 3. Join via SignalR (this will notify ALL server members and get voice channel updates)
         try {
             await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
         } catch (error) {
             console.error('❌ SignalR: Failed to join voice channel:', error);
         }
-        
-        // 3. Initialize WebRTC for voice (SignalR will handle signaling)
-        webrtcService.setMuted(selfMuted.value);
+        // Initialize own voice state for channel
+        if (currentUserId.value) {
+            setUserVoiceState(channelId, currentUserId.value, { muted: selfMuted.value, deafened: selfDeafened.value });
+            try { signalRService.updateVoiceState(channelId, selfMuted.value, selfDeafened.value); } catch {}
+        }
         
         // 4. Connect to LiveKit immediately for video/screen sharing readiness
         try {
@@ -370,26 +377,50 @@ export const useAppStore = defineStore('app', () => {
     const toggleSelfMute = () => {
         selfMuted.value = !selfMuted.value;
         
-        // Update WebRTC for voice (SignalR voice channels)
+        // Update WebRTC for voice (this will also notify SignalR)
         webrtcService.setMuted(selfMuted.value);
         
-        // LiveKit is only used for video/screen sharing, not voice
-        // So we don't need to update microphone for LiveKit here
+        // Update voice state map for current user in current channel
+        if (currentVoiceChannelId.value && currentUserId.value) {
+            const channelMap = new Map(voiceStates.value.get(currentVoiceChannelId.value) || []);
+            channelMap.set(currentUserId.value, { muted: selfMuted.value, deafened: selfDeafened.value });
+            const updated = new Map(voiceStates.value);
+            updated.set(currentVoiceChannelId.value, channelMap);
+            voiceStates.value = updated;
+        }
     };
 
     const toggleSelfDeafen = () => {
         selfDeafened.value = !selfDeafened.value;
+        
         // When deafening, also mute
         if (selfDeafened.value) {
             selfMuted.value = true;
-            webrtcService.setMuted(true);
         } else {
             // When undeafening, also unmute
             selfMuted.value = false;
-            webrtcService.setMuted(false);
         }
-        // Note: LiveKit is only used for video/screen sharing, not voice
-        // WebRTC handles all voice functionality
+        
+        // Update WebRTC for voice (this will also notify SignalR)
+        webrtcService.setMuted(selfMuted.value);
+        webrtcService.setDeafened(selfDeafened.value);
+        
+        // Update voice state map for current user in current channel
+        if (currentVoiceChannelId.value && currentUserId.value) {
+            const channelMap = new Map(voiceStates.value.get(currentVoiceChannelId.value) || []);
+            channelMap.set(currentUserId.value, { muted: selfMuted.value, deafened: selfDeafened.value });
+            const updated = new Map(voiceStates.value);
+            updated.set(currentVoiceChannelId.value, channelMap);
+            voiceStates.value = updated;
+        }
+    };
+
+    const setUserVoiceState = (channelId: EntityId, userId: EntityId, state: { muted: boolean; deafened: boolean }) => {
+        const channelMap = new Map(voiceStates.value.get(channelId) || []);
+        channelMap.set(userId, state);
+        const updated = new Map(voiceStates.value);
+        updated.set(channelId, channelMap);
+        voiceStates.value = updated;
     };
 
     const setVoiceChannelUsers = (channelId: EntityId, userIds: EntityId[]) => {
@@ -943,6 +974,7 @@ export const useAppStore = defineStore('app', () => {
         removeVoiceChannelConnection,
         currentVoiceChannelId,
         voiceChannelConnections,
+        voiceStates,
         selfMuted,
         selfDeafened,
 
@@ -980,6 +1012,7 @@ export const useAppStore = defineStore('app', () => {
         handleUserLeftVoiceChannel,
         handleUserStartedScreenShare,
         handleUserStoppedScreenShare,
+        setUserVoiceState,
 
         // Reset
         $reset: () => {

@@ -1,6 +1,7 @@
 import type { SignalRService } from './signalrService';
 import type { EntityId } from './types';
 import { useAudioSettings } from '@/composables/useAudioSettings';
+import { useAppStore } from '@/stores/app';
 
 // Load SimplePeer from CDN
 let SimplePeer: any = null;
@@ -34,6 +35,8 @@ class WebRtcService {
     private signalRService: SignalRService | null = null;
     private isMutedForTesting = false;
     private settingsCleanup: (() => void) | null = null;
+    private isDeafened = false;
+    private isInVoiceChannel = false; // Track if we should have microphone access
     
     // Audio settings integration
     private audioSettings = useAudioSettings();
@@ -59,7 +62,7 @@ class WebRtcService {
     }
 
     private async ensureLocalStream() {
-        if (!this.localStream) {
+        if (!this.localStream && this.isInVoiceChannel) {
             await this.createLocalStream();
         }
     }
@@ -107,6 +110,7 @@ class WebRtcService {
     }
 
     async connectToExisting(_channelId: EntityId, infos: ConnectionInfo[]) {
+        // Only start local stream if we don't have one already (i.e., when we first join)
         await this.ensureLocalStream();
         for (const info of infos) {
             if (!this.peers.has(info.connectionId)) {
@@ -150,7 +154,7 @@ class WebRtcService {
             }
         };
 
-        // Only add stream if we have one
+        // Only add stream if we have one (i.e., if we're in voice channel)
         if (this.localStream) {
             peerConfig.stream = this.localStream;
         }
@@ -192,7 +196,13 @@ class WebRtcService {
         });
 
         // Handle connection events
-        peer.on('connect', () => {});
+        peer.on('connect', () => {
+            // Send our initial voice state over data channel
+            try {
+                const payload = JSON.stringify({ t: 'voice_state', muted: this.getMutedState(), deafened: this.isDeafened });
+                peer.send(payload);
+            } catch {}
+        });
 
         peer.on('close', () => {
             this.removeUser(targetConnectionId);
@@ -201,6 +211,25 @@ class WebRtcService {
         peer.on('error', (err: any) => {
             console.error('Peer error:', err);
             this.removeUser(targetConnectionId);
+        });
+
+        // Receive data channel messages (e.g., voice state)
+        peer.on('data', (buf: any) => {
+            try {
+                const msg = JSON.parse(buf.toString());
+                if (msg && msg.t === 'voice_state') {
+                    const appStore = useAppStore();
+                    const channelId = appStore.currentVoiceChannelId;
+                    if (!channelId) return;
+                    const connMap = appStore.voiceChannelConnections.get(channelId);
+                    if (!connMap) return;
+                    let userId: EntityId | undefined;
+                    connMap.forEach((cid, uid) => { if (cid === targetConnectionId) userId = uid; });
+                    if (userId !== undefined) {
+                        appStore.setUserVoiceState(channelId, userId, { muted: !!msg.muted, deafened: !!msg.deafened });
+                    }
+                }
+            } catch {}
         });
 
         return peer;
@@ -335,7 +364,7 @@ class WebRtcService {
 
     private updateOutputVolume() {
         const { audioSettings } = this.audioSettings;
-        const volume = audioSettings.outputVolume / 100;
+        const volume = this.isDeafened ? 0 : (audioSettings.outputVolume / 100);
         
         // Update all audio elements
         this.audioElements.forEach((audio) => {
@@ -360,9 +389,53 @@ class WebRtcService {
         if (this.localStream) {
             this.localStream.getAudioTracks().forEach(track => track.enabled = !muted);
         }
+        // Only broadcast and notify if we're actually in a voice channel
+        if (this.isInVoiceChannel) {
+            this.broadcastVoiceState();
+            this.notifySignalRVoiceState();
+        }
+    }
+
+    setDeafened(deafened: boolean) {
+        this.isDeafened = deafened;
+        this.updateOutputVolume();
+        // Only broadcast and notify if we're actually in a voice channel
+        if (this.isInVoiceChannel) {
+            this.broadcastVoiceState();
+            this.notifySignalRVoiceState();
+        }
+    }
+
+    private getMutedState(): boolean {
+        if (!this.localStream) return false;
+        return this.localStream.getAudioTracks().some(t => t.enabled === false);
+    }
+
+    private broadcastVoiceState() {
+        const payload = JSON.stringify({ t: 'voice_state', muted: this.getMutedState(), deafened: this.isDeafened });
+        this.peers.forEach((p) => {
+            try { p.send(payload); } catch {}
+        });
+    }
+
+    private notifySignalRVoiceState() {
+        if (this.signalRService && this.isInVoiceChannel) {
+            const appStore = useAppStore();
+            const currentVoiceChannelId = appStore.currentVoiceChannelId;
+            if (currentVoiceChannelId) {
+                this.signalRService.updateVoiceState(currentVoiceChannelId, this.getMutedState(), this.isDeafened);
+            }
+        }
+    }
+
+    async joinVoiceChannel() {
+        this.isInVoiceChannel = true;
+        await this.ensureLocalStream();
     }
 
     leaveChannel() {
+        this.isInVoiceChannel = false;
+        
         for (const id of Array.from(this.peers.keys())) {
             this.removeUser(id);
         }
@@ -370,9 +443,13 @@ class WebRtcService {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
+        this.isDeafened = false;
     }
 
     private cleanup() {
+        // Mark as not in voice channel
+        this.isInVoiceChannel = false;
+        
         // Clean up peer connections
         for (const id of Array.from(this.peers.keys())) {
             this.removeUser(id);

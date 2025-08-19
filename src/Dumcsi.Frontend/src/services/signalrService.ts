@@ -239,6 +239,27 @@ export class SignalRService {
             webrtcService.connectToExisting(cid, infos);
         });
 
+        // Voice state events (mute/deafen). Support combined or separate events.
+        this.connection.on('UserVoiceStateChanged', (channelId: EntityId | string, userId: EntityId | string, muted: boolean, deafened: boolean) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            appStore.setUserVoiceState(cid, uid, { muted, deafened });
+        });
+
+        this.connection.on('UserMuted', (channelId: EntityId | string, userId: EntityId | string, muted: boolean) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            const prev = appStore.voiceStates.get(cid)?.get(uid) || { muted: false, deafened: false };
+            appStore.setUserVoiceState(cid, uid, { muted, deafened: prev.deafened });
+        });
+
+        this.connection.on('UserDeafened', (channelId: EntityId | string, userId: EntityId | string, deafened: boolean) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            const prev = appStore.voiceStates.get(cid)?.get(uid) || { muted: false, deafened: false };
+            appStore.setUserVoiceState(cid, uid, { muted: prev.muted, deafened });
+        });
+
         this.connection.on('UserJoinedVoiceChannel', (channelId: EntityId | string, userId: EntityId | string, connectionId: string) => {
             const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
             const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
@@ -328,12 +349,12 @@ export class SignalRService {
         });
 
         // Connection events
-        this.connection.onclose((error) => {
+        this.connection.onclose(() => {
             
             this.handleConnectionClosed();
         });
 
-        this.connection.onreconnecting((error) => {
+        this.connection.onreconnecting(() => {
             
             const {addToast} = useToast();
             addToast({
@@ -344,7 +365,7 @@ export class SignalRService {
             });
         });
 
-        this.connection.onreconnected((connectionId) => {
+        this.connection.onreconnected(() => {
             
             const {addToast} = useToast();
             addToast({
@@ -562,6 +583,19 @@ export class SignalRService {
             } catch (error) {
                 console.error('Failed to join voice channel:', error);
                 throw error;
+            }
+        }
+    }
+
+    // Update own voice states (backend method names may vary; provide both combined and separate forms)
+    async updateVoiceState(channelId: EntityId, muted: boolean, deafened: boolean): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('UpdateVoiceState', channelId.toString(), muted, deafened);
+            } catch {
+                // Fallback to separate invocations if combined is not available
+                try { await this.connection.invoke('SetMuteState', channelId.toString(), muted); } catch {}
+                try { await this.connection.invoke('SetDeafenState', channelId.toString(), deafened); } catch {}
             }
         }
     }

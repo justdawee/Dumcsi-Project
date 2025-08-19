@@ -66,10 +66,13 @@
                     >
                       {{ user.username }}
                     </button>
-                    <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
-                         class="ml-auto flex items-center gap-1">
-                      <VolumeX v-if="appStore.selfDeafened" class="w-3 h-3 text-red-400" title="Deafened" />
-                      <MicOff v-else-if="appStore.selfMuted" class="w-3 h-3 text-red-400" title="Muted" />
+                    <div class="ml-auto flex items-center gap-1">
+                      <VolumeX 
+                        v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
+                        class="w-3 h-3 text-red-400" title="Deafened" />
+                      <MicOff 
+                        v-else-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
+                        class="w-3 h-3 text-red-400" title="Muted" />
                     </div>
                   </li>
                 </ul>
@@ -94,7 +97,7 @@
             <ul :ref="setChannelParent(topic.id)" class="space-y-0.5">
               <li v-for="channel in topic.channels" :key="channel.id">
                 <div v-if="channel.type === ChannelType.Voice"
-                     :class="['channel-item voice-channel', { 'active': appStore.currentVoiceChannelId === channel.id }]"
+                     :class="['channel-item', { 'active': appStore.currentVoiceChannelId === channel.id }]"
                      @click="toggleVoiceChannel(channel)"
                      @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
@@ -124,10 +127,13 @@
                     >
                       {{ user.username }}
                     </button>
-                    <div v-if="appStore.currentVoiceChannelId === channel.id && user.id === appStore.currentUserId" 
-                         class="ml-auto flex items-center gap-1">
-                      <VolumeX v-if="appStore.selfDeafened" class="w-3 h-3 text-red-400" title="Deafened" />
-                      <MicOff v-else-if="appStore.selfMuted" class="w-3 h-3 text-red-400" title="Muted" />
+                    <div class="ml-auto flex items-center gap-1">
+                      <VolumeX 
+                        v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
+                        class="w-3 h-3 text-red-400" title="Deafened" />
+                      <MicOff 
+                        v-else-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
+                        class="w-3 h-3 text-red-400" title="Muted" />
                     </div>
                   </li>
                 </ul>

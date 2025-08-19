@@ -443,8 +443,8 @@ const participants = computed(() => {
     id: user.id,
     username: user.username,
     avatar: user.avatar,
-    isMuted: user.id === currentUserId ? appStore.selfMuted : false,
-    isDeafened: user.id === currentUserId ? appStore.selfDeafened : false,
+    isMuted: user.id === currentUserId ? appStore.selfMuted : !!(appStore.voiceStates.get(channelId.value)?.get(user.id)?.muted),
+    isDeafened: user.id === currentUserId ? appStore.selfDeafened : !!(appStore.voiceStates.get(channelId.value)?.get(user.id)?.deafened),
     isScreenSharing: screenShareUsers.has(user.id),
     videoStream: cameraStreams.value.get(user.id),
     // Use track presence for ready state; store-based flag for intent state
