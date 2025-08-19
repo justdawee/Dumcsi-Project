@@ -38,7 +38,10 @@
             <input
                 id="invite-code"
                 :value="inviteCode"
-                class="form-input pr-12 cursor-pointer font-mono tracking-wider"
+                :class="[
+                  'form-input pr-12 cursor-pointer font-mono tracking-wider transition-shadow duration-300',
+                  copied ? 'ring-2 ring-green-500/70 shadow-[0_0_16px_rgba(34,197,94,0.35)]' : ''
+                ]"
                 readonly
                 type="text"
                 @click="copyToClipboard"
@@ -70,7 +73,7 @@
 </template>
 
 <script lang="ts" setup>
-import {ref} from 'vue';
+import {ref, watch} from 'vue';
 import {Copy} from 'lucide-vue-next';
 import type {ServerListItem} from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
@@ -84,6 +87,7 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue']);
 
 const copied = ref(false);
+const autoCopied = ref(false);
 
 const closeModal = () => {
   emit('update:modelValue', false);
@@ -101,4 +105,20 @@ const copyToClipboard = async () => {
     console.error('Failed to copy invite code:', error);
   }
 };
+
+// Auto-copy when modal opens with a valid invite code
+watch(
+  () => [props.modelValue, props.inviteCode] as const,
+  async ([open, code]) => {
+    if (open && code && !autoCopied.value) {
+      await copyToClipboard();
+      autoCopied.value = true;
+    }
+    if (!open) {
+      autoCopied.value = false;
+      copied.value = false;
+    }
+  },
+  { immediate: true }
+);
 </script>
