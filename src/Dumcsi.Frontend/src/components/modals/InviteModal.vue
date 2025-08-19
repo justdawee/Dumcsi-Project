@@ -25,12 +25,56 @@
           {{ server.description }}
         </p>
 
-        <div>
+        <!-- Invite Settings -->
+        <div class="mb-4 space-y-4">
+          <!-- Expiration -->
+          <div>
+            <label class="block text-sm font-medium text-text-secondary mb-2">Expires after</label>
+            <select v-model="inviteSettings.expiresInHours" @change="onSettingsChange" class="form-input">
+              <option :value="null">Never</option>
+              <option :value="1">1 hour</option>
+              <option :value="6">6 hours</option>
+              <option :value="12">12 hours</option>
+              <option :value="24">1 day</option>
+              <option :value="168">7 days</option>
+            </select>
+          </div>
+
+          <!-- Max uses -->
+          <div>
+            <label class="block text-sm font-medium text-text-secondary mb-2">Max number of uses</label>
+            <select v-model="inviteSettings.maxUses" @change="onSettingsChange" class="form-input">
+              <option :value="0">Unlimited</option>
+              <option :value="1">1 use</option>
+              <option :value="5">5 uses</option>
+              <option :value="10">10 uses</option>
+              <option :value="25">25 uses</option>
+              <option :value="50">50 uses</option>
+              <option :value="100">100 uses</option>
+            </select>
+          </div>
+
+          <!-- Temporary membership -->
+          <label class="flex items-center space-x-3 cursor-pointer">
+            <input 
+              v-model="inviteSettings.isTemporary" 
+              @change="onSettingsChange"
+              type="checkbox" 
+              class="form-checkbox text-primary focus:ring-primary"
+            />
+            <div>
+              <div class="text-sm font-medium text-text-default">Temporary membership</div>
+              <div class="text-xs text-text-muted">Users will be kicked when they go offline</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="mb-4">
           <label class="block text-sm font-medium text-text-secondary mb-2" for="invite-code">
             Share this invite code with others
           </label>
 
-          <div v-if="!inviteCode" class="relative flex items-center">
+          <div v-if="generating || !inviteCode" class="relative flex items-center">
             <div class="h-[46px] w-full animate-pulse rounded-lg bg-main-700/80"></div>
           </div>
 
@@ -62,9 +106,12 @@
           </div>
         </div>
 
-        <div class="mt-4 text-right">
+        <div class="flex justify-between">
           <button class="btn-secondary" @click="closeModal">
-            Close
+            Cancel
+          </button>
+          <button class="btn-primary" @click="generateNewInvite" :disabled="generating">
+            {{ generating ? 'Generating...' : 'Generate New Link' }}
           </button>
         </div>
       </div>
@@ -73,10 +120,12 @@
 </template>
 
 <script lang="ts" setup>
-import {ref, watch} from 'vue';
+import {ref, watch, reactive} from 'vue';
 import {Copy} from 'lucide-vue-next';
-import type {ServerListItem} from '@/services/types';
+import type {ServerListItem, CreateInviteRequest} from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import serverService from '@/services/serverService';
+import {useToast} from '@/composables/useToast';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -84,10 +133,18 @@ const props = defineProps<{
   inviteCode?: string;
 }>();
 
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(['update:modelValue', 'inviteGenerated']);
 
+const { addToast } = useToast();
 const copied = ref(false);
 const autoCopied = ref(false);
+const generating = ref(false);
+
+const inviteSettings = reactive<CreateInviteRequest>({
+  expiresInHours: 1, // Default 1 hour
+  maxUses: 0, // Unlimited
+  isTemporary: false
+});
 
 const closeModal = () => {
   emit('update:modelValue', false);
@@ -106,6 +163,30 @@ const copyToClipboard = async () => {
   }
 };
 
+const generateNewInvite = async () => {
+  if (!props.server || generating.value) return;
+  
+  generating.value = true;
+  try {
+    const response = await serverService.generateInvite(props.server.id, inviteSettings);
+    emit('inviteGenerated', response.code);
+    addToast({ type: 'success', message: 'New invite link generated!' });
+  } catch (error: any) {
+    console.error('Failed to generate invite:', error);
+    addToast({ 
+      type: 'danger', 
+      message: error.message || 'Failed to generate invite link'
+    });
+  } finally {
+    generating.value = false;
+  }
+};
+
+const onSettingsChange = () => {
+  // Settings changed, user needs to generate new invite
+  // We don't auto-generate here to give user control
+};
+
 // Auto-copy when modal opens with a valid invite code
 watch(
   () => [props.modelValue, props.inviteCode] as const,
@@ -117,6 +198,17 @@ watch(
     if (!open) {
       autoCopied.value = false;
       copied.value = false;
+    }
+  },
+  { immediate: true }
+);
+
+// Generate initial invite when modal opens
+watch(
+  () => props.modelValue,
+  async (open) => {
+    if (open && props.server && !props.inviteCode) {
+      await generateNewInvite();
     }
   },
   { immediate: true }

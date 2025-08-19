@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import { usePermissions } from '@/composables/usePermissions';
 import { useToast } from '@/composables/useToast';
-import { UserPlus, PlusCircle, Edit, LogOut, Shield, Plus } from 'lucide-vue-next';
+import { UserPlus, PlusCircle, Edit, LogOut, Shield, Plus, Settings } from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import type { ServerListItem } from '@/services/types';
 
@@ -22,6 +22,7 @@ export function useServerMenu() {
 
   // Modal states
   const isInviteModalOpen = ref(false);
+  const isInviteManagementModalOpen = ref(false);
   const isEditServerModalOpen = ref(false);
   const isManageRolesModalOpen = ref(false);
   const isCreateTopicModalOpen = ref(false);
@@ -79,6 +80,11 @@ export function useServerMenu() {
     selectedServer.value = server;
     newTopicName.value = '';
     isCreateTopicModalOpen.value = true;
+  };
+
+  const handleManageInvites = (server: ServerListItem) => {
+    selectedServer.value = server;
+    isInviteManagementModalOpen.value = true;
   };
 
   const createTopic = async () => {
@@ -142,7 +148,8 @@ export function useServerMenu() {
     const canManageRoles = isCurrentServer ? permissions.manageRoles.value : server.isOwner;
 
     if (canInvite) {
-      menuItems.push({ label: 'Invite', icon: UserPlus, action: () => handleInvite(server) });
+      menuItems.push({ label: 'Invite People', icon: UserPlus, action: () => handleInvite(server) });
+      menuItems.push({ label: 'Manage Invites', icon: Settings, action: () => handleManageInvites(server) });
     }
     if (canManageChannels) {
       menuItems.push({ label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server) });
@@ -164,6 +171,7 @@ export function useServerMenu() {
   return {
     // States
     isInviteModalOpen,
+    isInviteManagementModalOpen,
     isEditServerModalOpen,
     isManageRolesModalOpen,
     isCreateTopicModalOpen,
@@ -178,6 +186,7 @@ export function useServerMenu() {
     createTopic,
     confirmLeaveServer,
     handleInvite,
+    handleManageInvites,
     handleCreateChannel,
     handleEditServer,
     handleLeaveServer,

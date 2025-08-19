@@ -98,6 +98,14 @@
         v-model="serverMenu.isInviteModalOpen.value"
         :invite-code="serverMenu.generatedInviteCode.value"
         :server="serverMenu.selectedServer.value"
+        @invite-generated="handleInviteGenerated"
+    />
+
+    <InviteManagementModal
+        ref="inviteManagementModal"
+        v-model="serverMenu.isInviteManagementModalOpen.value"
+        :server="serverMenu.selectedServer.value"
+        @open-create-invite="handleOpenCreateInviteFromManagement"
     />
 
     <EditServerModal
@@ -174,6 +182,7 @@ import {Home, Plus, Compass} from 'lucide-vue-next';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
+import InviteManagementModal from '@/components/modals/InviteManagementModal.vue';
 import EditServerModal from '@/components/modals/EditServerModal.vue';
 import ExploreServersModal from '@/components/modals/ExploreServersModal.vue';
 import CreateServerModal from './CreateServerModal.vue';
@@ -204,6 +213,24 @@ const openCreateModal = () => {
 
 const closeCreateModal = () => {
   showCreateModal.value = false;
+};
+
+const inviteManagementModal = ref();
+
+const handleOpenCreateInviteFromManagement = () => {
+  // Close the management modal and open the create invite modal
+  serverMenu.isInviteManagementModalOpen.value = false;
+  serverMenu.isInviteModalOpen.value = true;
+  // Clear any existing invite code to generate a fresh one
+  serverMenu.generatedInviteCode.value = '';
+};
+
+const handleInviteGenerated = (code: string) => {
+  serverMenu.generatedInviteCode.value = code;
+  // Refresh the management modal if it's open
+  if (inviteManagementModal.value) {
+    inviteManagementModal.value.refreshInvites();
+  }
 };
 
 // --- Computed ---

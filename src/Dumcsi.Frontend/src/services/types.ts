@@ -438,6 +438,7 @@ export interface CreateInviteRequest {
     expiresInHours?: number | null;
     maxUses?: number;
     isTemporary?: boolean;
+    channelId?: EntityId;
 }
 
 // --- API Responses ---
@@ -454,8 +455,28 @@ export interface InviteInfoDto {
 
 export interface CreateInviteResponse {
     code: string;
+    expiresInHours?: number | null;
+    maxUses: number;
+    isTemporary: boolean;
+    createdAt: ISODateString;
     expiresAt: ISODateString | null;
-    maxUses: number | null;
+}
+
+export interface InviteDto {
+    code: string;
+    serverId: EntityId;
+    channelId: EntityId | null;
+    channelName: string | null;
+    creatorId: EntityId;
+    creatorUsername: string;
+    creatorAvatar: string | null;
+    maxUses: number;
+    currentUses: number;
+    expiresAt: ISODateString | null;
+    isTemporary: boolean;
+    createdAt: ISODateString;
+    isExpired: boolean;
+    isMaxUsesReached: boolean;
 }
 
 /**

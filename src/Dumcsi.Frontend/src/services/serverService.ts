@@ -25,6 +25,7 @@ import type {
     Role,
     InviteInfo,
     InviteInfoDto,
+    InviteDto,
     CreateInviteRequest,
     JoinServerResponse,
 } from './types';
@@ -233,10 +234,49 @@ const serverService = {
      * Létrehoz egy meghívót a szerverhez.
      */
     async generateInvite(serverId: EntityId, payload?: CreateInviteRequest): Promise<CreateInviteResponse> {
+        const requestPayload = {
+            expiresInHours: payload?.expiresInHours ?? 1, // Default 1 hour
+            maxUses: payload?.maxUses ?? 0,
+            isTemporary: payload?.isTemporary ?? false,
+            channelId: payload?.channelId
+        };
+        
         const response = await api.post<ApiResponse<CreateInviteResponse>>(
             `/server/${serverId}/invite`,
-            payload || {}
+            requestPayload
         );
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        return response.data.data;
+    },
+
+    /**
+     * Lekéri a szerver összes meghívóját.
+     */
+    async getServerInvites(serverId: EntityId): Promise<InviteDto[]> {
+        const response = await api.get<ApiResponse<InviteDto[]>>(`/server/${serverId}/invites`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        return response.data.data;
+    },
+
+    /**
+     * Töröl egy meghívót.
+     */
+    async deleteInvite(serverId: EntityId, inviteCode: string): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>(`/server/${serverId}/invite/${inviteCode}`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
+
+    /**
+     * Törli az összes lejárt meghívót.
+     */
+    async cleanupExpiredInvites(serverId: EntityId): Promise<{ cleanedUp: number }> {
+        const response = await api.delete<ApiResponse<{ cleanedUp: number }>>(`/server/${serverId}/invites/cleanup`);
         if (!response.data.isSuccess) {
             throw new Error(response.data.message);
         }
