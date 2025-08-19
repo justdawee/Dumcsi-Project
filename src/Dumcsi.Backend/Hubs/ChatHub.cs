@@ -277,6 +277,10 @@ public class ChatHub(IPresenceService presenceService) : Hub
         {
             await Clients.Group(serverId)
                 .SendAsync("UserLeftVoiceChannel", channelId, long.Parse(userId), Context.ConnectionId);
+
+            // Ensure screen share is considered stopped when leaving the voice channel
+            await Clients.Group(serverId)
+                .SendAsync("UserStoppedScreenShare", long.Parse(channelId), long.Parse(userId));
         }
     }
 
@@ -306,6 +310,9 @@ public class ChatHub(IPresenceService presenceService) : Hub
                 // We need to find the server ID to notify properly
                 // For now, we'll send to all groups - this isn't perfect but works
                 await Clients.All.SendAsync("UserLeftVoiceChannel", channelId, userIdLong, connectionId);
+
+                // Also signal that any active screen share by this user should stop
+                await Clients.All.SendAsync("UserStoppedScreenShare", long.Parse(channelId), userIdLong);
             }
         }
 
