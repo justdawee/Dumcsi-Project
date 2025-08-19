@@ -73,6 +73,12 @@ public class ChatHub(IPresenceService presenceService) : Hub
             if (wentOffline)
             {
                 await Clients.Others.SendAsync("UserOffline", long.Parse(userId));
+                
+                // Handle temporary member kick logic
+                if (long.TryParse(userId, out var userIdLong))
+                {
+                    await presenceService.HandleTemporaryMemberOffline(userIdLong);
+                }
             }
         }
 

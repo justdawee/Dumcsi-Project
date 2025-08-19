@@ -6,4 +6,5 @@ public interface IPresenceService
     Task<bool> UserDisconnected(string userId, string connectionId);
     Task<string[]> GetOnlineUsers();
     Task<string?> GetUserIdByConnectionId(string connectionId);
+    Task HandleTemporaryMemberOffline(long userId);
 }

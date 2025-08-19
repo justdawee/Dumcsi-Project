@@ -97,7 +97,8 @@ public class InviteController(
         {
             User = user,
             Server = invite.Server,
-            JoinedAt = SystemClock.Instance.GetCurrentInstant()
+            JoinedAt = SystemClock.Instance.GetCurrentInstant(),
+            IsTemporary = invite.IsTemporary
         };
         newMember.Roles.Add(everyoneRole);
 

@@ -22,5 +22,7 @@ public class ServerMember
     
     public Instant MutedUntil { get; set; }
     
+    public bool IsTemporary { get; set; } = false;
+    
     public ICollection<Role> Roles { get; set; } = new List<Role>();
 }
