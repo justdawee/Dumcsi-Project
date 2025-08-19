@@ -1,8 +1,10 @@
 <template>
-  <div class="flex h-screen w-full bg-bg-base">
-    <!-- Settings Navigation Sidebar -->
-    <div class="w-64 bg-bg-surface border-r border-border-default overflow-y-auto flex-shrink-0 scrollbar-thin">
-      <div class="p-6">
+  <div class="h-screen w-full bg-bg-base flex justify-center">
+    <!-- Centered Settings Wrapper -->
+    <div class="w-full h-full max-w-6xl px-4 sm:px-6 lg:px-8 flex gap-6 items-stretch relative">
+      <!-- Settings Navigation Sidebar -->
+      <div class="w-64 bg-bg-surface border-l border-r border-border-default overflow-y-auto flex-shrink-0 scrollbar-thin">
+        <div class="p-6">
         <div class="flex items-center space-x-3 mb-8">
           <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-primary/20 rounded-lg">
             <Settings class="w-5 h-5 text-primary"/>
@@ -51,19 +53,40 @@
             </router-link>
           </nav>
         </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Settings Content -->
-    <div class="flex-1 min-w-150">
-      <component :is="currentComponent" />
+      <!-- Settings Content -->
+      <div class="flex-1 min-w-0 overflow-y-auto scrollbar-thin">
+        <component :is="currentComponent" />
+      </div>
+
+      <!-- Close button styled like the screenshot -->
+      <div class="absolute top-4 -right-10 z-50">
+        <div class="flex flex-col items-center gap-1 text-zinc-400">
+          <button
+              title="Close Settings"
+              @click="closeSettings"
+              class="group grid place-items-center w-12 h-12 rounded-full border-2 border-zinc-500/60
+             bg-transparent hover:bg-white/5 transition-colors
+             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          >
+            <!-- Icon -->
+            <X class="w-4 h-4 text-zinc-200 group-hover:text-white stroke-[2]" />
+          </button>
+
+          <!-- Label under the circle (no parentheses) -->
+          <span class="text-xs tracking-wide select-none">ESC</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useCloseSettings } from '@/composables/useCloseSettings';
 import {
   Settings,
   User,
@@ -76,7 +99,8 @@ import {
   MessageSquare,
   Bell,
   Keyboard,
-  Globe
+  Globe,
+  X
 } from 'lucide-vue-next';
 
 // Settings Components (lazy loaded)
@@ -94,6 +118,23 @@ import LanguageView from './sections/LanguageView.vue';
 
 const route = useRoute();
 const router = useRouter();
+const { closeSettings } = useCloseSettings();
+
+// ESC to close settings
+const onKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeSettings();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+});
 
 const userSettings = [
   { key: 'my-account', label: 'My Account', icon: User, component: MyAccountView },

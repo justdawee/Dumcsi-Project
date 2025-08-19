@@ -1,8 +1,8 @@
 <template>
   <!-- Main container with vertical scroll -->
-  <div class="h-full w-full bg-gradient-to-br from-bg-base via-bg-base to-bg-surface/20 text-text-default overflow-y-auto scrollbar-thin">
+  <div class="h-full w-full bg-bg-base text-text-default">
     <!-- Content Container -->
-    <div class="max-w-4xl mx-auto p-4 sm:p-8">
+    <div class="w-full px-6 py-8 max-w-5xl mx-auto">
 
       <!-- Page Header -->
       <header class="mb-8 flex items-center space-x-4">
@@ -17,10 +17,10 @@
 
       <!-- Profile Information Section Card -->
       <div
-          class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
+          class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
         <form @submit.prevent="handleUpdateProfile">
           <!-- Card Header -->
-          <div class="p-6 border-b border-border-default/50">
+          <div class="p-6 border-b border-border-default">
             <h2 class="text-lg font-semibold leading-6">Profile Information</h2>
             <p class="mt-1 text-sm text-text-muted">This information may be visible to other users.</p>
           </div>

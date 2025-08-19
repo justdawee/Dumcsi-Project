@@ -1,7 +1,7 @@
 <template>
-  <div class="h-full w-full bg-gradient-to-br from-bg-base via-bg-base to-bg-surface/20 text-text-default overflow-y-auto scrollbar-thin">
+  <div class="h-full w-full bg-bg-base text-text-default">
     <!-- Content Container -->
-    <div class="max-w-4xl mx-auto p-4 sm:p-8">
+    <div class="w-full px-6 py-8 max-w-5xl mx-auto">
       <!-- Page Header -->
       <header class="mb-8 flex items-center space-x-4">
         <div class="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-primary/20 rounded-xl">
@@ -14,8 +14,8 @@
       </header>
 
       <!-- Input Device Settings -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
-        <div class="p-6 border-b border-border-default/50">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
+        <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <MicIcon class="w-5 h-5 mr-3 text-primary"/>
             Input Device
@@ -103,8 +103,8 @@
       </div>
 
       <!-- Output Device Settings -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
-        <div class="p-6 border-b border-border-default/50">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
+        <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <Headphones class="w-5 h-5 mr-3 text-primary"/>
             Output Device
@@ -156,8 +156,8 @@
       </div>
 
       <!-- Input Mode Settings -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
-        <div class="p-6 border-b border-border-default/50">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
+        <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <Settings class="w-5 h-5 mr-3 text-primary"/>
             Input Mode
@@ -261,8 +261,8 @@
       </div>
 
       <!-- Advanced Settings -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden">
-        <div class="p-6 border-b border-border-default/50">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden">
+        <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <Sliders class="w-5 h-5 mr-3 text-primary"/>
             Advanced

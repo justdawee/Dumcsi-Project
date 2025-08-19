@@ -1,8 +1,7 @@
 <template>
-  <!-- Main container with vertical scroll -->
-  <div class="h-full w-full bg-gradient-to-br from-bg-base via-bg-base to-bg-surface/20 text-text-default overflow-y-auto scrollbar-thin">
+  <div class="h-full w-full text-text-default">
     <!-- Content Container -->
-    <div class="max-w-4xl mx-auto p-4 sm:p-8">
+    <div class="w-full px-6 py-8 max-w-5xl mx-auto">
 
       <!-- Page Header -->
       <header class="mb-8 flex items-center space-x-4">
@@ -16,8 +15,8 @@
       </header>
 
       <!-- Account Information -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
-        <div class="p-6 border-b border-border-default/50">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
+        <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6">Account Information</h2>
           <p class="mt-1 text-sm text-text-muted">Your basic account details</p>
         </div>
@@ -36,9 +35,9 @@
       </div>
 
       <!-- Password Change Section Card -->
-      <div class="bg-bg-surface/50 backdrop-blur-md rounded-2xl shadow-2xl border border-border-default/50 overflow-hidden mb-8">
+      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
         <form @submit.prevent="handleChangePassword">
-          <div class="p-6 border-b border-border-default/50">
+          <div class="p-6 border-b border-border-default">
             <h2 class="text-lg font-semibold leading-6">Change Password</h2>
             <p class="mt-1 text-sm text-text-muted">For your security, we recommend using a strong password.</p>
           </div>
