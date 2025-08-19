@@ -137,9 +137,9 @@ public class PresenceService : IPresenceService
         // Notify all server members via SignalR
         await _chatHubContext.Clients.Group(membership.ServerId.ToString())
             .SendAsync("UserLeftServer", new { 
-                UserId = membership.UserId, 
-                ServerId = membership.ServerId,
-                Reason = "Temporary membership expired"
+                userId = membership.UserId, 
+                serverId = membership.ServerId,
+                reason = "Temporary membership expired"
             });
     }
 }
