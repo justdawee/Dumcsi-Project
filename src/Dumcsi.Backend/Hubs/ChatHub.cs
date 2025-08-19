@@ -335,6 +335,40 @@ public class ChatHub(IPresenceService presenceService) : Hub
         await Clients.Client(targetConnectionId).SendAsync("ReceiveIceCandidate", Context.ConnectionId, iceCandidate);
     }
 
+    // --- Voice state management ---
+    public async Task UpdateVoiceState(string channelId, bool muted, bool deafened)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            // Notify all users in the voice channel about the voice state change
+            await Clients.Group(channelId)
+                .SendAsync("UserVoiceStateChanged", long.Parse(channelId), userIdLong, muted, deafened);
+        }
+    }
+
+    public async Task SetMuteState(string channelId, bool muted)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            // Notify all users in the voice channel about the mute state change
+            await Clients.Group(channelId)
+                .SendAsync("UserMuted", long.Parse(channelId), userIdLong, muted);
+        }
+    }
+
+    public async Task SetDeafenState(string channelId, bool deafened)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            // Notify all users in the voice channel about the deafen state change
+            await Clients.Group(channelId)
+                .SendAsync("UserDeafened", long.Parse(channelId), userIdLong, deafened);
+        }
+    }
+
     // --- Screen sharing management ---
     public async Task StartScreenShare(string serverId, string channelId)
     {
