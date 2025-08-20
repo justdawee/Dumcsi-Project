@@ -33,6 +33,11 @@ class WebRtcService {
     private audioElements = new Map<string, HTMLAudioElement>();
     private localStream: MediaStream | null = null;
     private signalRService: SignalRService | null = null;
+    private connectionIdToUserId = new Map<string, EntityId>();
+    private onRemoteStreamCallbacks: Array<(userId: EntityId, stream: MediaStream) => void> = [];
+    private onLocalStreamCallbacks: Array<(stream: MediaStream) => void> = [];
+    private lastOfferSdp = new Map<string, string>();
+    private lastAnswerSdp = new Map<string, string>();
     private isMutedForTesting = false;
     private settingsCleanup: (() => void) | null = null;
     private isDeafened = false;
@@ -85,9 +90,12 @@ class WebRtcService {
 
         // Set up audio processing chain for volume control
         this.setupAudioProcessing();
-        
+
         // Listen for settings changes
         this.setupSettingsListener();
+
+        // Notify listeners that a (new) local stream is available
+        try { this.onLocalStreamCallbacks.forEach(cb => { try { cb(this.localStream!); } catch {} }); } catch {}
     }
 
     private setupAudioProcessing() {
@@ -117,6 +125,7 @@ class WebRtcService {
         for (const info of infos) {
             // Do not attempt to connect to ourselves
             if (selfId && info.userId === selfId) continue;
+            this.connectionIdToUserId.set(info.connectionId, info.userId);
             if (!this.peers.has(info.connectionId)) {
                 await this.createPeerConnection(info.connectionId, true);
             }
@@ -128,6 +137,7 @@ class WebRtcService {
         const appStore = useAppStore();
         const selfId = appStore.currentUserId;
         if (selfId && _userId === selfId) return;
+        this.connectionIdToUserId.set(connectionId, _userId);
         if (!this.peers.has(connectionId)) {
             // Existing users don't initiate connection, they wait for offers from new users
             await this.createPeerConnection(connectionId, false);
@@ -140,6 +150,7 @@ class WebRtcService {
             peer.destroy();
             this.peers.delete(connectionId);
         }
+        this.connectionIdToUserId.delete(connectionId);
         const audio = this.audioElements.get(connectionId);
         if (audio) {
             audio.srcObject = null;
@@ -202,6 +213,12 @@ class WebRtcService {
             if (playPromise !== undefined) {
                 playPromise.catch(() => { /* ignore autoplay failures */ });
             }
+
+            // Notify listeners with mapped userId if available
+            const userId = this.connectionIdToUserId.get(targetConnectionId);
+            if (userId !== undefined) {
+                try { this.onRemoteStreamCallbacks.forEach(cb => { try { cb(userId, stream); } catch {} }); } catch {}
+            }
         });
 
         // Handle connection events
@@ -259,6 +276,11 @@ class WebRtcService {
                 return;
             }
 
+            // Deduplicate identical offers
+            if (offer?.sdp && this.lastOfferSdp.get(fromConnectionId) === offer.sdp) {
+                return;
+            }
+
             // Only accept an offer when in a stable state
             const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
             if (pc) {
@@ -271,6 +293,7 @@ class WebRtcService {
 
             // Signal the offer to simple-peer
             peer.signal(offer);
+            if (offer?.sdp) this.lastOfferSdp.set(fromConnectionId, offer.sdp);
         } catch (error) {
             console.error('Error handling offer:', error);
         }
@@ -280,6 +303,11 @@ class WebRtcService {
         try {
             const peer = this.peers.get(fromConnectionId);
             if (!peer) return;
+
+            // Deduplicate identical answers
+            if (answer?.sdp && this.lastAnswerSdp.get(fromConnectionId) === answer.sdp) {
+                return;
+            }
 
             // Guard against invalid state for applying an answer
             const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
@@ -294,6 +322,7 @@ class WebRtcService {
 
             // Signal the answer to simple-peer
             peer.signal(answer);
+            if (answer?.sdp) this.lastAnswerSdp.set(fromConnectionId, answer.sdp);
         } catch (error) {
             console.error('Error handling answer:', error);
         }
@@ -496,6 +525,18 @@ class WebRtcService {
         if (this.settingsCleanup) {
             this.settingsCleanup();
             this.settingsCleanup = null;
+        }
+    }
+
+    // External subscriptions
+    onRemoteStream(callback: (userId: EntityId, stream: MediaStream) => void) {
+        this.onRemoteStreamCallbacks.push(callback);
+    }
+
+    onLocalStream(callback: (stream: MediaStream) => void) {
+        this.onLocalStreamCallbacks.push(callback);
+        if (this.localStream) {
+            try { callback(this.localStream); } catch {}
         }
     }
 }

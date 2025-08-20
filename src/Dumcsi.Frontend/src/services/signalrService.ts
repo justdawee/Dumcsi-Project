@@ -358,6 +358,18 @@ export class SignalRService {
             appStore.handleUserStoppedScreenShare(channelId, userId);
         });
 
+        // Speaking indicators
+        this.connection.on('UserStartedSpeaking', (channelId: EntityId | string, userId: EntityId | string) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            appStore.handleUserStartedSpeaking(cid, uid);
+        });
+        this.connection.on('UserStoppedSpeaking', (channelId: EntityId | string, userId: EntityId | string) => {
+            const cid = typeof channelId === 'string' ? parseInt(channelId, 10) : channelId;
+            const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+            appStore.handleUserStoppedSpeaking(cid, uid);
+        });
+
         // Server events
         this.connection.on('ServerCreated', (server: ServerListItemDto) => {
             
@@ -712,6 +724,26 @@ export class SignalRService {
                 await this.connection.invoke('SendIceCandidate', targetConnectionId, candidate);
             } catch (error) {
                 console.error('Failed to send ICE candidate:', error);
+            }
+        }
+    }
+
+    async startSpeaking(channelId: EntityId): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('StartSpeaking', channelId.toString());
+            } catch (error) {
+                console.error('Failed to notify speaking start:', error);
+            }
+        }
+    }
+
+    async stopSpeaking(channelId: EntityId): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('StopSpeaking', channelId.toString());
+            } catch (error) {
+                console.error('Failed to notify speaking stop:', error);
             }
         }
     }

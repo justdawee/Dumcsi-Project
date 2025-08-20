@@ -47,6 +47,7 @@ export const useAppStore = defineStore('app', () => {
     const voiceChannelConnections = ref<Map<EntityId, Map<EntityId, string>>>(new Map());
     const screenShares = ref<Map<EntityId, Set<EntityId>>>(new Map());
     const voiceStates = ref<Map<EntityId, Map<EntityId, { muted: boolean; deafened: boolean }>>>(new Map());
+    const speakingUsers = ref<Map<EntityId, Set<EntityId>>>(new Map());
     const currentVoiceChannelId = ref<EntityId | null>(null);
     const selfMuted = ref(false);
     const selfDeafened = ref(false);
@@ -1104,6 +1105,7 @@ export const useAppStore = defineStore('app', () => {
         currentVoiceChannelId,
         voiceChannelConnections,
         voiceStates,
+        speakingUsers,
         selfMuted,
         selfDeafened,
 
@@ -1142,6 +1144,23 @@ export const useAppStore = defineStore('app', () => {
         handleUserStartedScreenShare,
         handleUserStoppedScreenShare,
         setUserVoiceState,
+        handleUserStartedSpeaking: (channelId: EntityId, userId: EntityId) => {
+            const set = speakingUsers.value.get(channelId) || new Set<EntityId>();
+            const next = new Set(set);
+            next.add(userId);
+            const m = new Map(speakingUsers.value);
+            m.set(channelId, next);
+            speakingUsers.value = m;
+        },
+        handleUserStoppedSpeaking: (channelId: EntityId, userId: EntityId) => {
+            const set = speakingUsers.value.get(channelId);
+            if (!set) return;
+            const next = new Set(set);
+            next.delete(userId);
+            const m = new Map(speakingUsers.value);
+            if (next.size === 0) m.delete(channelId); else m.set(channelId, next);
+            speakingUsers.value = m;
+        },
 
         // Reset
         $reset: () => {

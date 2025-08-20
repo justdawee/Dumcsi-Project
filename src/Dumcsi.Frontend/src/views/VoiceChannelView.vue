@@ -44,7 +44,14 @@
 
           <!-- Main Screen Share View -->
           <div v-if="mainScreenShare" class="h-full flex flex-col">
-            <div class="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
+            <div 
+              :class="[
+                'flex-1 bg-black rounded-lg overflow-hidden mb-4 relative transition-all',
+                mainScreenShare.isSpeaking 
+                  ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
+                  : ''
+              ]"
+            >
               <!-- Screen share video when track is available -->
               <video
                   v-if="screenShareTracks.get(mainScreenShare.user.id)"
@@ -87,7 +94,12 @@
               <div
                   v-for="participant in otherParticipants"
                   :key="participant.id"
-                  class="w-32 h-20 bg-main-800 rounded cursor-pointer hover:ring-2 hover:ring-primary transition-all relative overflow-hidden"
+                  :class="[
+                    'w-32 h-20 bg-main-800 rounded cursor-pointer transition-all relative overflow-hidden',
+                    participant.isSpeaking 
+                      ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
+                      : 'hover:ring-2 hover:ring-primary'
+                  ]"
                   @click="selectMainView(participant)"
               >
                 <video
@@ -116,8 +128,13 @@
               <div
                   v-for="participant in participants"
                   :key="participant.id"
-                  :class="participantClasses"
-                  class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                  :class="[
+                    participantClasses,
+                    participant.isSpeaking 
+                      ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
+                      : 'hover:ring-2 hover:ring-primary'
+                  ]"
+                  class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer transition-all"
                   @click="selectMainView(participant)"
               >
                 <!-- Media tile -->
@@ -340,6 +357,7 @@ interface VoiceParticipant {
   avatar?: string | null;
   isMuted: boolean;
   isDeafened: boolean;
+  isSpeaking?: boolean;
   isScreenSharing?: boolean;
   videoStream?: MediaStream;
   screenShareStream?: MediaStream;
@@ -400,6 +418,124 @@ const cameraStreams = ref<Map<number, MediaStream>>(new Map());
 const screenShareLoading = ref<Set<number>>(new Set());
 // Audio elements for screen share audio per participant
 const screenShareAudioEls = ref<Map<number, HTMLMediaElement>>(new Map());
+
+// Speaking state tracking
+const speakingUsers = ref<Set<number>>(new Set());
+const speakingTimeouts = ref<Map<number, number>>(new Map());
+
+// Voice activity detection
+const SPEAKING_TIMEOUT = 250; // 0.25s after audio stops, remove speaking indicator (snappier)
+const AUDIO_THRESHOLD = -50; // dB threshold for considering as speaking
+const activeAudioAnalyzers = ref<Map<number, AnalyserNode>>(new Map());
+
+const setSpeaking = (userId: number, speaking: boolean) => {
+  const timeouts = speakingTimeouts.value;
+  const users = speakingUsers.value;
+  
+  if (speaking) {
+    // Clear any existing timeout for this user
+    const existingTimeout = timeouts.get(userId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      timeouts.delete(userId);
+    }
+    
+    // Add user to speaking set
+    if (!users.has(userId)) {
+      const newUsers = new Set(users);
+      newUsers.add(userId);
+      speakingUsers.value = newUsers;
+    }
+  } else {
+    // Set timeout to remove speaking indicator after delay
+    const existingTimeout = timeouts.get(userId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      const newUsers = new Set(speakingUsers.value);
+      newUsers.delete(userId);
+      speakingUsers.value = newUsers;
+      timeouts.delete(userId);
+    }, SPEAKING_TIMEOUT);
+    
+    timeouts.set(userId, timeout);
+  }
+};
+
+const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
+  // Check if we're already monitoring this user
+  if (activeAudioAnalyzers.value.has(userId)) {
+    return;
+  }
+
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
+    
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser);
+    
+    activeAudioAnalyzers.value.set(userId, analyser);
+    
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    let isCurrentlySpeaking = false;
+    let lastNotifyState: boolean | null = null;
+    
+    const checkAudioLevel = () => {
+      // Check if track is still active
+      if (audioTrack.readyState !== 'live') {
+        activeAudioAnalyzers.value.delete(userId);
+        setSpeaking(userId, false);
+        audioContext.close();
+        return;
+      }
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      // Calculate average volume
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / dataArray.length;
+      
+      // Convert to approximate dB (this is a simplified calculation)
+      const dB = average > 0 ? 20 * Math.log10(average / 255) : -100;
+      
+      const speaking = dB > AUDIO_THRESHOLD;
+      
+      if (speaking !== isCurrentlySpeaking) {
+        isCurrentlySpeaking = speaking;
+        setSpeaking(userId, speaking);
+
+        // Emit SignalR speaking updates for local user only
+        if (appStore.currentUserId && userId === appStore.currentUserId) {
+          if (lastNotifyState !== speaking) {
+            lastNotifyState = speaking;
+            try {
+              const cid = channelId.value;
+              if (cid) {
+                if (speaking) signalRService.startSpeaking(cid);
+                else signalRService.stopSpeaking(cid);
+              }
+            } catch {}
+          }
+        }
+      }
+      
+      // Continue monitoring
+      requestAnimationFrame(checkAudioLevel);
+    };
+    
+    checkAudioLevel();
+  } catch (error) {
+    console.warn('Failed to create audio analyzer for user:', userId, error);
+  }
+};
 
 // Video element refs per participant for screen share attachment
 const screenVideoRefs = ref<Map<number, HTMLVideoElement>>(new Map());
@@ -481,6 +617,7 @@ const participants = computed(() => {
   const users = appStore.voiceChannelUsers.get(channelId.value) || [];
   const currentUserId = appStore.currentUserId;
   const screenShareUsers = appStore.screenShares.get(channelId.value) || new Set();
+  const speakingFromStore = appStore.speakingUsers.get(channelId.value) || new Set();
 
 
   // Map users to participants
@@ -490,6 +627,8 @@ const participants = computed(() => {
     avatar: user.avatar,
     isMuted: user.id === currentUserId ? appStore.selfMuted : !!(appStore.voiceStates.get(channelId.value)?.get(user.id)?.muted),
     isDeafened: user.id === currentUserId ? appStore.selfDeafened : !!(appStore.voiceStates.get(channelId.value)?.get(user.id)?.deafened),
+    // Prefer store-based speaking (SignalR) fallback to local analyzer
+    isSpeaking: speakingFromStore.has(user.id) || speakingUsers.value.has(user.id),
     isScreenSharing: screenShareUsers.has(user.id),
     videoStream: cameraStreams.value.get(user.id),
     // Use track presence for ready state; store-based flag for intent state
@@ -631,10 +770,6 @@ const toggleCamera = async () => {
     // Force update streams after camera toggle (delay to ensure track changes are processed)
     setTimeout(() => updateLiveKitStreams(), 300);
     
-    addToast({
-      message: isCameraOn.value ? 'Camera turned on' : 'Camera turned off',
-      type: 'success'
-    });
   } catch (error: any) {
     console.error('Camera toggle error:', error);
     addToast({
@@ -687,7 +822,7 @@ const toggleScreenShare = async () => {
 
       }, 200);
 
-      addToast({message: 'Screen sharing stopped', type: 'success'});
+      
     } else {
 
 
@@ -711,7 +846,7 @@ const toggleScreenShare = async () => {
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
 
 
-      addToast({message: 'Screen sharing started', type: 'success'});
+      
     }
   } catch (error: any) {
     console.error('Screen share error:', error);
@@ -737,7 +872,7 @@ const cameraMenuItems = computed<MenuItem[]>(() => {
       items.push({
         label: d.label || 'Camera',
         checked: selectedDeviceId.value === d.deviceId,
-        action: () => { selectedDeviceId.value = d.deviceId; addToast({ message: `Camera set to ${d.label || 'Camera'}`, type: 'success' }); }
+        action: () => { selectedDeviceId.value = d.deviceId; }
       });
     });
   } else {
@@ -753,7 +888,7 @@ const cameraMenuItems = computed<MenuItem[]>(() => {
     items.push({
       label: q.label,
       checked: selectedCamQuality.value.value === q.value,
-      action: () => { selectedCamQuality.value = q; addToast({ message: `Camera resolution set to ${q.label}` , type: 'success' }); }
+      action: () => { selectedCamQuality.value = q; }
     });
   });
 
@@ -790,7 +925,6 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
         checked: selectedQuality.value.value === option.value,
         action: () => {
           selectedQuality.value = option;
-          addToast({ message: `Resolution set to ${option.label}`, type: 'success' });
         }
       });
     });
@@ -805,7 +939,6 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
         checked: selectedFPS.value === option.value,
         action: () => {
           selectedFPS.value = option.value;
-          addToast({ message: `Frame rate set to ${option.label}`, type: 'success' });
         }
       });
     });
@@ -818,8 +951,6 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
       checked: includeAudio.value,
       action: () => {
         includeAudio.value = !includeAudio.value;
-        const state = includeAudio.value ? 'enabled' : 'disabled';
-        addToast({ message: `Screen share audio ${state}`, type: 'success' });
       }
     });
 
@@ -982,8 +1113,19 @@ const updateLiveKitStreams = () => {
     p.trackPublications.forEach(pub => {
       const uid = resolveUserIdForIdentity(p.identity);
       if (!uid) {
-
         return;
+      }
+      
+      // Monitor audio for voice activity detection
+      if (pub.source === Track.Source.Microphone && pub.track && !pub.isMuted) {
+        try {
+          const audioTrack = pub.track as any;
+          if (audioTrack.mediaStreamTrack) {
+            monitorAudioLevel(audioTrack.mediaStreamTrack, uid);
+          }
+        } catch (error) {
+          console.warn('Failed to monitor audio level for participant:', uid, error);
+        }
       }
       if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
         newScreenMap.set(uid, pub.track as RemoteTrack);
@@ -1011,11 +1153,22 @@ const updateLiveKitStreams = () => {
   // Include local participant (so the user sees their own camera/screen share)
   const local = livekitService.getLocalParticipant();
   if (local) {
-    local.trackPublications.forEach(pub => {
-      const uid = appStore.currentUserId as number | null;
-      if (!uid) return;
-      
-      if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
+    const uid = appStore.currentUserId as number | null;
+    if (uid) {
+      local.trackPublications.forEach(pub => {
+        // Monitor local audio for voice activity detection
+        if (pub.source === Track.Source.Microphone && pub.track && !pub.isMuted) {
+          try {
+            const audioTrack = pub.track as any;
+            if (audioTrack.mediaStreamTrack) {
+              monitorAudioLevel(audioTrack.mediaStreamTrack, uid);
+            }
+          } catch (error) {
+            console.warn('Failed to monitor local audio level:', error);
+          }
+        }
+        
+        if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
         newScreenMap.set(uid, pub.track as any);
 
         const nextLoading = new Set(screenShareLoading.value);
@@ -1035,7 +1188,8 @@ const updateLiveKitStreams = () => {
         newCamMap.set(uid, stream);
         console.log('🎥 Added local camera stream for user', uid);
       }
-    });
+      });
+    }
   }
 
   // Log changes for debugging
@@ -1365,6 +1519,27 @@ onMounted(async () => {
     }
   });
 
+  // Subscribe to WebRTC remote streams to drive speaking indicator (voice audio)
+  try {
+    webrtcService.onRemoteStream((userId, stream) => {
+      try {
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          monitorAudioLevel(audioTrack, typeof userId === 'string' ? parseInt(userId as any, 10) : (userId as any as number));
+        }
+      } catch {}
+    });
+    // Also monitor local mic stream
+    webrtcService.onLocalStream((stream) => {
+      try {
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack && appStore.currentUserId) {
+          monitorAudioLevel(audioTrack, appStore.currentUserId);
+        }
+      } catch {}
+    });
+  } catch {}
+
   // Keep main video element attached to current screen-share track
   watch([mainScreenShare, screenShareTracks], () => {
     const m = mainScreenShare.value;
@@ -1393,6 +1568,12 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  // Cleanup speaking state and audio analyzers
+  speakingTimeouts.value.forEach(timeout => clearTimeout(timeout));
+  speakingTimeouts.value.clear();
+  speakingUsers.value.clear();
+  activeAudioAnalyzers.value.clear();
+  
   clearTimeout(hideControlsTimer);
   document.removeEventListener('mousemove', handleMouseMove);
 });
