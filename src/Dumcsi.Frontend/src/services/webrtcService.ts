@@ -45,6 +45,16 @@ class WebRtcService {
     private settingsCleanup: (() => void) | null = null;
     private isDeafened = false;
     private isInVoiceChannel = false; // Track if we should have microphone access
+    // Stats tracking per peer connection for bitrate/packet-loss calculations
+    private statsPrev = new Map<string, {
+        inboundBytes: number;
+        outboundBytes: number;
+        inboundPackets: number;
+        inboundPacketsLost: number;
+        ts: number; // ms
+        rttMs?: number;
+    }>();
+    private voiceConnectedAt: number | null = null;
     
     // Audio settings integration
     private audioSettings = useAudioSettings();
@@ -495,12 +505,15 @@ class WebRtcService {
 
     async joinVoiceChannel() {
         this.isInVoiceChannel = true;
+        this.voiceConnectedAt = Date.now();
         await this.ensureLocalStream();
         this.updateTrackEnabled();
     }
 
     leaveChannel() {
         this.isInVoiceChannel = false;
+        this.voiceConnectedAt = null;
+        this.statsPrev.clear();
         
         for (const id of Array.from(this.peers.keys())) {
             this.removeUser(id);
@@ -532,6 +545,97 @@ class WebRtcService {
             this.settingsCleanup();
             this.settingsCleanup = null;
         }
+    }
+
+    // Returns the timestamp when voice chat was entered, or null
+    getVoiceConnectedAt(): number | null {
+        return this.voiceConnectedAt;
+    }
+
+    // Aggregate audio stats across all peer connections
+    // Returns inbound/outbound bitrate in kbps, avg RTT ms, packet loss percent
+    async getAggregatedAudioStats(): Promise<{ inboundKbps: number; outboundKbps: number; latencyMs: number; packetLossPct: number; }> {
+        let totalInboundBytesDelta = 0;
+        let totalOutboundBytesDelta = 0;
+        let totalPacketsDelta = 0;
+        let totalPacketsLostDelta = 0;
+        let rttSum = 0;
+        let rttCount = 0;
+
+        const now = Date.now();
+
+        const perPeerPromises: Promise<void>[] = [];
+        this.peers.forEach((peer: any, connectionId: string) => {
+            const pc: RTCPeerConnection | undefined = peer?._pc;
+            if (!pc) return;
+            perPeerPromises.push(pc.getStats().then((report: RTCStatsReport) => {
+                let inboundBytes = 0;
+                let outboundBytes = 0;
+                let inboundPackets = 0;
+                let inboundPacketsLost = 0;
+                let rttMs: number | undefined;
+
+                report.forEach((stat: any) => {
+                    if ((stat.type === 'inbound-rtp' || stat.type === 'remote-outbound-rtp') && stat.kind === 'audio') {
+                        // inbound audio (received)
+                        if (typeof stat.bytesReceived === 'number') inboundBytes += stat.bytesReceived;
+                        if (typeof stat.packetsReceived === 'number') inboundPackets += stat.packetsReceived;
+                        if (typeof stat.packetsLost === 'number') inboundPacketsLost += stat.packetsLost;
+                        if (typeof stat.roundTripTime === 'number') {
+                            // remote-outbound-rtp exposes RTT in seconds
+                            rttMs = Math.max(0, (stat.roundTripTime as number) * 1000);
+                        }
+                    }
+                    if ((stat.type === 'outbound-rtp' || stat.type === 'remote-inbound-rtp') && stat.kind === 'audio') {
+                        // outbound audio (sent)
+                        if (typeof stat.bytesSent === 'number') outboundBytes += stat.bytesSent;
+                        if (typeof stat.roundTripTime === 'number') {
+                            rttMs = Math.max(0, (stat.roundTripTime as number) * 1000);
+                        }
+                    }
+                    if (stat.type === 'candidate-pair' && stat.state === 'succeeded' && stat.nominated && typeof stat.currentRoundTripTime === 'number') {
+                        rttMs = Math.max(0, stat.currentRoundTripTime * 1000);
+                    }
+                });
+
+                const prev = this.statsPrev.get(connectionId);
+                if (prev) {
+                    const dtSec = Math.max(0.001, (now - prev.ts) / 1000);
+                    const inDelta = Math.max(0, inboundBytes - prev.inboundBytes);
+                    const outDelta = Math.max(0, outboundBytes - prev.outboundBytes);
+                    totalInboundBytesDelta += inDelta / dtSec;
+                    totalOutboundBytesDelta += outDelta / dtSec;
+                    const pktDelta = Math.max(0, inboundPackets - prev.inboundPackets);
+                    const lostDelta = Math.max(0, inboundPacketsLost - prev.inboundPacketsLost);
+                    totalPacketsDelta += pktDelta + lostDelta; // total = received + lost
+                    totalPacketsLostDelta += lostDelta;
+                }
+
+                this.statsPrev.set(connectionId, {
+                    inboundBytes,
+                    outboundBytes,
+                    inboundPackets,
+                    inboundPacketsLost,
+                    ts: now,
+                    rttMs,
+                });
+
+                if (typeof rttMs === 'number') {
+                    rttSum += rttMs;
+                    rttCount += 1;
+                }
+            }).catch(() => { /* ignore per-peer stats errors */ }));
+        });
+
+        await Promise.all(perPeerPromises);
+
+        // Convert bytes/sec to kbps (8 bits per byte, /1000)
+        const inboundKbps = Math.round((totalInboundBytesDelta * 8) / 1000);
+        const outboundKbps = Math.round((totalOutboundBytesDelta * 8) / 1000);
+        const latencyMs = rttCount > 0 ? Math.round(rttSum / rttCount) : 0;
+        const packetLossPct = totalPacketsDelta > 0 ? Math.round((totalPacketsLostDelta / totalPacketsDelta) * 1000) / 10 : 0;
+
+        return { inboundKbps, outboundKbps, latencyMs, packetLossPct };
     }
 
     // External subscriptions
