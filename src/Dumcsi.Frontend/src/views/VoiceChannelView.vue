@@ -382,6 +382,8 @@ const isScreenShareLoading = ref(false);
 const screenShareTracks = ref<Map<number, RemoteTrack>>(new Map());
 const cameraStreams = ref<Map<number, MediaStream>>(new Map());
 const screenShareLoading = ref<Set<number>>(new Set());
+// Audio elements for screen share audio per participant
+const screenShareAudioEls = ref<Map<number, HTMLMediaElement>>(new Map());
 
 // Video element refs per participant for screen share attachment
 const screenVideoRefs = ref<Map<number, HTMLVideoElement>>(new Map());
@@ -942,6 +944,12 @@ watch(
         });
         screenShareTracks.value = new Map();
 
+        // Also clear any screen share audio elements
+        screenShareAudioEls.value.forEach((aEl, uid) => {
+          try { aEl.pause?.(); } catch {}
+        });
+        screenShareAudioEls.value = new Map();
+
       }
 
       // If current selected participant is no longer screen sharing, deselect them
@@ -1010,6 +1018,20 @@ onMounted(async () => {
       next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
       cameraStreams.value = next;
       console.log('🎥 Updated camera stream for remote user', uid);
+    } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
+      // Attach screen share audio so others hear system/tab audio
+      try {
+        const el = (track as any).attach?.();
+        if (el) {
+          el.autoplay = true;
+          el.muted = false;
+          el.playsInline = true as any;
+          try { el.play?.(); } catch {}
+          const next = new Map(screenShareAudioEls.value);
+          next.set(uid, el as HTMLMediaElement);
+          screenShareAudioEls.value = next;
+        }
+      } catch {}
     }
   };
 
@@ -1032,6 +1054,15 @@ onMounted(async () => {
       next.delete(uid);
       cameraStreams.value = next;
       console.log('🎥 Removed camera stream for user', uid);
+    } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
+      const el = screenShareAudioEls.value.get(uid);
+      if (el) {
+        try { (_track as any).detach?.(el); } catch {}
+        try { el.pause?.(); } catch {}
+      }
+      const next = new Map(screenShareAudioEls.value);
+      next.delete(uid);
+      screenShareAudioEls.value = next;
     }
   };
 
@@ -1052,6 +1083,14 @@ onMounted(async () => {
     const nextC = new Map(cameraStreams.value);
     nextC.delete(uid);
     cameraStreams.value = nextC;
+    // Clean screen share audio element
+    const aEl = screenShareAudioEls.value.get(uid);
+    if (aEl) {
+      try { aEl.pause?.(); } catch {}
+    }
+    const nextA = new Map(screenShareAudioEls.value);
+    nextA.delete(uid);
+    screenShareAudioEls.value = nextA;
     const nextL = new Set(screenShareLoading.value);
     nextL.delete(uid);
     screenShareLoading.value = nextL;
@@ -1071,6 +1110,15 @@ onMounted(async () => {
         next.delete(uid);
         cameraStreams.value = next;
       }
+      if (publication?.kind === 'audio' && (publication?.source === (Track as any).Source.ScreenShareAudio || publication?.source === Track.Source.ScreenShare)) {
+        const uid = resolveUserIdForIdentity(participant?.identity);
+        if (!uid) return;
+        const el = screenShareAudioEls.value.get(uid);
+        if (el) { try { el.pause?.(); } catch {} }
+        const next = new Map(screenShareAudioEls.value);
+        next.delete(uid);
+        screenShareAudioEls.value = next;
+      }
     } catch {}
   });
   livekitService.onTrackUnmuted((publication: any, participant: any) => {
@@ -1081,6 +1129,19 @@ onMounted(async () => {
         const next = new Map(cameraStreams.value);
         next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
         cameraStreams.value = next;
+      }
+      if (publication?.kind === 'audio' && (publication?.source === (Track as any).Source.ScreenShareAudio || publication?.source === Track.Source.ScreenShare)) {
+        const uid = resolveUserIdForIdentity(participant?.identity);
+        if (!uid) return;
+        const track: any = publication?.track;
+        if (track?.attach) {
+          const el = track.attach();
+          el.autoplay = true; el.muted = false; el.playsInline = true as any;
+          try { el.play?.(); } catch {}
+          const next = new Map(screenShareAudioEls.value);
+          next.set(uid, el as HTMLMediaElement);
+          screenShareAudioEls.value = next;
+        }
       }
     } catch {}
   });

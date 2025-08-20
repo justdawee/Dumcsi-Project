@@ -218,8 +218,8 @@ export class LiveKitService {
                     await this.room.localParticipant.publishTrack(track, publishOptions);
                 }
             } else {
-                // Use the simplified LiveKit API for basic screen sharing
-                await this.room.localParticipant.setScreenShareEnabled(true);
+                // Use the simplified LiveKit API for basic screen sharing and include audio by default
+                await this.room.localParticipant.setScreenShareEnabled(true, { audio: true as any });
             }
             
             // Update our tracking
