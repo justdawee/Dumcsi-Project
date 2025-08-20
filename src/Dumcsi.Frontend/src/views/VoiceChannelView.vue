@@ -87,6 +87,19 @@
                 <span class="text-white text-sm font-medium">{{ mainScreenShare.user.username }}</span>
                 <span class="text-white/70 text-xs ml-1">is sharing their screen</span>
               </div>
+
+              <!-- Volume Control for Screen Share (viewers only) -->
+              <div
+                v-if="mainScreenShare.user.id !== appStore.currentUserId"
+                class="absolute bottom-4 right-4"
+              >
+                <VolumeControl
+                  :volume="getUserVolume(mainScreenShare.user.id)"
+                  :user-id="mainScreenShare.user.id"
+                  :username="mainScreenShare.user.username"
+                  @volume-change="handleVolumeChange"
+                />
+              </div>
             </div>
 
             <!-- Other Participants Strip -->
@@ -329,6 +342,7 @@ import {livekitService} from '@/services/livekitService';
 import {webrtcService} from '@/services/webrtcService';
 import {signalRService} from '@/services/signalrService';
 import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
+import { useScreenShareVolumeControl } from '@/composables/useScreenShareVolumeControl';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import { useCameraSettings } from '@/composables/useCameraSettings';
@@ -350,6 +364,7 @@ import {
 } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import VoiceConnectionDetails from '@/components/voice/VoiceConnectionDetails.vue';
+import VolumeControl from '@/components/voice/VolumeControl.vue';
 
 interface VoiceParticipant {
   id: number;
@@ -375,6 +390,7 @@ const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
 const { resolutionOptions, fpsOptions, selectedQuality, selectedFPS, includeAudio, getCurrentSettings } = useScreenShareSettings();
+const { getUserVolume, setUserVolume, applyVolumeToElement } = useScreenShareVolumeControl();
 
 // Props from route params
 const channelId = computed(() => parseInt(route.params.channelId as string));
@@ -471,7 +487,24 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
   }
 
   try {
+    // Check if AudioContext is available and user has interacted with the page
+    if (!window.AudioContext && !(window as any).webkitAudioContext) {
+      console.warn('AudioContext not available for audio monitoring');
+      return;
+    }
+
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Check if audio context creation failed or is suspended
+    if (audioContext.state === 'suspended') {
+      // Try to resume context, but handle if it fails due to lack of user interaction
+      audioContext.resume().catch((error) => {
+        console.warn('Could not resume audio context for user', userId, '- user interaction may be required:', error);
+        audioContext.close();
+        return;
+      });
+    }
+
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
     
@@ -490,50 +523,65 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
       if (audioTrack.readyState !== 'live') {
         activeAudioAnalyzers.value.delete(userId);
         setSpeaking(userId, false);
-        audioContext.close();
+        audioContext.close().catch(() => {});
         return;
       }
       
-      analyser.getByteFrequencyData(dataArray);
-      
-      // Calculate average volume
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
+      // Check if context is still valid
+      if (audioContext.state === 'closed') {
+        activeAudioAnalyzers.value.delete(userId);
+        setSpeaking(userId, false);
+        return;
       }
-      const average = sum / dataArray.length;
       
-      // Convert to approximate dB (this is a simplified calculation)
-      const dB = average > 0 ? 20 * Math.log10(average / 255) : -100;
-      
-      const speaking = dB > AUDIO_THRESHOLD;
-      
-      if (speaking !== isCurrentlySpeaking) {
-        isCurrentlySpeaking = speaking;
-        setSpeaking(userId, speaking);
+      try {
+        analyser.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        
+        // Convert to approximate dB (this is a simplified calculation)
+        const dB = average > 0 ? 20 * Math.log10(average / 255) : -100;
+        
+        const speaking = dB > AUDIO_THRESHOLD;
+        
+        if (speaking !== isCurrentlySpeaking) {
+          isCurrentlySpeaking = speaking;
+          setSpeaking(userId, speaking);
 
-        // Emit SignalR speaking updates for local user only
-        if (appStore.currentUserId && userId === appStore.currentUserId) {
-          if (lastNotifyState !== speaking) {
-            lastNotifyState = speaking;
-            try {
-              const cid = channelId.value;
-              if (cid) {
-                if (speaking) signalRService.startSpeaking(cid);
-                else signalRService.stopSpeaking(cid);
-              }
-            } catch {}
+          // Emit SignalR speaking updates for local user only
+          if (appStore.currentUserId && userId === appStore.currentUserId) {
+            if (lastNotifyState !== speaking) {
+              lastNotifyState = speaking;
+              try {
+                const cid = channelId.value;
+                if (cid) {
+                  if (speaking) signalRService.startSpeaking(cid);
+                  else signalRService.stopSpeaking(cid);
+                }
+              } catch {}
+            }
           }
         }
+        
+        // Continue monitoring
+        requestAnimationFrame(checkAudioLevel);
+      } catch (analyzerError) {
+        console.warn('Audio analysis failed for user', userId, ':', analyzerError);
+        activeAudioAnalyzers.value.delete(userId);
+        setSpeaking(userId, false);
+        audioContext.close().catch(() => {});
       }
-      
-      // Continue monitoring
-      requestAnimationFrame(checkAudioLevel);
     };
     
     checkAudioLevel();
   } catch (error) {
     console.warn('Failed to create audio analyzer for user:', userId, error);
+    // Don't throw the error, just log it and continue without audio monitoring
   }
 };
 
@@ -708,6 +756,20 @@ const participantClasses = computed(() => {
   // Normal tiles fill their grid tracks
   return 'grid-cell w-full';
 });
+
+// Volume control handler
+const handleVolumeChange = (volume: number) => {
+  const userId = mainScreenShare.value?.user.id;
+  if (userId) {
+    setUserVolume(userId, volume);
+    
+    // Apply volume to the audio element if it exists
+    const audioElement = screenShareAudioEls.value.get(userId);
+    if (audioElement) {
+      applyVolumeToElement(userId, audioElement);
+    }
+  }
+};
 
 // Methods
 const toggleMute = async () => {
@@ -1334,14 +1396,27 @@ onMounted(async () => {
       cameraStreams.value = next;
       console.log('🎥 Updated camera stream for remote user', uid);
     } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
+      // Do not play our own screen share audio locally
+      if (appStore.currentUserId && uid === appStore.currentUserId) {
+        return;
+      }
       // Attach screen share audio so others hear system/tab audio
       try {
+        // Clean up any existing element to avoid duplicate playback
+        const existing = screenShareAudioEls.value.get(uid);
+        if (existing) {
+          try { (track as any).detach?.(existing); } catch {}
+          try { existing.pause?.(); existing.remove?.(); } catch {}
+        }
+
         const el = (track as any).attach?.();
         if (el) {
           el.autoplay = true;
           el.muted = false;
           el.playsInline = true as any;
           try { el.play?.(); } catch {}
+          // Apply user's volume setting
+          applyVolumeToElement(uid, el as HTMLMediaElement);
           const next = new Map(screenShareAudioEls.value);
           next.set(uid, el as HTMLMediaElement);
           screenShareAudioEls.value = next;
@@ -1448,15 +1523,29 @@ onMounted(async () => {
       if (publication?.kind === 'audio' && (publication?.source === (Track as any).Source.ScreenShareAudio || publication?.source === Track.Source.ScreenShare)) {
         const uid = resolveUserIdForIdentity(participant?.identity);
         if (!uid) return;
-        const track: any = publication?.track;
-        if (track?.attach) {
-          const el = track.attach();
-          el.autoplay = true; el.muted = false; el.playsInline = true as any;
-          try { el.play?.(); } catch {}
-          const next = new Map(screenShareAudioEls.value);
-          next.set(uid, el as HTMLMediaElement);
-          screenShareAudioEls.value = next;
+        // Do not play our own screen share audio locally
+        if (appStore.currentUserId && uid === appStore.currentUserId) {
+          return;
         }
+        const track: any = publication?.track;
+        if (!track?.attach) return;
+
+        // If we already have an audio element for this user, just ensure it's playing and volume is applied
+        const existing = screenShareAudioEls.value.get(uid);
+        if (existing) {
+          try { existing.play?.(); } catch {}
+          applyVolumeToElement(uid, existing as HTMLMediaElement);
+          return;
+        }
+
+        const el = track.attach();
+        el.autoplay = true; el.muted = false; el.playsInline = true as any;
+        try { el.play?.(); } catch {}
+        // Apply user's volume setting
+        applyVolumeToElement(uid, el as HTMLMediaElement);
+        const next = new Map(screenShareAudioEls.value);
+        next.set(uid, el as HTMLMediaElement);
+        screenShareAudioEls.value = next;
       }
     } catch {}
   });
@@ -1572,6 +1661,19 @@ onUnmounted(() => {
   speakingTimeouts.value.forEach(timeout => clearTimeout(timeout));
   speakingTimeouts.value.clear();
   speakingUsers.value.clear();
+  
+  // Safely clear audio analyzers by closing their audio contexts
+  activeAudioAnalyzers.value.forEach((analyser, userId) => {
+    try {
+      // Try to get the audio context from the analyser and close it
+      const context = (analyser as any).context;
+      if (context && typeof context.close === 'function') {
+        context.close().catch(() => {});
+      }
+    } catch (error) {
+      console.warn('Error closing audio context for user', userId, ':', error);
+    }
+  });
   activeAudioAnalyzers.value.clear();
   
   clearTimeout(hideControlsTimer);
