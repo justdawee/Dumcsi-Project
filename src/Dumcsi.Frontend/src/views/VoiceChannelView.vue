@@ -238,6 +238,7 @@
                 ]"
                     :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
                     @click="toggleCamera"
+                    @contextmenu="handleCameraRightClick"
                 >
                   <Video v-if="isCameraOn" class="w-5 h-5 text-white"/>
                   <VideoOff v-else class="w-5 h-5 text-white"/>
@@ -252,6 +253,7 @@
                     :disabled="isScreenShareLoading"
                     :title="isScreenSharing ? 'Stop screen share' : 'Share screen'"
                     @click="toggleScreenShare"
+                    @contextmenu="handleScreenShareRightClick"
                 >
                   <Monitor v-if="isScreenSharing" class="w-5 h-5 text-white"/>
                   <MonitorSpeaker v-else class="w-5 h-5 text-white"/>
@@ -295,6 +297,10 @@
       />
     </div>
   </div>
+
+  <!-- Context Menus -->
+  <ContextMenu ref="cameraContextMenu" :items="cameraMenuItems" />
+  <ContextMenu ref="screenShareContextMenu" :items="screenShareMenuItems" />
 </template>
 
 <script lang="ts" setup>
@@ -305,6 +311,9 @@ import {useToast} from '@/composables/useToast';
 import {livekitService} from '@/services/livekitService';
 import {webrtcService} from '@/services/webrtcService';
 import {signalRService} from '@/services/signalrService';
+import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
+import ContextMenu from '@/components/ui/ContextMenu.vue';
+import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
 import {
   Lock,
@@ -346,6 +355,7 @@ const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
+const { resolutionOptions, fpsOptions, selectedQuality, selectedFPS, includeAudio, getCurrentSettings } = useScreenShareSettings();
 
 // Props from route params
 const channelId = computed(() => parseInt(route.params.channelId as string));
@@ -367,12 +377,17 @@ const controlsLocked = ref(false);
 
 // Voice controls state
 const isCameraOn = ref(false);
+
+// Context menu state
+const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const screenShareContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const isScreenSharing = computed(() => {
   const uid = appStore.currentUserId;
   const cid = channelId.value;
   if (!uid || !cid) return false;
   const set = appStore.screenShares.get(cid) || new Set();
-  return set.has(uid);
+  // Prefer store (cross‑client state), but fall back to LiveKit local state
+  return set.has(uid) || livekitService.isScreenSharing();
 });
 const isScreenShareLoading = ref(false);
 
@@ -631,7 +646,11 @@ const toggleScreenShare = async () => {
 
       }
 
-      // 3. Notify via SignalR that we stopped screen sharing
+      // 3. Update local store immediately and notify via SignalR
+      const uid = appStore.currentUserId;
+      if (uid) {
+        try { appStore.handleUserStoppedScreenShare(channelId.value, uid); } catch {}
+      }
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
 
 
@@ -646,12 +665,7 @@ const toggleScreenShare = async () => {
 
 
       // 1. Start screen share in LiveKit
-      const qualitySettings = {
-        width: 1920,
-        height: 1080,
-        frameRate: 30,
-        includeAudio: false
-      };
+      const qualitySettings = getCurrentSettings();
 
       await livekitService.startScreenShare(qualitySettings);
 
@@ -662,7 +676,11 @@ const toggleScreenShare = async () => {
 
       }, 500);
 
-      // 2. Notify via SignalR that we started screen sharing
+      // 2. Update local store immediately and notify via SignalR
+      const uid = appStore.currentUserId;
+      if (uid) {
+        try { appStore.handleUserStartedScreenShare(channelId.value, uid); } catch {}
+      }
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
 
 
@@ -676,6 +694,79 @@ const toggleScreenShare = async () => {
     isScreenShareLoading.value = false;
 
   }
+};
+
+// Context menu state and items
+const cameraMenuItems = computed<MenuItem[]>(() => [
+  {
+    label: 'Camera Settings',
+    icon: Video,
+    action: () => {
+      addToast({ message: 'Camera settings coming soon', type: 'info' });
+    }
+  }
+]);
+
+const screenShareMenuItems = computed<MenuItem[]>(() => {
+  if (isScreenSharing.value) {
+    return [
+      {
+        label: 'Stop Screen Share',
+        icon: Monitor,
+        action: () => toggleScreenShare()
+      }
+    ];
+  } else {
+    const items: MenuItem[] = [];
+    
+    // Add resolution options
+    resolutionOptions.forEach(option => {
+      items.push({
+        label: `${option.label} (${option.resolution})`,
+        icon: Monitor,
+        action: () => {
+          selectedQuality.value = option;
+          addToast({ message: `Resolution set to ${option.label}`, type: 'success' });
+        }
+      });
+    });
+    
+    // Add FPS options  
+    fpsOptions.forEach(option => {
+      items.push({
+        label: `${option.label} - ${option.description}`,
+        icon: Monitor,
+        action: () => {
+          selectedFPS.value = option.value;
+          addToast({ message: `Frame rate set to ${option.label}`, type: 'success' });
+        }
+      });
+    });
+    
+    // Add audio toggle
+    items.push({
+      label: includeAudio.value ? '✓ Include Audio' : 'Include Audio',
+      icon: Monitor,
+      action: () => {
+        includeAudio.value = !includeAudio.value;
+        const state = includeAudio.value ? 'enabled' : 'disabled';
+        addToast({ message: `Screen share audio ${state}`, type: 'success' });
+      }
+    });
+    
+    return items;
+  }
+});
+
+// Context menu handlers
+const handleCameraRightClick = (event: MouseEvent) => {
+  event.preventDefault();
+  cameraContextMenu.value?.open(event);
+};
+
+const handleScreenShareRightClick = (event: MouseEvent) => {
+  event.preventDefault();
+  screenShareContextMenu.value?.open(event);
 };
 
 const disconnectVoice = async () => {
@@ -1188,6 +1279,8 @@ onMounted(async () => {
       const nextL = new Set(screenShareLoading.value);
       nextL.delete(uid);
       screenShareLoading.value = nextL;
+      // Update shared store immediately so buttons reflect the state
+      try { appStore.handleUserStoppedScreenShare(channelId.value, uid); } catch {}
     }
     // Notify others via SignalR so participants clear loading
     try {

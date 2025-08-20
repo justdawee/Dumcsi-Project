@@ -194,9 +194,11 @@ import { useAuthStore } from '@/stores/auth';
 // import type { ScreenShareQualitySettings } from '@/services/livekitService';
 import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import { ChevronDown } from 'lucide-vue-next';
+import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
+const { resolutionOptions, fpsOptions, selectedQuality, selectedFPS, includeAudio, getCurrentSettings } = useScreenShareSettings();
 
 // Voice connection state
 const isConnectedToVoice = computed(() => appStore.currentVoiceChannelId !== null);
@@ -218,35 +220,21 @@ const serverName = computed(() => {
 // Camera state (mock for now)
 const isCameraOn = ref(false);
 
-// Screen share state (derived from store; stays in sync across app)
+// Screen share state (derived from store; with LiveKit fallback for local)
 const isScreenSharing = computed(() => {
   const cid = appStore.currentVoiceChannelId;
   const uid = appStore.currentUserId;
   if (!cid || !uid) return false;
   const set = appStore.screenShares.get(cid) || new Set();
-  return set.has(uid);
+  return set.has(uid) || livekitService.isScreenSharing();
 });
 const isScreenShareLoading = ref(false);
 const activeQuality = ref<{ label: string; frameRate: number } | null>(null);
 const activeAudioEnabled = ref(false);
 
 // Screen share quality settings
-// Quality dropdown state and selections
+// Quality dropdown state
 const qualityOpen = ref(false);
-const resolutionOptions = [
-  { value: '4k', label: '4K Ultra', resolution: '3840×2160', width: 3840, height: 2160 },
-  { value: '1080p', label: '1080p HD', resolution: '1920×1080', width: 1920, height: 1080 },
-  { value: '720p', label: '720p', resolution: '1280×720', width: 1280, height: 720 },
-  { value: '480p', label: '480p', resolution: '854×480', width: 854, height: 480 },
-];
-const fpsOptions = [
-  { value: 15, label: '15 FPS', description: 'Low motion (saves bandwidth)' },
-  { value: 30, label: '30 FPS', description: 'Standard (recommended)' },
-  { value: 60, label: '60 FPS', description: 'Smooth motion (higher bandwidth)' },
-];
-const selectedQuality = ref(resolutionOptions[1]);
-const includeAudio = ref(false);
-const selectedFPS = ref(30);
 
 // Voice actions
 const disconnectVoice = async () => {
@@ -308,7 +296,11 @@ const toggleScreenShare = async () => {
       activeAudioEnabled.value = false;
       
       
-      // 2. Notify via SignalR that we stopped screen sharing
+      // 2. Update local store immediately and notify via SignalR
+      try {
+        if (appStore.currentVoiceChannelId && appStore.currentUserId)
+          appStore.handleUserStoppedScreenShare(appStore.currentVoiceChannelId, appStore.currentUserId);
+      } catch {}
       await signalRService.stopScreenShare(appStore.currentServer!.id.toString(), appStore.currentVoiceChannelId!.toString());
       
       
@@ -330,15 +322,13 @@ const toggleScreenShare = async () => {
 
       isScreenShareLoading.value = true;
       
-      await livekitService.startScreenShare({
-        width: selectedQuality.value.width,
-        height: selectedQuality.value.height,
-        frameRate: selectedFPS.value,
-        includeAudio: includeAudio.value,
-      });
+      const settings = getCurrentSettings();
+      await livekitService.startScreenShare(settings);
       activeQuality.value = { label: selectedQuality.value.label, frameRate: selectedFPS.value };
       activeAudioEnabled.value = includeAudio.value;
 
+      // Update local store immediately and notify via SignalR
+      try { appStore.handleUserStartedScreenShare(currentChannelId, appStore.currentUserId!); } catch {}
       await signalRService.startScreenShare(currentServer.id.toString(), currentChannelId.toString());
       const audioText = includeAudio.value ? ' with audio' : '';
       addToast({ message: `Screen sharing started at ${selectedQuality.value.label} @ ${selectedFPS.value} FPS${audioText}`, type: 'success' });
