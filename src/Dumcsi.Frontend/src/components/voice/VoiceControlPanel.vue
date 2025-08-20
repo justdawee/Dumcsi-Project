@@ -200,7 +200,7 @@ const cameraMenuItems = computed<MenuItem[]>(() => {
       items.push({
         label: d.label || 'Camera',
         checked: selectedDeviceId.value === d.deviceId,
-        action: () => { selectedDeviceId.value = d.deviceId; addToast({ message: `Camera set to ${d.label || 'Camera'}`, type: 'success' }); }
+        action: () => { selectedDeviceId.value = d.deviceId; }
       });
     });
   } else {
@@ -215,7 +215,7 @@ const cameraMenuItems = computed<MenuItem[]>(() => {
     items.push({
       label: q.label,
       checked: selectedCamQuality.value.value === q.value,
-      action: () => { selectedCamQuality.value = q; addToast({ message: `Camera resolution set to ${q.label}`, type: 'success' }); }
+      action: () => { selectedCamQuality.value = q; }
     });
   });
 
@@ -265,7 +265,7 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
     items.push({
       label: `${opt.label} (${opt.resolution})`,
       checked: selectedQuality.value.value === opt.value,
-      action: () => { selectedQuality.value = opt; addToast({ message: `Resolution set to ${opt.label}`, type: 'success' }); }
+      action: () => { selectedQuality.value = opt; }
     });
   });
   items.push({ type: 'separator' });
@@ -275,7 +275,7 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
     items.push({
       label: `${fps.label} – ${fps.description}`,
       checked: selectedFPS.value === fps.value,
-      action: () => { selectedFPS.value = fps.value; addToast({ message: `Frame rate set to ${fps.label}`, type: 'success' }); }
+      action: () => { selectedFPS.value = fps.value; }
     });
   });
   items.push({ type: 'separator' });
@@ -285,8 +285,6 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
     checked: includeAudio.value,
     action: () => {
       includeAudio.value = !includeAudio.value;
-      const state = includeAudio.value ? 'enabled' : 'disabled';
-      addToast({ message: `Screen share audio ${state}`, type: 'success' });
     }
   });
   return items;
@@ -309,10 +307,7 @@ const disconnectVoice = async () => {
 
 const toggleCamera = () => {
   isCameraOn.value = !isCameraOn.value;
-  addToast({ 
-    message: isCameraOn.value ? 'Camera turned on' : 'Camera turned off', 
-    type: 'success' 
-  });
+  // no success toast for camera toggle
   // TODO: Implement actual camera functionality
 };
 
@@ -364,9 +359,7 @@ const toggleScreenShare = async () => {
           appStore.handleUserStoppedScreenShare(appStore.currentVoiceChannelId, appStore.currentUserId);
       } catch {}
       await signalRService.stopScreenShare(appStore.currentServer!.id.toString(), appStore.currentVoiceChannelId!.toString());
-      
-      
-      addToast({ message: 'Screen sharing stopped', type: 'success' });
+      // no success toast on stop
     } else {
       // Start screen share immediately with current selections
       const isConnected = await ensureLiveKitConnection();
@@ -392,8 +385,7 @@ const toggleScreenShare = async () => {
       // Update local store immediately and notify via SignalR
       try { appStore.handleUserStartedScreenShare(currentChannelId, appStore.currentUserId!); } catch {}
       await signalRService.startScreenShare(currentServer.id.toString(), currentChannelId.toString());
-      const audioText = includeAudio.value ? ' with audio' : '';
-      addToast({ message: `Screen sharing started at ${selectedQuality.value.label} @ ${selectedFPS.value} FPS${audioText}`, type: 'success' });
+      // no success toast on start
     }
   } catch (error: any) {
     console.error('VoiceControlPanel: Screen share error:', error);
