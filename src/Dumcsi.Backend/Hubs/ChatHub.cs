@@ -382,6 +382,25 @@ public class ChatHub(IPresenceService presenceService) : Hub
         }
     }
 
+    // --- Speaking indicators ---
+    public async Task StartSpeaking(string channelId)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            await Clients.Group(channelId).SendAsync("UserStartedSpeaking", long.Parse(channelId), userIdLong);
+        }
+    }
+
+    public async Task StopSpeaking(string channelId)
+    {
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var userIdLong))
+        {
+            await Clients.Group(channelId).SendAsync("UserStoppedSpeaking", long.Parse(channelId), userIdLong);
+        }
+    }
+
     // --- Screen sharing management ---
     public async Task StartScreenShare(string serverId, string channelId)
     {
