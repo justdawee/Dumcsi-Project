@@ -599,6 +599,53 @@ export class SignalRService {
         if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
         try {
             await this.connection.invoke('JoinServer', serverId.toString());
+            // After joining the server group, fetch current voice/screen-share state for sidebar indicators
+            try {
+                const status = await this.connection.invoke<any>('GetServerVoiceStatus', serverId.toString());
+                if (status) {
+                    const appStore = useAppStore();
+                    // Apply screen shares
+                    const screenShares: Record<string | number, number[]> = status.screenShares || status.ScreenShares || {};
+                    Object.keys(screenShares).forEach((cid) => {
+                        const chId = typeof cid === 'string' ? parseInt(cid, 10) : (cid as number);
+                        const users = screenShares[cid] || [];
+                        const current = appStore.screenShares.get(chId) || new Set<number>();
+                        const next = new Set(current);
+                        users.forEach(u => next.add(typeof u === 'string' ? parseInt(u as any, 10) : u));
+                        const overall = new Map(appStore.screenShares);
+                        overall.set(chId, next);
+                        appStore.screenShares = overall as any;
+                    });
+
+                    // Apply voice states
+                    const voiceStates: Record<string | number, Record<string | number, { muted: boolean; deafened: boolean }>> = status.voiceStates || status.VoiceStates || {};
+                    Object.keys(voiceStates).forEach((cid) => {
+                        const chId = typeof cid === 'string' ? parseInt(cid, 10) : (cid as number);
+                        const userMap = voiceStates[cid] || {};
+                        const channelMap = new Map(appStore.voiceStates.get(chId) || []);
+                        Object.keys(userMap).forEach((uidKey) => {
+                            const uid = typeof uidKey === 'string' ? parseInt(uidKey, 10) : (uidKey as number);
+                            const st = userMap[uidKey];
+                            channelMap.set(uid, { muted: !!st.muted, deafened: !!st.deafened });
+                        });
+                        const overall = new Map(appStore.voiceStates);
+                        overall.set(chId, channelMap);
+                        appStore.voiceStates = overall;
+                    });
+
+                    // Apply voice users present so sidebar shows current occupants
+                    const voiceUsers: Record<string | number, Array<string | number>> = status.voiceUsers || status.VoiceUsers || {};
+                    Object.keys(voiceUsers).forEach((cid) => {
+                        const chId = typeof cid === 'string' ? parseInt(cid, 10) : (cid as number);
+                        const raw = voiceUsers[cid] || [];
+                        const ids = raw.map(u => (typeof u === 'string' ? parseInt(u as any, 10) : (u as number)));
+                        appStore.setVoiceChannelUsers(chId, ids as any);
+                    });
+                }
+            } catch (err) {
+                // Snapshot fetch is best-effort; ignore errors
+                console.warn('GetServerVoiceStatus failed:', err);
+            }
         } catch (error) {
             console.error('Failed to join server:', error);
         }

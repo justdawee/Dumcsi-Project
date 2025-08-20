@@ -1357,16 +1357,19 @@ onMounted(async () => {
   // Listen for mouse movement
   document.addEventListener('mousemove', handleMouseMove);
 
-  // Update screen sharing and camera state from LiveKit if connected
-  if (livekitService.isRoomConnected()) {
-    // screen share state is derived from store
+  // Ensure we are connected to LiveKit so late joiners receive existing streams
+  if (!livekitService.isRoomConnected()) {
+    try {
+      await ensureLiveKitConnection();
+    } catch {}
+  }
 
+  // Update screen sharing and camera state from LiveKit once connected
+  if (livekitService.isRoomConnected()) {
     const localParticipant = livekitService.getLocalParticipant();
     if (localParticipant) {
       isCameraOn.value = localParticipant.isCameraEnabled;
     }
-
-    // Update streams
     updateLiveKitStreams();
   }
 

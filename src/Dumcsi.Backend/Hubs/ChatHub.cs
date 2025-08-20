@@ -14,6 +14,20 @@ public class ChatHub(IPresenceService presenceService) : Hub
     private static readonly ConcurrentDictionary<string, HashSet<long>> TypingUsers = new();
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> TypingTimers = new();
 
+    // Track screen sharing users per channel for server-wide visibility and initial sync
+    private static readonly ConcurrentDictionary<string, HashSet<long>> ScreenSharesByChannel = new();
+
+    // Track voice states (mute/deafen) per channel for server-wide visibility and initial sync
+    public class VoiceState
+    {
+        public bool Muted { get; set; }
+        public bool Deafened { get; set; }
+    }
+    private static readonly ConcurrentDictionary<string, Dictionary<long, VoiceState>> VoiceStatesByChannel = new();
+
+    // Map channelId -> serverId to enable server-wide broadcasts for channel-scoped events
+    private static readonly ConcurrentDictionary<string, string> ChannelToServer = new();
+
     // --- Online/Offline status management ---
     public override async Task OnConnectedAsync()
     {
@@ -234,6 +248,9 @@ public class ChatHub(IPresenceService presenceService) : Hub
 
         await Groups.AddToGroupAsync(connectionId, channelId);
 
+        // Remember which server this channel belongs to (best-effort for broadcasts)
+        ChannelToServer[channelId] = serverId;
+
         List<string> connections = VoiceChannelUsers.GetOrAdd(channelId, _ => new List<string>());
         lock (connections)
         {
@@ -287,6 +304,30 @@ public class ChatHub(IPresenceService presenceService) : Hub
             // Ensure screen share is considered stopped when leaving the voice channel
             await Clients.Group(serverId)
                 .SendAsync("UserStoppedScreenShare", long.Parse(channelId), long.Parse(userId));
+
+            // Update in-memory state
+            if (VoiceStatesByChannel.TryGetValue(channelId, out var vsMap))
+            {
+                lock (vsMap)
+                {
+                    vsMap.Remove(long.Parse(userId));
+                    if (vsMap.Count == 0)
+                    {
+                        VoiceStatesByChannel.TryRemove(channelId, out _);
+                    }
+                }
+            }
+            if (ScreenSharesByChannel.TryGetValue(channelId, out var shareSet))
+            {
+                lock (shareSet)
+                {
+                    shareSet.Remove(long.Parse(userId));
+                    if (shareSet.Count == 0)
+                    {
+                        ScreenSharesByChannel.TryRemove(channelId, out _);
+                    }
+                }
+            }
         }
     }
 
@@ -319,6 +360,30 @@ public class ChatHub(IPresenceService presenceService) : Hub
 
                 // Also signal that any active screen share by this user should stop
                 await Clients.All.SendAsync("UserStoppedScreenShare", long.Parse(channelId), userIdLong);
+
+                // Update in-memory state
+                if (VoiceStatesByChannel.TryGetValue(channelId, out var vsMap))
+                {
+                    lock (vsMap)
+                    {
+                        vsMap.Remove(userIdLong);
+                        if (vsMap.Count == 0)
+                        {
+                            VoiceStatesByChannel.TryRemove(channelId, out _);
+                        }
+                    }
+                }
+                if (ScreenSharesByChannel.TryGetValue(channelId, out var shareSet))
+                {
+                    lock (shareSet)
+                    {
+                        shareSet.Remove(userIdLong);
+                        if (shareSet.Count == 0)
+                        {
+                            ScreenSharesByChannel.TryRemove(channelId, out _);
+                        }
+                    }
+                }
             }
         }
 
@@ -354,9 +419,22 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
-            // Notify all users in the voice channel about the voice state change
+            // Update in-memory state
+            var dict = VoiceStatesByChannel.GetOrAdd(channelId, _ => new Dictionary<long, VoiceState>());
+            lock (dict)
+            {
+                dict[userIdLong] = new VoiceState { Muted = muted, Deafened = deafened };
+            }
+
+            // Notify users in the voice channel and at server scope (so sidebar can update for everyone)
             await Clients.Group(channelId)
                 .SendAsync("UserVoiceStateChanged", long.Parse(channelId), userIdLong, muted, deafened);
+
+            if (ChannelToServer.TryGetValue(channelId, out var serverId))
+            {
+                await Clients.Group(serverId)
+                    .SendAsync("UserVoiceStateChanged", long.Parse(channelId), userIdLong, muted, deafened);
+            }
         }
     }
 
@@ -365,9 +443,26 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
-            // Notify all users in the voice channel about the mute state change
+            // Update in-memory state
+            var dict = VoiceStatesByChannel.GetOrAdd(channelId, _ => new Dictionary<long, VoiceState>());
+            lock (dict)
+            {
+                if (!dict.TryGetValue(userIdLong, out var vs))
+                {
+                    vs = new VoiceState();
+                    dict[userIdLong] = vs;
+                }
+                vs.Muted = muted;
+            }
+
+            // Notify voice channel and server
             await Clients.Group(channelId)
                 .SendAsync("UserMuted", long.Parse(channelId), userIdLong, muted);
+            if (ChannelToServer.TryGetValue(channelId, out var serverId))
+            {
+                await Clients.Group(serverId)
+                    .SendAsync("UserMuted", long.Parse(channelId), userIdLong, muted);
+            }
         }
     }
 
@@ -376,9 +471,26 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null && long.TryParse(userId, out var userIdLong))
         {
-            // Notify all users in the voice channel about the deafen state change
+            // Update in-memory state
+            var dict = VoiceStatesByChannel.GetOrAdd(channelId, _ => new Dictionary<long, VoiceState>());
+            lock (dict)
+            {
+                if (!dict.TryGetValue(userIdLong, out var vs))
+                {
+                    vs = new VoiceState();
+                    dict[userIdLong] = vs;
+                }
+                vs.Deafened = deafened;
+            }
+
+            // Notify voice channel and server
             await Clients.Group(channelId)
                 .SendAsync("UserDeafened", long.Parse(channelId), userIdLong, deafened);
+            if (ChannelToServer.TryGetValue(channelId, out var serverId))
+            {
+                await Clients.Group(serverId)
+                    .SendAsync("UserDeafened", long.Parse(channelId), userIdLong, deafened);
+            }
         }
     }
 
@@ -407,6 +519,13 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
+            // Track in-memory state
+            var set = ScreenSharesByChannel.GetOrAdd(channelId, _ => new HashSet<long>());
+            lock (set) { set.Add(long.Parse(userId)); }
+
+            // Remember channel -> server mapping
+            ChannelToServer[channelId] = serverId;
+
             // Notify ALL users in the server that this user started screen sharing
             // This ensures everyone gets the signal, not just those in the voice channel
             await Clients.Group(serverId)
@@ -419,10 +538,99 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier;
         if (userId != null)
         {
+            // Update in-memory state
+            if (ScreenSharesByChannel.TryGetValue(channelId, out var set))
+            {
+                lock (set) { set.Remove(long.Parse(userId)); }
+                if (set.Count == 0)
+                {
+                    ScreenSharesByChannel.TryRemove(channelId, out _);
+                }
+            }
+
             // Notify ALL users in the server that this user stopped screen sharing
             await Clients.Group(serverId)
                 .SendAsync("UserStoppedScreenShare", long.Parse(channelId), long.Parse(userId));
         }
+    }
+
+    // Provide initial snapshot of voice-related state for a server (used by sidebar for late joiners)
+    public Task<ServerVoiceStatus> GetServerVoiceStatus(string serverId)
+    {
+        var result = new ServerVoiceStatus();
+
+        // Screen shares
+        foreach (var kvp in ScreenSharesByChannel)
+        {
+            var channelId = kvp.Key;
+            if (ChannelToServer.TryGetValue(channelId, out var sid) && sid == serverId)
+            {
+                lock (kvp.Value)
+                {
+                    result.ScreenShares[long.Parse(channelId)] = kvp.Value.ToList();
+                }
+            }
+        }
+
+        // Voice states
+        foreach (var kvp in VoiceStatesByChannel)
+        {
+            var channelId = kvp.Key;
+            if (ChannelToServer.TryGetValue(channelId, out var sid) && sid == serverId)
+            {
+                var map = new Dictionary<long, VoiceStateDto>();
+                lock (kvp.Value)
+                {
+                    foreach (var userEntry in kvp.Value)
+                    {
+                        map[userEntry.Key] = new VoiceStateDto
+                        {
+                            Muted = userEntry.Value.Muted,
+                            Deafened = userEntry.Value.Deafened
+                        };
+                    }
+                }
+                result.VoiceStates[long.Parse(channelId)] = map;
+            }
+        }
+
+        // Voice users present in channels for this server
+        foreach (var kvp in VoiceChannelUsers)
+        {
+            var channelId = kvp.Key;
+            if (ChannelToServer.TryGetValue(channelId, out var sid) && sid == serverId)
+            {
+                var ids = new List<long>();
+                var conns = kvp.Value;
+                lock (conns)
+                {
+                    foreach (var cid in conns)
+                    {
+                        var uidStr = presenceService.GetUserIdByConnectionId(cid).GetAwaiter().GetResult();
+                        if (uidStr != null && long.TryParse(uidStr, out var ul))
+                        {
+                            if (!ids.Contains(ul)) ids.Add(ul);
+                        }
+                    }
+                }
+                result.VoiceUsers[long.Parse(channelId)] = ids;
+            }
+        }
+
+        return Task.FromResult(result);
+    }
+
+    public class VoiceStateDto
+    {
+        public bool Muted { get; set; }
+        public bool Deafened { get; set; }
+    }
+
+    public class ServerVoiceStatus
+    {
+        public Dictionary<long, List<long>> ScreenShares { get; set; } = new();
+        public Dictionary<long, Dictionary<long, VoiceStateDto>> VoiceStates { get; set; } = new();
+        public Dictionary<long, List<long>> VoiceUsers { get; set; } = new();
     }
 
     // --- Response class ---
