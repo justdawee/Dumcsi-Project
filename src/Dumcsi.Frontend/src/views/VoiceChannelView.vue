@@ -945,7 +945,7 @@ watch(
         screenShareTracks.value = new Map();
 
         // Also clear any screen share audio elements
-        screenShareAudioEls.value.forEach((aEl, uid) => {
+        screenShareAudioEls.value.forEach((aEl) => {
           try { aEl.pause?.(); } catch {}
         });
         screenShareAudioEls.value = new Map();
