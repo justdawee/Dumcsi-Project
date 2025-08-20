@@ -39,6 +39,9 @@ class WebRtcService {
     private lastOfferSdp = new Map<string, string>();
     private lastAnswerSdp = new Map<string, string>();
     private isMutedForTesting = false;
+    private globalMuted = false; // explicit user mute state (independent of PTT)
+    private pttMode = false;     // push-to-talk mode enabled
+    private pttActive = false;   // push-to-talk key currently pressed
     private settingsCleanup: (() => void) | null = null;
     private isDeafened = false;
     private isInVoiceChannel = false; // Track if we should have microphone access
@@ -96,6 +99,8 @@ class WebRtcService {
 
         // Notify listeners that a (new) local stream is available
         try { this.onLocalStreamCallbacks.forEach(cb => { try { cb(this.localStream!); } catch {} }); } catch {}
+        // Apply current mute/PTT gating to the new stream
+        this.updateTrackEnabled();
     }
 
     private setupAudioProcessing() {
@@ -103,6 +108,8 @@ class WebRtcService {
 
         // Update audio settings based on current configuration
         this.updateInputVolume();
+        // Ensure track enabled state reflects current PTT/mute configuration
+        this.updateTrackEnabled();
     }
 
     private setupSettingsListener() {
@@ -442,13 +449,12 @@ class WebRtcService {
     // Method to mute during microphone testing
     setMutedForTesting(muted: boolean) {
         this.isMutedForTesting = muted;
-        this.updateInputVolume();
+        this.updateTrackEnabled();
     }
 
     setMuted(muted: boolean) {
-        if (this.localStream) {
-            this.localStream.getAudioTracks().forEach(track => track.enabled = !muted);
-        }
+        this.globalMuted = muted;
+        this.updateTrackEnabled();
         // Only broadcast and notify if we're actually in a voice channel
         if (this.isInVoiceChannel) {
             this.broadcastVoiceState();
@@ -467,8 +473,7 @@ class WebRtcService {
     }
 
     private getMutedState(): boolean {
-        if (!this.localStream) return false;
-        return this.localStream.getAudioTracks().some(t => t.enabled === false);
+        return this.globalMuted;
     }
 
     private broadcastVoiceState() {
@@ -491,6 +496,7 @@ class WebRtcService {
     async joinVoiceChannel() {
         this.isInVoiceChannel = true;
         await this.ensureLocalStream();
+        this.updateTrackEnabled();
     }
 
     leaveChannel() {
@@ -538,6 +544,33 @@ class WebRtcService {
         if (this.localStream) {
             try { callback(this.localStream); } catch {}
         }
+    }
+
+    // Centralized logic for whether mic track should be enabled
+    private updateTrackEnabled() {
+        if (!this.localStream) return;
+        const { audioSettings } = this.audioSettings;
+        const volumeOk = (audioSettings.inputVolume / 100) > 0;
+        const shouldEnable = !this.isMutedForTesting
+            && !this.globalMuted
+            && volumeOk
+            && (!this.pttMode || this.pttActive);
+
+        this.localStream.getAudioTracks().forEach(track => {
+            track.enabled = shouldEnable;
+        });
+    }
+
+    // Push-to-talk controls (do not broadcast mute state)
+    setPTTMode(enabled: boolean) {
+        this.pttMode = enabled;
+        if (enabled) this.pttActive = false;
+        this.updateTrackEnabled();
+    }
+
+    setPTTActive(active: boolean) {
+        this.pttActive = active;
+        this.updateTrackEnabled();
     }
 }
 

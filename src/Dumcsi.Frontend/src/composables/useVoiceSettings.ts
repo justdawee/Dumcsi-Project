@@ -131,10 +131,10 @@ export function useVoiceSettings() {
         try {
           // Dynamic import to avoid circular dependencies
           import('@/services/webrtcService').then(({ webrtcService }) => {
-            webrtcService.setMuted(false);
+            webrtcService.setPTTActive(true);
           });
         } catch (error) {
-          console.warn('Failed to unmute via WebRTC service:', error);
+          console.warn('Failed to activate PTT via WebRTC service:', error);
         }
       }
     }
@@ -156,13 +156,13 @@ export function useVoiceSettings() {
         isPushToTalkActive.value = false;
         console.log('🎤 Push-to-talk deactivated');
         
-        // Mute microphone via WebRTC service
+        // Deactivate PTT transmission via WebRTC service
         try {
           import('@/services/webrtcService').then(({ webrtcService }) => {
-            webrtcService.setMuted(true);
+            webrtcService.setPTTActive(false);
           });
         } catch (error) {
-          console.warn('Failed to mute via WebRTC service:', error);
+          console.warn('Failed to deactivate PTT via WebRTC service:', error);
         }
         
         pttReleaseTimeout.value = null;
@@ -220,17 +220,29 @@ export function useVoiceSettings() {
 
   // Watch for input mode changes to reset PTT state
   watch(() => voiceSettings.value.inputMode, (newMode) => {
-    if (newMode !== 'pushToTalk') {
+    const isPTT = newMode === 'pushToTalk';
+    if (!isPTT) {
       isPushToTalkActive.value = false;
       if (pttReleaseTimeout.value) {
         clearTimeout(pttReleaseTimeout.value);
         pttReleaseTimeout.value = null;
       }
     }
+    try {
+      import('@/services/webrtcService').then(({ webrtcService }) => {
+        webrtcService.setPTTMode(isPTT);
+      });
+    } catch {}
   });
 
   onMounted(() => {
     initializeVoiceSettings();
+    // Apply current PTT mode to WebRTC immediately
+    try {
+      import('@/services/webrtcService').then(({ webrtcService }) => {
+        webrtcService.setPTTMode(voiceSettings.value.inputMode === 'pushToTalk');
+      });
+    } catch {}
   });
 
   onUnmounted(() => {
