@@ -112,7 +112,11 @@ class WebRtcService {
     async connectToExisting(_channelId: EntityId, infos: ConnectionInfo[]) {
         // Only start local stream if we don't have one already (i.e., when we first join)
         await this.ensureLocalStream();
+        const appStore = useAppStore();
+        const selfId = appStore.currentUserId;
         for (const info of infos) {
+            // Do not attempt to connect to ourselves
+            if (selfId && info.userId === selfId) continue;
             if (!this.peers.has(info.connectionId)) {
                 await this.createPeerConnection(info.connectionId, true);
             }
@@ -121,6 +125,9 @@ class WebRtcService {
 
     async addUser(_channelId: EntityId, _userId: EntityId, connectionId: string) {
         await this.ensureLocalStream();
+        const appStore = useAppStore();
+        const selfId = appStore.currentUserId;
+        if (selfId && _userId === selfId) return;
         if (!this.peers.has(connectionId)) {
             // Existing users don't initiate connection, they wait for offers from new users
             await this.createPeerConnection(connectionId, false);
@@ -160,6 +167,8 @@ class WebRtcService {
         }
 
         const peer = new SimplePeerClass(peerConfig);
+        // Track role to prevent glare (ignore offers on initiator peers)
+        (peer as any).__initiator = !!initiator;
 
         this.peers.set(targetConnectionId, peer);
 
@@ -244,6 +253,21 @@ class WebRtcService {
             
             const peer = this.peers.get(fromConnectionId);
             if (!peer) return;
+
+            // If this peer is our initiator side, ignore incoming offers to avoid glare
+            if ((peer as any).__initiator) {
+                return;
+            }
+
+            // Only accept an offer when in a stable state
+            const pc: RTCPeerConnection | undefined = (peer as any)?._pc;
+            if (pc) {
+                const state = pc.signalingState;
+                if (state !== 'stable') {
+                    // Ignore duplicate/late offers
+                    return;
+                }
+            }
 
             // Signal the offer to simple-peer
             peer.signal(offer);
