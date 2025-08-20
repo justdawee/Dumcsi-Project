@@ -95,7 +95,7 @@ const fpsOptions = [
 
 const selectedRes = ref(resolutionOptions[1]);
 const selectedFPS = ref(30);
-const includeAudio = ref(false);
+const includeAudio = ref(true);
 
 const confirm = () => {
   emit('confirm', {
