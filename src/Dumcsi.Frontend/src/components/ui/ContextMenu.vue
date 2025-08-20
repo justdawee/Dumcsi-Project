@@ -3,19 +3,30 @@
       v-if="visible"
       ref="contextMenu"
       :style="{ top: `${y}px`, left: `${x}px` }"
-      class="fixed z-[10000] bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50"
+      class="fixed z-[10000] bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50 inline-block max-h-[80vh] overflow-auto overscroll-contain"
   >
     <ul class="space-y-1">
-      <li v-for="item in items" :key="item.label">
+      <li v-for="(item, idx) in items" :key="idx">
+        <div v-if="item.type === 'separator'" class="h-px bg-border-default/50 my-1" />
+        <div v-else-if="item.type === 'label'" class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary select-none">
+          {{ item.label }}
+        </div>
         <button
-            :class="item.danger
-            ? 'text-danger hover:bg-danger/20 hover:text-red-300'
-            : 'text-text-secondary hover:bg-primary/50 hover:text-text-default'"
-            class="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
-            @click="handleClick(item)"
+          v-else
+          :disabled="item.disabled"
+          :class="[
+            item.danger
+              ? 'text-danger hover:bg-danger/20 hover:text-red-300'
+              : 'text-text-secondary hover:bg-primary/50 hover:text-text-default',
+            item.disabled ? 'opacity-50 cursor-not-allowed' : ''
+          ]"
+          class="flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
+          @click="handleClick(item)"
         >
-          <component :is="item.icon" class="w-4 h-4"/>
-          <span>{{ item.label }}</span>
+          <component v-if="item.checked" :is="Check" class="w-4 h-4 text-primary"/>
+          <component v-else-if="item.icon" :is="item.icon" class="w-4 h-4"/>
+          <span class="flex-1 text-left">{{ item.label }}</span>
+          <span v-if="item.shortcut" class="text-[10px] text-text-tertiary">{{ item.shortcut }}</span>
         </button>
       </li>
     </ul>
@@ -25,14 +36,21 @@
 <script lang="ts" setup>
 import {ref, onUnmounted} from 'vue';
 import type {Component} from 'vue';
+import { Check } from 'lucide-vue-next';
 import {useContextMenuManager} from '@/composables/useContextMenuManager';
 
 // --- Interface és Props ---
 export interface MenuItem {
-  label: string;
-  icon: Component;
-  action: () => void;
+  // Common
+  label?: string;
+  type?: 'item' | 'separator' | 'label';
+  // Clickable item props
+  icon?: Component | null;
+  action?: () => void;
   danger?: boolean;
+  disabled?: boolean;
+  checked?: boolean;
+  shortcut?: string;
 }
 
 defineProps<{
@@ -45,12 +63,25 @@ const x = ref(0);
 const y = ref(0);
 const contextMenu = ref<HTMLElement | null>(null);
 const menuId = ref<number | null>(null);
+const preferAboveHint = ref<boolean | null>(null);
+const lastOpenX = ref<number | null>(null);
+const lastOpenY = ref<number | null>(null);
+let anchorEl: HTMLElement | null = null;
 
 // --- Manager ---
 const {openMenu, closeMenu} = useContextMenuManager();
 
 // --- Methods ---
 const open = (event: MouseEvent) => {
+  // Toggle behavior: if already visible at (about) same anchor, close; otherwise reposition
+  if (visible.value) {
+    const sameAnchor = lastOpenX.value !== null && lastOpenY.value !== null &&
+      Math.abs(event.clientX - lastOpenX.value) < 3 && Math.abs(event.clientY - lastOpenY.value) < 3;
+    if (sameAnchor) {
+      close();
+      return;
+    }
+  }
   const closeLogic = () => {
     visible.value = false;
     document.removeEventListener('click', handleClickOutside, true);
@@ -62,6 +93,9 @@ const open = (event: MouseEvent) => {
   // positioning the context menu with viewport bounds checking
   x.value = event.clientX;
   y.value = event.clientY;
+  lastOpenX.value = x.value;
+  lastOpenY.value = y.value;
+  anchorEl = (event.currentTarget as HTMLElement) || null;
 
   // Wait for the menu to render, then adjust position if needed
   setTimeout(() => {
@@ -70,25 +104,78 @@ const open = (event: MouseEvent) => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
-      // Adjust horizontal position if menu would overflow right edge
+      // Prefer opening above the cursor when near bottom half (or explicit hint)
+      const preferAbove = preferAboveHint.value ?? (event.clientY > viewportHeight / 2);
+      const GAP = 6; // small gap above/below anchor
+
+      // Horizontal: clamp within viewport with 10px margin
       if (x.value + menuRect.width > viewportWidth) {
-        x.value = viewportWidth - menuRect.width - 10; // 10px margin from edge
+        x.value = Math.max(10, viewportWidth - menuRect.width - 10);
       }
+      if (x.value < 10) x.value = 10;
 
-      // Adjust vertical position if menu would overflow bottom edge
+      // Vertical: flip above if preferred or if overflowing bottom
+      if (preferAbove) {
+        y.value = Math.max(10, event.clientY - menuRect.height - GAP);
+      }
       if (y.value + menuRect.height > viewportHeight) {
-        y.value = viewportHeight - menuRect.height - 10; // 10px margin from edge
+        y.value = Math.max(10, viewportHeight - menuRect.height - GAP);
       }
+      if (y.value < 10) y.value = 10;
+    }
+  }, 0);
 
-      // Ensure menu doesn't go off left edge
-      if (x.value < 10) {
-        x.value = 10;
-      }
+  document.addEventListener('click', handleClickOutside, true);
+};
 
-      // Ensure menu doesn't go off top edge
-      if (y.value < 10) {
-        y.value = 10;
+// Open at explicit coordinates, optionally preferring above placement
+const openAt = (xPos: number, yPos: number, preferAbove: boolean = false, gap: number = 6, anchor?: HTMLElement | null) => {
+  // Toggle when clicking the same opener again; otherwise reposition
+  if (visible.value) {
+    const sameAnchor = lastOpenX.value !== null && lastOpenY.value !== null &&
+      Math.abs(xPos - lastOpenX.value) < 3 && Math.abs(yPos - lastOpenY.value) < 3;
+    if (sameAnchor) {
+      close();
+      return;
+    }
+  }
+  const closeLogic = () => {
+    visible.value = false;
+    document.removeEventListener('click', handleClickOutside, true);
+  };
+  preferAboveHint.value = preferAbove;
+  menuId.value = openMenu(closeLogic);
+  visible.value = true;
+  x.value = xPos;
+  y.value = yPos;
+  lastOpenX.value = xPos;
+  lastOpenY.value = yPos;
+  anchorEl = anchor || null;
+
+  setTimeout(() => {
+    if (contextMenu.value) {
+      const menuRect = contextMenu.value.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      const preferAboveLocal = preferAboveHint.value ?? (y.value > viewportHeight / 2);
+      const GAP = gap;
+
+      // Horizontal clamp
+      if (x.value + menuRect.width > viewportWidth) {
+        x.value = Math.max(10, viewportWidth - menuRect.width - 10);
       }
+      if (x.value < 10) x.value = 10;
+
+      // Place above anchor when requested
+      if (preferAboveLocal) {
+        y.value = Math.max(10, yPos - menuRect.height - GAP);
+      }
+      // Bottom clamp
+      if (y.value + menuRect.height > viewportHeight) {
+        y.value = Math.max(10, viewportHeight - menuRect.height - GAP);
+      }
+      if (y.value < 10) y.value = 10;
     }
   }, 0);
 
@@ -100,15 +187,24 @@ const close = () => {
     closeMenu(menuId.value);
     menuId.value = null;
   }
+  preferAboveHint.value = null;
+  lastOpenX.value = null;
+  lastOpenY.value = null;
+  anchorEl = null;
 };
 
 const handleClick = (item: MenuItem) => {
-  item.action();
+  if (item.disabled || item.type && item.type !== 'item') {
+    close();
+    return;
+  }
+  try { item.action && item.action(); } catch {}
   close();
 };
 
 const handleClickOutside = (event: MouseEvent) => {
-  if (contextMenu.value && !contextMenu.value.contains(event.target as Node)) {
+  const target = event.target as Node;
+  if (contextMenu.value && !contextMenu.value.contains(target) && !(anchorEl && anchorEl.contains(target as Node))) {
     close();
   }
 };
@@ -120,6 +216,7 @@ onUnmounted(() => {
 
 defineExpose({
   open,
+  openAt,
 });
 </script>
 

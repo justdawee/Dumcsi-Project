@@ -709,23 +709,12 @@ const createTopic = async () => {
 const openServerDropdown = () => {
   if (!props.server || serverMenuItems.value.length === 0) return;
 
-  if (isServerDropdownOpen.value) {
-    // If already open, close it
-    isServerDropdownOpen.value = false;
-    return;
-  }
-
-  isServerDropdownOpen.value = true;
-
-  // Create a synthetic event with the trigger button position
-  const triggerRect = serverDropdownTrigger.value?.getBoundingClientRect();
-  if (triggerRect) {
-    const syntheticEvent = {
-      clientX: triggerRect.left,
-      clientY: triggerRect.bottom + 4
-    } as MouseEvent;
-
-    serverDropdownMenu.value?.open(syntheticEvent);
+  const triggerEl = serverDropdownTrigger.value;
+  const triggerRect = triggerEl?.getBoundingClientRect();
+  if (triggerRect && serverDropdownMenu.value) {
+    // Show below the button, anchored to its left edge
+    isServerDropdownOpen.value = true;
+    serverDropdownMenu.value.openAt(triggerRect.left, triggerRect.bottom, false, 6, triggerEl || undefined);
   }
 };
 
