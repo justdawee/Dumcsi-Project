@@ -314,6 +314,7 @@ import {signalRService} from '@/services/signalrService';
 import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
+import { useCameraSettings } from '@/composables/useCameraSettings';
 import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
 import {
   Lock,
@@ -597,7 +598,33 @@ const toggleCamera = async () => {
     const isCameraEnabled = localParticipant.isCameraEnabled;
 
     // Toggle camera
-    await localParticipant.setCameraEnabled(!isCameraEnabled);
+    if (!isCameraEnabled) {
+      const camOpts: any = {};
+      // Try to pass deviceId to LiveKit (best-effort)
+      try {
+        const { selectedDeviceId, selectedQuality } = useCameraSettings();
+        if (selectedDeviceId.value) camOpts.deviceId = selectedDeviceId.value as any;
+        await localParticipant.setCameraEnabled(true, camOpts as any);
+        // After publish, try to apply resolution constraints directly
+        setTimeout(() => {
+          try {
+            const pub = localParticipant.getTrackPublication(Track.Source.Camera) as any;
+            const track = pub?.track as any;
+            const media = track?.mediaStreamTrack as MediaStreamTrack | undefined;
+            if (media && media.applyConstraints) {
+              media.applyConstraints({
+                width: { ideal: selectedQuality.value.width },
+                height: { ideal: selectedQuality.value.height }
+              } as any).catch(() => {});
+            }
+          } catch {}
+        }, 200);
+      } catch {
+        await localParticipant.setCameraEnabled(true);
+      }
+    } else {
+      await localParticipant.setCameraEnabled(false);
+    }
 
     isCameraOn.value = !isCameraEnabled;
     
@@ -697,19 +724,46 @@ const toggleScreenShare = async () => {
 };
 
 // Context menu state and items
-const cameraMenuItems = computed<MenuItem[]>(() => [
-  {
-    label: 'Camera Settings',
-    icon: Video,
-    action: () => {
-      addToast({ message: 'Camera settings coming soon', type: 'info' });
-    }
+const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQuality, qualityOptions: cameraQualityOptions, ensureDevicesLoaded } = useCameraSettings();
+
+const cameraMenuItems = computed<MenuItem[]>(() => {
+  const items: MenuItem[] = [];
+  items.push({ type: 'label', label: 'Camera' });
+
+  // Device list
+  if ((cameraDevices.value || []).length > 0) {
+    items.push({ type: 'label', label: 'Device' });
+    cameraDevices.value.forEach(d => {
+      items.push({
+        label: d.label || 'Camera',
+        checked: selectedDeviceId.value === d.deviceId,
+        action: () => { selectedDeviceId.value = d.deviceId; addToast({ message: `Camera set to ${d.label || 'Camera'}`, type: 'success' }); }
+      });
+    });
+  } else {
+    items.push({ type: 'label', label: 'Device' });
+    items.push({ label: 'No cameras found', disabled: true });
   }
-]);
+
+  items.push({ type: 'separator' });
+
+  // Quality options
+  items.push({ type: 'label', label: 'Resolution' });
+  cameraQualityOptions.forEach(q => {
+    items.push({
+      label: q.label,
+      checked: selectedCamQuality.value.value === q.value,
+      action: () => { selectedCamQuality.value = q; addToast({ message: `Camera resolution set to ${q.label}` , type: 'success' }); }
+    });
+  });
+
+  return items;
+});
 
 const screenShareMenuItems = computed<MenuItem[]>(() => {
   if (isScreenSharing.value) {
     return [
+      { type: 'label', label: 'Screen Share' },
       {
         label: 'Stop Screen Share',
         icon: Monitor,
@@ -718,49 +772,65 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
     ];
   } else {
     const items: MenuItem[] = [];
-    
-    // Add resolution options
+
+    // Primary action
+    items.push({ type: 'label', label: 'Screen Share' });
+    items.push({
+      label: 'Start Screen Share',
+      icon: MonitorSpeaker,
+      action: () => toggleScreenShare()
+    });
+    items.push({ type: 'separator' });
+
+    // Resolution group
+    items.push({ type: 'label', label: 'Resolution' });
     resolutionOptions.forEach(option => {
       items.push({
         label: `${option.label} (${option.resolution})`,
-        icon: Monitor,
+        checked: selectedQuality.value.value === option.value,
         action: () => {
           selectedQuality.value = option;
           addToast({ message: `Resolution set to ${option.label}`, type: 'success' });
         }
       });
     });
-    
-    // Add FPS options  
+
+    items.push({ type: 'separator' });
+
+    // FPS group
+    items.push({ type: 'label', label: 'Frame Rate' });
     fpsOptions.forEach(option => {
       items.push({
-        label: `${option.label} - ${option.description}`,
-        icon: Monitor,
+        label: `${option.label} – ${option.description}`,
+        checked: selectedFPS.value === option.value,
         action: () => {
           selectedFPS.value = option.value;
           addToast({ message: `Frame rate set to ${option.label}`, type: 'success' });
         }
       });
     });
-    
-    // Add audio toggle
+
+    items.push({ type: 'separator' });
+
+    // Audio toggle
     items.push({
-      label: includeAudio.value ? '✓ Include Audio' : 'Include Audio',
-      icon: Monitor,
+      label: 'Include Audio',
+      checked: includeAudio.value,
       action: () => {
         includeAudio.value = !includeAudio.value;
         const state = includeAudio.value ? 'enabled' : 'disabled';
         addToast({ message: `Screen share audio ${state}`, type: 'success' });
       }
     });
-    
+
     return items;
   }
 });
 
 // Context menu handlers
-const handleCameraRightClick = (event: MouseEvent) => {
+const handleCameraRightClick = async (event: MouseEvent) => {
   event.preventDefault();
+  try { await ensureDevicesLoaded(); } catch {}
   cameraContextMenu.value?.open(event);
 };
 

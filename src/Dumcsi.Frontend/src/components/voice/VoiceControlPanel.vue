@@ -41,22 +41,39 @@
 
       <!-- Voice Controls -->
       <div class="flex items-center gap-2 px-2">
-        <!-- Turn on Camera Button -->
-        <button
-          @click="toggleCamera"
-          :class="[
-            'flex-1 flex items-center justify-center gap-2 px-3 py-2 h-10 rounded transition-colors text-sm',
-            isCameraOn ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-main-800 hover:bg-main-700 text-text-secondary'
-          ]"
-          :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
-        >
-          <Video v-if="isCameraOn" class="w-4 h-4" />
-          <VideoOff v-else class="w-4 h-4" />
-          <span class="hidden sm:inline">{{ isCameraOn ? 'Camera On' : 'Camera' }}</span>
-        </button>
+        <!-- Camera Split Button (main toggle + options) -->
+        <div class="flex-1 relative camera-dropdown-anchor">
+          <div class="flex">
+            <!-- Main action -->
+            <button
+              @click="toggleCamera"
+              :class="[
+                'flex-1 flex items-center justify-center gap-2 px-3 py-2 h-10 whitespace-nowrap rounded-l transition-colors text-sm',
+                isCameraOn ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-main-800 hover:bg-main-700 text-text-secondary'
+              ]"
+              :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
+            >
+              <Video v-if="isCameraOn" class="w-4 h-4" />
+              <VideoOff v-else class="w-4 h-4" />
+              <span class="hidden sm:inline">{{ isCameraOn ? 'Camera On' : 'Camera' }}</span>
+            </button>
+            <!-- Options toggle -->
+            <button
+              ref="cameraOptionsBtn"
+              @click.stop="openCameraMenu"
+              :class="[
+                'w-8 h-10 flex items-center justify-center rounded-r border-l border-main-700 transition-colors',
+                'bg-main-800 hover:bg-main-700 text-text-secondary'
+              ]"
+              title="Camera options"
+            >
+              <ChevronDown class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
-        <!-- Screen Share Split Button with Options Dropdown -->
-        <div ref="qualityAnchor" class="flex-1 relative quality-dropdown-anchor">
+        <!-- Screen Share Split Button using Context Menu -->
+        <div class="flex-1 relative screen-dropdown-anchor">
           <div class="flex">
             <!-- Main action -->
             <button
@@ -73,9 +90,10 @@
               <MonitorSpeaker v-else class="w-4 h-4" />
               <span class="hidden sm:inline">{{ isScreenSharing ? 'Stop Share' : 'Screen' }}</span>
             </button>
-            <!-- Options toggle -->
+            <!-- Options toggle (opens ContextMenu) -->
             <button
-              @click.stop="qualityOpen = !qualityOpen"
+              ref="screenOptionsBtn"
+              @click.stop="openScreenShareMenu"
               :disabled="isScreenSharing || isScreenShareLoading"
               :class="[
                 'w-8 h-10 flex items-center justify-center rounded-r border-l border-main-700 transition-colors',
@@ -86,66 +104,6 @@
               <ChevronDown class="w-4 h-4" />
             </button>
           </div>
-
-          <!-- Options dropdown (teleported to body, opens upward) -->
-          <teleport to="body">
-            <div
-              v-if="qualityOpen && !isScreenSharing"
-              class="fixed z-[10000] bg-main-900 border border-border-default rounded-lg shadow-lg p-3 transform -translate-y-full"
-              :style="dropdownStyle"
-              @click.stop
-            >
-            <!-- Resolution -->
-            <div class="mb-3">
-              <div class="text-xs font-medium text-text-secondary mb-2">Resolution</div>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="opt in resolutionOptions"
-                  :key="opt.value"
-                  @click="selectedQuality = opt"
-                  :class="[
-                    'px-3 py-2 rounded border text-sm text-left',
-                    selectedQuality.value === opt.value
-                      ? 'border-primary bg-primary/20 text-text-default'
-                      : 'border-border-default bg-main-800 text-text-secondary hover:bg-main-700'
-                  ]"
-                >
-                  <div class="font-medium">{{ opt.label }}</div>
-                  <div class="text-xs opacity-75">{{ opt.resolution }}</div>
-                </button>
-              </div>
-            </div>
-
-            <!-- FPS -->
-            <div class="mb-3">
-              <div class="text-xs font-medium text-text-secondary mb-2">Frame Rate</div>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="fps in fpsOptions"
-                  :key="fps.value"
-                  @click="selectedFPS = fps.value"
-                  :class="[
-                    'px-3 py-2 rounded border text-sm text-left',
-                    selectedFPS === fps.value
-                      ? 'border-primary bg-primary/20 text-text-default'
-                      : 'border-border-default bg-main-800 text-text-secondary hover:bg-main-700'
-                  ]"
-                >
-                  <div class="font-medium">{{ fps.label }}</div>
-                  <div class="text-xs opacity-75">{{ fps.description }}</div>
-                </button>
-              </div>
-            </div>
-
-            <!-- Audio -->
-            <div>
-              <label class="flex items-center gap-2 text-sm text-text-default">
-                <input type="checkbox" v-model="includeAudio" class="rounded border-border-default bg-main-800 text-primary" />
-                Include system/tab audio (if supported)
-              </label>
-            </div>
-            </div>
-          </teleport>
         </div>
       </div>
 
@@ -175,10 +133,14 @@
       @close="showConnectionDetails = false"
     />
   </div>
+  <!-- Camera context menu -->
+  <ContextMenu ref="cameraContextMenu" :items="cameraMenuItems" />
+  <!-- Screen share context menu -->
+  <ContextMenu ref="screenShareContextMenu" :items="screenShareMenuItems" />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { 
   PhoneOff, 
   Video, 
@@ -195,6 +157,9 @@ import { useAuthStore } from '@/stores/auth';
 import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import { ChevronDown } from 'lucide-vue-next';
 import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
+import { useCameraSettings } from '@/composables/useCameraSettings';
+import ContextMenu from '@/components/ui/ContextMenu.vue';
+import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
@@ -219,6 +184,54 @@ const serverName = computed(() => {
 
 // Camera state (mock for now)
 const isCameraOn = ref(false);
+// Camera options (shared)
+const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQuality, qualityOptions: cameraQualityOptions, ensureDevicesLoaded } = useCameraSettings();
+
+// Camera context menu
+const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const cameraMenuItems = computed<MenuItem[]>(() => {
+  const items: MenuItem[] = [];
+  items.push({ type: 'label', label: 'Camera' });
+
+  // Device list
+  items.push({ type: 'label', label: 'Device' });
+  if ((cameraDevices.value || []).length > 0) {
+    cameraDevices.value.forEach(d => {
+      items.push({
+        label: d.label || 'Camera',
+        checked: selectedDeviceId.value === d.deviceId,
+        action: () => { selectedDeviceId.value = d.deviceId; addToast({ message: `Camera set to ${d.label || 'Camera'}`, type: 'success' }); }
+      });
+    });
+  } else {
+    items.push({ label: 'No cameras found', disabled: true });
+  }
+
+  items.push({ type: 'separator' });
+
+  // Quality options
+  items.push({ type: 'label', label: 'Resolution' });
+  cameraQualityOptions.forEach(q => {
+    items.push({
+      label: q.label,
+      checked: selectedCamQuality.value.value === q.value,
+      action: () => { selectedCamQuality.value = q; addToast({ message: `Camera resolution set to ${q.label}`, type: 'success' }); }
+    });
+  });
+
+  return items;
+});
+
+const cameraOptionsBtn = ref<HTMLElement | null>(null);
+const openCameraMenu = async () => {
+  try { await ensureDevicesLoaded(); } catch {}
+  const el = cameraOptionsBtn.value;
+  if (el) {
+    const rect = el.getBoundingClientRect();
+    // Anchor to top-left and open above
+    cameraContextMenu.value?.openAt(rect.left, rect.top, true, 10, el);
+  }
+};
 
 // Screen share state (derived from store; with LiveKit fallback for local)
 const isScreenSharing = computed(() => {
@@ -232,9 +245,58 @@ const isScreenShareLoading = ref(false);
 const activeQuality = ref<{ label: string; frameRate: number } | null>(null);
 const activeAudioEnabled = ref(false);
 
-// Screen share quality settings
-// Quality dropdown state
-const qualityOpen = ref(false);
+// Screen share context menu
+const screenShareContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const screenOptionsBtn = ref<HTMLElement | null>(null);
+const screenShareMenuItems = computed<MenuItem[]>(() => {
+  if (isScreenSharing.value) {
+    return [
+      { type: 'label', label: 'Screen Share' },
+      { label: 'Stop Screen Share', icon: Monitor, action: () => toggleScreenShare() }
+    ];
+  }
+  const items: MenuItem[] = [];
+  items.push({ type: 'label', label: 'Screen Share' });
+  items.push({ label: 'Start Screen Share', icon: MonitorSpeaker, action: () => toggleScreenShare() });
+  items.push({ type: 'separator' });
+  // Resolution
+  items.push({ type: 'label', label: 'Resolution' });
+  resolutionOptions.forEach(opt => {
+    items.push({
+      label: `${opt.label} (${opt.resolution})`,
+      checked: selectedQuality.value.value === opt.value,
+      action: () => { selectedQuality.value = opt; addToast({ message: `Resolution set to ${opt.label}`, type: 'success' }); }
+    });
+  });
+  items.push({ type: 'separator' });
+  // FPS
+  items.push({ type: 'label', label: 'Frame Rate' });
+  fpsOptions.forEach(fps => {
+    items.push({
+      label: `${fps.label} – ${fps.description}`,
+      checked: selectedFPS.value === fps.value,
+      action: () => { selectedFPS.value = fps.value; addToast({ message: `Frame rate set to ${fps.label}`, type: 'success' }); }
+    });
+  });
+  items.push({ type: 'separator' });
+  // Audio
+  items.push({
+    label: 'Include Audio',
+    checked: includeAudio.value,
+    action: () => {
+      includeAudio.value = !includeAudio.value;
+      const state = includeAudio.value ? 'enabled' : 'disabled';
+      addToast({ message: `Screen share audio ${state}`, type: 'success' });
+    }
+  });
+  return items;
+});
+const openScreenShareMenu = () => {
+  const el = screenOptionsBtn.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  screenShareContextMenu.value?.openAt(rect.left, rect.top, true, 10, el);
+};
 
 // Voice actions
 const disconnectVoice = async () => {
@@ -332,7 +394,6 @@ const toggleScreenShare = async () => {
       await signalRService.startScreenShare(currentServer.id.toString(), currentChannelId.toString());
       const audioText = includeAudio.value ? ' with audio' : '';
       addToast({ message: `Screen sharing started at ${selectedQuality.value.label} @ ${selectedFPS.value} FPS${audioText}`, type: 'success' });
-      qualityOpen.value = false;
     }
   } catch (error: any) {
     console.error('VoiceControlPanel: Screen share error:', error);
@@ -361,72 +422,7 @@ const toggleScreenShare = async () => {
   }
 };
 
-// Anchor and positioning for teleported dropdown
-const qualityAnchor = ref<HTMLElement | null>(null);
-const dropdownStyle = ref<Record<string, string>>({});
-
-const updateDropdownPosition = () => {
-  const el = qualityAnchor.value;
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const margin = 8;
-  const vw = window.innerWidth;
-  // Desired max width and clamp to viewport
-  let width = Math.min(320, vw - 2 * margin);
-  // Decide whether to anchor to right or left edge to avoid overflow
-  const wouldOverflowLeftWithRight = (rect.right - width) < margin;
-  const useRight = !wouldOverflowLeftWithRight;
-  const style: Record<string, string> = {
-    top: `${rect.top - 8}px`,
-    width: `${width}px`,
-  };
-  if (useRight) {
-    // If still close to left edge, reduce width further
-    if (rect.right - width < margin) {
-      width = Math.max(180, rect.right - margin);
-      style.width = `${Math.min(width, vw - 2 * margin)}px`;
-    }
-    style.right = `${Math.max(margin, vw - rect.right)}px`;
-    delete style.left;
-  } else {
-    // Anchor to left and clamp width to fit right edge
-    if (rect.left + width > vw - margin) {
-      width = Math.max(180, vw - rect.left - margin);
-      style.width = `${width}px`;
-    }
-    style.left = `${Math.max(margin, rect.left)}px`;
-    delete style.right;
-  }
-  dropdownStyle.value = style;
-};
-
-watch(qualityOpen, (open) => {
-  if (open) {
-    updateDropdownPosition();
-  }
-});
-
-// Close quality dropdown on outside click
-const onDocClick = (e: MouseEvent) => {
-  const target = e.target as Element | null;
-  if (!target) return;
-  if (!target.closest('.quality-dropdown-anchor')) {
-    qualityOpen.value = false;
-  }
-};
-
-const onResize = () => { if (qualityOpen.value) updateDropdownPosition(); };
-
-onMounted(() => {
-  document.addEventListener('click', onDocClick);
-  window.addEventListener('resize', onResize);
-  window.addEventListener('scroll', onResize, true);
-});
-onUnmounted(() => {
-  document.removeEventListener('click', onDocClick);
-  window.removeEventListener('resize', onResize);
-  window.removeEventListener('scroll', onResize, true);
-});
+// No inline dropdown; using ContextMenu instead
 
 // isScreenSharing is derived; no polling needed
 </script>
