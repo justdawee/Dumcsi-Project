@@ -15,7 +15,7 @@
         <p class="text-sm text-text-tertiary mb-3">Quick jump to:</p>
         <div class="flex flex-wrap gap-2 justify-center">
           <RouterLink
-              v-for="channel in server.channels.slice(0, 5)"
+              v-for="channel in server.channels.filter(c => c.type === ChannelType.Text).slice(0, 5)"
               :key="channel.id"
               :to="`/servers/${server.id}/channels/${channel.id}`"
               class="inline-flex items-center gap-1 px-3 py-1.5 bg-main-700 hover:bg-main-600 rounded-full text-sm text-text-secondary hover:text-text-default transition"
@@ -63,6 +63,7 @@ import {MessageSquare, Hash, UserPlus, Loader2} from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import {usePermissions} from "@/composables/usePermissions.ts";
 import type {ServerDetails} from '@/services/types';
+import { ChannelType } from '@/services/types';
 import {useToast} from '@/composables/useToast';
 import InviteModal from '@/components/modals/InviteModal.vue';
 
