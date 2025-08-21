@@ -29,6 +29,8 @@ interface ConnectionInfo {
 }
 
 class WebRtcService {
+    // Fixed audio quality: Stereo Opus 128 kbps for music/content
+    private static readonly FIXED_AUDIO_BPS = 128_000; // 128 kbps
     private peers = new Map<string, any>();
     private audioElements = new Map<string, HTMLAudioElement>();
     private localStream: MediaStream | null = null;
@@ -88,15 +90,26 @@ class WebRtcService {
     private async createLocalStream() {
         const { audioSettings } = this.audioSettings;
         
-        // Create stream with current audio settings
+        // Base audio constraints + fixed high-quality capture
+        let audioConstraints: MediaTrackConstraints = {
+            deviceId: audioSettings.inputDevice !== 'default' ? audioSettings.inputDevice : undefined,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 2,
+            sampleRate: 48000
+        };
+        
+        // Create stream with current audio settings and fixed quality
         const originalStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                deviceId: audioSettings.inputDevice !== 'default' ? audioSettings.inputDevice : undefined,
-                echoCancellation: audioSettings.echoCancellation,
-                noiseSuppression: audioSettings.noiseSuppression,
-                autoGainControl: audioSettings.autoGainControl
-            }
+            audio: audioConstraints
         });
+
+        // Set contentHint based on selected mode (helps browsers tune processing)
+        try {
+            const track = originalStream.getAudioTracks()[0];
+            if (track && 'contentHint' in track) { (track as any).contentHint = 'music'; }
+        } catch {}
 
         // Keep the original stream for peer connections
         this.localStream = originalStream;
@@ -111,6 +124,9 @@ class WebRtcService {
         try { this.onLocalStreamCallbacks.forEach(cb => { try { cb(this.localStream!); } catch {} }); } catch {}
         // Apply current mute/PTT gating to the new stream
         this.updateTrackEnabled();
+
+        // Apply desired bitrate to any existing senders
+        await this.applyAudioBitrateToSenders();
     }
 
     private setupAudioProcessing() {
@@ -120,6 +136,45 @@ class WebRtcService {
         this.updateInputVolume();
         // Ensure track enabled state reflects current PTT/mute configuration
         this.updateTrackEnabled();
+    }
+
+    
+
+    // Apply outbound encoder parameters (e.g., max bitrate) to all audio senders
+    private async applyAudioBitrateToSenders() {
+        try {
+            const appStore = useAppStore();
+            const channelId = appStore.currentVoiceChannelId;
+            if (!channelId) return;
+
+            const targetBps = WebRtcService.FIXED_AUDIO_BPS;
+            const dtx: 'enabled' | 'disabled' = 'disabled';
+
+            this.peers.forEach((peer: any) => {
+                const pc: RTCPeerConnection | undefined = peer?._pc;
+                if (!pc) return;
+                const senders = pc.getSenders?.() || [];
+                senders.forEach((sender: RTCRtpSender) => {
+                    if (sender.track && sender.track.kind === 'audio') {
+                        try {
+                            const params = sender.getParameters();
+                            if (!params.encodings || params.encodings.length === 0) {
+                                params.encodings = [{} as RTCRtpEncodingParameters];
+                            }
+                            // Set maxBitrate in bps based on desired quality
+                            params.encodings[0].maxBitrate = targetBps;
+                            // Try to control DTX (if supported)
+                            try { (params.encodings[0] as any).dtx = dtx; } catch {}
+                            try { (params.encodings[0] as any).priority = 'high'; } catch {}
+                            sender.setParameters(params).catch(() => { /* ignore per-sender errors */ });
+                            try { console.log('[Voice] Applied RTP sender maxBitrate (bps):', params.encodings[0].maxBitrate); } catch {}
+                        } catch { /* ignore individual sender errors */ }
+                    }
+                });
+            });
+        } catch (e) {
+            // Non-fatal; some browsers may not support setParameters on audio
+        }
     }
 
     private setupSettingsListener() {
@@ -181,12 +236,97 @@ class WebRtcService {
         
         // Ensure SimplePeer is loaded
         const SimplePeerClass = await loadSimplePeer();
-        
+
+        // Single SDP transformer to enforce Opus params and bandwidth
+        const transformOpusSdp = (sdp: string): string => {
+            try {
+                const FORCED_BPS = WebRtcService.FIXED_AUDIO_BPS;
+
+                const lines = sdp.split(/\r?\n/);
+                let opusPt: string | null = null;
+                for (const line of lines) {
+                    const m = line.match(/^a=rtpmap:(\d+) opus\/(\d+)(?:\/(\d+))?/i);
+                    if (m) { opusPt = m[1]; break; }
+                }
+                if (!opusPt) return sdp;
+
+                const fmtpIndex = lines.findIndex(l => l.startsWith(`a=fmtp:${opusPt}`));
+                const params: Record<string, string> = {};
+                if (fmtpIndex !== -1) {
+                    const existing = lines[fmtpIndex].split(/\s+/).slice(1).join(' ');
+                    const kv = existing.substring(existing.indexOf(':') + 1).split(';');
+                    kv.forEach(pair => {
+                        const [k, v] = pair.split('=').map((s: string) => s?.trim()).filter(Boolean) as [string, string];
+                        if (k && v) params[k] = v;
+                    });
+                }
+
+                params['maxaveragebitrate'] = String(FORCED_BPS);
+                params['stereo'] = '1';
+                params['sprop-stereo'] = '1';
+                params['maxplaybackrate'] = '48000';
+                params['usedtx'] = '0';
+                params['cbr'] = '1';
+                params['maxptime'] = '60';
+
+                const paramStr = Object.entries(params).map(([k, v]) => `${k}=${v}`).join(';');
+                const newFmtp = `a=fmtp:${opusPt} ${paramStr}`;
+                if (fmtpIndex !== -1) {
+                    lines[fmtpIndex] = newFmtp;
+                } else {
+                    const rtpmapIdx = lines.findIndex(l => l.startsWith(`a=rtpmap:${opusPt}`));
+                    if (rtpmapIdx !== -1) lines.splice(rtpmapIdx + 1, 0, newFmtp);
+                    else lines.push(newFmtp);
+                }
+
+                // Ensure ptime line exists
+                const hasPtime = lines.some(l => /^a=ptime:\d+/.test(l));
+                if (!hasPtime) {
+                    const mAudioIdx2 = lines.findIndex(l => l.startsWith('m=audio'));
+                    if (mAudioIdx2 !== -1) {
+                        let insertAt2 = mAudioIdx2 + 1;
+                        const cIdx2 = lines.slice(mAudioIdx2).findIndex(l => l.startsWith('c='));
+                        if (cIdx2 !== -1) insertAt2 = mAudioIdx2 + cIdx2 + 1;
+                        lines.splice(insertAt2, 0, 'a=ptime:20');
+                    } else {
+                        lines.push('a=ptime:20');
+                    }
+                }
+
+                // Also apply bandwidth lines to the audio m= section
+                const tiabps = FORCED_BPS; // bps
+                const askbps = Math.round(tiabps / 1000); // kbps
+                const mAudioIdx = lines.findIndex(l => l.startsWith('m=audio'));
+                if (mAudioIdx !== -1) {
+                    let endIdx = lines.length;
+                    for (let i = mAudioIdx + 1; i < lines.length; i++) {
+                        if (lines[i].startsWith('m=')) { endIdx = i; break; }
+                    }
+                    const section = lines.slice(mAudioIdx, endIdx).filter(l => !l.startsWith('b=AS:') && !l.startsWith('b=TIAS:'));
+                    let insertAt = mAudioIdx + 1;
+                    const cLineIdx = section.findIndex(l => l.startsWith('c='));
+                    if (cLineIdx !== -1) insertAt = mAudioIdx + cLineIdx + 1;
+                    const newSection = [
+                        ...section.slice(0, insertAt - mAudioIdx),
+                        `b=TIAS:${tiabps}`,
+                        `b=AS:${askbps}`,
+                        ...section.slice(insertAt - mAudioIdx)
+                    ];
+                    lines.splice(mAudioIdx, endIdx - mAudioIdx, ...newSection);
+                }
+                return lines.join('\r\n');
+            } catch {
+                return sdp;
+            }
+        };
+
         const peerConfig: any = {
             initiator,
             config: {
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            }
+            },
+            // Transform SDP before setLocalDescription/signaling to enforce Opus params
+            sdpTransform: transformOpusSdp
         };
 
         // Only add stream if we have one (i.e., if we're in voice channel)
@@ -200,9 +340,16 @@ class WebRtcService {
 
         this.peers.set(targetConnectionId, peer);
 
+        // Use the same transformer for any outgoing offers/answers
+
         // Handle signaling data (offers, answers, ice candidates)
-        peer.on('signal', (data: any) => {
+        peer.on('signal', async (data: any) => {
             if (!this.signalRService) return;
+
+            // Enforce Opus bitrate/stereo on outgoing SDP
+            if ((data.type === 'offer' || data.type === 'answer') && typeof data.sdp === 'string') {
+                data = { ...data, sdp: transformOpusSdp(data.sdp) };
+            }
 
             if (data.type === 'offer') {
                 this.signalRService.sendOffer(targetConnectionId, data);
@@ -245,6 +392,9 @@ class WebRtcService {
                 const payload = JSON.stringify({ t: 'voice_state', muted: this.getMutedState(), deafened: this.isDeafened });
                 peer.send(payload);
             } catch {}
+
+            // Apply current desired audio bitrate to this peer's sender when connected
+            this.applyAudioBitrateToSenders();
         });
 
         peer.on('close', () => {
@@ -423,6 +573,9 @@ class WebRtcService {
                 });
             }
         });
+
+        // After replacing tracks, re-apply desired bitrate to senders
+        this.applyAudioBitrateToSenders();
     }
 
     private updateInputVolume() {

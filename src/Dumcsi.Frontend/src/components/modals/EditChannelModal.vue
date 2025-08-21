@@ -31,6 +31,7 @@
                 <option v-for="t in topics" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
             </div>
+            
             <p v-if="error" class="form-error">{{ error }}</p>
           </div>
 
@@ -80,7 +81,6 @@ import channelService from '@/services/channelService';
 import {useToast} from '@/composables/useToast';
 import {useAppStore} from '@/stores/app';
 import type {ChannelDetailDto, UpdateChannelRequest} from '@/services/types';
-
 const {addToast} = useToast();
 
 // --- Props & Emits ---
@@ -120,10 +120,6 @@ watch(() => props.channel, (newChannel) => {
 const handleUpdateChannel = async () => {
   if (!props.channel) return;
   isLoading.value = true;
-  addToast({
-    type: 'success',
-    message: 'Channel updated successfully.',
-  });
   try {
     await channelService.updateChannel(props.channel.id, {
       name: form.name,
@@ -136,6 +132,12 @@ const handleUpdateChannel = async () => {
       name: form.name || '',
       description: form.description || undefined,
     });
+    
+    addToast({
+      type: 'success',
+      message: 'Channel updated successfully.',
+    });
+    
     closeModal();
   } catch (err: any) {
     addToast({
@@ -150,13 +152,15 @@ const handleUpdateChannel = async () => {
 const handleDeleteChannel = async () => {
   if (!props.channel) return;
   isDeleting.value = true;
-  addToast({
-    type: 'success',
-    message: 'Channel deleted successfully.',
-  });
   try {
     await channelService.deleteChannel(props.channel.id);
     emit('channel-deleted', props.channel.id);
+    
+    addToast({
+      type: 'success',
+      message: 'Channel deleted successfully.',
+    });
+    
     isConfirmDeleteOpen.value = false;
     closeModal();
   } catch (err: any) {

@@ -73,8 +73,12 @@
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Bitrate:</span>
-            <span class="text-text-default">{{ audioBitrate }} kbps</span>
+            <span class="text-text-muted">Outgoing Bitrate:</span>
+            <span class="text-text-default">{{ audioBitrateOut }} kbps</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-muted">Incoming Bitrate:</span>
+            <span class="text-text-default">{{ audioBitrateIn }} kbps</span>
           </div>
           
           <div class="flex justify-between">
@@ -214,7 +218,8 @@ watch(() => props.isOpen, (isOpen) => {
 
 // Live voice connection stats (aggregated from SimplePeer/RTCPeerConnection)
 const connectionQuality = ref<'excellent' | 'good' | 'poor' | 'unknown'>('unknown');
-const audioBitrate = ref(0); // kbps (inbound)
+const audioBitrateIn = ref(0); // kbps (inbound)
+const audioBitrateOut = ref(0); // kbps (outbound)
 const latency = ref(0); // ms
 const packetLoss = ref(0); // percent
 
@@ -417,7 +422,8 @@ onMounted(() => {
   const updateStats = async () => {
     try {
       const stats = await webrtcService.getAggregatedAudioStats();
-      audioBitrate.value = stats.inboundKbps;
+      audioBitrateIn.value = stats.inboundKbps;
+      audioBitrateOut.value = stats.outboundKbps;
       latency.value = stats.latencyMs;
       packetLoss.value = stats.packetLossPct;
       // Quality derived from network health only (avoid penalizing silence/PTT)
