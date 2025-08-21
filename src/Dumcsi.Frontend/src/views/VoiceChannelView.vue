@@ -470,12 +470,8 @@ const initializeVoiceChannel = async () => {
     } catch {}
   }
 
-  // Update screen sharing and camera state from LiveKit once connected
+  // Update streams from LiveKit once connected
   if (livekitService.isRoomConnected()) {
-    const localParticipant = livekitService.getLocalParticipant();
-    if (localParticipant) {
-      isLocalCameraOn.value = localParticipant.isCameraEnabled;
-    }
     updateLiveKitStreams();
   }
 };
@@ -489,12 +485,7 @@ const handlePermissionGranted = async () => {
 
 // Voice controls state (shared)
 const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
-const isCameraOn = ref(false);
-watch(
-  () => isLocalCameraOn.value,
-  (v) => { isCameraOn.value = v; },
-  { immediate: true }
-);
+const isCameraOn = computed(() => isLocalCameraOn.value);
 
 // Context menu state
 const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
@@ -908,7 +899,6 @@ const toggleCamera = async () => {
       try {
         const existing: any = localParticipant.getTrackPublication(Track.Source.Camera);
         if (existing?.track && !existing?.isMuted) {
-          isLocalCameraOn.value = true;
           return;
         }
       } catch {}
@@ -918,6 +908,7 @@ const toggleCamera = async () => {
         const { selectedDeviceId, selectedQuality } = useCameraSettings();
         if (selectedDeviceId.value) camOpts.deviceId = selectedDeviceId.value as any;
         await localParticipant.setCameraEnabled(true, camOpts as any);
+        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
         // After publish, try to apply resolution constraints directly
         setTimeout(() => {
           try {
@@ -934,16 +925,15 @@ const toggleCamera = async () => {
         }, 200);
       } catch {
         await localParticipant.setCameraEnabled(true);
+        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
       }
     } else {
       await localParticipant.setCameraEnabled(false);
+      try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
     }
-
-    // Sync shared state from LiveKit
-    try { isLocalCameraOn.value = livekitService.getLocalParticipant()?.isCameraEnabled ?? false; } catch {}
     
     // Force update streams after camera toggle (delay to ensure track changes are processed)
-    setTimeout(() => updateLiveKitStreams(), 300);
+    setTimeout(() => updateLiveKitStreams(), 500);
     
   } catch (error: any) {
     console.error('Camera toggle error:', error);
@@ -1236,11 +1226,37 @@ const handleControlsMouseLeave = () => {
 };
 
 
+// Attach local participant listeners to keep camera state/streams in sync
+const attachLocalParticipantCameraListeners = () => {
+  try {
+    const localParticipant = livekitService.getLocalParticipant();
+    if (!localParticipant) return;
+    localParticipant.on('trackPublished', (publication: any) => {
+      if (publication?.source === Track.Source.Camera) {
+        try { isLocalCameraOn.value = true; } catch {}
+        setTimeout(() => updateLiveKitStreams(), 100);
+      }
+    });
+    localParticipant.on('trackUnpublished', (publication: any) => {
+      if (publication?.source === Track.Source.Camera) {
+        try { isLocalCameraOn.value = false; } catch {}
+        const uid = appStore.currentUserId as number | null;
+        if (uid) {
+          const next = new Map(cameraStreams.value);
+          next.delete(uid);
+          cameraStreams.value = next;
+        }
+        setTimeout(() => updateLiveKitStreams(), 100);
+      }
+    });
+  } catch {}
+};
+
 // LiveKit connection management
 const ensureLiveKitConnection = async (): Promise<boolean> => {
   // Check if already connected
   if (livekitService.isRoomConnected()) {
-
+    attachLocalParticipantCameraListeners();
     return true;
   }
 
@@ -1264,6 +1280,8 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
 
     }, 1000);
 
+    // Attach local participant camera listeners shortly after connect
+    setTimeout(() => attachLocalParticipantCameraListeners(), 100);
     return true;
   } catch (error) {
     console.error('❌ Failed to connect to LiveKit:', error);
@@ -1460,6 +1478,8 @@ watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStre
 onMounted(async () => {
   // Initialize shared camera state listeners
   try { ensureCameraStateInitialized(); } catch {}
+  // Attach local participant listeners if already connected
+  attachLocalParticipantCameraListeners();
   
   // First check microphone permissions
   await checkPermissions();
@@ -1649,15 +1669,13 @@ onMounted(async () => {
     } catch {}
   });
 
-  // Listen for local track publications (when current user enables camera)
+  // Camera state is managed by the shared composable, but we still need to update streams
   if (livekitService.getLocalParticipant()) {
     const localParticipant = livekitService.getLocalParticipant()!;
     
     localParticipant.on('trackPublished', (publication) => {
       console.log('🎥 Local track published:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
-        // Reflect camera state in shared UI when enabled from elsewhere
-        isLocalCameraOn.value = true;
         // Force update streams when local camera is enabled
         setTimeout(() => updateLiveKitStreams(), 100);
       }
@@ -1666,8 +1684,6 @@ onMounted(async () => {
     localParticipant.on('trackUnpublished', (publication) => {
       console.log('🎥 Local track unpublished:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
-        // Reflect camera state in shared UI when disabled from elsewhere
-        isLocalCameraOn.value = false;
         // Remove local camera stream when disabled
         const uid = appStore.currentUserId as number | null;
         if (uid) {
