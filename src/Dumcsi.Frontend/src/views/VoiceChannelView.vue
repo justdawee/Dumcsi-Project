@@ -363,7 +363,7 @@ import { useScreenShareVolumeControl } from '@/composables/useScreenShareVolumeC
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import { useCameraSettings } from '@/composables/useCameraSettings';
-import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
+import {Track, createLocalVideoTrack, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
 import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import {
   Lock,
@@ -484,7 +484,7 @@ const handlePermissionGranted = async () => {
 };
 
 // Voice controls state (shared)
-const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
+const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized, hotSwitchCamera } = useLocalCameraState();
 const isCameraOn = computed(() => isLocalCameraOn.value);
 
 // Context menu state
@@ -895,38 +895,20 @@ const toggleCamera = async () => {
 
     // Toggle camera
     if (!isCameraEnabled) {
-      // Guard: if already published and not muted, don't start again
-      try {
-        const existing: any = localParticipant.getTrackPublication(Track.Source.Camera);
-        if (existing?.track && !existing?.isMuted) {
-          return;
-        }
-      } catch {}
-      const camOpts: any = {};
-      // Try to pass deviceId to LiveKit (best-effort)
-      try {
-        const { selectedDeviceId, selectedQuality } = useCameraSettings();
-        if (selectedDeviceId.value) camOpts.deviceId = selectedDeviceId.value as any;
-        await localParticipant.setCameraEnabled(true, camOpts as any);
-        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
-        // After publish, try to apply resolution constraints directly
-        setTimeout(() => {
-          try {
-            const pub = localParticipant.getTrackPublication(Track.Source.Camera) as any;
-            const track = pub?.track as any;
-            const media = track?.mediaStreamTrack as MediaStreamTrack | undefined;
-            if (media && media.applyConstraints) {
-              media.applyConstraints({
-                width: { ideal: selectedQuality.value.width },
-                height: { ideal: selectedQuality.value.height }
-              } as any).catch(() => {});
-            }
-          } catch {}
-        }, 200);
-      } catch {
-        await localParticipant.setCameraEnabled(true);
-        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
+      // Publish a camera track using the selected device + resolution
+      const existingPub: any = localParticipant.getTrackPublication(Track.Source.Camera);
+      if (existingPub?.track) {
+        try { await localParticipant.unpublishTrack(existingPub.track, true); } catch {}
       }
+
+      const { selectedDeviceId, selectedQuality } = useCameraSettings();
+      const deviceId = selectedDeviceId.value || undefined;
+      const videoTrack = await createLocalVideoTrack({
+        deviceId: deviceId as any,
+        resolution: { width: selectedQuality.value.width, height: selectedQuality.value.height } as any
+      } as any);
+      await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
+      try { isLocalCameraOn.value = true; } catch {}
     } else {
       await localParticipant.setCameraEnabled(false);
       try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
@@ -1773,6 +1755,29 @@ onMounted(async () => {
 
   // Auto-focus on user if specified
   autoFocusUser();
+});
+
+// Keep preview responsive to camera being turned on
+watch(() => isLocalCameraOn.value, (on) => {
+  if (on) {
+    setTimeout(() => updateLiveKitStreams(), 150);
+  }
+});
+
+// Hot-switch camera when device or quality changes while camera is on
+watch([
+  () => selectedCamQuality.value.value,
+  () => selectedDeviceId.value
+], async () => {
+  if (!isLocalCameraOn.value) return;
+  try {
+    const w = selectedCamQuality.value.width;
+    const h = selectedCamQuality.value.height;
+    await hotSwitchCamera(selectedDeviceId.value || undefined, w, h);
+    setTimeout(() => updateLiveKitStreams(), 150);
+  } catch {
+    // noop
+  }
 });
 
 onUnmounted(() => {

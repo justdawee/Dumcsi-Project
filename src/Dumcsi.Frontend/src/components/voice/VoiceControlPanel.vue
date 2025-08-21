@@ -162,7 +162,7 @@ import { useCameraSettings } from '@/composables/useCameraSettings';
 import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
-import { Track } from 'livekit-client';
+import { Track, createLocalVideoTrack } from 'livekit-client';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
@@ -344,38 +344,20 @@ const toggleCamera = async () => {
     }
 
     if (!isEnabled) {
-      // Guard: if already published and not muted, don't start again
-      try {
-        const existing: any = localParticipant.getTrackPublication(Track.Source.Camera);
-        if (existing?.track && !existing?.isMuted) {
-          return;
-        }
-      } catch {}
-      const camOpts: any = {};
-      try {
-        // Prefer selected camera device if set
-        if (selectedDeviceId.value) camOpts.deviceId = selectedDeviceId.value as any;
-        await localParticipant.setCameraEnabled(true, camOpts as any);
-        // Immediately sync shared state so all UIs light up
-        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
-        // Apply resolution constraints after publication
-        setTimeout(() => {
-          try {
-            const pub = localParticipant.getTrackPublication(Track.Source.Camera) as any;
-            const track = pub?.track as any;
-            const media: MediaStreamTrack | undefined = track?.mediaStreamTrack;
-            if (media && media.applyConstraints) {
-              media.applyConstraints({
-                width: { ideal: selectedCamQuality.value.width },
-                height: { ideal: selectedCamQuality.value.height }
-              } as any).catch(() => {});
-            }
-          } catch {}
-        }, 200);
-      } catch {
-        await localParticipant.setCameraEnabled(true);
-        try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
+      // Publish a camera track using the selected device + resolution
+      // Unpublish any stale camera track first to avoid duplicates
+      const existingPub: any = localParticipant.getTrackPublication(Track.Source.Camera);
+      if (existingPub?.track) {
+        try { await localParticipant.unpublishTrack(existingPub.track, true); } catch {}
       }
+
+      const deviceId = selectedDeviceId.value || undefined;
+      const videoTrack = await createLocalVideoTrack({
+        deviceId: deviceId as any,
+        resolution: { width: selectedCamQuality.value.width, height: selectedCamQuality.value.height } as any
+      } as any);
+      await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
+      try { isLocalCameraOn.value = true; } catch {}
     } else {
       await localParticipant.setCameraEnabled(false);
       // Immediately sync shared state so all UIs dim
