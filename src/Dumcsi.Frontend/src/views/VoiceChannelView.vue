@@ -1,8 +1,22 @@
 <template>
   <div ref="voiceChannelViewRef" class="voice-channel-view flex h-full bg-bg-base">
 
-    <!-- Main Voice View -->
-    <div class="flex-1 flex flex-col relative">
+    <!-- Show permission required component if microphone access is denied -->
+    <MicrophonePermissionRequired 
+      v-if="hasMicrophonePermission === false" 
+      @permission-granted="handlePermissionGranted"
+    />
+
+    <!-- Show loading state while checking permissions -->
+    <div v-else-if="isCheckingPermission" class="flex-1 flex items-center justify-center">
+      <div class="text-center">
+        <Loader2 class="w-8 h-8 mx-auto mb-4 text-text-muted animate-spin"/>
+        <p class="text-text-muted">Checking microphone permissions...</p>
+      </div>
+    </div>
+
+    <!-- Main Voice View (only shown when permission is granted) -->
+    <div v-else class="flex-1 flex flex-col relative">
       <!-- Voice Channel Header -->
       <div class="p-4 border-b h-14 border-border-default bg-bg-base">
         <div class="flex items-center justify-between">
@@ -331,7 +345,7 @@
     </div>
   </div>
 
-  <!-- Context Menus -->
+  <!-- Context Menus (always shown regardless of permission state) -->
   <ContextMenu ref="cameraContextMenu" :items="cameraMenuItems" />
   <ContextMenu ref="screenShareContextMenu" :items="screenShareMenuItems" />
 </template>
@@ -353,6 +367,7 @@ import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublica
 import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import {
   Lock,
+  Loader2,
   Mic,
   MicOff,
   Monitor,
@@ -369,6 +384,8 @@ import {
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import VoiceConnectionDetails from '@/components/voice/VoiceConnectionDetails.vue';
 import VolumeControl from '@/components/voice/VolumeControl.vue';
+import MicrophonePermissionRequired from '@/components/voice/MicrophonePermissionRequired.vue';
+import {checkMicrophonePermission, checkCameraPermission} from '@/utils/permissions';
 
 interface VoiceParticipant {
   id: number;
@@ -413,6 +430,62 @@ const voiceChannelName = computed(() => {
 const showVoiceSettings = ref(false);
 const showControls = ref(true);
 const controlsLocked = ref(false);
+
+// Permission state
+const hasMicrophonePermission = ref<boolean | null>(null); // null = checking, true = granted, false = denied
+const isCheckingPermission = ref(true);
+
+// Check microphone permissions
+const checkPermissions = async () => {
+  isCheckingPermission.value = true;
+  try {
+    const result = await checkMicrophonePermission();
+    hasMicrophonePermission.value = result.granted;
+  } catch (error) {
+    console.error('Failed to check microphone permission:', error);
+    hasMicrophonePermission.value = false;
+  } finally {
+    isCheckingPermission.value = false;
+  }
+};
+
+// Voice channel initialization logic
+const initializeVoiceChannel = async () => {
+  // Check if user is actually in the voice channel
+  if (!appStore.currentVoiceChannelId || appStore.currentVoiceChannelId !== channelId.value) {
+    router.go(-1);
+    return;
+  }
+
+  // Start auto-hide timer
+  resetHideTimer();
+
+  // Listen for mouse movement
+  document.addEventListener('mousemove', handleMouseMove);
+
+  // Ensure we are connected to LiveKit so late joiners receive existing streams
+  if (!livekitService.isRoomConnected()) {
+    try {
+      await ensureLiveKitConnection();
+    } catch {}
+  }
+
+  // Update screen sharing and camera state from LiveKit once connected
+  if (livekitService.isRoomConnected()) {
+    const localParticipant = livekitService.getLocalParticipant();
+    if (localParticipant) {
+      isLocalCameraOn.value = localParticipant.isCameraEnabled;
+    }
+    updateLiveKitStreams();
+  }
+};
+
+// Handle permission granted from the permission component
+const handlePermissionGranted = async () => {
+  hasMicrophonePermission.value = true;
+  // Now we can proceed with normal voice channel initialization
+  await initializeVoiceChannel();
+};
 
 // Voice controls state (shared)
 const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
@@ -797,19 +870,37 @@ const toggleDeafen = async () => {
 const toggleCamera = async () => {
   if (isTogglingCamera.value) return;
   isTogglingCamera.value = true;
-  // Ensure LiveKit connection (try fallback connection if needed)
-  const isConnected = await ensureLiveKitConnection();
-  if (!isConnected) {
-    addToast({message: 'Failed to connect to voice channel for camera', type: 'danger'});
-    isTogglingCamera.value = false;
-    return;
-  }
-
+  
   try {
     const localParticipant = livekitService.getLocalParticipant();
     if (!localParticipant) return;
 
     const isCameraEnabled = localParticipant.isCameraEnabled;
+
+    // If trying to enable camera, check permissions first
+    if (!isCameraEnabled) {
+      // Check camera permission before enabling
+      const permissionResult = await checkCameraPermission();
+      
+      if (!permissionResult.granted) {
+        // Show permission error message
+        addToast({
+          message: permissionResult.error || 'Camera access is required to enable video',
+          type: 'danger',
+          duration: 5000
+        });
+        isTogglingCamera.value = false;
+        return;
+      }
+    }
+    
+    // Ensure LiveKit connection (try fallback connection if needed)
+    const isConnected = await ensureLiveKitConnection();
+    if (!isConnected) {
+      addToast({message: 'Failed to connect to voice channel for camera', type: 'danger'});
+      isTogglingCamera.value = false;
+      return;
+    }
 
     // Toggle camera
     if (!isCameraEnabled) {
@@ -1369,33 +1460,13 @@ watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStre
 onMounted(async () => {
   // Initialize shared camera state listeners
   try { ensureCameraStateInitialized(); } catch {}
-  // Check if user is actually in the voice channel
-  if (!appStore.currentVoiceChannelId || appStore.currentVoiceChannelId !== channelId.value) {
-
-    router.go(-1);
-    return;
-  }
-
-  // Start auto-hide timer
-  resetHideTimer();
-
-  // Listen for mouse movement
-  document.addEventListener('mousemove', handleMouseMove);
-
-  // Ensure we are connected to LiveKit so late joiners receive existing streams
-  if (!livekitService.isRoomConnected()) {
-    try {
-      await ensureLiveKitConnection();
-    } catch {}
-  }
-
-  // Update screen sharing and camera state from LiveKit once connected
-  if (livekitService.isRoomConnected()) {
-    const localParticipant = livekitService.getLocalParticipant();
-    if (localParticipant) {
-      isLocalCameraOn.value = localParticipant.isCameraEnabled;
-    }
-    updateLiveKitStreams();
+  
+  // First check microphone permissions
+  await checkPermissions();
+  
+  // Only proceed with voice channel initialization if permission is granted
+  if (hasMicrophonePermission.value) {
+    await initializeVoiceChannel();
   }
 
   // LiveKit events: update media maps in real time

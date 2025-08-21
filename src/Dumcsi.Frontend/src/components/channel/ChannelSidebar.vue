@@ -300,6 +300,7 @@ import {useRoute, useRouter} from 'vue-router';
 import { RouteNames } from '@/router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
+import {checkMicrophonePermission} from '@/utils/permissions';
 import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown, MicOff, VolumeX} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import BaseModal from '@/components/modals/BaseModal.vue';
@@ -590,6 +591,19 @@ const toggleVoiceChannel = async (channel: ChannelListItem) => {
       }
     });
   } else {
+    // Check microphone permission before joining voice channel
+    const permissionResult = await checkMicrophonePermission();
+    
+    if (!permissionResult.granted) {
+      // Show permission error message
+      addToast({
+        message: permissionResult.error || 'Microphone access is required to join voice channels',
+        type: 'danger',
+        duration: 5000
+      });
+      return;
+    }
+    
     // Join the voice channel
     await appStore.joinVoiceChannel(channel.id);
   }
