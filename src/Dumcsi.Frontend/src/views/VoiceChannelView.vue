@@ -203,7 +203,10 @@
                     {{ participant.username }}
                     <span v-if="participant.isCurrentUser" class="text-green-400 font-bold">(You)</span>
                   </span>
-                    <div class="flex items-center gap-1">
+                    <div
+                      v-if="participant.isScreenSharing || participant.isDeafened || participant.isMuted"
+                      class="flex items-center gap-1"
+                    >
                       <!-- Screen sharing icon (leftmost) -->
                       <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" title="Screen Sharing"/>
                       <!-- Prioritize deafen over mute -->
