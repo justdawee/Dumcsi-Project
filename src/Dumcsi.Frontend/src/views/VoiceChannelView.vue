@@ -1036,7 +1036,6 @@ const disconnectVoice = async () => {
   if (appStore.currentVoiceChannelId) {
     const serverId = route.params.serverId;
     await appStore.leaveVoiceChannel(appStore.currentVoiceChannelId);
-    addToast({message: 'Disconnected from voice channel', type: 'success'});
 
     setTimeout(() => {
       router.push(`/servers/${serverId}`);
@@ -1560,6 +1559,8 @@ onMounted(async () => {
     localParticipant.on('trackPublished', (publication) => {
       console.log('🎥 Local track published:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
+        // Reflect camera state in UI when enabled from elsewhere
+        isCameraOn.value = true;
         // Force update streams when local camera is enabled
         setTimeout(() => updateLiveKitStreams(), 100);
       }
@@ -1568,6 +1569,8 @@ onMounted(async () => {
     localParticipant.on('trackUnpublished', (publication) => {
       console.log('🎥 Local track unpublished:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
+        // Reflect camera state in UI when disabled from elsewhere
+        isCameraOn.value = false;
         // Remove local camera stream when disabled
         const uid = appStore.currentUserId as number | null;
         if (uid) {

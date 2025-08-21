@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { 
   PhoneOff, 
   Video, 
@@ -160,6 +160,7 @@ import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
 import { useCameraSettings } from '@/composables/useCameraSettings';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
+import { Track } from 'livekit-client';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
@@ -182,7 +183,7 @@ const serverName = computed(() => {
   return appStore.currentServer?.name || 'Unknown Server';
 });
 
-// Camera state (mock for now)
+// Camera state
 const isCameraOn = ref(false);
 // Camera options (shared)
 const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQuality, qualityOptions: cameraQualityOptions, ensureDevicesLoaded } = useCameraSettings();
@@ -301,14 +302,56 @@ const disconnectVoice = async () => {
   const channelId = appStore.currentVoiceChannelId;
   if (channelId) {
     await appStore.leaveVoiceChannel(channelId);
-    addToast({ message: 'Disconnected from voice channel', type: 'success' });
   }
 };
 
-const toggleCamera = () => {
-  isCameraOn.value = !isCameraOn.value;
-  // no success toast for camera toggle
-  // TODO: Implement actual camera functionality
+const toggleCamera = async () => {
+  // Ensure LiveKit connection (best effort)
+  const isConnected = await ensureLiveKitConnection();
+  if (!isConnected) {
+    addToast({ message: 'Failed to connect to voice channel for camera', type: 'danger' });
+    return;
+  }
+
+  try {
+    const localParticipant = livekitService.getLocalParticipant();
+    if (!localParticipant) return;
+
+    const isEnabled = localParticipant.isCameraEnabled;
+
+    if (!isEnabled) {
+      const camOpts: any = {};
+      try {
+        // Prefer selected camera device if set
+        if (selectedDeviceId.value) camOpts.deviceId = selectedDeviceId.value as any;
+        await localParticipant.setCameraEnabled(true, camOpts as any);
+        // Apply resolution constraints after publication
+        setTimeout(() => {
+          try {
+            const pub = localParticipant.getTrackPublication(Track.Source.Camera) as any;
+            const track = pub?.track as any;
+            const media: MediaStreamTrack | undefined = track?.mediaStreamTrack;
+            if (media && media.applyConstraints) {
+              media.applyConstraints({
+                width: { ideal: selectedCamQuality.value.width },
+                height: { ideal: selectedCamQuality.value.height }
+              } as any).catch(() => {});
+            }
+          } catch {}
+        }, 200);
+      } catch {
+        await localParticipant.setCameraEnabled(true);
+      }
+    } else {
+      await localParticipant.setCameraEnabled(false);
+    }
+
+    // Reflect new state locally
+    isCameraOn.value = !isEnabled;
+  } catch (error: any) {
+    console.error('VoiceControlPanel: Camera toggle error:', error);
+    addToast({ message: error?.message || 'Failed to toggle camera', type: 'danger' });
+  }
 };
 
 // LiveKit connection management
@@ -326,13 +369,9 @@ const ensureLiveKitConnection = async (): Promise<boolean> => {
   }
 
   try {
-    
-
     const authStore = useAuthStore();
     const username = authStore.user?.username || `user_${appStore.currentUserId}`;
-    
     await livekitService.connectToRoom(appStore.currentVoiceChannelId, username);
-    
     return true;
   } catch (error) {
     console.error('❌ VoiceControlPanel: Failed to connect to LiveKit:', error);
@@ -417,6 +456,49 @@ const toggleScreenShare = async () => {
 // No inline dropdown; using ContextMenu instead
 
 // isScreenSharing is derived; no polling needed
+
+// Keep camera toggle UI in sync with LiveKit local state
+onMounted(() => {
+  try {
+    if (livekitService.isRoomConnected()) {
+      const lp = livekitService.getLocalParticipant();
+      if (lp) {
+        isCameraOn.value = lp.isCameraEnabled;
+        lp.on('trackPublished', (publication: any) => {
+          if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
+            isCameraOn.value = true;
+          }
+        });
+        lp.on('trackUnpublished', (publication: any) => {
+          if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
+            isCameraOn.value = false;
+          }
+        });
+      }
+    }
+    // Best-effort delayed sync in case LiveKit connects shortly after mount
+    setTimeout(() => {
+      try {
+        if (!isCameraOn.value && livekitService.isRoomConnected()) {
+          const lp = livekitService.getLocalParticipant();
+          if (lp) {
+            isCameraOn.value = lp.isCameraEnabled;
+            lp.on('trackPublished', (publication: any) => {
+              if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
+                isCameraOn.value = true;
+              }
+            });
+            lp.on('trackUnpublished', (publication: any) => {
+              if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
+                isCameraOn.value = false;
+              }
+            });
+          }
+        }
+      } catch {}
+    }, 800);
+  } catch {}
+});
 </script>
 
 <style scoped>
