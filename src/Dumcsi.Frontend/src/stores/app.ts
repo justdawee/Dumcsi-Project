@@ -397,14 +397,24 @@ export const useAppStore = defineStore('app', () => {
     // Voice Channel Actions
     const joinVoiceChannel = async (channelId: EntityId) => {
         if (!currentServer.value) return;
-        
+
+        // If already in another voice channel, leave it first to avoid duplicates
+        const prevChannelId = currentVoiceChannelId.value;
+        if (prevChannelId && prevChannelId !== channelId) {
+            try {
+                await leaveVoiceChannel(prevChannelId);
+            } catch (e) {
+                console.warn('Failed to leave previous voice channel cleanly:', e);
+            }
+        }
+
         // 1. Set current voice channel IMMEDIATELY for UI
         currentVoiceChannelId.value = channelId;
-        
+
         // 2. Initialize WebRTC for voice (start microphone access)
         await webrtcService.joinVoiceChannel();
         webrtcService.setMuted(selfMuted.value);
-        
+
         // 3. Join via SignalR (this will notify ALL server members and get voice channel updates)
         try {
             await signalRService.joinVoiceChannel(currentServer.value.id, channelId);
@@ -420,16 +430,16 @@ export const useAppStore = defineStore('app', () => {
             setUserVoiceState(channelId, currentUserId.value, { muted: selfMuted.value, deafened: selfDeafened.value });
             try { signalRService.updateVoiceState(channelId, selfMuted.value, selfDeafened.value); } catch {}
         }
-        
+
         // 4. Connect to LiveKit immediately for video/screen sharing readiness
         try {
             // Import livekitService dynamically to avoid circular dependencies
             const livekitModule = await import('@/services/livekitService');
             const authStore = useAuthStore();
             const username = authStore.user?.username || `user_${currentUserId.value}`;
-            
+
             await livekitModule.livekitService.connectToRoom(channelId, username);
-            
+
         } catch (error) {
             console.error('❌ LiveKit: Failed to connect (video/screen sharing will be unavailable):', error);
         }
