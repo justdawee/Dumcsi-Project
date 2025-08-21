@@ -158,6 +158,7 @@ import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import { ChevronDown } from 'lucide-vue-next';
 import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
 import { useCameraSettings } from '@/composables/useCameraSettings';
+import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import { Track } from 'livekit-client';
@@ -183,8 +184,9 @@ const serverName = computed(() => {
   return appStore.currentServer?.name || 'Unknown Server';
 });
 
-// Camera state
-const isCameraOn = ref(false);
+// Camera state (shared)
+const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
+const isCameraOn = computed(() => isLocalCameraOn.value);
 // Camera options (shared)
 const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQuality, qualityOptions: cameraQualityOptions, ensureDevicesLoaded } = useCameraSettings();
 
@@ -306,10 +308,13 @@ const disconnectVoice = async () => {
 };
 
 const toggleCamera = async () => {
+  if (isTogglingCamera.value) return;
+  isTogglingCamera.value = true;
   // Ensure LiveKit connection (best effort)
   const isConnected = await ensureLiveKitConnection();
   if (!isConnected) {
     addToast({ message: 'Failed to connect to voice channel for camera', type: 'danger' });
+    isTogglingCamera.value = false;
     return;
   }
 
@@ -320,6 +325,14 @@ const toggleCamera = async () => {
     const isEnabled = localParticipant.isCameraEnabled;
 
     if (!isEnabled) {
+      // Guard: if already published and not muted, don't start again
+      try {
+        const existing: any = localParticipant.getTrackPublication(Track.Source.Camera);
+        if (existing?.track && !existing?.isMuted) {
+          isLocalCameraOn.value = true;
+          return;
+        }
+      } catch {}
       const camOpts: any = {};
       try {
         // Prefer selected camera device if set
@@ -346,11 +359,14 @@ const toggleCamera = async () => {
       await localParticipant.setCameraEnabled(false);
     }
 
-    // Reflect new state locally
-    isCameraOn.value = !isEnabled;
+    // Reflect new state locally from LiveKit
+    try { isLocalCameraOn.value = livekitService.getLocalParticipant()?.isCameraEnabled ?? false; } catch {}
   } catch (error: any) {
     console.error('VoiceControlPanel: Camera toggle error:', error);
     addToast({ message: error?.message || 'Failed to toggle camera', type: 'danger' });
+  }
+  finally {
+    isTogglingCamera.value = false;
   }
 };
 
@@ -459,19 +475,20 @@ const toggleScreenShare = async () => {
 
 // Keep camera toggle UI in sync with LiveKit local state
 onMounted(() => {
+  ensureCameraStateInitialized();
   try {
     if (livekitService.isRoomConnected()) {
       const lp = livekitService.getLocalParticipant();
       if (lp) {
-        isCameraOn.value = lp.isCameraEnabled;
+        isLocalCameraOn.value = lp.isCameraEnabled;
         lp.on('trackPublished', (publication: any) => {
           if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
-            isCameraOn.value = true;
+            isLocalCameraOn.value = true;
           }
         });
         lp.on('trackUnpublished', (publication: any) => {
           if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
-            isCameraOn.value = false;
+            isLocalCameraOn.value = false;
           }
         });
       }
@@ -482,15 +499,15 @@ onMounted(() => {
         if (!isCameraOn.value && livekitService.isRoomConnected()) {
           const lp = livekitService.getLocalParticipant();
           if (lp) {
-            isCameraOn.value = lp.isCameraEnabled;
+            isLocalCameraOn.value = lp.isCameraEnabled;
             lp.on('trackPublished', (publication: any) => {
               if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
-                isCameraOn.value = true;
+                isLocalCameraOn.value = true;
               }
             });
             lp.on('trackUnpublished', (publication: any) => {
               if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
-                isCameraOn.value = false;
+                isLocalCameraOn.value = false;
               }
             });
           }

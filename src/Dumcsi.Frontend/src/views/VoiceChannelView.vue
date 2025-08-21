@@ -347,6 +347,7 @@ import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import { useCameraSettings } from '@/composables/useCameraSettings';
 import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
+import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import {
   Lock,
   Mic,
@@ -410,8 +411,14 @@ const showVoiceSettings = ref(false);
 const showControls = ref(true);
 const controlsLocked = ref(false);
 
-// Voice controls state
+// Voice controls state (shared)
+const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
 const isCameraOn = ref(false);
+watch(
+  () => isLocalCameraOn.value,
+  (v) => { isCameraOn.value = v; },
+  { immediate: true }
+);
 
 // Context menu state
 const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
@@ -785,10 +792,13 @@ const toggleDeafen = async () => {
 };
 
 const toggleCamera = async () => {
+  if (isTogglingCamera.value) return;
+  isTogglingCamera.value = true;
   // Ensure LiveKit connection (try fallback connection if needed)
   const isConnected = await ensureLiveKitConnection();
   if (!isConnected) {
     addToast({message: 'Failed to connect to voice channel for camera', type: 'danger'});
+    isTogglingCamera.value = false;
     return;
   }
 
@@ -800,6 +810,14 @@ const toggleCamera = async () => {
 
     // Toggle camera
     if (!isCameraEnabled) {
+      // Guard: if already published and not muted, don't start again
+      try {
+        const existing: any = localParticipant.getTrackPublication(Track.Source.Camera);
+        if (existing?.track && !existing?.isMuted) {
+          isLocalCameraOn.value = true;
+          return;
+        }
+      } catch {}
       const camOpts: any = {};
       // Try to pass deviceId to LiveKit (best-effort)
       try {
@@ -827,7 +845,8 @@ const toggleCamera = async () => {
       await localParticipant.setCameraEnabled(false);
     }
 
-    isCameraOn.value = !isCameraEnabled;
+    // Sync shared state from LiveKit
+    try { isLocalCameraOn.value = livekitService.getLocalParticipant()?.isCameraEnabled ?? false; } catch {}
     
     // Force update streams after camera toggle (delay to ensure track changes are processed)
     setTimeout(() => updateLiveKitStreams(), 300);
@@ -838,6 +857,8 @@ const toggleCamera = async () => {
       message: error.message || 'Failed to toggle camera',
       type: 'danger'
     });
+  } finally {
+    isTogglingCamera.value = false;
   }
 };
 
@@ -1343,6 +1364,8 @@ watch(
 watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStreams());
 
 onMounted(async () => {
+  // Initialize shared camera state listeners
+  try { ensureCameraStateInitialized(); } catch {}
   // Check if user is actually in the voice channel
   if (!appStore.currentVoiceChannelId || appStore.currentVoiceChannelId !== channelId.value) {
 
@@ -1367,7 +1390,7 @@ onMounted(async () => {
   if (livekitService.isRoomConnected()) {
     const localParticipant = livekitService.getLocalParticipant();
     if (localParticipant) {
-      isCameraOn.value = localParticipant.isCameraEnabled;
+      isLocalCameraOn.value = localParticipant.isCameraEnabled;
     }
     updateLiveKitStreams();
   }
@@ -1559,8 +1582,8 @@ onMounted(async () => {
     localParticipant.on('trackPublished', (publication) => {
       console.log('🎥 Local track published:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
-        // Reflect camera state in UI when enabled from elsewhere
-        isCameraOn.value = true;
+        // Reflect camera state in shared UI when enabled from elsewhere
+        isLocalCameraOn.value = true;
         // Force update streams when local camera is enabled
         setTimeout(() => updateLiveKitStreams(), 100);
       }
@@ -1569,8 +1592,8 @@ onMounted(async () => {
     localParticipant.on('trackUnpublished', (publication) => {
       console.log('🎥 Local track unpublished:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
-        // Reflect camera state in UI when disabled from elsewhere
-        isCameraOn.value = false;
+        // Reflect camera state in shared UI when disabled from elsewhere
+        isLocalCameraOn.value = false;
         // Remove local camera stream when disabled
         const uid = appStore.currentUserId as number | null;
         if (uid) {
