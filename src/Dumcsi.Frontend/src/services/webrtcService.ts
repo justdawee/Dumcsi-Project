@@ -33,7 +33,8 @@ class WebRtcService {
     private static readonly FIXED_AUDIO_BPS = 128_000; // 128 kbps
     private peers = new Map<string, any>();
     private audioElements = new Map<string, HTMLAudioElement>();
-    private localStream: MediaStream | null = null;
+    private localStream: MediaStream | null = null; // stream used for sending (gated)
+    private vadInputStream: MediaStream | null = null; // stream used for VAD (always enabled)
     private signalRService: SignalRService | null = null;
     private connectionIdToUserId = new Map<string, EntityId>();
     private onRemoteStreamCallbacks: Array<(userId: EntityId, stream: MediaStream) => void> = [];
@@ -47,6 +48,13 @@ class WebRtcService {
     private settingsCleanup: (() => void) | null = null;
     private isDeafened = false;
     private isInVoiceChannel = false; // Track if we should have microphone access
+    // Voice activity detection (VAD)
+    private audioCtx: AudioContext | null = null;
+    private vadAnalyser: AnalyserNode | null = null;
+    private vadSource: MediaStreamAudioSourceNode | null = null;
+    private vadRaf: number | null = null;
+    private vadActive = false;
+    private vadLastVoiceTs = 0;
     // Stats tracking per peer connection for bitrate/packet-loss calculations
     private statsPrev = new Map<string, {
         inboundBytes: number;
@@ -111,8 +119,11 @@ class WebRtcService {
             if (track && 'contentHint' in track) { (track as any).contentHint = 'music'; }
         } catch {}
 
-        // Keep the original stream for peer connections
-        this.localStream = originalStream;
+        // Split capture: use one track for VAD analysis (always enabled) and a cloned track for sending (gated)
+        const inputTrack = originalStream.getAudioTracks()[0];
+        this.vadInputStream = new MediaStream([inputTrack]);
+        const sendTrack = inputTrack.clone();
+        this.localStream = new MediaStream([sendTrack]);
 
         // Set up audio processing chain for volume control
         this.setupAudioProcessing();
@@ -136,6 +147,8 @@ class WebRtcService {
         this.updateInputVolume();
         // Ensure track enabled state reflects current PTT/mute configuration
         this.updateTrackEnabled();
+        // Start voice activity monitoring (used in voice-activity mode)
+        this.startVadMonitoring();
     }
 
     
@@ -508,18 +521,20 @@ class WebRtcService {
     }
 
     private async handleSettingsChange(settings: any) {
-        // react to audio settings change
-        
-        // Update input volume in real-time
+        // React to audio settings change
+
+        // Update input/output volume representations
         this.updateInputVolume();
-        
-        // Update output volume for all audio elements
         this.updateOutputVolume();
-        
-        // If device changed, we need to recreate the stream
+
+        // If device/processing changed, we need to recreate the stream
         if (this.shouldRecreateStream(settings)) {
             await this.recreateStream();
         }
+
+        // Always re-evaluate mic gating after any settings change
+        // so PTT/voice-activity and mute states remain authoritative
+        this.updateTrackEnabled();
     }
 
     private shouldRecreateStream(settings: any): boolean {
@@ -579,17 +594,9 @@ class WebRtcService {
     }
 
     private updateInputVolume() {
-        if (this.localStream) {
-            const { audioSettings } = this.audioSettings;
-            let volume = audioSettings.inputVolume / 100;
-            
-            // Apply mute/volume to audio tracks directly
-            const audioTracks = this.localStream.getAudioTracks();
-            audioTracks.forEach(track => {
-                // Use enabled for mute/unmute
-                track.enabled = !this.isMutedForTesting && volume > 0;
-            });
-        }
+        if (!this.localStream) return;
+        // Currently we don't scale mic amplitude here; we only gate it via updateTrackEnabled.
+        // Keep this method for future gain-node based input scaling if needed.
     }
 
     private updateOutputVolume() {
@@ -607,6 +614,80 @@ class WebRtcService {
                 });
             }
         });
+    }
+
+    // Map sensitivity (0-100, higher = more sensitive) to a normalized threshold (0-1)
+    private getVadThreshold(sensitivity: number): number {
+        const n = Math.min(100, Math.max(0, sensitivity)) / 100;
+        const minThr = 0.02; // highest sensitivity -> lowest threshold (more sensitive)
+        const maxThr = 0.6;  // lowest sensitivity -> highest threshold
+        return maxThr - n * (maxThr - minThr);
+    }
+
+    // Begin monitoring mic level for voice-activity mode
+    private startVadMonitoring() {
+        this.stopVadMonitoring();
+        if (!this.vadInputStream) return;
+        try {
+            this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            this.vadAnalyser = this.audioCtx.createAnalyser();
+            this.vadAnalyser.fftSize = 2048;
+            this.vadAnalyser.minDecibels = -90;
+            this.vadAnalyser.maxDecibels = -10;
+            this.vadAnalyser.smoothingTimeConstant = 0.85;
+
+            this.vadSource = this.audioCtx.createMediaStreamSource(this.vadInputStream);
+            this.vadSource.connect(this.vadAnalyser);
+
+            const data = new Uint8Array(this.vadAnalyser.fftSize);
+            const loop = () => {
+                if (!this.vadAnalyser) return;
+                this.vadAnalyser.getByteTimeDomainData(data);
+                let sum = 0;
+                for (let i = 0; i < data.length; i++) {
+                    const s = (data[i] - 128) / 128; // -1..1
+                    sum += s * s;
+                }
+                const rms = Math.sqrt(sum / data.length);
+                const level = Math.min(1, rms * 8); // match settings UI scaling
+
+                const { audioSettings } = this.audioSettings;
+                const thr = this.getVadThreshold(audioSettings.voiceActivitySensitivity);
+
+                const now = performance.now();
+                const active = level >= thr;
+                const releaseMs = 150;
+                if (active) {
+                    this.vadActive = true;
+                    this.vadLastVoiceTs = now;
+                } else if (this.vadActive && (now - this.vadLastVoiceTs) < releaseMs) {
+                    this.vadActive = true;
+                } else {
+                    this.vadActive = false;
+                }
+
+                // If VAD controls mic (voice-activity and not PTT), re-evaluate gating
+                if (!this.pttMode && audioSettings.inputMode === 'voice-activity') {
+                    this.updateTrackEnabled();
+                }
+
+                this.vadRaf = requestAnimationFrame(loop);
+            };
+            this.vadRaf = requestAnimationFrame(loop);
+        } catch {
+            // Ignore VAD setup errors
+        }
+    }
+
+    private stopVadMonitoring() {
+        if (this.vadRaf) { cancelAnimationFrame(this.vadRaf); this.vadRaf = null; }
+        try { this.vadSource?.disconnect(); } catch {}
+        try { this.vadAnalyser?.disconnect(); } catch {}
+        this.vadSource = null;
+        this.vadAnalyser = null;
+        if (this.audioCtx) { try { this.audioCtx.close(); } catch {}; this.audioCtx = null; }
+        this.vadActive = false;
+        this.vadLastVoiceTs = 0;
     }
 
     // Method to mute during microphone testing
@@ -671,10 +752,9 @@ class WebRtcService {
         for (const id of Array.from(this.peers.keys())) {
             this.removeUser(id);
         }
-        if (this.localStream) {
-            this.localStream.getTracks().forEach(track => track.stop());
-            this.localStream = null;
-        }
+        if (this.localStream) { try { this.localStream.getTracks().forEach(track => track.stop()); } catch {}; this.localStream = null; }
+        if (this.vadInputStream) { try { this.vadInputStream.getTracks().forEach(track => track.stop()); } catch {}; this.vadInputStream = null; }
+        this.stopVadMonitoring();
         this.isDeafened = false;
     }
 
@@ -688,10 +768,9 @@ class WebRtcService {
         }
         
         // Stop local stream
-        if (this.localStream) {
-            this.localStream.getTracks().forEach(track => track.stop());
-            this.localStream = null;
-        }
+        if (this.localStream) { try { this.localStream.getTracks().forEach(track => track.stop()); } catch {}; this.localStream = null; }
+        if (this.vadInputStream) { try { this.vadInputStream.getTracks().forEach(track => track.stop()); } catch {}; this.vadInputStream = null; }
+        this.stopVadMonitoring();
         
         // Clean up settings listener
         if (this.settingsCleanup) {
@@ -808,10 +887,17 @@ class WebRtcService {
         if (!this.localStream) return;
         const { audioSettings } = this.audioSettings;
         const volumeOk = (audioSettings.inputVolume / 100) > 0;
+        let gateOk = true;
+        if (this.pttMode) {
+            gateOk = this.pttActive;
+        } else if (audioSettings.inputMode === 'voice-activity') {
+            gateOk = this.vadActive;
+        }
+
         const shouldEnable = !this.isMutedForTesting
             && !this.globalMuted
             && volumeOk
-            && (!this.pttMode || this.pttActive);
+            && gateOk;
 
         this.localStream.getAudioTracks().forEach(track => {
             track.enabled = shouldEnable;

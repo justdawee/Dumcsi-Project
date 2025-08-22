@@ -214,6 +214,30 @@
               <p class="mt-2 text-sm text-text-muted">
                 Adjust how sensitive voice detection is. Higher values activate with quieter sounds.
               </p>
+
+              <!-- Voice Activity Meter with Threshold Indicator -->
+              <div class="mt-4">
+                <div class="flex justify-between text-xs text-text-muted mb-1">
+                  <span>Silence</span>
+                  <span>Threshold: {{ Math.round(vadThreshold * 100) }}%</span>
+                </div>
+                <div class="relative w-full h-3 bg-bg-base rounded-full overflow-hidden border border-border-default">
+                  <!-- Current level fill -->
+                  <div 
+                    class="h-full transition-[width] duration-75 ease-out"
+                    :class="isAboveThreshold ? 'bg-green-500' : 'bg-yellow-500'"
+                    :style="{ width: `${Math.min(inputLevel * 100, 100)}%` }"
+                  />
+                  <!-- Threshold Marker -->
+                  <div 
+                    class="absolute top-0 bottom-0 w-[2px] bg-red-500/80"
+                    :style="{ left: `calc(${Math.min(vadThreshold * 100, 100)}% - 1px)` }"
+                  />
+                </div>
+                <div class="mt-2 text-xs" :class="isAboveThreshold ? 'text-green-600 dark:text-green-400' : 'text-text-muted'">
+                  {{ isAboveThreshold ? 'Detected (above threshold)' : 'Not detected' }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -322,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { 
   Mic as MicIcon, 
   Headphones, 
@@ -363,6 +387,24 @@ let gainNode: GainNode | null = null;
 let stream: MediaStream | null = null;
 let animationFrame: number | null = null;
 
+// Passive input-level monitor (no playback), for always-on meter
+let passiveCtx: AudioContext | null = null;
+let passiveAnalyser: AnalyserNode | null = null;
+let passiveSource: MediaStreamAudioSourceNode | null = null;
+let passiveStream: MediaStream | null = null;
+let passiveRaf: number | null = null;
+
+// VAD threshold mapping (must match WebRTC service)
+const getVadThreshold = (sensitivity: number) => {
+  const n = Math.min(100, Math.max(0, sensitivity)) / 100;
+  const minThr = 0.02; // more sensitive at highest sensitivity
+  const maxThr = 0.6;
+  return maxThr - n * (maxThr - minThr);
+};
+
+const vadThreshold = computed(() => getVadThreshold(audioSettings.voiceActivitySensitivity));
+const isAboveThreshold = computed(() => inputLevel.value >= vadThreshold.value);
+
 // Auto-mute WebRTC during microphone testing
 const setWebRtcMuteDuringTest = (muted: boolean) => {
   webrtcService.setMutedForTesting(muted);
@@ -388,6 +430,8 @@ const toggleMicTest = async () => {
   if (isTesting.value) {
     stopMicTest();
   } else {
+    // Avoid double capture; stop passive monitor while testing
+    stopPassiveMonitor();
     await startMicTest();
   }
 };
@@ -463,6 +507,9 @@ const stopMicTest = () => {
   analyser = null;
   microphone = null;
   gainNode = null;
+
+  // Resume passive monitor after testing
+  startPassiveMonitor();
 };
 
 const monitorAudioLevel = () => {
@@ -490,6 +537,64 @@ const monitorAudioLevel = () => {
   inputLevel.value = inputLevel.value * smoothingFactor + volume * (1 - smoothingFactor);
   
   animationFrame = requestAnimationFrame(monitorAudioLevel);
+};
+
+// Start passive monitor for the meter (no playback)
+const startPassiveMonitor = async () => {
+  if (isTesting.value) return; // test mode owns the meter when active
+  try {
+    // If already running, restart with current constraints
+    stopPassiveMonitor();
+
+    passiveStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: audioSettings.inputDevice !== 'default' ? audioSettings.inputDevice : undefined,
+        echoCancellation: audioSettings.echoCancellation,
+        noiseSuppression: audioSettings.noiseSuppression,
+        autoGainControl: audioSettings.autoGainControl
+      }
+    });
+
+    passiveCtx = new AudioContext();
+    passiveAnalyser = passiveCtx.createAnalyser();
+    passiveAnalyser.fftSize = 2048;
+    passiveAnalyser.minDecibels = -90;
+    passiveAnalyser.maxDecibels = -10;
+    passiveAnalyser.smoothingTimeConstant = 0.85;
+
+    passiveSource = passiveCtx.createMediaStreamSource(passiveStream);
+    passiveSource.connect(passiveAnalyser);
+
+    const loop = () => {
+      if (!passiveAnalyser || isTesting.value) return; // stop updating if test started
+      const bufferLength = passiveAnalyser.fftSize;
+      const dataArray = new Uint8Array(bufferLength);
+      passiveAnalyser.getByteTimeDomainData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const sample = (dataArray[i] - 128) / 128;
+        sum += sample * sample;
+      }
+      const rms = Math.sqrt(sum / bufferLength);
+      const volume = Math.min(1, rms * 8);
+      const smoothingFactor = 0.8;
+      inputLevel.value = inputLevel.value * smoothingFactor + volume * (1 - smoothingFactor);
+      passiveRaf = requestAnimationFrame(loop);
+    };
+    passiveRaf = requestAnimationFrame(loop);
+  } catch (e) {
+    // Silently ignore permission errors; meter will stay idle
+  }
+};
+
+const stopPassiveMonitor = () => {
+  if (passiveRaf) { cancelAnimationFrame(passiveRaf); passiveRaf = null; }
+  if (passiveStream) { try { passiveStream.getTracks().forEach(t => t.stop()); } catch {} passiveStream = null; }
+  try { passiveSource?.disconnect(); } catch {}
+  try { passiveAnalyser?.disconnect(); } catch {}
+  passiveSource = null;
+  passiveAnalyser = null;
+  if (passiveCtx) { try { passiveCtx.close(); } catch {} passiveCtx = null; }
 };
 
 // Test audio output
@@ -554,13 +659,29 @@ watch(() => voiceSettings.value.inputMode, (newMode) => {
   }
 });
 
+// Restart passive monitor when relevant input settings change (if not testing)
+watch(
+  () => [
+    audioSettings.inputDevice,
+    audioSettings.echoCancellation,
+    audioSettings.noiseSuppression,
+    audioSettings.autoGainControl
+  ],
+  () => {
+    if (!isTesting.value) startPassiveMonitor();
+  }
+);
+
 // Lifecycle
 onMounted(() => {
   getAudioDevices();
+  // Start passive monitor so the meter reflects real mic levels
+  startPassiveMonitor();
 });
 
 onUnmounted(() => {
   stopMicTest();
+  stopPassiveMonitor();
 });
 </script>
 

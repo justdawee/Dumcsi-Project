@@ -36,12 +36,16 @@
             <ul :ref="setChannelParent('independent')" class="space-y-0.5">
               <li v-for="channel in independentChannels" :key="channel.id">
                 <div v-if="channel.type === ChannelType.Voice"
-                     :class="['channel-item voice-channel', { 'active': appStore.currentVoiceChannelId === channel.id }]"
+                     :class="['channel-item voice-channel group', { 'active': appStore.currentVoiceChannelId === channel.id }]"
                      @click="toggleVoiceChannel(channel)"
                      @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
                   <Volume2 class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
+                  <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                    <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
+                  </button>
                 </div>
                 <RouterLink v-else
                             :class="{ 'active': currentChannelId === channel.id }"
@@ -109,12 +113,16 @@
             <ul :ref="setChannelParent(topic.id)" class="space-y-0.5">
               <li v-for="channel in topic.channels" :key="channel.id">
                 <div v-if="channel.type === ChannelType.Voice"
-                     :class="['channel-item', { 'active': appStore.currentVoiceChannelId === channel.id }]"
+                     :class="['channel-item group', { 'active': appStore.currentVoiceChannelId === channel.id }]"
                      @click="toggleVoiceChannel(channel)"
                      @contextmenu.prevent="openChannelMenu($event, channel)"
                 >
                   <Volume2 class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
+                  <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                    <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
+                  </button>
                 </div>
                 <RouterLink v-else
                             :class="{ 'active': currentChannelId === channel.id }"
