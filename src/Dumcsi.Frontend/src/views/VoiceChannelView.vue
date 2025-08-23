@@ -44,8 +44,15 @@
         </div>
       </div>
 
-      <!-- Video/Screenshare Grid -->
-      <div class="flex-1 p-4 overflow-hidden">
+      <!-- Unified Participant Grid with Embedded Streams -->
+      <div 
+        ref="voiceChannelContainer" 
+        class="flex-1 p-4 overflow-hidden relative"
+        :class="{ 'fullscreen-active': isFullscreen }"
+        @mousemove="handleMouseMove"
+        @mouseleave="handleMouseLeave"
+      >
+        <!-- No participants state -->
         <div v-if="participants.length === 0" class="h-full flex items-center justify-center">
           <div class="text-center">
             <Volume2 class="w-16 h-16 mx-auto mb-4 text-text-tertiary"/>
@@ -54,187 +61,255 @@
           </div>
         </div>
 
-        <div v-else class="h-full">
+        <!-- Fullscreen View -->
+        <div 
+          v-else-if="isFullscreen && fullscreenParticipant" 
+          class="fullscreen-container h-full flex flex-col bg-black rounded-lg overflow-hidden relative"
+        >
+          <!-- Fullscreen stream content -->
+          <div class="flex-1 relative group" @click="exitFullscreen">
+            <!-- Screen share video -->
+            <video
+              v-if="fullscreenParticipant.type === 'screen' && screenShareTracks.get(fullscreenParticipant.id)"
+              ref="fullscreenVideoRef"
+              autoplay
+              muted
+              playsinline
+              class="w-full h-full object-contain cursor-pointer"
+              @loadedmetadata="onVideoLoadedMetadata"
+            />
+            
+            <!-- Camera video -->
+            <video
+              v-else-if="fullscreenParticipant.type === 'camera' && fullscreenParticipant.videoStream"
+              :srcObject="fullscreenParticipant.videoStream"
+              autoplay
+              muted
+              playsinline
+              class="w-full h-full object-cover cursor-pointer"
+              @loadedmetadata="onVideoLoadedMetadata"
+            />
 
-          <!-- Main Screen Share View -->
-          <div v-if="mainScreenShare" class="h-full flex flex-col">
-            <div 
-              :class="[
-                'flex-1 bg-black rounded-lg overflow-hidden mb-4 relative transition-all',
-                mainScreenShare.isSpeaking 
-                  ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
-                  : ''
-              ]"
-            >
-              <!-- Screen share video when track is available -->
-              <video
-                  v-if="screenShareTracks.get(mainScreenShare.user.id)"
-                  :ref="mainVideoVNodeRef"
-                  autoplay
-                  class="w-full h-full object-contain"
-                  muted
-                  playsinline
-              />
-
-              <!-- Loading state when screen sharing is starting but track not ready -->
-              <div v-else class="w-full h-full flex flex-col items-center justify-center">
-                <UserAvatar
-                    :avatar-url="mainScreenShare.user.avatar"
-                    :size="128"
-                    :user-id="mainScreenShare.user.id"
-                    :username="mainScreenShare.user.username"
-                />
-                <div class="mt-6 flex flex-col items-center">
-                  <svg class="animate-spin h-8 w-8 text-white mb-3" fill="none" viewBox="0 0 24 24"
-                       xmlns="http://www.w3.org/2000/svg">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor"></path>
-                  </svg>
-                  <span class="text-white text-lg">Starting screen share...</span>
-                  <span class="text-white/70 text-sm mt-1">Connecting to {{
-                      mainScreenShare.user.username
-                    }}'s screen</span>
-                </div>
-              </div>
-
-              <div class="absolute bottom-4 left-4 bg-black/70 rounded px-3 py-1">
-                <span class="text-white text-sm font-medium">{{ mainScreenShare.user.username }}</span>
-                <span class="text-white/70 text-xs ml-1">is sharing their screen</span>
-              </div>
-
-              <!-- Volume Control for Screen Share (viewers only) -->
-              <div
-                v-if="mainScreenShare.user.id !== appStore.currentUserId"
-                class="absolute bottom-4 right-4"
-              >
-                <VolumeControl
-                  :volume="getUserVolume(mainScreenShare.user.id)"
-                  :user-id="mainScreenShare.user.id"
-                  :username="mainScreenShare.user.username"
-                  @volume-change="handleVolumeChange"
-                />
-              </div>
+            <!-- Fullscreen info overlay -->
+            <div class="absolute bottom-4 left-4 bg-black/70 rounded px-3 py-1">
+              <span class="text-white text-sm font-medium">{{ fullscreenParticipant.username }}</span>
+              <span class="text-white/70 text-xs ml-1">
+                {{ fullscreenParticipant.type === 'screen' ? 'is sharing their screen' : 'camera' }}
+              </span>
             </div>
 
-            <!-- Other Participants Strip -->
-            <div class="flex gap-2 max-h-24">
-              <div
-                  v-for="participant in otherParticipants"
-                  :key="participant.id"
-                  :class="[
-                    'w-32 h-20 bg-main-800 rounded cursor-pointer transition-all relative overflow-hidden',
-                    participant.isSpeaking 
-                      ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
-                      : 'hover:ring-2 hover:ring-primary'
-                  ]"
-                  @click="selectMainView(participant)"
-              >
-                <video
-                    v-if="participant.videoStream"
-                    :srcObject="participant.videoStream"
-                    autoplay
-                    class="w-full h-full object-cover"
-                    muted
-                    playsinline
-                    @loadedmetadata="onVideoLoadedMetadata"
-                />
-                <div v-else class="w-full h-full flex items-center justify-center">
-                  <UserAvatar :avatar-url="participant.avatar" :size="32"
-                              :user-id="participant.id" :username="participant.username"/>
-                </div>
-                <div class="absolute bottom-1 left-1 bg-black/70 rounded px-1">
-                  <span class="text-white text-xs">{{ participant.username }}</span>
-                </div>
-              </div>
+            <!-- Volume control for fullscreen -->
+            <div
+              v-if="fullscreenParticipant.id !== appStore.currentUserId"
+              class="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <VolumeControl
+                :volume="getUserVolume(fullscreenParticipant?.id || 0)"
+                :user-id="fullscreenParticipant?.id || 0"
+                :username="fullscreenParticipant?.username || ''"
+                @volume-change="(vol) => fullscreenParticipant?.id && handleVolumeChange(fullscreenParticipant.id, vol)"
+              />
+            </div>
+
+            <!-- Exit fullscreen hint -->
+            <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-2 py-1">
+              <span class="text-white/70 text-xs">Click to exit fullscreen</span>
             </div>
           </div>
+        </div>
 
-          <!-- Grid View (when no main screen share) -->
-          <div v-else class="h-full p-2">
-            <div :class="gridLayoutClasses">
-              <div
-                  v-for="participant in participants"
-                  :key="participant.id"
-                  :class="[
-                    participantClasses,
-                    participant.isSpeaking 
-                      ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
-                      : 'hover:ring-2 hover:ring-primary'
-                  ]"
-                  class="bg-main-800 rounded-lg overflow-hidden relative cursor-pointer transition-all"
-                  @click="selectMainView(participant)"
-              >
-                <!-- Media tile -->
-                <div class="w-full h-full group">
-                  <template v-if="participant.hasScreenShare">
-                    <video
-                    :ref="createVideoRefForUser(participant.id)"
+        <!-- Participant Grid -->
+        <div v-else class="h-full p-2">
+          <div :class="gridLayoutClasses">
+            <div
+              v-for="participant in participants"
+              :key="participant.id"
+              :class="[
+                'bg-main-800 rounded-lg overflow-hidden relative transition-all group',
+                participantClasses,
+                participant.isSpeaking 
+                  ? 'ring-2 ring-green-400 shadow-lg shadow-green-400/20'
+                  : 'hover:ring-2 hover:ring-primary',
+                (participant.hasScreenShare || participant.videoStream) ? 'cursor-pointer' : ''
+              ]"
+              @click="handleParticipantClick(participant)"
+            >
+              <div class="w-full h-full relative">
+                <!-- Screen share video -->
+                <template v-if="participant.hasScreenShare">
+                  <video
+                    v-if="screenShareTracks.get(participant.id)"
+                    :ref="(el: any) => setParticipantVideoRef(el as HTMLVideoElement | null, participant.id, 'screen')"
                     autoplay
-                    class="w-full h-full object-cover"
                     muted
                     playsinline
+                    class="w-full h-full object-cover"
+                    @loadedmetadata="onVideoLoadedMetadata"
                   />
-                  </template>
-                  <template v-else-if="participant.videoStream">
-                    <video
-                        :srcObject="participant.videoStream"
-                        autoplay
-                        class="w-full h-full object-cover"
-                        muted
-                        playsinline
-                        @loadedmetadata="onVideoLoadedMetadata"
+                  <div v-else class="w-full h-full flex items-center justify-center relative">
+                    <UserAvatar 
+                      :avatar-url="participant.avatar" 
+                      :size="64"
+                      :user-id="participant.id" 
+                      :username="participant.username"
                     />
-                  </template>
-                  <template v-else>
-                    <div class="w-full h-full flex items-center justify-center relative">
-                      <UserAvatar :avatar-url="participant.avatar" :size="64"
-                                  :user-id="participant.id" :username="participant.username"/>
-                      <!-- Screen share loading indicator -->
-                      <div v-if="participant.isScreenShareLoading"
-                           class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                        <svg class="animate-spin h-6 w-6 text-white mb-2" fill="none" viewBox="0 0 24 24"
-                             xmlns="http://www.w3.org/2000/svg">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                  stroke-width="4"></circle>
-                          <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" fill="currentColor"></path>
-                        </svg>
-                        <span class="text-white text-xs">Starting screen share...</span>
-                      </div>
+                    <!-- Screen share loading indicator -->
+                    <div v-if="participant.isScreenShareLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                      <Loader2 class="animate-spin h-6 w-6 text-white mb-2" />
+                      <span class="text-white text-xs">Starting screen share...</span>
                     </div>
-                  </template>
-                </div>
+                  </div>
+                </template>
 
-                <!-- User Info Overlay (hidden until hover when media present) -->
-                <div
-                    :class="{
-                  'opacity-0 group-hover:opacity-100': participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading,
-                  'opacity-100': !(participant.hasScreenShare || participant.videoStream || participant.isScreenShareLoading)
+                <!-- Camera video -->
+                <template v-else-if="participant.videoStream">
+                  <video
+                    :srcObject="participant.videoStream"
+                    autoplay
+                    muted
+                    playsinline
+                    class="w-full h-full object-cover"
+                    @loadedmetadata="onVideoLoadedMetadata"
+                  />
+                </template>
+
+                <!-- Default user card (no stream) -->
+                <template v-else>
+                  <div class="w-full h-full flex items-center justify-center">
+                    <UserAvatar 
+                      :avatar-url="participant.avatar" 
+                      :size="64"
+                      :user-id="participant.id" 
+                      :username="participant.username"
+                    />
+                  </div>
+                </template>
+              </div>
+
+              <!-- User Info Overlay -->
+              <div
+                :class="{
+                  'opacity-0 group-hover:opacity-100': participant.hasScreenShare || participant.videoStream,
+                  'opacity-100': !(participant.hasScreenShare || participant.videoStream)
                 }"
-                    class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 transition-opacity"
-                >
-                  <div class="flex items-center gap-2">
+                class="absolute bottom-2 left-2 bg-black/70 rounded px-2 py-1 transition-opacity"
+              >
+                <div class="flex items-center gap-2">
                   <span class="text-white text-sm font-medium">
                     {{ participant.username }}
                     <span v-if="participant.isCurrentUser" class="text-green-400 font-bold">(You)</span>
                   </span>
-                    <div
-                      v-if="participant.isScreenSharing || participant.isDeafened || participant.isMuted"
-                      class="flex items-center gap-1"
-                    >
-                      <!-- Screen sharing icon (leftmost) -->
-                      <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" title="Screen Sharing"/>
-                      <!-- Prioritize deafen over mute -->
-                      <VolumeX v-if="participant.isDeafened" class="w-3 h-3 text-red-400" title="Deafened"/>
-                      <MicOff v-else-if="participant.isMuted" class="w-3 h-3 text-red-400" title="Muted"/>
-                    </div>
+                  <div
+                    v-if="participant.isScreenSharing || participant.isDeafened || participant.isMuted"
+                    class="flex items-center gap-1"
+                  >
+                    <!-- Screen sharing icon -->
+                    <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" title="Screen Sharing"/>
+                    <!-- Audio state icons -->
+                    <VolumeX v-if="participant.isDeafened" class="w-3 h-3 text-red-400" title="Deafened"/>
+                    <MicOff v-else-if="participant.isMuted" class="w-3 h-3 text-red-400" title="Muted"/>
                   </div>
                 </div>
+              </div>
+
+              <!-- Click hint for streamable content -->
+              <div 
+                v-if="participant.hasScreenShare || participant.videoStream"
+                class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-2 py-1"
+              >
+                <span class="text-white/70 text-xs">Click for fullscreen</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Auto-hiding Voice Controls -->
+        <!-- Fullscreen Exit Button (mouse controlled) -->
+        <button
+          v-if="isFullscreen && showFullscreenControls"
+          class="absolute top-4 right-4 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-50"
+          @click="exitFullscreen"
+          title="Exit fullscreen (Esc)"
+        >
+          <X class="w-4 h-4" />
+        </button>
+
+        <!-- Fullscreen Voice Controls (always visible at bottom) -->
+        <div v-if="isFullscreen" class="absolute bottom-0 left-0 right-0 z-40">
+          <div class="p-6">
+            <div class="flex items-center justify-center gap-6">
+              <!-- Primary Controls Group (Mic + Deafen) -->
+              <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <button
+                  :class="[
+                    'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
+                    appStore.selfMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
+                  ]"
+                  :title="appStore.selfMuted ? 'Unmute' : 'Mute'"
+                  @click="toggleMute"
+                >
+                  <Mic v-if="!appStore.selfMuted" class="w-5 h-5 text-white"/>
+                  <MicOff v-else class="w-5 h-5 text-white"/>
+                </button>
+
+                <button
+                  :class="[
+                    'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
+                    appStore.selfDeafened ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
+                  ]"
+                  :title="appStore.selfDeafened ? 'Undeafen' : 'Deafen'"
+                  @click="toggleDeafen"
+                >
+                  <Volume2 v-if="!appStore.selfDeafened" class="w-5 h-5 text-white"/>
+                  <VolumeX v-else class="w-5 h-5 text-white"/>
+                </button>
+              </div>
+
+              <!-- Camera + Screen Share Group -->
+              <div class="flex items-center gap-3 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <button
+                  :class="[
+                    'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
+                    isCameraOn ? 'bg-green-600 hover:bg-green-700' : 'bg-main-700 hover:bg-main-600'
+                  ]"
+                  :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
+                  @click="toggleCamera"
+                  @contextmenu="handleCameraRightClick"
+                >
+                  <Video v-if="isCameraOn" class="w-5 h-5 text-white"/>
+                  <VideoOff v-else class="w-5 h-5 text-white"/>
+                </button>
+
+                <button
+                  :class="[
+                    'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
+                    isScreenSharing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-main-700 hover:bg-main-600'
+                  ]"
+                  :disabled="isScreenShareLoading"
+                  :title="isScreenSharing ? 'Stop screen share' : 'Share screen'"
+                  @click="toggleScreenShare"
+                  @contextmenu="handleScreenShareRightClick"
+                >
+                  <Monitor v-if="isScreenSharing" class="w-5 h-5 text-white"/>
+                  <MonitorSpeaker v-else class="w-5 h-5 text-white"/>
+                </button>
+              </div>
+
+              <!-- Disconnect Button -->
+              <div class="bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+                <button
+                  class="w-12 h-12 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-colors"
+                  title="Disconnect"
+                  @click="disconnectVoice"
+                >
+                  <PhoneOff class="w-5 h-5 text-white"/>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <!-- Auto-hiding Voice Controls (Non-Fullscreen) -->
         <div
             :class="{
           'translate-y-full': !showControls && !controlsLocked,
@@ -335,7 +410,6 @@
             </div>
           </div>
         </div>
-      </div>
 
       <!-- Voice Connection Details Modal -->
       <VoiceConnectionDetails
@@ -351,7 +425,7 @@
 </template>
 
 <script lang="ts" setup>
-import {computed, onMounted, onUnmounted, ref, watch, type ComponentPublicInstance} from 'vue';
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
@@ -381,30 +455,12 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-vue-next';
-import UserAvatar from '@/components/common/UserAvatar.vue';
 import VoiceConnectionDetails from '@/components/voice/VoiceConnectionDetails.vue';
-import VolumeControl from '@/components/voice/VolumeControl.vue';
 import MicrophonePermissionRequired from '@/components/voice/MicrophonePermissionRequired.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
+import VolumeControl from '@/components/voice/VolumeControl.vue';
 import {checkMicrophonePermission, checkCameraPermission} from '@/utils/permissions';
 
-interface VoiceParticipant {
-  id: number;
-  username: string;
-  avatar?: string | null;
-  isMuted: boolean;
-  isDeafened: boolean;
-  isSpeaking?: boolean;
-  isScreenSharing?: boolean;
-  videoStream?: MediaStream;
-  screenShareStream?: MediaStream;
-  hasScreenShare?: boolean;
-  isScreenShareLoading?: boolean;
-  user: {
-    id: number;
-    username: string;
-    avatar?: string | null;
-  };
-}
 
 const route = useRoute();
 const router = useRouter();
@@ -416,7 +472,6 @@ const { getUserVolume, setUserVolume, applyVolumeToElement } = useScreenShareVol
 // Props from route params
 const channelId = computed(() => parseInt(route.params.channelId as string));
 // Note: serverId is available from route params but not currently used in this component
-const focusUserId = computed(() => route.query.focusUser ? parseInt(route.query.focusUser as string) : null);
 
 // Voice channel info
 const voiceChannelName = computed(() => {
@@ -430,6 +485,22 @@ const voiceChannelName = computed(() => {
 const showVoiceSettings = ref(false);
 const showControls = ref(true);
 const controlsLocked = ref(false);
+
+// Fullscreen state
+const isFullscreen = ref(false);
+const showFullscreenControls = ref(true);
+const fullscreenParticipant = ref<{
+  id: number;
+  username: string;
+  avatar?: string | null;
+  type: 'camera' | 'screen';
+  videoStream?: MediaStream;
+} | null>(null);
+const voiceChannelContainer = ref<HTMLElement | null>(null);
+const fullscreenVideoRef = ref<HTMLVideoElement | null>(null);
+
+let fullscreenControlsTimer: number;
+let mouseActivityTimer: number;
 
 // Permission state
 const hasMicrophonePermission = ref<boolean | null>(null); // null = checking, true = granted, false = denied
@@ -661,58 +732,7 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
 
 // Video element refs per participant for screen share attachment
 const screenVideoRefs = ref<Map<number, HTMLVideoElement>>(new Map());
-const setParticipantVideoRef = (el: HTMLVideoElement | null, userId: number) => {
-  const map = screenVideoRefs.value;
-  if (el) {
-    map.set(userId, el);
-    // Attach if track already available
-    const track = screenShareTracks.value.get(userId);
-    if (track) {
-      try {
-        (track as any).attach?.(el);
-      } catch { /* ignore */
-      }
-    }
-  } else {
-    const existing = map.get(userId);
-    if (existing) {
-      const track = screenShareTracks.value.get(userId);
-      try {
-        (track as any)?.detach?.(existing);
-      } catch {
-      }
-      map.delete(userId);
-    }
-  }
-};
 
-// Main screen share video ref
-const mainVideoRef = ref<HTMLVideoElement | null>(null);
-const setMainVideoRef = (el: HTMLVideoElement | null) => {
-  mainVideoRef.value = el;
-  // Attempt to attach current main track when set
-  const current = mainScreenShare.value;
-  if (el && current && current.id) {
-    const track = screenShareTracks.value.get(current.id);
-    if (track) {
-      try {
-        (track as any).attach?.(el);
-      } catch { /* ignore */
-      }
-    }
-  }
-};
-
-// Helpers to satisfy Vue's VNodeRef function signature (el, refs)
-type VNodeRefFunction = (el: Element | ComponentPublicInstance | null, refs?: Record<string, any>) => void;
-const createVideoRefForUser = (userId: number): VNodeRefFunction => {
-  return (el) => {
-    setParticipantVideoRef(el as HTMLVideoElement | null, userId);
-  };
-};
-const mainVideoVNodeRef: VNodeRefFunction = (el) => {
-  setMainVideoRef(el as HTMLVideoElement | null);
-};
 
 // Map LiveKit identity -> app userId
 const resolveUserIdForIdentity = (identity: string): number | null => {
@@ -767,45 +787,7 @@ const participants = computed(() => {
 
 const participantCount = computed(() => participants.value.length); // All participants including current user
 
-// Main Screen Share - only show when there's actual screen sharing happening
-const mainScreenShare = computed(() => {
-  // If a selected participant is sharing their screen with a track, prioritize them
-  if (selectedParticipant.value && screenShareTracks.value.get(selectedParticipant.value.id)) {
-    return {
-      ...selectedParticipant.value,
-      stream: null,
-      user: selectedParticipant.value
-    };
-  }
-
-  // Show the first available screen share that actually has a track
-  const screenShareParticipant = participants.value.find(p => screenShareTracks.value.get(p.id));
-  if (screenShareParticipant) {
-    return {
-      ...screenShareParticipant,
-      stream: null,
-      user: screenShareParticipant
-    };
-  }
-
-  // Show loading state if anyone is actively sharing (store flag) but track not ready
-  const loadingScreenSharer = participants.value.find(p => p.isScreenSharing && !screenShareTracks.value.get(p.id));
-  if (loadingScreenSharer) {
-    return {
-      ...loadingScreenSharer,
-      stream: null,
-      user: loadingScreenSharer
-    };
-  }
-
-  return null;
-});
-
-const otherParticipants = computed(() => {
-  if (!mainScreenShare.value) return [];
-  return participants.value.filter(p => p.id !== mainScreenShare.value?.id);
-});
-
+// Grid layout classes
 const gridLayoutClasses = computed(() => {
   const base = 'h-full grid content-center justify-items-center gap-2';
   const count = participants.value.length;
@@ -831,17 +813,196 @@ const participantClasses = computed(() => {
   return 'grid-cell w-full';
 });
 
-// Volume control handler
-const handleVolumeChange = (volume: number) => {
-  const userId = mainScreenShare.value?.user.id;
-  if (userId) {
-    setUserVolume(userId, volume);
-    
-    // Apply volume to the audio element if it exists
-    const audioElement = screenShareAudioEls.value.get(userId);
-    if (audioElement) {
-      applyVolumeToElement(userId, audioElement);
+// Video refs management for participant videos
+const participantVideoRefs = ref<Map<string, HTMLVideoElement>>(new Map());
+
+const setParticipantVideoRef = (el: HTMLVideoElement | null, participantId: number, type: 'screen' | 'camera') => {
+  const key = `${participantId}-${type}`;
+  
+  if (el) {
+    participantVideoRefs.value.set(key, el);
+    // Attach screen share track if available
+    if (type === 'screen') {
+      const track = screenShareTracks.value.get(participantId);
+      if (track) {
+        try {
+          (track as any).attach?.(el);
+        } catch (error) {
+          console.warn('Failed to attach screen share track:', error);
+        }
+      }
     }
+  } else {
+    const existing = participantVideoRefs.value.get(key);
+    if (existing && type === 'screen') {
+      const track = screenShareTracks.value.get(participantId);
+      if (track) {
+        try {
+          (track as any).detach?.(existing);
+        } catch (error) {
+          console.warn('Failed to detach screen share track:', error);
+        }
+      }
+    }
+    participantVideoRefs.value.delete(key);
+  }
+};
+
+
+// Volume control handler
+const handleVolumeChange = (userId: number, volume: number) => {
+  setUserVolume(userId, volume);
+  
+  // Apply volume to the audio element if it exists
+  const audioElement = screenShareAudioEls.value.get(userId);
+  if (audioElement) {
+    applyVolumeToElement(userId, audioElement);
+  }
+};
+
+// Fullscreen functionality
+const handleParticipantClick = (participant: any) => {
+  // Only allow fullscreen for participants with active streams
+  if (!participant.hasScreenShare && !participant.videoStream) {
+    return; // Do nothing for participants without streams
+  }
+
+  // Determine stream type and set fullscreen participant
+  const streamType = participant.hasScreenShare ? 'screen' : 'camera';
+  
+  fullscreenParticipant.value = {
+    id: participant.id,
+    username: participant.username,
+    avatar: participant.avatar,
+    type: streamType,
+    videoStream: participant.videoStream
+  };
+
+  enterFullscreen();
+};
+
+const enterFullscreen = async () => {
+  if (!voiceChannelContainer.value || !fullscreenParticipant.value) return;
+  
+  try {
+    await voiceChannelContainer.value.requestFullscreen();
+  } catch (error) {
+    console.warn('Fullscreen request failed:', error);
+    // Fallback to pseudo-fullscreen
+    isFullscreen.value = true;
+    showFullscreenControls.value = true;
+    attachFullscreenVideo();
+  }
+};
+
+const exitFullscreen = async () => {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      // Fallback for pseudo-fullscreen
+      isFullscreen.value = false;
+      fullscreenParticipant.value = null;
+    }
+  } catch (error) {
+    console.warn('Exit fullscreen failed:', error);
+    // Fallback
+    isFullscreen.value = false;
+    fullscreenParticipant.value = null;
+  }
+};
+
+const attachFullscreenVideo = () => {
+  if (!fullscreenParticipant.value || !fullscreenVideoRef.value) return;
+  
+  // Attach screen share track to fullscreen video element
+  if (fullscreenParticipant.value.type === 'screen') {
+    const track = screenShareTracks.value.get(fullscreenParticipant.value.id);
+    if (track) {
+      try {
+        (track as any).attach?.(fullscreenVideoRef.value);
+      } catch (error) {
+        console.warn('Failed to attach fullscreen video:', error);
+      }
+    }
+  }
+};
+
+const handleFullscreenChange = () => {
+  const wasFullscreen = isFullscreen.value;
+  isFullscreen.value = !!document.fullscreenElement;
+  
+  if (isFullscreen.value && !wasFullscreen) {
+    // Entering fullscreen
+    showFullscreenControls.value = true;
+    // Attach video track if screen share
+    setTimeout(() => attachFullscreenVideo(), 100);
+    
+    // Start hide timer
+    clearTimeout(fullscreenControlsTimer);
+    fullscreenControlsTimer = setTimeout(() => {
+      showFullscreenControls.value = false;
+    }, 3000);
+  } else if (!isFullscreen.value && wasFullscreen) {
+    // Exiting fullscreen
+    fullscreenParticipant.value = null;
+    showFullscreenControls.value = true;
+    clearTimeout(fullscreenControlsTimer);
+  }
+};
+
+const handleMouseMove = (event?: MouseEvent) => {
+  // Handle fullscreen mouse movement
+  if (isFullscreen.value) {
+    showFullscreenControls.value = true;
+    clearTimeout(fullscreenControlsTimer);
+    
+    fullscreenControlsTimer = setTimeout(() => {
+      showFullscreenControls.value = false;
+    }, 3000);
+  }
+  
+  // Handle non-fullscreen mouse movement for auto-hiding controls
+  if (event && !isFullscreen.value) {
+    // Update current mouse position
+    currentMouseX.value = event.clientX;
+    currentMouseY.value = event.clientY;
+
+    // Check if mouse is within the VoiceChannelView bounds
+    if (isMouseInVoiceView()) {
+      resetHideTimer();
+    } else {
+      // Mouse is outside VoiceChannelView, hide controls if not locked
+      if (!controlsLocked.value) {
+        showControls.value = false;
+        clearTimeout(hideControlsTimer);
+      }
+    }
+  }
+};
+
+const handleMouseLeave = () => {
+  if (isFullscreen.value) {
+    clearTimeout(mouseActivityTimer);
+    mouseActivityTimer = setTimeout(() => {
+      showFullscreenControls.value = false;
+    }, 100);
+  }
+};
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    exitFullscreen();
+  }
+};
+
+// Ensure videos start playing after metadata loads
+const onVideoLoadedMetadata = (event: Event) => {
+  const video = event.target as HTMLVideoElement;
+  try {
+    video.play();
+  } catch (error) {
+    console.warn('Failed to play video:', error);
   }
 };
 
@@ -911,7 +1072,7 @@ const toggleCamera = async () => {
       try { isLocalCameraOn.value = true; } catch {}
     } else {
       await localParticipant.setCameraEnabled(false);
-      try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
+      try { isLocalCameraOn.value = localParticipant.isCameraEnabled; } catch {}
     }
     
     // Force update streams after camera toggle (delay to ensure track changes are processed)
@@ -1130,22 +1291,6 @@ const disconnectVoice = async () => {
   }
 };
 
-// Selected participant for main view
-const selectedParticipant = ref<VoiceParticipant | null>(null);
-
-const selectMainView = (participant: VoiceParticipant) => {
-  selectedParticipant.value = participant;
-};
-
-// Auto-focus on user if specified in query params
-const autoFocusUser = () => {
-  if (focusUserId.value && participants.value.length > 0) {
-    const targetParticipant = participants.value.find(p => p.id === focusUserId.value);
-    if (targetParticipant) {
-      selectMainView(targetParticipant);
-    }
-  }
-};
 
 // Auto-hide controls timer
 let hideControlsTimer: number;
@@ -1180,22 +1325,6 @@ const isMouseInVoiceView = () => {
   );
 };
 
-const handleMouseMove = (event: MouseEvent) => {
-  // Update current mouse position
-  currentMouseX.value = event.clientX;
-  currentMouseY.value = event.clientY;
-
-  // Check if mouse is within the VoiceChannelView bounds
-  if (isMouseInVoiceView()) {
-    resetHideTimer();
-  } else {
-    // Mouse is outside VoiceChannelView, hide controls if not locked
-    if (!controlsLocked.value) {
-      showControls.value = false;
-      clearTimeout(hideControlsTimer);
-    }
-  }
-};
 
 const handleControlsMouseEnter = () => {
   showControls.value = true;
@@ -1401,25 +1530,13 @@ watch(
         updateLiveKitStreams();
       }
 
-      // Auto-select the first screen sharer for main view (this ensures everyone sees the screen share)
+      // Auto-selection is now handled by the UnifiedVideoPreview component
       if (current.size > 0) {
-        const firstSharerId = Array.from(current)[0];
-        const sharerParticipant = participants.value.find(p => p.id === firstSharerId);
-        if (sharerParticipant && (!selectedParticipant.value || !selectedParticipant.value.isScreenSharing)) {
-
-          selectedParticipant.value = sharerParticipant;
-        }
+        // No need to manually select here - UnifiedVideoPreview handles this
       }
 
-      // If no one is sharing anymore, reset selection and clear all states
+      // If no one is sharing anymore, clear states
       if (current.size === 0) {
-
-
-        // Reset selected participant if they were only selected for screen sharing
-        if (selectedParticipant.value && !selectedParticipant.value.videoStream) {
-
-          selectedParticipant.value = null;
-        }
 
         // Clear any lingering loading states
         screenShareLoading.value = new Set();
@@ -1443,13 +1560,6 @@ watch(
 
       }
 
-      // If current selected participant is no longer screen sharing, deselect them
-      if (selectedParticipant.value &&
-          !current.has(selectedParticipant.value.id) &&
-          !selectedParticipant.value.videoStream) {
-
-        selectedParticipant.value = null;
-      }
     },
     {immediate: true}
 );
@@ -1462,6 +1572,10 @@ onMounted(async () => {
   try { ensureCameraStateInitialized(); } catch {}
   // Attach local participant listeners if already connected
   attachLocalParticipantCameraListeners();
+  
+  // Add fullscreen and keyboard event listeners
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('keydown', handleKeydown);
   
   // First check microphone permissions
   await checkPermissions();
@@ -1702,11 +1816,8 @@ onMounted(async () => {
     } catch (e) {
 
     }
-    // Refresh streams and selection state
+    // Refresh streams
     setTimeout(() => updateLiveKitStreams(), 100);
-    if (selectedParticipant.value && !(selectedParticipant.value.videoStream)) {
-      selectedParticipant.value = null;
-    }
   });
 
   // Subscribe to WebRTC remote streams to drive speaking indicator (voice audio)
@@ -1730,31 +1841,7 @@ onMounted(async () => {
     });
   } catch {}
 
-  // Keep main video element attached to current screen-share track
-  watch([mainScreenShare, screenShareTracks], () => {
-    const m = mainScreenShare.value;
-    const el = mainVideoRef.value;
-    if (!el) return;
-    try {
-      // Detach any previously attached track
-      screenShareTracks.value.forEach((t) => {
-        try {
-          (t as any).detach?.(el);
-        } catch {
-        }
-      });
-      if (m) {
-        const t = screenShareTracks.value.get(m.id);
-        if (t) {
-          (t as any).attach?.(el);
-        }
-      }
-    } catch {
-    }
-  });
 
-  // Auto-focus on user if specified
-  autoFocusUser();
 });
 
 // Keep preview responsive to camera being turned on
@@ -1800,18 +1887,32 @@ onUnmounted(() => {
   });
   activeAudioAnalyzers.value.clear();
   
+  // Cleanup timers and event listeners
   clearTimeout(hideControlsTimer);
+  clearTimeout(fullscreenControlsTimer);
+  clearTimeout(mouseActivityTimer);
   document.removeEventListener('mousemove', handleMouseMove);
+  document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  document.removeEventListener('keydown', handleKeydown);
+  
+  // Detach video tracks
+  participantVideoRefs.value.forEach((videoEl, key) => {
+    const [userIdStr, type] = key.split('-');
+    const userId = parseInt(userIdStr);
+    
+    if (type === 'screen') {
+      const track = screenShareTracks.value.get(userId);
+      if (track) {
+        try {
+          (track as any).detach?.(videoEl);
+        } catch (error) {
+          console.warn('Failed to detach track:', error);
+        }
+      }
+    }
+  });
 });
 
-// Ensure videos start playing after metadata loads (avoid TS in template)
-const onVideoLoadedMetadata = (e: Event) => {
-  const el = e.target as HTMLVideoElement | null;
-  try {
-    el?.play?.();
-  } catch {
-  }
-};
 
 </script>
 
@@ -1829,6 +1930,29 @@ const onVideoLoadedMetadata = (e: Event) => {
 
 /* Ensure grid fills the entire container */
 .grid {
+  width: 100%;
+  height: 100%;
+}
+
+/* Fullscreen styles */
+.fullscreen-active {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: black;
+}
+
+.fullscreen-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure fullscreen video takes full space */
+.fullscreen-container video {
   width: 100%;
   height: 100%;
 }
