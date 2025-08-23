@@ -81,13 +81,15 @@
             
             <!-- Camera video -->
             <video
-              v-else-if="fullscreenParticipant.type === 'camera' && fullscreenParticipant.videoStream"
+              v-else-if="fullscreenParticipant.type === 'camera' && fullscreenParticipant.videoStream && isValidVideoStream(fullscreenParticipant.videoStream)"
               :srcObject="fullscreenParticipant.videoStream"
               autoplay
               muted
               playsinline
               class="w-full h-full object-cover cursor-pointer"
               @loadedmetadata="onVideoLoadedMetadata"
+              @ended="onVideoEnded"
+              @error="onVideoError"
             />
 
             <!-- Fullscreen info overlay -->
@@ -162,7 +164,7 @@
                 </template>
 
                 <!-- Camera video -->
-                <template v-else-if="participant.videoStream">
+                <template v-else-if="participant.videoStream && isValidVideoStream(participant.videoStream)">
                   <video
                     :srcObject="participant.videoStream"
                     autoplay
@@ -170,6 +172,8 @@
                     playsinline
                     class="w-full h-full object-cover"
                     @loadedmetadata="onVideoLoadedMetadata"
+                    @ended="onVideoEnded"
+                    @error="onVideoError"
                   />
                 </template>
 
@@ -440,6 +444,7 @@ import { useCameraSettings } from '@/composables/useCameraSettings';
 import {Track, createLocalVideoTrack, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
 import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import {
+  X,
   Lock,
   Loader2,
   Mic,
@@ -1006,6 +1011,39 @@ const onVideoLoadedMetadata = (event: Event) => {
   }
 };
 
+// Handle video stream ended
+const onVideoEnded = (event: Event) => {
+  const video = event.target as HTMLVideoElement;
+  
+  // Clear the srcObject to prevent black video
+  video.srcObject = null;
+  
+  // Force a UI update to ensure we revert to avatar
+  setTimeout(() => updateLiveKitStreams(), 100);
+};
+
+// Handle video errors
+const onVideoError = (event: Event) => {
+  const video = event.target as HTMLVideoElement;
+  
+  // Clear the srcObject to prevent stuck video
+  video.srcObject = null;
+  
+  // Force a UI update
+  setTimeout(() => updateLiveKitStreams(), 100);
+};
+
+// Check if video stream is valid and has active tracks
+const isValidVideoStream = (stream: MediaStream): boolean => {
+  if (!stream) return false;
+  
+  const videoTracks = stream.getVideoTracks();
+  if (videoTracks.length === 0) return false;
+  
+  // Check if at least one video track is not ended
+  return videoTracks.some(track => track.readyState !== 'ended' && track.enabled);
+};
+
 // Methods
 const toggleMute = async () => {
   appStore.toggleSelfMute();
@@ -1070,13 +1108,29 @@ const toggleCamera = async () => {
       } as any);
       await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
       try { isLocalCameraOn.value = true; } catch {}
+
+      // Immediately update our own preview to avoid race conditions
+      const uid = appStore.currentUserId as number | null;
+      if (uid && (videoTrack as any)?.mediaStreamTrack) {
+        const next = new Map(cameraStreams.value);
+        next.set(uid, new MediaStream([(videoTrack as any).mediaStreamTrack]));
+        cameraStreams.value = next;
+      }
     } else {
       await localParticipant.setCameraEnabled(false);
       try { isLocalCameraOn.value = localParticipant.isCameraEnabled; } catch {}
+
+      // Proactively clear our own preview so it doesn't turn black with an ended track
+      const uid = appStore.currentUserId as number | null;
+      if (uid) {
+        const next = new Map(cameraStreams.value);
+        next.delete(uid);
+        cameraStreams.value = next;
+      }
     }
     
     // Force update streams after camera toggle (delay to ensure track changes are processed)
-    setTimeout(() => updateLiveKitStreams(), 500);
+    setTimeout(() => updateLiveKitStreams(), 200);
     
   } catch (error: any) {
     console.error('Camera toggle error:', error);
@@ -1447,10 +1501,10 @@ const updateLiveKitStreams = () => {
           } catch {
           }
         }
-      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera && !pub.isMuted) {
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera) {
+        // Include camera streams regardless of muted state to handle toggling properly
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        console.log('🎥 Added camera stream for remote user', uid);
       }
     });
   });
@@ -1487,11 +1541,10 @@ const updateLiveKitStreams = () => {
           } catch {
           }
         }
-      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera && !pub.isMuted) {
-        // Handle local camera track specifically
+      } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera) {
+        // Handle local camera track specifically, regardless of muted state
         const stream = new MediaStream([pub.track.mediaStreamTrack]);
         newCamMap.set(uid, stream);
-        console.log('🎥 Added local camera stream for user', uid);
       }
       });
     }
@@ -1501,13 +1554,9 @@ const updateLiveKitStreams = () => {
   const oldCamCount = cameraStreams.value.size;
   const newCamCount = newCamMap.size;
   if (oldCamCount !== newCamCount) {
-    console.log('🎥 Camera streams updated:', oldCamCount, '->', newCamCount);
   }
-
   screenShareTracks.value = newScreenMap;
   cameraStreams.value = newCamMap;
-
-
 };
 
 // React to SignalR signals that someone started/stopped screen sharing
@@ -1515,7 +1564,6 @@ watch(
     () => Array.from(appStore.screenShares.get(channelId.value || -1) || new Set<number>()).join(','),
     (_str) => {
       const current = appStore.screenShares.get(channelId.value || -1) || new Set<number>();
-
 
       // Ensure we are connected to LiveKit to receive screen shares
       if (current.size > 0 && !livekitService.isRoomConnected()) {
@@ -1567,6 +1615,31 @@ watch(
 // Refresh mapped streams when participants change
 watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStreams());
 
+// Watch camera streams for debugging and cleanup
+watch(() => cameraStreams.value, (newStreams, oldStreams) => {
+  const newIds = Array.from(newStreams.keys()).sort();
+  const oldIds = oldStreams ? Array.from(oldStreams.keys()).sort() : [];
+  
+  if (newIds.join(',') !== oldIds.join(',')) {
+    
+    // Clean up removed streams
+    if (oldStreams) {
+      oldStreams.forEach((stream, userId) => {
+        if (!newStreams.has(userId)) {
+          // Stop all tracks in the removed stream
+          stream.getTracks().forEach(track => {
+            try {
+              track.stop();
+            } catch (error) {
+              console.warn('Failed to stop camera track:', error);
+            }
+          });
+        }
+      });
+    }
+  }
+}, { deep: true });
+
 onMounted(async () => {
   // Initialize shared camera state listeners
   try { ensureCameraStateInitialized(); } catch {}
@@ -1609,7 +1682,6 @@ onMounted(async () => {
       const next = new Map(cameraStreams.value);
       next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
       cameraStreams.value = next;
-      console.log('🎥 Updated camera stream for remote user', uid);
     } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
       // Do not play our own screen share audio locally
       if (appStore.currentUserId && uid === appStore.currentUserId) {
@@ -1658,7 +1730,6 @@ onMounted(async () => {
       const next = new Map(cameraStreams.value);
       next.delete(uid);
       cameraStreams.value = next;
-      console.log('🎥 Removed camera stream for user', uid);
     } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
       const el = screenShareAudioEls.value.get(uid);
       if (el) {
@@ -1708,16 +1779,25 @@ onMounted(async () => {
   // React to mute/unmute of camera tracks (including local)
   livekitService.onTrackMuted((publication: any, participant: any) => {
     try {
-      if (publication?.kind === 'video' && publication?.source === Track.Source.Camera) {
-        const uid = resolveUserIdForIdentity(participant?.identity);
-        if (!uid) return;
+      const uid = resolveUserIdForIdentity(participant?.identity);
+      if (!uid) return;
+
+      // Avoid removing our own camera stream on transient mute events during (re)publish.
+      // This was causing the local preview to flash and disappear on second enable.
+      if (
+        publication?.kind === 'video' &&
+        publication?.source === Track.Source.Camera &&
+        uid !== appStore.currentUserId
+      ) {
         const next = new Map(cameraStreams.value);
         next.delete(uid);
         cameraStreams.value = next;
       }
-      if (publication?.kind === 'audio' && (publication?.source === (Track as any).Source.ScreenShareAudio || publication?.source === Track.Source.ScreenShare)) {
-        const uid = resolveUserIdForIdentity(participant?.identity);
-        if (!uid) return;
+
+      if (
+        publication?.kind === 'audio' &&
+        ((publication?.source === (Track as any).Source.ScreenShareAudio) || publication?.source === Track.Source.ScreenShare)
+      ) {
         const el = screenShareAudioEls.value.get(uid);
         if (el) { try { el.pause?.(); } catch {} }
         const next = new Map(screenShareAudioEls.value);
@@ -1770,7 +1850,6 @@ onMounted(async () => {
     const localParticipant = livekitService.getLocalParticipant()!;
     
     localParticipant.on('trackPublished', (publication) => {
-      console.log('🎥 Local track published:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
         // Force update streams when local camera is enabled
         setTimeout(() => updateLiveKitStreams(), 100);
@@ -1778,7 +1857,6 @@ onMounted(async () => {
     });
 
     localParticipant.on('trackUnpublished', (publication) => {
-      console.log('🎥 Local track unpublished:', publication.source, publication.kind);
       if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
         // Remove local camera stream when disabled
         const uid = appStore.currentUserId as number | null;
@@ -1786,7 +1864,6 @@ onMounted(async () => {
           const next = new Map(cameraStreams.value);
           next.delete(uid);
           cameraStreams.value = next;
-          console.log('🎥 Removed local camera stream for user', uid);
         }
         // Force update streams to ensure UI reflects the change
         setTimeout(() => updateLiveKitStreams(), 100);

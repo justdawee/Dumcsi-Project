@@ -358,10 +358,14 @@ const toggleCamera = async () => {
       } as any);
       await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
       try { isLocalCameraOn.value = true; } catch {}
+
+      // Note: preview mapping is managed by the main voice view.
     } else {
       await localParticipant.setCameraEnabled(false);
       // Immediately sync shared state so all UIs dim
       try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
+
+      // Note: the main voice view will clear its own preview mapping.
     }
   } catch (error: any) {
     console.error('VoiceControlPanel: Camera toggle error:', error);
