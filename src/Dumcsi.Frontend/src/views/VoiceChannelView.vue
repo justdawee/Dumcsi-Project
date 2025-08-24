@@ -596,65 +596,47 @@ const setCameraStream = (userId: number, mediaTrack: MediaStreamTrack | null) =>
   console.log(`setCameraStream called for user ${userId}:`, {
     trackId: mediaTrack?.id,
     readyState: (mediaTrack as any)?.readyState,
+    enabled: mediaTrack?.enabled,
+    muted: mediaTrack?.muted,
     hasTrack: !!mediaTrack
   });
-  
-  // Remove previous 'ended' listener if any
-  const prevOff = cameraTrackEndListeners.value.get(userId);
-  if (prevOff) {
-    try { prevOff(); } catch {}
-    cameraTrackEndListeners.value.delete(userId);
-  }
 
-  // Clean up existing stream first
-  const existingStream = cameraStreams.value.get(userId);
-  if (existingStream) {
-    console.log(`Cleaning up existing camera stream for user ${userId}`);
-    existingStream.getTracks().forEach(track => {
-      try {
-        track.stop();
-      } catch (error) {
-        console.warn('Failed to stop existing camera track:', error);
-      }
-    });
-  }
+  // Always clean up previous resources first
+  forceCleanupCameraStream(userId);
 
   if (!mediaTrack) {
-    const next = new Map(cameraStreams.value);
-    next.delete(userId);
-    cameraStreams.value = next;
-    console.log(`Camera stream removed for user ${userId}`);
+    console.log(`No track provided, camera stream removed for user ${userId}`);
     return;
   }
 
-  // Skip tracks that are already ended
+  // Double-check track is still valid
   if ((mediaTrack as any).readyState === 'ended') {
-    console.warn(`Skipping ended track for user ${userId}, readyState: ${(mediaTrack as any).readyState}`);
-    const next = new Map(cameraStreams.value);
-    next.delete(userId);
-    cameraStreams.value = next;
+    console.warn(`Attempted to set ended track for user ${userId}, aborting`);
     return;
   }
 
+  // Create new stream with the track
   const stream = new MediaStream([mediaTrack]);
   const next = new Map(cameraStreams.value);
   next.set(userId, stream);
   cameraStreams.value = next;
-  console.log(`Camera stream set for user ${userId} with track ID: ${mediaTrack.id}`);
+  console.log(`Camera stream successfully set for user ${userId} with track ID: ${mediaTrack.id}`);
 
+  // Set up 'ended' listener for automatic cleanup
   const onEnded = () => {
-    console.log(`Camera track ended for user ${userId}`);
-    const n = new Map(cameraStreams.value);
-    n.delete(userId);
-    cameraStreams.value = n;
-    // Clean up the ended listener
-    cameraTrackEndListeners.value.delete(userId);
+    console.log(`Camera track ended for user ${userId}, cleaning up`);
+    forceCleanupCameraStream(userId);
   };
+
   try {
     mediaTrack.addEventListener('ended', onEnded, { once: true } as any);
-    cameraTrackEndListeners.value.set(userId, () => mediaTrack.removeEventListener('ended', onEnded));
-  } catch {
-    // ignore
+    cameraTrackEndListeners.value.set(userId, () => {
+      try {
+        mediaTrack.removeEventListener('ended', onEnded);
+      } catch {}
+    });
+  } catch (error) {
+    console.warn('Failed to add ended listener:', error);
   }
 };
 
@@ -662,26 +644,87 @@ const setCameraStream = (userId: number, mediaTrack: MediaStreamTrack | null) =>
 const tryMapCameraFromPublication = (userId: number, publication: any, attempts = 5, delayMs = 200) => {
   const mapNow = () => {
     const mt: MediaStreamTrack | undefined = publication?.track?.mediaStreamTrack;
-    if (mt && (mt as any).readyState !== 'ended') {
-      console.log(`Mapping camera track for user ${userId}, readyState: ${(mt as any).readyState}`);
-      setCameraStream(userId, mt);
+
+    // More thorough check for valid track
+    if (!mt) {
+      console.log(`No MediaStreamTrack yet for user ${userId}`);
+      return false;
+    }
+
+    const readyState = (mt as any).readyState;
+    const trackId = mt.id;
+
+    console.log(`Attempting to map camera track for user ${userId}:`, {
+      trackId,
+      readyState,
+      enabled: mt.enabled,
+      muted: mt.muted
+    });
+
+    // Only map if track is in 'live' state
+    if (readyState === 'live') {
+      // Force cleanup before setting new stream
+      forceCleanupCameraStream(userId);
+
+      // Small delay to ensure cleanup
+      setTimeout(() => {
+        console.log(`Mapping camera track for user ${userId}, readyState: ${readyState}`);
+        setCameraStream(userId, mt);
+      }, 50);
       return true;
+    } else if (readyState === 'ended') {
+      console.warn(`Track already ended for user ${userId}, will not map`);
+      // Clean up if we have an ended track
+      forceCleanupCameraStream(userId);
+      return true; // Don't retry for ended tracks
     }
-    if (mt) {
-      console.warn(`Skipping ended camera track for user ${userId}, readyState: ${(mt as any).readyState}`);
-    }
+
+    console.log(`Track not ready yet for user ${userId}, state: ${readyState}`);
     return false;
   };
 
   if (mapNow()) return;
   if (attempts <= 0) {
-    console.warn(`Failed to map camera track for user ${userId} after ${5} attempts`);
+    console.warn(`Failed to map camera track for user ${userId} after retries`);
     return;
   }
 
+  // Retry with backoff
   setTimeout(() => {
-    tryMapCameraFromPublication(userId, publication, attempts - 1, delayMs);
+    tryMapCameraFromPublication(userId, publication, attempts - 1, delayMs * 1.5);
   }, delayMs);
+};
+
+// Force clean up camera streams for a specific user
+const forceCleanupCameraStream = (userId: number) => {
+  console.log(`Force cleanup camera stream for user ${userId}`);
+
+  // Remove any existing stream
+  const existingStream = cameraStreams.value.get(userId);
+  if (existingStream) {
+    existingStream.getTracks().forEach(track => {
+      try {
+        track.stop();
+        console.log(`Stopped track ${track.id} for user ${userId}`);
+      } catch (error) {
+        console.warn('Failed to stop track:', error);
+      }
+    });
+  }
+
+  // Remove 'ended' listener if any
+  const prevOff = cameraTrackEndListeners.value.get(userId);
+  if (prevOff) {
+    try {
+      prevOff();
+    } catch {}
+    cameraTrackEndListeners.value.delete(userId);
+  }
+
+  // Clear from map
+  const next = new Map(cameraStreams.value);
+  next.delete(userId);
+  cameraStreams.value = next;
 };
 
 // Speaking state tracking
@@ -1681,6 +1724,7 @@ onMounted(async () => {
       trackKind: track.kind,
       source: publication.source,
       trackId: (track as any).mediaStreamTrack?.id,
+      trackSid: (publication as any).trackSid,
       readyState: (track as any).mediaStreamTrack?.readyState
     });
 
@@ -1700,8 +1744,14 @@ onMounted(async () => {
         }
       }
     } else if (publication.kind === 'video' && publication.track && publication.source === Track.Source.Camera) {
-      // Map immediately if track is valid; otherwise retry a few times as devices/track restarts can race
-      tryMapCameraFromPublication(uid, publication as any, 6, 200);
+      // IMPORTANT: Force cleanup any existing stream before mapping new one
+      forceCleanupCameraStream(uid);
+
+      // Small delay to ensure cleanup is processed
+      setTimeout(() => {
+        // Map immediately if track is valid; otherwise retry a few times
+        tryMapCameraFromPublication(uid, publication as any, 6, 200);
+      }, 100);
     } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
       // Do not play our own screen share audio locally
       if (appStore.currentUserId && uid === appStore.currentUserId) {

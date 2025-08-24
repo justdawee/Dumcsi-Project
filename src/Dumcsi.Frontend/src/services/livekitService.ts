@@ -14,10 +14,6 @@ import type { ScreenShareCaptureOptions } from 'livekit-client';
 import api from './api';
 import type { EntityId } from './types';
 
-// Note: PascalCase property names are required by the backend
-// LiveKit controller. Using camelCase here would result in
-// a 400 Bad Request response because the properties would not
-// bind correctly on the server.
 export interface LiveKitTokenRequest {
     RoomName: string;
     ParticipantName: string;
@@ -418,6 +414,70 @@ export class LiveKitService {
         return this.room.remoteParticipants.size + 1;
     }
 
+    private triggerTrackUnsubscribed(track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant): void {
+        this.onTrackUnsubscribedCallbacks.forEach(callback => {
+            try {
+                callback(track, publication, participant);
+            } catch (error) {
+                console.error('Error in track unsubscribed callback:', error);
+            }
+        });
+    }
+
+    private triggerTrackSubscribed(track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant): void {
+        this.onTrackSubscribedCallbacks.forEach(callback => {
+            try {
+                callback(track, publication, participant);
+            } catch (error) {
+                console.error('Error in track subscribed callback:', error);
+            }
+        });
+    }
+
+    async refreshParticipantTracks(): Promise<void> {
+        if (!this.room) return;
+
+        console.log('Forcing LiveKit participant track refresh...');
+
+        // Get all remote participants
+        const participants = Array.from(this.room.remoteParticipants.values());
+
+        for (const participant of participants) {
+            // Force re-subscription to all tracks
+            const publications = Array.from(participant.trackPublications.values());
+
+            for (const publication of publications) {
+                if (publication.isSubscribed && publication.track) {
+                    try {
+                        // Try to force track refresh by unsubscribing and resubscribing
+                        console.log(`Refreshing track for participant ${participant.identity}, source: ${publication.source}`);
+
+                        // Note: This is a workaround - ideally LiveKit would handle this internally
+                        // We're triggering the unsubscribed callbacks to force cleanup
+                        this.triggerTrackUnsubscribed(
+                            publication.track as RemoteTrack,
+                            publication as RemoteTrackPublication,
+                            participant
+                        );
+
+                        // Small delay before re-triggering subscribed
+                        setTimeout(() => {
+                            if (publication.track && publication.isSubscribed) {
+                                this.triggerTrackSubscribed(
+                                    publication.track as RemoteTrack,
+                                    publication as RemoteTrackPublication,
+                                    participant
+                                );
+                            }
+                        }, 100);
+                    } catch (error) {
+                        console.warn('Failed to refresh track:', error);
+                    }
+                }
+            }
+        }
+    }
+
     private setupRoomEventListeners(): void {
         if (!this.room) return;
 
@@ -527,6 +587,28 @@ export class LiveKitService {
 
     // Cleanup method
     cleanup(): void {
+        console.log('Cleaning up LiveKit service...');
+
+        // Force cleanup all remote tracks before disconnecting
+        if (this.room) {
+            const participants = Array.from(this.room.remoteParticipants.values());
+            for (const participant of participants) {
+                const publications = Array.from(participant.trackPublications.values());
+                for (const publication of publications) {
+                    if (publication.track) {
+                        try {
+                            // Trigger unsubscribe callbacks for cleanup
+                            this.triggerTrackUnsubscribed(
+                                publication.track as RemoteTrack,
+                                publication as RemoteTrackPublication,
+                                participant
+                            );
+                        } catch {}
+                    }
+                }
+            }
+        }
+
         this.disconnectFromRoom();
         this.onParticipantConnectedCallbacks = [];
         this.onParticipantDisconnectedCallbacks = [];
