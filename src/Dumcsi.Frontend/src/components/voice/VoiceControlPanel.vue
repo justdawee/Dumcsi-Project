@@ -150,19 +150,16 @@ import {
 } from 'lucide-vue-next';
 import { useAppStore } from '@/stores/app';
 import { useToast } from '@/composables/useToast';
-import { checkCameraPermission } from '@/utils/permissions';
 import { livekitService } from '@/services/livekitService';
 import { signalRService } from '@/services/signalrService';
 import { useAuthStore } from '@/stores/auth';
-// import type { ScreenShareQualitySettings } from '@/services/livekitService';
 import VoiceConnectionDetails from './VoiceConnectionDetails.vue';
 import { ChevronDown } from 'lucide-vue-next';
 import { useScreenShareSettings } from '@/composables/useScreenShareSettings';
 import { useCameraSettings } from '@/composables/useCameraSettings';
-import { useLocalCameraState } from '@/composables/useLocalCameraState';
+import { useWebcamSharing } from '@/composables/useWebcamSharing';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
-import { Track, createLocalVideoTrack } from 'livekit-client';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
@@ -185,9 +182,8 @@ const serverName = computed(() => {
   return appStore.currentServer?.name || 'Unknown Server';
 });
 
-// Camera state (shared)
-const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
-const isCameraOn = computed(() => isLocalCameraOn.value);
+// Camera state (centralized)
+const { isCameraOn, toggleCamera, initializeCameraState } = useWebcamSharing();
 // Camera options (shared)
 const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQuality, qualityOptions: cameraQualityOptions, ensureDevicesLoaded } = useCameraSettings();
 
@@ -308,99 +304,9 @@ const disconnectVoice = async () => {
   }
 };
 
-const toggleCamera = async () => {
-  if (isTogglingCamera.value) return;
-  isTogglingCamera.value = true;
-  
-  try {
-    const localParticipant = livekitService.getLocalParticipant();
-    if (!localParticipant) return;
+// Camera toggle is now handled by the centralized composable
 
-    const isEnabled = localParticipant.isCameraEnabled;
-
-    // If trying to enable camera, check permissions first
-    if (!isEnabled) {
-      // Check camera permission before enabling
-      const permissionResult = await checkCameraPermission();
-      
-      if (!permissionResult.granted) {
-        // Show permission error message
-        addToast({
-          message: permissionResult.error || 'Camera access is required to enable video',
-          type: 'danger',
-          duration: 5000
-        });
-        isTogglingCamera.value = false;
-        return;
-      }
-    }
-    
-    // Ensure LiveKit connection (best effort)
-    const isConnected = await ensureLiveKitConnection();
-    if (!isConnected) {
-      addToast({ message: 'Failed to connect to voice channel for camera', type: 'danger' });
-      isTogglingCamera.value = false;
-      return;
-    }
-
-    if (!isEnabled) {
-      // Publish a camera track using the selected device + resolution
-      // Unpublish any stale camera track first to avoid duplicates
-      const existingPub: any = localParticipant.getTrackPublication(Track.Source.Camera);
-      if (existingPub?.track) {
-        try { await localParticipant.unpublishTrack(existingPub.track, true); } catch {}
-      }
-
-      const deviceId = selectedDeviceId.value || undefined;
-      const videoTrack = await createLocalVideoTrack({
-        deviceId: deviceId as any,
-        resolution: { width: selectedCamQuality.value.width, height: selectedCamQuality.value.height } as any
-      } as any);
-      await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
-      try { isLocalCameraOn.value = true; } catch {}
-
-      // Note: preview mapping is managed by the main voice view.
-    } else {
-      await localParticipant.setCameraEnabled(false);
-      // Immediately sync shared state so all UIs dim
-      try { isLocalCameraOn.value = !!localParticipant.isCameraEnabled; } catch {}
-
-      // Note: the main voice view will clear its own preview mapping.
-    }
-  } catch (error: any) {
-    console.error('VoiceControlPanel: Camera toggle error:', error);
-    addToast({ message: error?.message || 'Failed to toggle camera', type: 'danger' });
-  }
-  finally {
-    isTogglingCamera.value = false;
-  }
-};
-
-// LiveKit connection management
-const ensureLiveKitConnection = async (): Promise<boolean> => {
-  // Check if already connected
-  if (livekitService.isRoomConnected()) {
-    
-    return true;
-  }
-
-  // Try to connect if not connected
-  if (!appStore.currentServer || !appStore.currentVoiceChannelId) {
-    console.error('❌ VoiceControlPanel: Cannot connect to LiveKit - missing server or channel info');
-    return false;
-  }
-
-  try {
-    const authStore = useAuthStore();
-    // Prefer stable numeric identity to keep mapping consistent with the view
-    const identity = String(appStore.currentUserId ?? (authStore.user?.username ?? `user_${Date.now()}`));
-    await livekitService.connectToRoom(appStore.currentVoiceChannelId, identity);
-    return true;
-  } catch (error) {
-    console.error('❌ VoiceControlPanel: Failed to connect to LiveKit:', error);
-    return false;
-  }
-};
+// LiveKit connection is ensured directly via livekitService.ensureConnected in actions
 
 const toggleScreenShare = async () => {
   if (isScreenShareLoading.value) return;
@@ -424,8 +330,15 @@ const toggleScreenShare = async () => {
       // no success toast on stop
     } else {
       // Start screen share immediately with current selections
-      const isConnected = await ensureLiveKitConnection();
-      if (!isConnected) {
+      try {
+        const authStore = useAuthStore();
+        const identity = String(appStore.currentUserId ?? (authStore.user?.username ?? `user_${Date.now()}`));
+        if (appStore.currentVoiceChannelId) {
+          await livekitService.ensureConnected(appStore.currentVoiceChannelId, identity);
+        } else {
+          throw new Error('No voice channel');
+        }
+      } catch (_e) {
         addToast({ message: 'Failed to connect to voice channel for screen sharing', type: 'danger' });
         return;
       }
@@ -480,9 +393,9 @@ const toggleScreenShare = async () => {
 
 // isScreenSharing is derived; no polling needed
 
-// Keep camera toggle UI in sync with LiveKit local state
+// Initialize camera state
 onMounted(() => {
-  ensureCameraStateInitialized();
+  initializeCameraState();
 });
 </script>
 

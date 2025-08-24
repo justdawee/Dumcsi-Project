@@ -441,8 +441,8 @@ import { useScreenShareVolumeControl } from '@/composables/useScreenShareVolumeC
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import { useCameraSettings } from '@/composables/useCameraSettings';
-import {Track, createLocalVideoTrack, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
-import { useLocalCameraState } from '@/composables/useLocalCameraState';
+import {Track, type RemoteParticipant, type RemoteTrack, type RemoteTrackPublication} from 'livekit-client';
+import { useWebcamSharing } from '@/composables/useWebcamSharing';
 import {
   X,
   Lock,
@@ -464,7 +464,7 @@ import VoiceConnectionDetails from '@/components/voice/VoiceConnectionDetails.vu
 import MicrophonePermissionRequired from '@/components/voice/MicrophonePermissionRequired.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import VolumeControl from '@/components/voice/VolumeControl.vue';
-import {checkMicrophonePermission, checkCameraPermission} from '@/utils/permissions';
+import {checkMicrophonePermission} from '@/utils/permissions';
 
 
 const route = useRoute();
@@ -510,6 +510,8 @@ let mouseActivityTimer: number;
 // Permission state
 const hasMicrophonePermission = ref<boolean | null>(null); // null = checking, true = granted, false = denied
 const isCheckingPermission = ref(true);
+// Helper to provide a stable LiveKit identity
+const getLiveKitIdentity = () => String(appStore.currentUserId ?? '');
 
 // Check microphone permissions
 const checkPermissions = async () => {
@@ -542,7 +544,8 @@ const initializeVoiceChannel = async () => {
   // Ensure we are connected to LiveKit so late joiners receive existing streams
   if (!livekitService.isRoomConnected()) {
     try {
-      await ensureLiveKitConnection();
+      await livekitService.ensureConnected(channelId.value, getLiveKitIdentity());
+      attachLocalParticipantCameraListeners();
     } catch {}
   }
 
@@ -559,9 +562,8 @@ const handlePermissionGranted = async () => {
   await initializeVoiceChannel();
 };
 
-// Voice controls state (shared)
-const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized, hotSwitchCamera } = useLocalCameraState();
-const isCameraOn = computed(() => isLocalCameraOn.value);
+// Voice controls state (centralized)
+const { isCameraOn, toggleCamera, hotSwitchCamera, initializeCameraState } = useWebcamSharing();
 
 // Context menu state
 const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
@@ -585,6 +587,103 @@ const screenShareLoading = ref<Set<number>>(new Set());
 // Audio elements for screen share audio per participant
 const screenShareAudioEls = ref<Map<number, HTMLMediaElement>>(new Map());
 
+// Track end listeners for camera MediaStreamTracks so we can clean stale streams
+const cameraTrackEndListeners = ref<Map<number, () => void>>(new Map());
+
+// Safely map a camera MediaStreamTrack to a participant, skipping ended tracks and
+// auto-removing the mapping when the track ends.
+const setCameraStream = (userId: number, mediaTrack: MediaStreamTrack | null) => {
+  console.log(`setCameraStream called for user ${userId}:`, {
+    trackId: mediaTrack?.id,
+    readyState: (mediaTrack as any)?.readyState,
+    hasTrack: !!mediaTrack
+  });
+  
+  // Remove previous 'ended' listener if any
+  const prevOff = cameraTrackEndListeners.value.get(userId);
+  if (prevOff) {
+    try { prevOff(); } catch {}
+    cameraTrackEndListeners.value.delete(userId);
+  }
+
+  // Clean up existing stream first
+  const existingStream = cameraStreams.value.get(userId);
+  if (existingStream) {
+    console.log(`Cleaning up existing camera stream for user ${userId}`);
+    existingStream.getTracks().forEach(track => {
+      try {
+        track.stop();
+      } catch (error) {
+        console.warn('Failed to stop existing camera track:', error);
+      }
+    });
+  }
+
+  if (!mediaTrack) {
+    const next = new Map(cameraStreams.value);
+    next.delete(userId);
+    cameraStreams.value = next;
+    console.log(`Camera stream removed for user ${userId}`);
+    return;
+  }
+
+  // Skip tracks that are already ended
+  if ((mediaTrack as any).readyState === 'ended') {
+    console.warn(`Skipping ended track for user ${userId}, readyState: ${(mediaTrack as any).readyState}`);
+    const next = new Map(cameraStreams.value);
+    next.delete(userId);
+    cameraStreams.value = next;
+    return;
+  }
+
+  const stream = new MediaStream([mediaTrack]);
+  const next = new Map(cameraStreams.value);
+  next.set(userId, stream);
+  cameraStreams.value = next;
+  console.log(`Camera stream set for user ${userId} with track ID: ${mediaTrack.id}`);
+
+  const onEnded = () => {
+    console.log(`Camera track ended for user ${userId}`);
+    const n = new Map(cameraStreams.value);
+    n.delete(userId);
+    cameraStreams.value = n;
+    // Clean up the ended listener
+    cameraTrackEndListeners.value.delete(userId);
+  };
+  try {
+    mediaTrack.addEventListener('ended', onEnded, { once: true } as any);
+    cameraTrackEndListeners.value.set(userId, () => mediaTrack.removeEventListener('ended', onEnded));
+  } catch {
+    // ignore
+  }
+};
+
+// Retry helper: map camera track from a publication with small backoff if track is not ready yet
+const tryMapCameraFromPublication = (userId: number, publication: any, attempts = 5, delayMs = 200) => {
+  const mapNow = () => {
+    const mt: MediaStreamTrack | undefined = publication?.track?.mediaStreamTrack;
+    if (mt && (mt as any).readyState !== 'ended') {
+      console.log(`Mapping camera track for user ${userId}, readyState: ${(mt as any).readyState}`);
+      setCameraStream(userId, mt);
+      return true;
+    }
+    if (mt) {
+      console.warn(`Skipping ended camera track for user ${userId}, readyState: ${(mt as any).readyState}`);
+    }
+    return false;
+  };
+
+  if (mapNow()) return;
+  if (attempts <= 0) {
+    console.warn(`Failed to map camera track for user ${userId} after ${5} attempts`);
+    return;
+  }
+
+  setTimeout(() => {
+    tryMapCameraFromPublication(userId, publication, attempts - 1, delayMs);
+  }, delayMs);
+};
+
 // Speaking state tracking
 const speakingUsers = ref<Set<number>>(new Set());
 const speakingTimeouts = ref<Map<number, number>>(new Map());
@@ -597,7 +696,7 @@ const activeAudioAnalyzers = ref<Map<number, AnalyserNode>>(new Map());
 const setSpeaking = (userId: number, speaking: boolean) => {
   const timeouts = speakingTimeouts.value;
   const users = speakingUsers.value;
-  
+
   if (speaking) {
     // Clear any existing timeout for this user
     const existingTimeout = timeouts.get(userId);
@@ -605,7 +704,7 @@ const setSpeaking = (userId: number, speaking: boolean) => {
       clearTimeout(existingTimeout);
       timeouts.delete(userId);
     }
-    
+
     // Add user to speaking set
     if (!users.has(userId)) {
       const newUsers = new Set(users);
@@ -618,14 +717,14 @@ const setSpeaking = (userId: number, speaking: boolean) => {
     if (existingTimeout) {
       clearTimeout(existingTimeout);
     }
-    
+
     const timeout = setTimeout(() => {
       const newUsers = new Set(speakingUsers.value);
       newUsers.delete(userId);
       speakingUsers.value = newUsers;
       timeouts.delete(userId);
     }, SPEAKING_TIMEOUT);
-    
+
     timeouts.set(userId, timeout);
   }
 };
@@ -644,7 +743,7 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
     }
 
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
+
     // Check if audio context creation failed or is suspended
     if (audioContext.state === 'suspended') {
       // Try to resume context, but handle if it fails due to lack of user interaction
@@ -657,17 +756,17 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
 
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
-    
+
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.3;
     source.connect(analyser);
-    
+
     activeAudioAnalyzers.value.set(userId, analyser);
-    
+
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
     let isCurrentlySpeaking = false;
     let lastNotifyState: boolean | null = null;
-    
+
     const checkAudioLevel = () => {
       // Check if track is still active
       if (audioTrack.readyState !== 'live') {
@@ -676,29 +775,29 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
         audioContext.close().catch(() => {});
         return;
       }
-      
+
       // Check if context is still valid
       if (audioContext.state === 'closed') {
         activeAudioAnalyzers.value.delete(userId);
         setSpeaking(userId, false);
         return;
       }
-      
+
       try {
         analyser.getByteFrequencyData(dataArray);
-        
+
         // Calculate average volume
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
           sum += dataArray[i];
         }
         const average = sum / dataArray.length;
-        
+
         // Convert to approximate dB (this is a simplified calculation)
         const dB = average > 0 ? 20 * Math.log10(average / 255) : -100;
-        
+
         const speaking = dB > AUDIO_THRESHOLD;
-        
+
         if (speaking !== isCurrentlySpeaking) {
           isCurrentlySpeaking = speaking;
           setSpeaking(userId, speaking);
@@ -717,7 +816,7 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
             }
           }
         }
-        
+
         // Continue monitoring
         requestAnimationFrame(checkAudioLevel);
       } catch (analyzerError) {
@@ -727,7 +826,7 @@ const monitorAudioLevel = (audioTrack: MediaStreamTrack, userId: number) => {
         audioContext.close().catch(() => {});
       }
     };
-    
+
     checkAudioLevel();
   } catch (error) {
     console.warn('Failed to create audio analyzer for user:', userId, error);
@@ -823,7 +922,7 @@ const participantVideoRefs = ref<Map<string, HTMLVideoElement>>(new Map());
 
 const setParticipantVideoRef = (el: HTMLVideoElement | null, participantId: number, type: 'screen' | 'camera') => {
   const key = `${participantId}-${type}`;
-  
+
   if (el) {
     participantVideoRefs.value.set(key, el);
     // Attach screen share track if available
@@ -857,7 +956,7 @@ const setParticipantVideoRef = (el: HTMLVideoElement | null, participantId: numb
 // Volume control handler
 const handleVolumeChange = (userId: number, volume: number) => {
   setUserVolume(userId, volume);
-  
+
   // Apply volume to the audio element if it exists
   const audioElement = screenShareAudioEls.value.get(userId);
   if (audioElement) {
@@ -874,7 +973,7 @@ const handleParticipantClick = (participant: any) => {
 
   // Determine stream type and set fullscreen participant
   const streamType = participant.hasScreenShare ? 'screen' : 'camera';
-  
+
   fullscreenParticipant.value = {
     id: participant.id,
     username: participant.username,
@@ -888,7 +987,7 @@ const handleParticipantClick = (participant: any) => {
 
 const enterFullscreen = async () => {
   if (!voiceChannelContainer.value || !fullscreenParticipant.value) return;
-  
+
   try {
     await voiceChannelContainer.value.requestFullscreen();
   } catch (error) {
@@ -919,7 +1018,7 @@ const exitFullscreen = async () => {
 
 const attachFullscreenVideo = () => {
   if (!fullscreenParticipant.value || !fullscreenVideoRef.value) return;
-  
+
   // Attach screen share track to fullscreen video element
   if (fullscreenParticipant.value.type === 'screen') {
     const track = screenShareTracks.value.get(fullscreenParticipant.value.id);
@@ -936,13 +1035,13 @@ const attachFullscreenVideo = () => {
 const handleFullscreenChange = () => {
   const wasFullscreen = isFullscreen.value;
   isFullscreen.value = !!document.fullscreenElement;
-  
+
   if (isFullscreen.value && !wasFullscreen) {
     // Entering fullscreen
     showFullscreenControls.value = true;
     // Attach video track if screen share
     setTimeout(() => attachFullscreenVideo(), 100);
-    
+
     // Start hide timer
     clearTimeout(fullscreenControlsTimer);
     fullscreenControlsTimer = setTimeout(() => {
@@ -961,12 +1060,12 @@ const handleMouseMove = (event?: MouseEvent) => {
   if (isFullscreen.value) {
     showFullscreenControls.value = true;
     clearTimeout(fullscreenControlsTimer);
-    
+
     fullscreenControlsTimer = setTimeout(() => {
       showFullscreenControls.value = false;
     }, 3000);
   }
-  
+
   // Handle non-fullscreen mouse movement for auto-hiding controls
   if (event && !isFullscreen.value) {
     // Update current mouse position
@@ -1014,10 +1113,21 @@ const onVideoLoadedMetadata = (event: Event) => {
 // Handle video stream ended
 const onVideoEnded = (event: Event) => {
   const video = event.target as HTMLVideoElement;
-  
+
   // Clear the srcObject to prevent black video
-  video.srcObject = null;
-  
+  if (video.srcObject) {
+    const stream = video.srcObject as MediaStream;
+    // Stop all tracks in the stream
+    stream.getTracks().forEach(track => {
+      try {
+        track.stop();
+      } catch (error) {
+        console.warn('Failed to stop video track:', error);
+      }
+    });
+    video.srcObject = null;
+  }
+
   // Force a UI update to ensure we revert to avatar
   setTimeout(() => updateLiveKitStreams(), 100);
 };
@@ -1025,10 +1135,22 @@ const onVideoEnded = (event: Event) => {
 // Handle video errors
 const onVideoError = (event: Event) => {
   const video = event.target as HTMLVideoElement;
-  
+  console.warn('Video error occurred:', event);
+
   // Clear the srcObject to prevent stuck video
-  video.srcObject = null;
-  
+  if (video.srcObject) {
+    const stream = video.srcObject as MediaStream;
+    // Stop all tracks in the stream
+    stream.getTracks().forEach(track => {
+      try {
+        track.stop();
+      } catch (error) {
+        console.warn('Failed to stop video track on error:', error);
+      }
+    });
+    video.srcObject = null;
+  }
+
   // Force a UI update
   setTimeout(() => updateLiveKitStreams(), 100);
 };
@@ -1036,10 +1158,10 @@ const onVideoError = (event: Event) => {
 // Check if video stream is valid and has active tracks
 const isValidVideoStream = (stream: MediaStream): boolean => {
   if (!stream) return false;
-  
+
   const videoTracks = stream.getVideoTracks();
   if (videoTracks.length === 0) return false;
-  
+
   // Check if at least one video track is not ended
   return videoTracks.some(track => track.readyState !== 'ended' && track.enabled);
 };
@@ -1057,98 +1179,15 @@ const toggleDeafen = async () => {
   webrtcService.setMuted(appStore.selfDeafened || appStore.selfMuted);
 };
 
-const toggleCamera = async () => {
-  if (isTogglingCamera.value) return;
-  isTogglingCamera.value = true;
-  
-  try {
-    const localParticipant = livekitService.getLocalParticipant();
-    if (!localParticipant) return;
-
-    const isCameraEnabled = localParticipant.isCameraEnabled;
-
-    // If trying to enable camera, check permissions first
-    if (!isCameraEnabled) {
-      // Check camera permission before enabling
-      const permissionResult = await checkCameraPermission();
-      
-      if (!permissionResult.granted) {
-        // Show permission error message
-        addToast({
-          message: permissionResult.error || 'Camera access is required to enable video',
-          type: 'danger',
-          duration: 5000
-        });
-        isTogglingCamera.value = false;
-        return;
-      }
-    }
-    
-    // Ensure LiveKit connection (try fallback connection if needed)
-    const isConnected = await ensureLiveKitConnection();
-    if (!isConnected) {
-      addToast({message: 'Failed to connect to voice channel for camera', type: 'danger'});
-      isTogglingCamera.value = false;
-      return;
-    }
-
-    // Toggle camera
-    if (!isCameraEnabled) {
-      // Publish a camera track using the selected device + resolution
-      const existingPub: any = localParticipant.getTrackPublication(Track.Source.Camera);
-      if (existingPub?.track) {
-        try { await localParticipant.unpublishTrack(existingPub.track, true); } catch {}
-      }
-
-      const { selectedDeviceId, selectedQuality } = useCameraSettings();
-      const deviceId = selectedDeviceId.value || undefined;
-      const videoTrack = await createLocalVideoTrack({
-        deviceId: deviceId as any,
-        resolution: { width: selectedQuality.value.width, height: selectedQuality.value.height } as any
-      } as any);
-      await localParticipant.publishTrack(videoTrack, { source: Track.Source.Camera, name: 'camera' } as any);
-      try { isLocalCameraOn.value = true; } catch {}
-
-      // Immediately update our own preview to avoid race conditions
-      const uid = appStore.currentUserId as number | null;
-      if (uid && (videoTrack as any)?.mediaStreamTrack) {
-        const next = new Map(cameraStreams.value);
-        next.set(uid, new MediaStream([(videoTrack as any).mediaStreamTrack]));
-        cameraStreams.value = next;
-      }
-    } else {
-      await localParticipant.setCameraEnabled(false);
-      try { isLocalCameraOn.value = localParticipant.isCameraEnabled; } catch {}
-
-      // Proactively clear our own preview so it doesn't turn black with an ended track
-      const uid = appStore.currentUserId as number | null;
-      if (uid) {
-        const next = new Map(cameraStreams.value);
-        next.delete(uid);
-        cameraStreams.value = next;
-      }
-    }
-    
-    // Force update streams after camera toggle (delay to ensure track changes are processed)
-    setTimeout(() => updateLiveKitStreams(), 200);
-    
-  } catch (error: any) {
-    console.error('Camera toggle error:', error);
-    addToast({
-      message: error.message || 'Failed to toggle camera',
-      type: 'danger'
-    });
-  } finally {
-    isTogglingCamera.value = false;
-  }
-};
+// Camera toggle is now handled by the centralized composable
 
 const toggleScreenShare = async () => {
   if (isScreenShareLoading.value) return;
 
-  // Ensure LiveKit connection (try fallback connection if needed)
-  const isConnected = await ensureLiveKitConnection();
-  if (!isConnected) {
+  // Ensure LiveKit connection
+  try {
+    await livekitService.ensureConnected(channelId.value, getLiveKitIdentity());
+  } catch {
     addToast({message: 'Failed to connect to voice channel for screen sharing', type: 'danger'});
     return;
   }
@@ -1186,7 +1225,7 @@ const toggleScreenShare = async () => {
 
       }, 200);
 
-      
+
     } else {
 
 
@@ -1210,7 +1249,7 @@ const toggleScreenShare = async () => {
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
 
 
-      
+
     }
   } catch (error: any) {
     console.error('Screen share error:', error);
@@ -1398,13 +1437,13 @@ const attachLocalParticipantCameraListeners = () => {
     if (!localParticipant) return;
     localParticipant.on('trackPublished', (publication: any) => {
       if (publication?.source === Track.Source.Camera) {
-        try { isLocalCameraOn.value = true; } catch {}
+        // Camera state is handled by the centralized composable
         setTimeout(() => updateLiveKitStreams(), 100);
       }
     });
     localParticipant.on('trackUnpublished', (publication: any) => {
       if (publication?.source === Track.Source.Camera) {
-        try { isLocalCameraOn.value = false; } catch {}
+        // Camera state is handled by the centralized composable
         const uid = appStore.currentUserId as number | null;
         if (uid) {
           const next = new Map(cameraStreams.value);
@@ -1417,42 +1456,7 @@ const attachLocalParticipantCameraListeners = () => {
   } catch {}
 };
 
-// LiveKit connection management
-const ensureLiveKitConnection = async (): Promise<boolean> => {
-  // Check if already connected
-  if (livekitService.isRoomConnected()) {
-    attachLocalParticipantCameraListeners();
-    return true;
-  }
-
-  // Try to connect if not connected
-  if (!appStore.currentServer || !channelId.value) {
-    console.error('❌ Cannot connect to LiveKit: missing server or channel info');
-    return false;
-  }
-
-  try {
-
-
-    // Use numeric user id as LiveKit identity so mapping works across clients
-    const identity = String(appStore.currentUserId ?? `user_${Date.now()}`);
-    await livekitService.connectToRoom(channelId.value, identity);
-
-
-    // Force a stream update after connecting
-    setTimeout(() => {
-      updateLiveKitStreams();
-
-    }, 1000);
-
-    // Attach local participant camera listeners shortly after connect
-    setTimeout(() => attachLocalParticipantCameraListeners(), 100);
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to connect to LiveKit:', error);
-    return false;
-  }
-};
+// LiveKit connection is handled via livekitService.ensureConnected where needed
 
 // Keep participants' media in sync with LiveKit events
 const updateLiveKitStreams = () => {
@@ -1474,7 +1478,7 @@ const updateLiveKitStreams = () => {
       if (!uid) {
         return;
       }
-      
+
       // Monitor audio for voice activity detection
       if (pub.source === Track.Source.Microphone && pub.track && !pub.isMuted) {
         try {
@@ -1502,9 +1506,10 @@ const updateLiveKitStreams = () => {
           }
         }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera) {
-        // Include camera streams regardless of muted state to handle toggling properly
-        const stream = new MediaStream([pub.track.mediaStreamTrack]);
-        newCamMap.set(uid, stream);
+        // Include camera streams; skip ended
+        if ((pub.track.mediaStreamTrack as any).readyState !== 'ended') {
+          newCamMap.set(uid, new MediaStream([pub.track.mediaStreamTrack]));
+        }
       }
     });
   });
@@ -1526,7 +1531,7 @@ const updateLiveKitStreams = () => {
             console.warn('Failed to monitor local audio level:', error);
           }
         }
-        
+
         if (pub.source === Track.Source.ScreenShare && pub.track?.kind === 'video' && !pub.isMuted) {
         newScreenMap.set(uid, pub.track as any);
 
@@ -1542,9 +1547,10 @@ const updateLiveKitStreams = () => {
           }
         }
       } else if (pub.kind === 'video' && pub.track?.mediaStreamTrack && pub.source === Track.Source.Camera) {
-        // Handle local camera track specifically, regardless of muted state
-        const stream = new MediaStream([pub.track.mediaStreamTrack]);
-        newCamMap.set(uid, stream);
+        // Handle local camera track; skip ended
+        if ((pub.track.mediaStreamTrack as any).readyState !== 'ended') {
+          newCamMap.set(uid, new MediaStream([pub.track.mediaStreamTrack]));
+        }
       }
       });
     }
@@ -1567,7 +1573,7 @@ watch(
 
       // Ensure we are connected to LiveKit to receive screen shares
       if (current.size > 0 && !livekitService.isRoomConnected()) {
-        ensureLiveKitConnection().then(() => {
+        livekitService.ensureConnected(channelId.value, getLiveKitIdentity()).then(() => {
           // After connecting, update streams soon after join
           setTimeout(() => updateLiveKitStreams(), 500);
         }).catch(() => {
@@ -1619,9 +1625,9 @@ watch(() => participants.value.map(p => p.id).join(','), () => updateLiveKitStre
 watch(() => cameraStreams.value, (newStreams, oldStreams) => {
   const newIds = Array.from(newStreams.keys()).sort();
   const oldIds = oldStreams ? Array.from(oldStreams.keys()).sort() : [];
-  
+
   if (newIds.join(',') !== oldIds.join(',')) {
-    
+
     // Clean up removed streams
     if (oldStreams) {
       oldStreams.forEach((stream, userId) => {
@@ -1640,9 +1646,17 @@ watch(() => cameraStreams.value, (newStreams, oldStreams) => {
   }
 }, { deep: true });
 
+// Hold references to LiveKit event handlers so we can unregister on unmount
+let lkOnTrackSub: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void) | null = null;
+let lkOnTrackUnsub: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void) | null = null;
+let lkOnParticipantDisc: ((participant: RemoteParticipant) => void) | null = null;
+let lkOnTrackMuted: ((publication: any, participant: any) => void) | null = null;
+let lkOnTrackUnmuted: ((publication: any, participant: any) => void) | null = null;
+let lkOnLocalScreenStopped: (() => void) | null = null;
+
 onMounted(async () => {
-  // Initialize shared camera state listeners
-  try { ensureCameraStateInitialized(); } catch {}
+  // Initialize centralized camera state
+  initializeCameraState();
   // Attach local participant listeners if already connected
   attachLocalParticipantCameraListeners();
   
@@ -1659,9 +1673,16 @@ onMounted(async () => {
   }
 
   // LiveKit events: update media maps in real time
-  const onTrackSub = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+  lkOnTrackSub = (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     const uid = resolveUserIdForIdentity(participant.identity);
     if (!uid) return;
+
+    console.log(`Track subscribed for user ${uid}:`, {
+      trackKind: track.kind,
+      source: publication.source,
+      trackId: (track as any).mediaStreamTrack?.id,
+      readyState: (track as any).mediaStreamTrack?.readyState
+    });
 
     if (publication.source === Track.Source.ScreenShare && track.kind === 'video') {
       const next = new Map(screenShareTracks.value);
@@ -1678,10 +1699,9 @@ onMounted(async () => {
         } catch {
         }
       }
-    } else if (publication.kind === 'video' && publication.track?.mediaStreamTrack && publication.source === Track.Source.Camera) {
-      const next = new Map(cameraStreams.value);
-      next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
-      cameraStreams.value = next;
+    } else if (publication.kind === 'video' && publication.track && publication.source === Track.Source.Camera) {
+      // Map immediately if track is valid; otherwise retry a few times as devices/track restarts can race
+      tryMapCameraFromPublication(uid, publication as any, 6, 200);
     } else if (publication.kind === 'audio' && ((publication as any).source === (Track as any).Source.ScreenShareAudio || publication.source === Track.Source.ScreenShare)) {
       // Do not play our own screen share audio locally
       if (appStore.currentUserId && uid === appStore.currentUserId) {
@@ -1712,9 +1732,17 @@ onMounted(async () => {
     }
   };
 
-  const onTrackUnsub = (_track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+  lkOnTrackUnsub = (_track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     const uid = resolveUserIdForIdentity(participant.identity);
     if (!uid) return;
+    
+    console.log(`Track unsubscribed for user ${uid}:`, {
+      trackKind: publication.kind,
+      source: publication.source,
+      trackId: (_track as any).mediaStreamTrack?.id,
+      readyState: (_track as any).mediaStreamTrack?.readyState
+    });
+    
     if (publication.source === Track.Source.ScreenShare && publication.kind === 'video') {
       const el = screenVideoRefs.value.get(uid);
       if (el) {
@@ -1727,6 +1755,7 @@ onMounted(async () => {
       next.delete(uid);
       screenShareTracks.value = next;
     } else if (publication.kind === 'video' && publication.source === Track.Source.Camera) {
+      console.log(`Removing camera stream for user ${uid}`);
       const next = new Map(cameraStreams.value);
       next.delete(uid);
       cameraStreams.value = next;
@@ -1742,7 +1771,7 @@ onMounted(async () => {
     }
   };
 
-  const onParticipantDisc = (participant: RemoteParticipant) => {
+  lkOnParticipantDisc = (participant: RemoteParticipant) => {
     const uid = resolveUserIdForIdentity(participant.identity);
     if (!uid) return;
     const el = screenVideoRefs.value.get(uid);
@@ -1772,12 +1801,12 @@ onMounted(async () => {
     screenShareLoading.value = nextL;
   };
 
-  livekitService.onTrackSubscribed(onTrackSub);
-  livekitService.onTrackUnsubscribed(onTrackUnsub);
-  livekitService.onParticipantDisconnected(onParticipantDisc);
+  livekitService.onTrackSubscribed(lkOnTrackSub);
+  livekitService.onTrackUnsubscribed(lkOnTrackUnsub);
+  livekitService.onParticipantDisconnected(lkOnParticipantDisc);
 
   // React to mute/unmute of camera tracks (including local)
-  livekitService.onTrackMuted((publication: any, participant: any) => {
+  lkOnTrackMuted = (publication: any, participant: any) => {
     try {
       const uid = resolveUserIdForIdentity(participant?.identity);
       if (!uid) return;
@@ -1805,15 +1834,16 @@ onMounted(async () => {
         screenShareAudioEls.value = next;
       }
     } catch {}
-  });
-  livekitService.onTrackUnmuted((publication: any, participant: any) => {
+  };
+  livekitService.onTrackMuted(lkOnTrackMuted);
+
+  lkOnTrackUnmuted = (publication: any, participant: any) => {
     try {
-      if (publication?.kind === 'video' && publication?.source === Track.Source.Camera && publication?.track?.mediaStreamTrack) {
+      if (publication?.kind === 'video' && publication?.source === Track.Source.Camera && publication?.track) {
         const uid = resolveUserIdForIdentity(participant?.identity);
         if (!uid) return;
-        const next = new Map(cameraStreams.value);
-        next.set(uid, new MediaStream([publication.track.mediaStreamTrack]));
-        cameraStreams.value = next;
+        // Map now or retry until a valid mediaStreamTrack becomes available
+        tryMapCameraFromPublication(uid, publication, 6, 200);
       }
       if (publication?.kind === 'audio' && (publication?.source === (Track as any).Source.ScreenShareAudio || publication?.source === Track.Source.ScreenShare)) {
         const uid = resolveUserIdForIdentity(participant?.identity);
@@ -1843,7 +1873,8 @@ onMounted(async () => {
         screenShareAudioEls.value = next;
       }
     } catch {}
-  });
+  };
+  livekitService.onTrackUnmuted(lkOnTrackUnmuted);
 
   // Camera state is managed by the shared composable, but we still need to update streams
   if (livekitService.getLocalParticipant()) {
@@ -1872,7 +1903,7 @@ onMounted(async () => {
   }
 
   // React when local user stops screen share via browser UI
-  livekitService.onLocalScreenShareStopped(async () => {
+  lkOnLocalScreenStopped = async () => {
 
     // derived via store
     // Remove local screen share track and loading
@@ -1895,7 +1926,8 @@ onMounted(async () => {
     }
     // Refresh streams
     setTimeout(() => updateLiveKitStreams(), 100);
-  });
+  };
+  livekitService.onLocalScreenShareStopped(lkOnLocalScreenStopped);
 
   // Subscribe to WebRTC remote streams to drive speaking indicator (voice audio)
   try {
@@ -1922,7 +1954,7 @@ onMounted(async () => {
 });
 
 // Keep preview responsive to camera being turned on
-watch(() => isLocalCameraOn.value, (on) => {
+watch(() => isCameraOn.value, (on) => {
   if (on) {
     setTimeout(() => updateLiveKitStreams(), 150);
   }
@@ -1933,7 +1965,7 @@ watch([
   () => selectedCamQuality.value.value,
   () => selectedDeviceId.value
 ], async () => {
-  if (!isLocalCameraOn.value) return;
+  if (!isCameraOn.value) return;
   try {
     const w = selectedCamQuality.value.width;
     const h = selectedCamQuality.value.height;
@@ -1988,6 +2020,23 @@ onUnmounted(() => {
       }
     }
   });
+
+  // Cleanup camera track 'ended' listeners
+  try {
+    cameraTrackEndListeners.value.forEach(off => { try { off(); } catch {} });
+    cameraTrackEndListeners.value.clear();
+  } catch {}
+
+  // Unregister LiveKit callbacks to avoid duplicate handlers on remount
+  try {
+    if (lkOnTrackSub) livekitService.offTrackSubscribed(lkOnTrackSub);
+    if (lkOnTrackUnsub) livekitService.offTrackUnsubscribed(lkOnTrackUnsub);
+    if (lkOnParticipantDisc) livekitService.offParticipantDisconnected(lkOnParticipantDisc);
+    if (lkOnTrackMuted) livekitService.offTrackMuted(lkOnTrackMuted);
+    if (lkOnTrackUnmuted) livekitService.offTrackUnmuted(lkOnTrackUnmuted);
+    if (lkOnLocalScreenStopped) livekitService.offLocalScreenShareStopped(lkOnLocalScreenStopped);
+  } catch {}
+  lkOnTrackSub = null; lkOnTrackUnsub = null; lkOnParticipantDisc = null; lkOnTrackMuted = null; lkOnTrackUnmuted = null; lkOnLocalScreenStopped = null;
 });
 
 

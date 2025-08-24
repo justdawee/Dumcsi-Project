@@ -40,7 +40,13 @@ export interface ScreenShareQualitySettings {
 export class LiveKitService {
     private room: Room | null = null;
     private isConnected = false;
+    private isConnecting = false;
+    private connectSeq = 0; // monotonically increasing attempt id
+    private connectPromise: Promise<void> | null = null;
     private screenShareTrack: LocalTrackPublication | null = null;
+    private currentChannelId: EntityId | null = null;
+    private currentIdentity: string | null = null;
+    private userInitiatedDisconnect = false;
     private onParticipantConnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
     private onParticipantDisconnectedCallbacks: ((participant: RemoteParticipant) => void)[] = [];
     private onTrackSubscribedCallbacks: ((track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void)[] = [];
@@ -77,84 +83,125 @@ export class LiveKitService {
     }
 
     async connectToRoom(channelId: EntityId, participantName?: string): Promise<void> {
-        try {
-            // Use default participant name if not provided
-            const effectiveParticipantName = participantName || `user_${Date.now()}`;
-            
-            if (this.room) {
-                await this.disconnectFromRoom();
-            }
+        const effectiveParticipantName = participantName || `user_${Date.now()}`;
 
-            const serverInfo = await this.getServerInfo();
-            
-            const roomName = `channel_${channelId}`;
-            
-            const token = await this.getAccessToken(roomName, effectiveParticipantName);
+        // Idempotent: if already connected to the same channel with the same identity, do nothing
+        if (this.isRoomConnected() && this.currentChannelId === channelId && this.currentIdentity === String(effectiveParticipantName)) {
+            return;
+        }
 
-            // Create room with proper LiveKit options
-            this.room = new Room({
-                // Enable adaptive streaming
-                adaptiveStream: true,
-                // Dynacast for better bandwidth management
-                dynacast: true,
-            });
-            
-            this.setupRoomEventListeners();
+        // If a connect is in-flight to the same target, return the same promise
+        if (this.isConnecting && this.currentChannelId === channelId && this.currentIdentity === String(effectiveParticipantName) && this.connectPromise) {
+            return this.connectPromise;
+        }
 
-            
-            
-            // Connect with enhanced WebRTC configuration
-            await this.room.connect(serverInfo.url, token, {
-                // Configure ICE servers for better NAT traversal
-                rtcConfig: {
-                    iceServers: [
-                        // Google's public STUN servers
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        // Additional STUN servers for redundancy
-                        { urls: 'stun:stun.cloudflare.com:3478' },
-                    ],
-                    iceCandidatePoolSize: 10,
-                },
-                // Auto-subscribe to tracks
-                autoSubscribe: true,
-            });
-            this.isConnected = true;
-        } catch (error) {
-            console.error(`❌ Failed to connect to LiveKit room:`, error);
-            
-            // Provide more specific error information
-            if (error instanceof Error) {
-                console.error('Error details:', {
-                    name: error.name,
-                    message: error.message,
-                    stack: error.stack
+        const attemptId = ++this.connectSeq;
+        this.isConnecting = true;
+        this.currentChannelId = channelId;
+        this.currentIdentity = String(effectiveParticipantName);
+
+        // Create a new attempt promise and store it so concurrent callers share it
+        const attempt = (async () => {
+            try {
+                // If we have an existing room (connected or connecting), disconnect without spamming errors
+                if (this.room) {
+                    this.userInitiatedDisconnect = true;
+                    try { await this.room.disconnect(); } catch { /* ignore */ }
+                    this.room = null;
+                    this.isConnected = false;
+                    this.userInitiatedDisconnect = false;
+                }
+
+                const serverInfo = await this.getServerInfo();
+                const roomName = `channel_${channelId}`;
+                const token = await this.getAccessToken(roomName, effectiveParticipantName);
+
+                // Create a fresh room
+                const room = new Room({ adaptiveStream: true, dynacast: true });
+                this.room = room;
+                this.setupRoomEventListeners();
+
+                // Connect with enhanced WebRTC configuration
+                await room.connect(serverInfo.url, token, {
+                    rtcConfig: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun.cloudflare.com:3478' },
+                        ],
+                        iceCandidatePoolSize: 10,
+                    },
+                    autoSubscribe: true,
                 });
-                
-                // Check for common connection issues
-                if (error.message.includes('could not establish pc connection')) {
-                    console.error('💡 WebRTC peer connection failed. This could be due to:');
-                    console.error('   - Network connectivity issues');
-                    console.error('   - Firewall blocking WebRTC traffic');
-                    console.error('   - NAT traversal problems (STUN/TURN configuration)');
-                    console.error('   - LiveKit server WebRTC configuration issues');
+
+                // If another attempt started meanwhile, gracefully disconnect this one
+                if (attemptId !== this.connectSeq) {
+                    try { await room.disconnect(); } catch { /* ignore */ }
+                    return; // don't mark connected
+                }
+
+                this.isConnected = true;
+            } catch (error: any) {
+                // Treat client-initiated disconnects during reconnects as benign
+                const msg = (error && (error.message || String(error))) || '';
+                const isClientAbort = typeof msg === 'string' && msg.toLowerCase().includes('client initiated disconnect');
+                if (isClientAbort || this.userInitiatedDisconnect) {
+                    // Downgrade to info to avoid noisy console
+                    console.info('LiveKit: connection attempt aborted by client (expected during reconnect).');
+                    return;
+                }
+
+                // Provide context but avoid overly noisy logs
+                console.warn('LiveKit: failed to connect:', error?.message || error);
+                throw error;
+            } finally {
+                // Only clear connecting state if this is the last attempt
+                if (attemptId === this.connectSeq) {
+                    this.isConnecting = false;
+                    this.connectPromise = null;
                 }
             }
-            
-            throw error;
-        }
+        })();
+
+        this.connectPromise = attempt;
+        return attempt;
     }
 
     async disconnectFromRoom(): Promise<void> {
-        if (this.room) {
+        if (!this.room) return;
+        try {
             if (this.screenShareTrack) {
                 await this.stopScreenShare();
             }
             
+            // Clean up all local tracks before disconnecting
+            const localParticipant = this.room.localParticipant;
+            if (localParticipant) {
+                // Stop all local tracks
+                localParticipant.trackPublications.forEach(pub => {
+                    if (pub.track && pub.track.source) {
+                        try {
+                            const mediaTrack = (pub.track as any)?.mediaStreamTrack;
+                            if (mediaTrack && mediaTrack.stop) {
+                                mediaTrack.stop();
+                            }
+                        } catch (error) {
+                            console.warn('Failed to stop local track:', error);
+                        }
+                    }
+                });
+            }
+        } catch { /* ignore */ }
+        try {
+            this.userInitiatedDisconnect = true;
             await this.room.disconnect();
+        } catch { /* ignore */ }
+        finally {
+            this.userInitiatedDisconnect = false;
             this.room = null;
             this.isConnected = false;
-            
+            this.isConnecting = false;
+            this.connectPromise = null;
         }
     }
 
@@ -347,6 +394,17 @@ export class LiveKitService {
         return participants;
     }
 
+    async ensureConnected(channelId: EntityId, participantName?: string): Promise<void> {
+        if (
+            this.isRoomConnected() &&
+            this.currentChannelId === channelId &&
+            this.currentIdentity === String(participantName || '')
+        ) {
+            return;
+        }
+        return this.connectToRoom(channelId, participantName);
+    }
+
     getLocalParticipant(): LocalParticipant | null {
         return this.room?.localParticipant || null;
     }
@@ -415,29 +473,50 @@ export class LiveKitService {
     onParticipantConnected(callback: (participant: RemoteParticipant) => void): void {
         this.onParticipantConnectedCallbacks.push(callback);
     }
+    offParticipantConnected(callback: (participant: RemoteParticipant) => void): void {
+        this.onParticipantConnectedCallbacks = this.onParticipantConnectedCallbacks.filter(cb => cb !== callback);
+    }
 
     onParticipantDisconnected(callback: (participant: RemoteParticipant) => void): void {
         this.onParticipantDisconnectedCallbacks.push(callback);
+    }
+    offParticipantDisconnected(callback: (participant: RemoteParticipant) => void): void {
+        this.onParticipantDisconnectedCallbacks = this.onParticipantDisconnectedCallbacks.filter(cb => cb !== callback);
     }
 
     onTrackSubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
         this.onTrackSubscribedCallbacks.push(callback);
     }
+    offTrackSubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackSubscribedCallbacks = this.onTrackSubscribedCallbacks.filter(cb => cb !== callback);
+    }
 
     onTrackUnsubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
         this.onTrackUnsubscribedCallbacks.push(callback);
+    }
+    offTrackUnsubscribed(callback: (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackUnsubscribedCallbacks = this.onTrackUnsubscribedCallbacks.filter(cb => cb !== callback);
     }
 
     onTrackMuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
         this.onTrackMutedCallbacks.push(callback);
     }
+    offTrackMuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackMutedCallbacks = this.onTrackMutedCallbacks.filter(cb => cb !== callback);
+    }
 
     onTrackUnmuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
         this.onTrackUnmutedCallbacks.push(callback);
     }
+    offTrackUnmuted(callback: (publication: RemoteTrackPublication, participant: RemoteParticipant) => void): void {
+        this.onTrackUnmutedCallbacks = this.onTrackUnmutedCallbacks.filter(cb => cb !== callback);
+    }
 
     onLocalScreenShareStopped(callback: () => void): void {
         this.onLocalScreenShareStoppedCallbacks.push(callback);
+    }
+    offLocalScreenShareStopped(callback: () => void): void {
+        this.onLocalScreenShareStoppedCallbacks = this.onLocalScreenShareStoppedCallbacks.filter(cb => cb !== callback);
     }
 
     private triggerLocalScreenShareStopped(): void {
