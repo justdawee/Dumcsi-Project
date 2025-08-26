@@ -22,6 +22,7 @@ public class DumcsiDbContext(DbContextOptions<DumcsiDbContext> options) : DbCont
     public DbSet<Invite> Invites { get; set; }
     public DbSet<FriendRequest> FriendRequests { get; set; }
     public DbSet<Friendship> Friendships { get; set; }
+    public DbSet<BlockedUser> BlockedUsers { get; set; }
     public DbSet<DmSetting> DmSettings { get; set; }
     public DbSet<DmRequest> DmRequests { get; set; }
     public DbSet<DmMessage> DmMessages { get; set; }
