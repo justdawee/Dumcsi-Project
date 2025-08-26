@@ -14,6 +14,21 @@
     <div class="flex-1">
       <p class="font-bold text-text-default">{{ title || typeClasses.title }}</p>
       <p class="mt-1 text-sm text-text-secondary">{{ message }}</p>
+      <div v-if="actions && actions.length" class="mt-2 flex gap-2">
+        <button
+          v-for="(a, idx) in actions"
+          :key="idx"
+          @click="$emit('action', a)"
+          :class="[
+            'px-2 py-1 rounded text-sm transition-colors',
+            a.variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
+            a.variant === 'secondary' ? 'bg-bg-hover text-text-default hover:bg-main-700' :
+            'bg-primary text-white hover:bg-primary/90'
+          ]"
+        >
+          {{ a.label }}
+        </button>
+      </div>
     </div>
 
     <button
@@ -33,15 +48,16 @@
 import {computed} from 'vue';
 import type {Component} from 'vue';
 import {CheckCircle2, XCircle, AlertTriangle, Info, X} from 'lucide-vue-next';
-import type {ToastType} from '@/composables/useToast';
+import type {ToastType, ToastAction} from '@/composables/useToast';
 
 const props = defineProps<{
   message: string;
   type: ToastType;
   title?: string;
+  actions?: ReadonlyArray<Readonly<ToastAction>>;
 }>();
 
-defineEmits(['close']);
+defineEmits(['close', 'action']);
 
 const typeClasses = computed(() => {
   switch (props.type) {

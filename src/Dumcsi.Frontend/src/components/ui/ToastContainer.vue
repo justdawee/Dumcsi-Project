@@ -7,7 +7,9 @@
           :message="toast.message"
           :title="toast.title"
           :type="toast.type"
+          :actions="toast.actions"
           @close="removeToast(toast.id)"
+          @action="(a) => { try { a.action(); } finally { removeToast(toast.id); } }"
       />
     </TransitionGroup>
   </div>
