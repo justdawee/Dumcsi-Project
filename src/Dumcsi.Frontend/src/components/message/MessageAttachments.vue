@@ -3,34 +3,46 @@
     <div
         v-for="attachment in attachments"
         :key="attachment.id"
-        class="attachment-container relative inline-block group"
+        class="attachment-container relative inline-block group rounded-lg overflow-hidden"
     >
-      <img
-          v-if="isImage(attachment)"
-          :src="attachment.fileUrl"
-          :alt="attachment.fileName"
-          class="preview-media rounded-lg cursor-pointer"
-          @load="notifyMediaLoaded"
-          @click="openPreview(attachment)"
-      />
+      <div v-if="isImage(attachment)" class="relative border border-border-default/50 rounded-lg overflow-hidden inline-block">
+        <div class="label-badge">{{ getAttachmentLabel(attachment) }}</div>
+        <img
+            :src="attachment.fileUrl"
+            :alt="attachment.fileName"
+            class="preview-media cursor-pointer"
+            @load="notifyMediaLoaded"
+            @click="openPreview(attachment)"
+        />
+      </div>
       <template v-else-if="isVideo(attachment)">
-        <video
-            controls
-            class="preview-media rounded-lg"
-            @loadedmetadata="notifyMediaLoaded"
-        >
-          <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
-        </video>
-        <button
-            class="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/80 transition"
-            @click.stop="openVideoPreview(attachment, $event)"
-        >
-          <ExternalLink class="w-4 h-4" />
-        </button>
+        <div class="relative border border-border-default/50 rounded-lg overflow-hidden inline-block">
+          <div class="label-badge">{{ getAttachmentLabel(attachment) }}</div>
+          <video
+              controls
+              class="preview-media"
+              @loadedmetadata="notifyMediaLoaded"
+          >
+            <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+          </video>
+          <button
+              class="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/80 transition"
+              @click.stop="openVideoPreview(attachment, $event)"
+          >
+            <ExternalLink class="w-4 h-4" />
+          </button>
+        </div>
       </template>
-      <audio v-else-if="isAudio(attachment)" controls class="w-full">
-        <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
-      </audio>
+      <div v-else-if="isAudio(attachment)" class="bg-bg-surface border border-border-default rounded-lg p-3 max-w-md relative">
+        <div class="label-badge">{{ getAttachmentLabel(attachment) }}</div>
+        <div class="flex items-center gap-2 mb-2">
+          <ExternalLink class="w-4 h-4 text-text-muted" />
+          <span class="text-sm text-text-secondary">Audio File</span>
+        </div>
+        <audio controls class="w-full">
+          <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+        </audio>
+      </div>
       <a
           v-else
           :href="attachment.fileUrl"
@@ -73,6 +85,16 @@ const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
 const isVideo = (a: AttachmentDto) => a.contentType?.startsWith('video/');
 const isAudio = (a: AttachmentDto) => a.contentType?.startsWith('audio/');
 
+const getAttachmentLabel = (a: AttachmentDto) => {
+  if (isImage(a)) {
+    if (a.fileName?.toLowerCase().endsWith('.gif') || a.contentType === 'image/gif') return 'GIF';
+    return 'Image';
+  }
+  if (isVideo(a)) return 'Video';
+  if (isAudio(a)) return 'Audio';
+  return 'File';
+};
+
 const showPreview = ref(false);
 const selected = ref<AttachmentDto | null>(null);
 
@@ -105,8 +127,14 @@ watch(showPreview, (open) => {
 </script>
 
 <style scoped>
+@reference "@/style.css";
+
 .preview-media {
-  max-width: 400px;
-  max-height: 240px;
+  max-width: 480px;
+  max-height: 270px;
+}
+
+.label-badge {
+  @apply absolute top-2 left-2 bg-black/60 text-white text-[11px] px-2 py-0.5 rounded;
 }
 </style>

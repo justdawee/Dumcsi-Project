@@ -4,22 +4,13 @@
       <component :is="renderNode(item.node)" />
     </template>
 
-    <!-- Keep modal within single-root to avoid extraneous attrs warning -->
-    <AttachmentPreviewModal
-        v-if="selectedGif"
-        v-model="showGifPreview"
-        :attachment="selectedGif"
-        @update:modelValue="onGifPreviewClose"
-    />
   </span>
 </template>
 
 <script lang="ts" setup>
-import { computed, h, ref, watch, nextTick, type VNode } from 'vue';
+import { computed, h, type VNode } from 'vue';
 import { useAppStore } from '@/stores/app';
 import { MarkdownParser, type ParsedNode } from '@/services/markdownParser';
-import AttachmentPreviewModal from './AttachmentPreviewModal.vue';
-import type { AttachmentDto } from '@/services/types';
 
 const props = defineProps<{
   content: string;
@@ -54,37 +45,6 @@ const userMap = computed(() => {
   return map;
 });
 
-const showGifPreview = ref(false);
-const selectedGif = ref<AttachmentDto | null>(null);
-
-const openGifPreview = (url: string) => {
-  selectedGif.value = {
-    id: 0,
-    fileName: 'gif',
-    fileUrl: url,
-    fileSize: 0,
-    contentType: 'image/gif',
-    height: null,
-    width: null,
-    duration: null,
-    waveform: null,
-  };
-  nextTick(() => {
-    showGifPreview.value = true;
-  });
-};
-
-const onGifPreviewClose = (val: boolean) => {
-  showGifPreview.value = val;
-};
-
-watch(showGifPreview, (open) => {
-  if (!open) {
-    setTimeout(() => {
-      selectedGif.value = null;
-    }, 200);
-  }
-});
 
 const roleMap = computed(() => {
   const map = new Map<string, any>();
@@ -189,18 +149,6 @@ const renderNode = (node: ParsedNode): VNode => {
 
     case 'link':
       const url = node.data?.href as string | undefined;
-      if (url && url.includes('tenor.com') && url.toLowerCase().endsWith('.gif')) {
-        return h('img', {
-          src: url,
-          alt: 'GIF',
-          class: 'preview-media rounded-lg cursor-pointer',
-          loading: 'lazy',
-          onClick: () => openGifPreview(url),
-          onLoad: () => {
-            try { window.dispatchEvent(new CustomEvent('messageMediaLoaded')); } catch {}
-          }
-        });
-      }
       return h('a', {
         href: url,
         target: '_blank',
