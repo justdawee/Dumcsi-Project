@@ -14,6 +14,10 @@ public class ChatHub(IPresenceService presenceService) : Hub
     private static readonly ConcurrentDictionary<string, HashSet<long>> TypingUsers = new();
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> TypingTimers = new();
 
+    // DM typing state: key is sorted pair "min:max" identifying a DM conversation
+    private static readonly ConcurrentDictionary<string, HashSet<long>> DmTypingUsers = new();
+    private static readonly ConcurrentDictionary<string, CancellationTokenSource> DmTypingTimers = new();
+
     // Track screen sharing users per channel for server-wide visibility and initial sync
     private static readonly ConcurrentDictionary<string, HashSet<long>> ScreenSharesByChannel = new();
 
@@ -73,6 +77,26 @@ public class ChatHub(IPresenceService presenceService) : Hub
             foreach (var key in userTimerKeys)
             {
                 if (TypingTimers.TryRemove(key, out var timer))
+                {
+                    timer.Cancel();
+                    timer.Dispose();
+                }
+            }
+
+            // Clean up DM typing indicators on disconnect
+            foreach (var kvp in DmTypingUsers)
+            {
+                if (long.TryParse(userId, out var userIdLong))
+                {
+                    await RemoveDmTypingUser(kvp.Key, userIdLong);
+                }
+            }
+
+            // Cancel all DM typing timers for this user
+            var dmTimerKeys = DmTypingTimers.Keys.Where(k => k.EndsWith($":{userId}")).ToList();
+            foreach (var key in dmTimerKeys)
+            {
+                if (DmTypingTimers.TryRemove(key, out var timer))
                 {
                     timer.Cancel();
                     timer.Dispose();
@@ -276,6 +300,103 @@ public class ChatHub(IPresenceService presenceService) : Hub
             // Notify ALL users in the server about the new voice channel user
             await Clients.Group(serverId)
                 .SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
+        }
+    }
+
+    // --- Direct Message Typing Methods ---
+
+    private static string GetDmKey(long a, long b)
+    {
+        return a < b ? $"{a}:{b}" : $"{b}:{a}";
+    }
+
+    public async Task SendDmTypingIndicator(string otherUserId)
+    {
+        var selfId = Context.UserIdentifier;
+        if (selfId != null && long.TryParse(selfId, out var selfLong) && long.TryParse(otherUserId, out var otherLong))
+        {
+            var key = GetDmKey(selfLong, otherLong);
+            var timerKey = $"{key}:{selfId}";
+
+            if (DmTypingTimers.TryRemove(timerKey, out var existingTimer))
+            {
+                existingTimer.Cancel();
+                existingTimer.Dispose();
+            }
+
+            var users = DmTypingUsers.GetOrAdd(key, _ => new HashSet<long>());
+            bool wasAdded;
+            lock (users)
+            {
+                wasAdded = users.Add(selfLong);
+            }
+
+            if (wasAdded)
+            {
+                // Notify the other user only
+                await Clients.User(otherUserId).SendAsync("DmUserTyping", selfLong);
+            }
+
+            var cts = new CancellationTokenSource();
+            DmTypingTimers[timerKey] = cts;
+
+            _ = Task.Delay(5000, cts.Token).ContinueWith(async (_) =>
+            {
+                await RemoveDmTypingUser(key, selfLong);
+
+                var pairToRemove = new KeyValuePair<string, CancellationTokenSource>(timerKey, cts);
+                if (((ICollection<KeyValuePair<string, CancellationTokenSource>>)DmTypingTimers).Remove(pairToRemove))
+                {
+                    cts.Dispose();
+                }
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
+    }
+
+    public async Task StopDmTypingIndicator(string otherUserId)
+    {
+        var selfId = Context.UserIdentifier;
+        if (selfId != null && long.TryParse(selfId, out var selfLong) && long.TryParse(otherUserId, out var otherLong))
+        {
+            var key = GetDmKey(selfLong, otherLong);
+            var timerKey = $"{key}:{selfId}";
+            if (DmTypingTimers.TryRemove(timerKey, out var timer))
+            {
+                timer.Cancel();
+                timer.Dispose();
+            }
+
+            await RemoveDmTypingUser(key, selfLong);
+        }
+    }
+
+    private async Task RemoveDmTypingUser(string key, long userIdLong)
+    {
+        if (DmTypingUsers.TryGetValue(key, out var users))
+        {
+            bool wasRemoved;
+            long otherUserIdLong = 0;
+            lock (users)
+            {
+                wasRemoved = users.Remove(userIdLong);
+                // Determine other participant from key
+                var parts = key.Split(':');
+                if (parts.Length == 2 && long.TryParse(parts[0], out var a) && long.TryParse(parts[1], out var b))
+                {
+                    otherUserIdLong = (a == userIdLong) ? b : a;
+                }
+
+                if (users.Count == 0)
+                {
+                    DmTypingUsers.TryRemove(key, out _);
+                }
+            }
+
+            if (wasRemoved && otherUserIdLong != 0)
+            {
+                await Clients.User(otherUserIdLong.ToString())
+                    .SendAsync("DmUserStoppedTyping", userIdLong);
+            }
         }
     }
 

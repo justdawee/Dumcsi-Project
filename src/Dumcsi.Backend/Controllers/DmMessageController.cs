@@ -43,9 +43,25 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
              (r.FromUserId == targetUserId && r.ToUserId == CurrentUserId)) &&
             r.Status == DmRequestStatus.Accepted, cancellationToken);
 
-        if (!areFriends && !hasAcceptedRequest)
+        // Also allow right after a friend request is accepted, even if friendship cache/UI hasn't caught up yet
+        var hasAcceptedFriendRequest = await dbContext.FriendRequests.AnyAsync(fr =>
+            ((fr.FromUserId == CurrentUserId && fr.ToUserId == targetUserId) ||
+             (fr.FromUserId == targetUserId && fr.ToUserId == CurrentUserId)) &&
+            fr.Status == FriendRequestStatus.Accepted, cancellationToken);
+
+        // Block check
+        var isBlocked = await dbContext.Set<BlockedUser>().AnyAsync(b =>
+            (b.BlockerId == CurrentUserId && b.BlockedId == targetUserId) ||
+            (b.BlockerId == targetUserId && b.BlockedId == CurrentUserId), cancellationToken);
+
+        if (isBlocked)
         {
-            return StatusCode(403, ApiResponse.Fail("DM_FORBIDDEN", "No permission to message this user"));
+            return StatusCode(403, ApiResponse.Fail("DM_BLOCKED", "Cannot message blocked user"));
+        }
+
+        if (!areFriends && !hasAcceptedRequest && !hasAcceptedFriendRequest)
+        {
+            return StatusCode(403, ApiResponse.Fail("DM_NOT_FRIENDS", "No permission to message this user"));
         }
 
         var message = new DmMessage

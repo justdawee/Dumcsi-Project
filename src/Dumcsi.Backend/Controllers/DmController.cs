@@ -36,7 +36,7 @@ public class DmController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
             setting = new DmSetting
             {
                 UserId = CurrentUserId,
-                User = (await dbContext.Users.FindAsync(CurrentUserId)!)!,
+                User = (await dbContext.Users.FindAsync(CurrentUserId))!,
                 FilterOption = request.Filter
             };
             dbContext.DmSettings.Add(setting);
