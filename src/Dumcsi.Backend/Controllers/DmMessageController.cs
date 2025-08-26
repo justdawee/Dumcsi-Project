@@ -55,8 +55,25 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
             Sender = currentUser,
             Receiver = targetUser,
             Content = request.Content,
-            Timestamp = SystemClock.Instance.GetCurrentInstant()
+            Timestamp = SystemClock.Instance.GetCurrentInstant(),
+            Tts = request.Tts
         };
+
+        // Handle attachments
+        if (request.AttachmentIds != null && request.AttachmentIds.Any())
+        {
+            message.Attachments = await dbContext.Attachments
+                .Where(a => request.AttachmentIds.Contains(a.Id))
+                .ToListAsync(cancellationToken);
+        }
+
+        // Handle user mentions
+        if (request.MentionedUserIds != null && request.MentionedUserIds.Any())
+        {
+            message.MentionUsers = await dbContext.Users
+                .Where(u => request.MentionedUserIds.Contains(u.Id))
+                .ToListAsync(cancellationToken);
+        }
 
         dbContext.DmMessages.Add(message);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -78,7 +95,30 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
             },
             Content = message.Content,
             Timestamp = message.Timestamp,
-            EditedTimestamp = message.EditedTimestamp
+            EditedTimestamp = message.EditedTimestamp,
+            Tts = message.Tts ?? false,
+            Mentions = message.MentionUsers.Select(u => new UserDtos.UserProfileDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                GlobalNickname = u.GlobalNickname,
+                Email = u.Email,
+                Avatar = u.Avatar,
+                Locale = u.Locale,
+                Verified = u.Verified
+            }).ToList(),
+            Attachments = message.Attachments.Select(a => new MessageDtos.AttachmentDto
+            {
+                Id = a.Id,
+                FileName = a.FileName,
+                FileUrl = a.FileUrl,
+                FileSize = a.FileSize,
+                ContentType = a.ContentType,
+                Height = a.height,
+                Width = a.width,
+                Duration = a.duration,
+                Waveform = a.Waveform
+            }).ToList()
         };
 
         return OkResponse(dto, "Message sent");
@@ -97,6 +137,8 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
                 (m.SenderId == CurrentUserId && m.ReceiverId == targetUserId) ||
                 (m.SenderId == targetUserId && m.ReceiverId == CurrentUserId))
             .Include(m => m.Sender)
+            .Include(m => m.Attachments)
+            .Include(m => m.MentionUsers)
             .OrderByDescending(m => m.Id);
 
         if (before.HasValue)
@@ -122,10 +164,96 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
             },
             Content = m.Content,
             Timestamp = m.Timestamp,
-            EditedTimestamp = m.EditedTimestamp
+            EditedTimestamp = m.EditedTimestamp,
+            Tts = m.Tts ?? false,
+            Mentions = m.MentionUsers.Select(u => new UserDtos.UserProfileDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                GlobalNickname = u.GlobalNickname,
+                Email = u.Email,
+                Avatar = u.Avatar,
+                Locale = u.Locale,
+                Verified = u.Verified
+            }).ToList(),
+            Attachments = m.Attachments.Select(a => new MessageDtos.AttachmentDto
+            {
+                Id = a.Id,
+                FileName = a.FileName,
+                FileUrl = a.FileUrl,
+                FileSize = a.FileSize,
+                ContentType = a.ContentType,
+                Height = a.height,
+                Width = a.width,
+                Duration = a.duration,
+                Waveform = a.Waveform
+            }).ToList()
         }).Reverse().ToList();
 
         return OkResponse(dtos);
+    }
+
+    [HttpPut("{messageId}")]
+    public async Task<IActionResult> EditMessage(long targetUserId, long messageId, [FromBody] DmMessageDtos.UpdateDmMessageRequest request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ApiResponse.Fail("DM_INVALID_DATA", "The provided message data is invalid."));
+        }
+
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var message = await dbContext.DmMessages
+            .Where(m =>
+                ((m.SenderId == CurrentUserId && m.ReceiverId == targetUserId) ||
+                 (m.SenderId == targetUserId && m.ReceiverId == CurrentUserId)) &&
+                m.Id == messageId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (message == null)
+        {
+            return NotFound(ApiResponse.Fail("DM_MESSAGE_NOT_FOUND", "Message not found."));
+        }
+
+        if (message.SenderId != CurrentUserId)
+        {
+            return StatusCode(403, ApiResponse.Fail("DM_MESSAGE_EDIT_FORBIDDEN", "You can only edit your own messages."));
+        }
+
+        message.Content = request.Content;
+        message.EditedTimestamp = SystemClock.Instance.GetCurrentInstant();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return OkResponse<object?>(null, "Message updated successfully.");
+    }
+
+    [HttpDelete("{messageId}")]
+    public async Task<IActionResult> DeleteMessage(long targetUserId, long messageId, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var message = await dbContext.DmMessages
+            .Where(m =>
+                ((m.SenderId == CurrentUserId && m.ReceiverId == targetUserId) ||
+                 (m.SenderId == targetUserId && m.ReceiverId == CurrentUserId)) &&
+                m.Id == messageId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (message == null)
+        {
+            return NotFound(ApiResponse.Fail("DM_MESSAGE_NOT_FOUND", "Message not found."));
+        }
+
+        if (message.SenderId != CurrentUserId)
+        {
+            return StatusCode(403, ApiResponse.Fail("DM_MESSAGE_DELETE_FORBIDDEN", "You can only delete your own messages."));
+        }
+
+        dbContext.DmMessages.Remove(message);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return OkResponse<object?>(null, "Message deleted successfully.");
     }
 
     [HttpGet("/api/dm/conversations")]

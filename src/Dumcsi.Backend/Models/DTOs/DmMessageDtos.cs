@@ -14,12 +14,24 @@ public class DmMessageDtos
         public string Content { get; set; } = string.Empty;
         public Instant Timestamp { get; set; }
         public Instant? EditedTimestamp { get; set; }
+        public bool Tts { get; set; }
+        public List<UserDtos.UserProfileDto> Mentions { get; set; } = [];
+        public List<MessageDtos.AttachmentDto> Attachments { get; set; } = [];
     }
 
     public class SendDmMessageRequest
     {
-        [Required]
         [StringLength(4000)]
+        public string Content { get; set; } = string.Empty;
+        public bool Tts { get; set; } = false;
+        public List<long>? AttachmentIds { get; set; }
+        public List<long>? MentionedUserIds { get; set; }
+    }
+
+    public class UpdateDmMessageRequest
+    {
+        [Required]
+        [StringLength(4000, ErrorMessage = "Content cannot exceed 4000 characters.")]
         public string Content { get; set; } = string.Empty;
     }
 

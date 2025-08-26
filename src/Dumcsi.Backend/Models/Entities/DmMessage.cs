@@ -21,4 +21,10 @@ public class DmMessage
     public Instant? EditedTimestamp { get; set; }
 
     public bool IsEdited => EditedTimestamp.HasValue;
+
+    public bool? Tts { get; set; }
+
+    public ICollection<User> MentionUsers { get; set; } = new List<User>();
+
+    public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 }
