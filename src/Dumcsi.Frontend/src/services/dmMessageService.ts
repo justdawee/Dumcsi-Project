@@ -4,6 +4,7 @@ import type {
     EntityId,
     DmMessageDto,
     SendDmMessageRequest,
+    UpdateDmMessageRequest,
     ConversationListItemDto,
 } from './types';
 
@@ -27,6 +28,20 @@ const dmMessageService = {
             throw new Error(response.data.message);
         }
         return response.data.data;
+    },
+
+    async updateMessage(userId: EntityId, messageId: EntityId, payload: UpdateDmMessageRequest): Promise<void> {
+        const response = await api.put<ApiResponse<void>>(`/dm/${userId}/messages/${messageId}`, payload);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
+
+    async deleteMessage(userId: EntityId, messageId: EntityId): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>(`/dm/${userId}/messages/${messageId}`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
     },
 
     async getConversations(): Promise<ConversationListItemDto[]> {

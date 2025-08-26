@@ -569,6 +569,11 @@ export interface FriendRequestItem {
     fromUsername: string;
 }
 
+export interface BlockedUserItem {
+    userId: EntityId;
+    username: string;
+}
+
 export interface DmSettings {
     filter: DmFilterOption;
 }
@@ -588,9 +593,19 @@ export interface DmMessageDto {
     content: string;
     timestamp: ISODateString;
     editedTimestamp: ISODateString | null;
+    tts: boolean;
+    mentions: UserProfileDto[];
+    attachments: AttachmentDto[];
 }
 
 export interface SendDmMessageRequest {
+    content: string;
+    tts?: boolean;
+    attachmentIds?: EntityId[];
+    mentionedUserIds?: EntityId[];
+}
+
+export interface UpdateDmMessageRequest {
     content: string;
 }
 

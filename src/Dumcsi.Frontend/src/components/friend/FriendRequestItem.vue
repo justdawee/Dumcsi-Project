@@ -17,6 +17,13 @@
 
     <div class="flex items-center gap-2">
       <button
+          @click="$emit('block', request.fromUserId)"
+          class="p-2 rounded-full hover:bg-warning/20 transition-colors"
+          title="Block"
+      >
+        <Ban class="w-5 h-5 text-yellow-400" />
+      </button>
+      <button
           @click="$emit('accept', request.requestId)"
           class="p-2 rounded-full hover:bg-success/20 transition-colors"
           title="Accept"
@@ -36,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { Check, X } from 'lucide-vue-next';
+import { Check, X, Ban } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import type { FriendRequestItem } from '@/services/types';
 
@@ -47,5 +54,6 @@ defineProps<{
 defineEmits<{
   (e: 'accept', requestId: number): void;
   (e: 'decline', requestId: number): void;
+  (e: 'block', userId: number): void;
 }>();
 </script>

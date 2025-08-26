@@ -2,6 +2,8 @@ import * as signalR from '@microsoft/signalr';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
+import { useFriendStore } from '@/stores/friends';
+import { useDmStore } from '@/stores/dm';
 import {webrtcService} from './webrtcService.ts';
 import {livekitService} from '@/services/livekitService';
 import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
@@ -203,6 +205,86 @@ export class SignalRService {
         this.connection.on('UserUpdated', (user: UserProfileDto) => {
             
             appStore.handleUserUpdated(user);
+        });
+
+        // --- Friend system realtime events ---
+        this.connection.on('FriendRequestReceived', (payload: { RequestId: number; FromUserId: number; FromUsername: string } | any) => {
+            try {
+                const friendStore = useFriendStore();
+                const { addToast } = useToast();
+                const req = {
+                    requestId: payload.requestId || payload.RequestId,
+                    fromUserId: payload.fromUserId || payload.FromUserId,
+                    fromUsername: payload.fromUsername || payload.FromUsername,
+                } as any;
+                friendStore.addIncomingRequest(req);
+
+                addToast({
+                    type: 'info',
+                    title: 'Friend Request',
+                    message: `${req.fromUsername} sent you a friend request`,
+                    actions: [
+                        { label: 'Accept', variant: 'primary', action: () => friendStore.acceptRequest(req.requestId) },
+                        { label: 'Decline', variant: 'secondary', action: () => friendStore.declineRequest(req.requestId) }
+                    ]
+                });
+            } catch (err) { console.warn('FriendRequestReceived handler error', err); }
+        });
+
+        this.connection.on('FriendRequestSent', (payload: any) => {
+            try {
+                const { addToast } = useToast();
+                addToast({ type: 'success', title: 'Request Sent', message: `Friend request sent to ${payload.ToUsername || payload.toUsername}` });
+            } catch {}
+        });
+
+        this.connection.on('FriendRequestAccepted', (friend: any) => {
+            try {
+                const friendStore = useFriendStore();
+                const { addToast } = useToast();
+                const f = {
+                    userId: friend.userId || friend.UserId,
+                    username: friend.username || friend.Username,
+                    online: false
+                };
+                friendStore.addFriendRealtime(f as any);
+                addToast({ type: 'success', title: 'Friend Added', message: `${f.username} accepted your request` });
+                // Optionally remove request if present
+                try { friendStore.removeRequestById(friend.requestId || friend.RequestId); } catch {}
+            } catch {}
+        });
+
+        this.connection.on('FriendAdded', (friend: any) => {
+            try {
+                const friendStore = useFriendStore();
+                const f = { userId: friend.userId || friend.UserId, username: friend.username || friend.Username, online: false };
+                friendStore.addFriendRealtime(f as any);
+            } catch {}
+        });
+
+        this.connection.on('FriendRequestDeclined', () => {
+            try {
+                const { addToast } = useToast();
+                addToast({ type: 'warning', title: 'Request Declined', message: 'Your friend request was declined.' });
+            } catch {}
+        });
+
+        this.connection.on('FriendRemoved', (payload: any) => {
+            try {
+                const friendStore = useFriendStore();
+                const { addToast } = useToast();
+                const uid = payload.userId || payload.UserId;
+                friendStore.removeFriendRealtime(uid);
+                addToast({ type: 'info', title: 'Friend Removed', message: 'A friendship was removed.' });
+            } catch {}
+        });
+
+        // DM typing events (if backend supports)
+        this.connection.on('DmUserTyping', (otherUserId: EntityId) => {
+            try { useDmStore().setUserTyping(otherUserId, true); } catch {}
+        });
+        this.connection.on('DmUserStoppedTyping', (otherUserId: EntityId) => {
+            try { useDmStore().setUserTyping(otherUserId, false); } catch {}
         });
 
         this.connection.on('UserOnline', (userId: EntityId) => {
@@ -648,6 +730,29 @@ export class SignalRService {
             }
         } catch (error) {
             console.error('Failed to join server:', error);
+        }
+    }
+
+    // --- DM Typing ---
+    async sendDmTypingIndicator(otherUserId: EntityId): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('SendDmTypingIndicator', otherUserId.toString());
+                try { useDmStore().setUserTyping(otherUserId, true); } catch {}
+            } catch (error) {
+                console.error('Failed to send DM typing indicator:', error);
+            }
+        }
+    }
+
+    async stopDmTypingIndicator(otherUserId: EntityId): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('StopDmTypingIndicator', otherUserId.toString());
+                try { useDmStore().setUserTyping(otherUserId, false); } catch {}
+            } catch (error) {
+                console.error('Failed to send DM stop typing indicator:', error);
+            }
         }
     }
 

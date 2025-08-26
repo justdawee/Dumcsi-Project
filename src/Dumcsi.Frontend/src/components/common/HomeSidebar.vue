@@ -35,6 +35,7 @@
           >
             <Users class="w-5 h-5" />
             <span class="text-sm font-medium">Friends</span>
+            <span v-if="pendingRequestsCount > 0" class="ml-auto inline-flex items-center justify-center text-[10px] min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white">{{ pendingRequestsCount }}</span>
           </button>
         </div>
 
@@ -59,15 +60,20 @@
                 v-for="conv in conversations"
                 :key="conv.userId"
                 :to="`/dm/${conv.userId}`"
-                class="dm-item group"
-                :class="{ 'active': currentDmUserId === conv.userId }"
+                class="dm-item group relative"
+                :class="{
+                  'active': currentDmUserId === conv.userId,
+                  'non-friend': !isFriend(conv.userId)
+                }"
+                @contextmenu.prevent="openContextMenu($event, conv.userId, conv.username)"
             >
               <UserAvatar
                   :user-id="conv.userId"
                   :username="conv.username"
                   :size="24"
                   class="flex-shrink-0"
-                  show-online-indicator
+                  :class="{ 'opacity-60': !isFriend(conv.userId) }"
+                  :show-online-indicator="isFriend(conv.userId)"
               />
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
@@ -75,6 +81,7 @@
                       class="truncate"
                       :class="[
                       'text-sm',
+                      !isFriend(conv.userId) ? 'text-text-tertiary opacity-75' :
                       hasUnread(conv.userId) ? 'font-semibold text-text-default' : 'font-medium text-text-secondary'
                     ]"
                   >
@@ -91,13 +98,26 @@
                 <p
                     v-if="conv.lastMessage"
                     class="text-xs truncate"
-                    :class="hasUnread(conv.userId) ? 'text-text-secondary' : 'text-text-tertiary'"
+                    :class="[
+                      !isFriend(conv.userId) ? 'text-text-tertiary opacity-60' :
+                      hasUnread(conv.userId) ? 'text-text-secondary' : 'text-text-tertiary'
+                    ]"
                 >
-                  {{ conv.lastMessage }}
+                  {{ getMessagePreview(conv.lastMessage) }}
                 </p>
               </div>
             </RouterLink>
           </div>
+        </div>
+        <!-- Context Menu -->
+        <div v-if="contextMenu.visible" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" class="fixed z-50 bg-bg-surface border border-border-default rounded-md shadow-lg py-1 w-48">
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="viewProfile">Profile</button>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="inviteToServer" disabled>Invite to server</button>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="friendNickname" disabled>Friend nickname</button>
+          <div class="h-px bg-border-default my-1"></div>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="markAsRead">Mark as read</button>
+          <button v-if="!isBlocked(contextMenu.userId)" class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-danger/10" @click="blockUser(contextMenu.userId)">Block</button>
+          <button v-else class="w-full text-left px-3 py-2 text-sm text-success hover:bg-success/10" @click="unblockUser(contextMenu.userId)">Unblock</button>
         </div>
       </div>
     </template>
@@ -108,14 +128,17 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDmStore } from '@/stores/dm';
+import { useFriendStore } from '@/stores/friends';
 import { Server, Users, Loader2, X } from 'lucide-vue-next';
 import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import { getMessagePreview } from '@/utils/messagePreview';
 import type { EntityId } from '@/services/types';
 
 const route = useRoute();
 const router = useRouter();
 const dmStore = useDmStore();
+const friendStore = useFriendStore();
 
 const dmLoading = ref(true);
 const showSearchModal = ref(false);
@@ -129,8 +152,12 @@ const currentDmUserId = computed(() =>
 );
 
 const conversations = computed(() => dmStore.conversations);
+const pendingRequestsCount = computed(() => friendStore.requests.length);
 
 const hasUnread = (userId: EntityId) => dmStore.unreadMessages.has(userId);
+
+// Check if a user is a friend (reactive to friend store changes)
+const isFriend = (userId: EntityId) => friendStore.friends.some(f => f.userId === userId);
 
 const closeConversation = async (userId: EntityId) => {
   if (currentDmUserId.value === userId) {
@@ -139,12 +166,21 @@ const closeConversation = async (userId: EntityId) => {
   dmStore.removeConversation(userId);
 };
 
+
 // Fetch data on mount
 onMounted(async () => {
   // Fetch DM conversations
   dmLoading.value = true;
   try {
     await dmStore.fetchConversations();
+    // Fetch friend data for badge and friendship status
+    try {
+      await Promise.all([
+        friendStore.fetchFriends(),
+        friendStore.fetchRequests(),
+        friendStore.fetchBlocked()
+      ]);
+    } catch {}
   } finally {
     dmLoading.value = false;
   }
@@ -156,6 +192,25 @@ watch(() => route.params.userId, async (newUserId) => {
     await dmStore.fetchConversations();
   }
 });
+
+// Context menu stubs (future expansion)
+const contextMenu = ref<{ visible: boolean; x: number; y: number; userId: number; username: string }>({ visible: false, x: 0, y: 0, userId: 0, username: '' });
+const openContextMenu = (e: MouseEvent, userId: number, username: string) => {
+  e.preventDefault();
+  contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, userId, username };
+  const onDocClick = () => {
+    contextMenu.value.visible = false;
+    document.removeEventListener('click', onDocClick);
+  };
+  document.addEventListener('click', onDocClick);
+};
+const isBlocked = (userId: number) => friendStore.blocked.some(b => b.userId === userId);
+const blockUser = async (userId: number) => { await friendStore.blockUser(userId); };
+const unblockUser = async (userId: number) => { await friendStore.unblockUser(userId); };
+const viewProfile = () => {};
+const inviteToServer = () => {};
+const friendNickname = () => {};
+const markAsRead = () => {};
 </script>
 
 <style scoped>
@@ -168,5 +223,13 @@ watch(() => route.params.userId, async (newUserId) => {
 
 .dm-item.active {
   @apply bg-main-600;
+}
+
+.dm-item.non-friend {
+  @apply opacity-75;
+}
+
+.dm-item.non-friend:hover {
+  @apply opacity-90;
 }
 </style>

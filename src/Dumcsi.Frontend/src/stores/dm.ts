@@ -3,10 +3,13 @@ import { ref, computed } from 'vue';
 import dmMessageService from '@/services/dmMessageService';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
+import { useFriendStore } from './friends';
 import type {
     EntityId,
     ConversationListItemDto,
-    DmMessageDto
+    DmMessageDto,
+    SendDmMessageRequest,
+    UpdateDmMessageRequest
 } from '@/services/types';
 
 export const useDmStore = defineStore('dm', () => {
@@ -31,6 +34,12 @@ export const useDmStore = defineStore('dm', () => {
             return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime();
         });
     });
+
+    // Helper to check if user is still a friend (moved to component level for better reactivity)
+    const isFriend = (userId: EntityId): boolean => {
+        const friendStore = useFriendStore();
+        return friendStore.friends.some(f => f.userId === userId);
+    };
 
     // Actions
     const fetchConversations = async () => {
@@ -77,9 +86,18 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
-    const sendMessage = async (userId: EntityId, content: string) => {
+    const sendMessage = async (userId: EntityId, payload: SendDmMessageRequest) => {
         try {
-            const message = await dmMessageService.sendMessage(userId, { content });
+            // Check if user is still a friend before attempting to send
+            if (!isFriend(userId)) {
+                addToast({
+                    type: 'warning',
+                    message: 'You can only send messages to friends. Please add them back as a friend first.'
+                });
+                throw new Error('Not friends');
+            }
+
+            const message = await dmMessageService.sendMessage(userId, payload);
 
             // Add to local messages
             const userMessages = messages.value.get(userId) || [];
@@ -88,23 +106,68 @@ export const useDmStore = defineStore('dm', () => {
             // Update conversation list
             const convIndex = conversations.value.findIndex(c => c.userId === userId);
             if (convIndex >= 0) {
-                conversations.value[convIndex].lastMessage = content;
+                conversations.value[convIndex].lastMessage = payload.content;
                 conversations.value[convIndex].lastTimestamp = message.timestamp;
             } else {
                 // Create new conversation entry if it doesn't exist
                 conversations.value.push({
                     userId,
                     username: message.sender.username,
-                    lastMessage: content,
+                    lastMessage: payload.content,
                     lastTimestamp: message.timestamp
                 });
             }
 
             return message;
         } catch (error: any) {
+            if (error.message !== 'Not friends') {
+                addToast({
+                    type: 'danger',
+                    message: 'Failed to send message'
+                });
+            }
+            throw error;
+        }
+    };
+
+    const updateMessage = async (userId: EntityId, messageId: EntityId, payload: UpdateDmMessageRequest) => {
+        try {
+            await dmMessageService.updateMessage(userId, messageId, payload);
+
+            // Update local message
+            const userMessages = messages.value.get(userId);
+            if (userMessages) {
+                const index = userMessages.findIndex(m => m.id === messageId);
+                if (index >= 0) {
+                    userMessages[index].content = payload.content;
+                    userMessages[index].editedTimestamp = new Date().toISOString();
+                }
+            }
+        } catch (error: any) {
             addToast({
                 type: 'danger',
-                message: 'Failed to send message'
+                message: 'Failed to update message'
+            });
+            throw error;
+        }
+    };
+
+    const deleteMessage = async (userId: EntityId, messageId: EntityId) => {
+        try {
+            await dmMessageService.deleteMessage(userId, messageId);
+
+            // Remove from local messages
+            const userMessages = messages.value.get(userId);
+            if (userMessages) {
+                const index = userMessages.findIndex(m => m.id === messageId);
+                if (index >= 0) {
+                    userMessages.splice(index, 1);
+                }
+            }
+        } catch (error: any) {
+            addToast({
+                type: 'danger',
+                message: 'Failed to delete message'
             });
             throw error;
         }
@@ -152,7 +215,7 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
-    const updateMessage = (updatedMessage: DmMessageDto) => {
+    const updateMessageFromEvent = (updatedMessage: DmMessageDto) => {
         const authStore = useAuthStore();
         const otherUserId = updatedMessage.senderId === authStore.user?.id
             ? updatedMessage.receiverId
@@ -167,7 +230,7 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
-    const deleteMessage = (userId: EntityId, messageId: EntityId) => {
+    const deleteMessageFromEvent = (userId: EntityId, messageId: EntityId) => {
         const userMessages = messages.value.get(userId);
         if (userMessages) {
             const index = userMessages.findIndex(m => m.id === messageId);
@@ -195,12 +258,14 @@ export const useDmStore = defineStore('dm', () => {
         fetchConversations,
         fetchMessages,
         sendMessage,
+        updateMessage,
+        deleteMessage,
         markAsUnread,
         markAsRead,
         removeConversation,
         addReceivedMessage,
-        updateMessage,
-        deleteMessage,
+        updateMessageFromEvent,
+        deleteMessageFromEvent,
         setUserTyping
     };
 });

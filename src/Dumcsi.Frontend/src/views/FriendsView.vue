@@ -91,7 +91,29 @@
                 :request="request"
                 @accept="acceptRequest"
                 @decline="declineRequest"
+                @block="blockUser"
             />
+          </div>
+        </div>
+
+        <!-- Blocked Users -->
+        <div v-else-if="activeTab === 'blocked'" class="p-4">
+          <div v-if="friendStore.blocked.length === 0" class="text-center py-16">
+            <UserX class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
+            <p class="text-text-muted">No blocked users</p>
+          </div>
+          <div v-else class="space-y-1">
+            <div
+                v-for="user in friendStore.blocked"
+                :key="user.userId"
+                class="flex items-center px-4 py-3 hover:bg-main-800 rounded-lg transition-colors"
+            >
+              <UserAvatar :user-id="user.userId" :username="user.username" :size="40" />
+              <div class="flex-1 ml-3">
+                <span class="font-medium text-text-default">{{ user.username }}</span>
+              </div>
+              <button class="btn-secondary text-sm" @click="unblockUser(user.userId)">Unblock</button>
+            </div>
           </div>
         </div>
 
@@ -135,6 +157,7 @@ import HomeSidebar from '@/components/common/HomeSidebar.vue';
 import FriendItem from '@/components/friend/FriendItem.vue';
 import FriendRequestItem from '@/components/friend/FriendRequestItem.vue';
 import AddFriendModal from '@/components/friend/AddFriendModal.vue';
+import UserAvatar from '@/components/common/UserAvatar.vue';
 import type { EntityId } from '@/services/types';
 
 const router = useRouter();
@@ -144,6 +167,7 @@ const tabs = [
   { label: 'Online', value: 'online' },
   { label: 'All', value: 'all' },
   { label: 'Pending', value: 'pending' },
+  { label: 'Blocked', value: 'blocked' },
   { label: 'Settings', value: 'settings' }
 ];
 
@@ -180,6 +204,16 @@ const declineRequest = async (requestId: EntityId) => {
   await friendStore.declineRequest(requestId);
 };
 
+const blockUser = async (userId: EntityId) => {
+  if (confirm('Block this user? They will not be able to send you friend requests.')) {
+    await friendStore.blockUser(userId);
+  }
+};
+
+const unblockUser = async (userId: EntityId) => {
+  await friendStore.unblockUser(userId);
+};
+
 const updateDmSettings = async () => {
   await friendStore.updateDmSettings(friendStore.dmFilter);
 };
@@ -190,6 +224,7 @@ onMounted(async () => {
     await Promise.all([
       friendStore.fetchFriends(),
       friendStore.fetchRequests(),
+      friendStore.fetchBlocked(),
       friendStore.fetchDmSettings()
     ]);
   } finally {

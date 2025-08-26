@@ -101,7 +101,7 @@
               class="cursor-pointer hover:bg-bg-hover/30 rounded-lg p-2 transition-colors"
               @click="jumpToMessage(message)"
             >
-              <MessageItem
+              <UniversalMessageItem
                   :current-user-id="authStore.user?.id"
                   :message="message"
                   :previous-message="searchResults[index - 1] || null"
@@ -132,7 +132,7 @@
             <p class="text-sm">Be the first to send a message!</p>
           </div>
           <div v-else>
-            <MessageItem
+            <UniversalMessageItem
                 v-for="(message, index) in messages"
                 :key="message.id"
                 :current-user-id="authStore.user?.id"
@@ -155,10 +155,11 @@
             Jump to present
             <span v-if="pendingNewCount > 0" class="ml-2 bg-white/20 px-1.5 py-0.5 rounded text-xs">{{ pendingNewCount }}</span>
           </button>
-          <MessageInput
+          <UniversalMessageInput
               v-if="currentChannel && permissions.sendMessages"
               ref="messageInputRef"
-              :channel="currentChannel"
+              :channel-id="currentChannel.id"
+              :placeholder="`Message #${currentChannel.name}`"
               @send="handleSendMessage"
           />
           <div v-else-if="!permissions.sendMessages" class="text-center text-text-muted text-sm py-2">
@@ -195,8 +196,8 @@ import {usePermissions} from '@/composables/usePermissions';
 import {debounce} from '@/utils/helpers';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
 import {Hash, Users, Loader2} from 'lucide-vue-next';
-import MessageItem from '@/components/message/MessageItem.vue';
-import MessageInput from '@/components/message/MessageInput.vue';
+import UniversalMessageItem from '@/components/chat/UniversalMessageItem.vue';
+import UniversalMessageInput from '@/components/chat/UniversalMessageInput.vue';
 import MemberList from '@/components/common/MemberList.vue';
 import GlobalFileDrop from '@/components/ui/GlobalFileDrop.vue';
 import {signalRService} from '@/services/signalrService';
@@ -235,7 +236,7 @@ const mediaLoadedHandler = () => { if (shouldAutoFollow.value) scrollToBottomWit
 // Track whether we should auto-follow new messages (only when near bottom)
 const shouldAutoFollow = ref(true);
 const isMemberListOpen = ref(true);
-const messageInputRef = ref<InstanceType<typeof MessageInput> | null>(null);
+const messageInputRef = ref<InstanceType<typeof UniversalMessageInput> | null>(null);
 
 // State is now derived from the store for a single source of truth
 const currentChannel = computed(() => appStore.currentChannel);

@@ -1,5 +1,5 @@
 ﻿import api from './api';
-import type { ApiResponse, FriendListItem, FriendRequestItem, EntityId } from './types';
+import type { ApiResponse, FriendListItem, FriendRequestItem, BlockedUserItem, EntityId } from './types';
 
 const friendService = {
     async getFriends(): Promise<FriendListItem[]> {
@@ -44,6 +44,22 @@ const friendService = {
         if (!response.data.isSuccess) {
             throw new Error(response.data.message);
         }
+    },
+
+    async getBlocked(): Promise<BlockedUserItem[]> {
+        const response = await api.get<ApiResponse<BlockedUserItem[]>>('/friends/blocked');
+        if (!response.data.isSuccess) throw new Error(response.data.message);
+        return response.data.data;
+    },
+
+    async blockUser(userId: EntityId): Promise<void> {
+        const response = await api.post<ApiResponse<void>>(`/friends/block/${userId}`);
+        if (!response.data.isSuccess) throw new Error(response.data.message);
+    },
+
+    async unblockUser(userId: EntityId): Promise<void> {
+        const response = await api.post<ApiResponse<void>>(`/friends/unblock/${userId}`);
+        if (!response.data.isSuccess) throw new Error(response.data.message);
     },
 };
 
