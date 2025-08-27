@@ -83,25 +83,9 @@ export const useDmStore = defineStore('dm', () => {
         try {
             const message = await dmMessageService.sendMessage(userId, payload);
 
-            // Add to local messages
-            const userMessages = messages.value.get(userId) || [];
-            messages.value.set(userId, [...userMessages, message]);
-
-            // Update conversation list
-            const convIndex = conversations.value.findIndex(c => c.userId === userId);
-            if (convIndex >= 0) {
-                conversations.value[convIndex].lastMessage = payload.content;
-                conversations.value[convIndex].lastTimestamp = message.timestamp;
-            } else {
-                // Create new conversation entry if it doesn't exist
-                conversations.value.push({
-                    userId,
-                    username: message.sender.username,
-                    lastMessage: payload.content,
-                    lastTimestamp: message.timestamp
-                });
-            }
-
+            // Don't add to local messages here - let SignalR handle it for consistency
+            // This prevents duplicates for the sender
+            
             return message;
         } catch (error: any) {
             // Handle different error types from backend
@@ -246,6 +230,90 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
+    // SignalR event handlers
+    const handleReceiveMessage = (message: DmMessageDto) => {
+        const authStore = useAuthStore();
+        
+        // Determine the other user ID for conversation purposes
+        const otherUserId = message.senderId === authStore.user?.id 
+            ? message.receiverId 
+            : message.senderId;
+
+        // Add to messages - SignalR now handles all message additions
+        const userMessages = messages.value.get(otherUserId) || [];
+        messages.value.set(otherUserId, [...userMessages, message]);
+
+        // Update conversation
+        const convIndex = conversations.value.findIndex(c => c.userId === otherUserId);
+        if (convIndex >= 0) {
+            conversations.value[convIndex].lastMessage = message.content;
+            conversations.value[convIndex].lastTimestamp = message.timestamp;
+        } else {
+            // Find the sender's username
+            const senderUsername = message.senderId === authStore.user?.id 
+                ? authStore.user?.username || 'Unknown'
+                : message.sender.username;
+
+            conversations.value.push({
+                userId: otherUserId,
+                username: senderUsername,
+                lastMessage: message.content,
+                lastTimestamp: message.timestamp
+            });
+        }
+
+        // Mark as unread if not currently viewing this conversation
+        const currentRoute = window.location.pathname;
+        if (!currentRoute.includes(`/dm/${otherUserId}`) && message.senderId !== authStore.user?.id) {
+            markAsUnread(otherUserId);
+        }
+    };
+
+    const handleMessageUpdated = (payload: { MessageId: EntityId; Content: string; EditedTimestamp?: string }) => {
+        // Find the message across all conversations
+        for (const [userId, userMessages] of messages.value.entries()) {
+            const messageIndex = userMessages.findIndex(m => m.id === payload.MessageId);
+            if (messageIndex >= 0) {
+                userMessages[messageIndex].content = payload.Content;
+                userMessages[messageIndex].editedTimestamp = payload.EditedTimestamp || new Date().toISOString();
+                
+                // Update conversation if this is the latest message
+                const conv = conversations.value.find(c => c.userId === userId);
+                if (conv && conv.lastTimestamp === userMessages[messageIndex].timestamp) {
+                    conv.lastMessage = payload.Content;
+                }
+                break;
+            }
+        }
+    };
+
+    const handleMessageDeleted = (payload: { MessageId: EntityId }) => {
+        // Find and remove the message across all conversations
+        for (const [userId, userMessages] of messages.value.entries()) {
+            const messageIndex = userMessages.findIndex(m => m.id === payload.MessageId);
+            if (messageIndex >= 0) {
+                const deletedMessage = userMessages[messageIndex];
+                userMessages.splice(messageIndex, 1);
+                
+                // Update conversation if this was the latest message
+                const conv = conversations.value.find(c => c.userId === userId);
+                if (conv && conv.lastTimestamp === deletedMessage.timestamp) {
+                    // Find the new last message
+                    if (userMessages.length > 0) {
+                        const lastMessage = userMessages[userMessages.length - 1];
+                        conv.lastMessage = lastMessage.content;
+                        conv.lastTimestamp = lastMessage.timestamp;
+                    } else {
+                        // No more messages, could remove conversation or set empty state
+                        conv.lastMessage = '';
+                        conv.lastTimestamp = '';
+                    }
+                }
+                break;
+            }
+        }
+    };
+
     return {
         conversations: sortedConversations,
         messages,
@@ -264,6 +332,9 @@ export const useDmStore = defineStore('dm', () => {
         addReceivedMessage,
         updateMessageFromEvent,
         deleteMessageFromEvent,
-        setUserTyping
+        setUserTyping,
+        handleReceiveMessage,
+        handleMessageUpdated,
+        handleMessageDeleted
     };
 });

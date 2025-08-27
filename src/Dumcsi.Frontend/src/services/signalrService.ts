@@ -287,6 +287,17 @@ export class SignalRService {
             try { useDmStore().setUserTyping(otherUserId, false); } catch {}
         });
 
+        // DM message events
+        this.connection.on('DmMessageReceived', (message: any) => {
+            try { useDmStore().handleReceiveMessage(message); } catch {}
+        });
+        this.connection.on('DmMessageUpdated', (payload: any) => {
+            try { useDmStore().handleMessageUpdated(payload); } catch {}
+        });
+        this.connection.on('DmMessageDeleted', (payload: any) => {
+            try { useDmStore().handleMessageDeleted(payload); } catch {}
+        });
+
         this.connection.on('UserOnline', (userId: EntityId) => {
             
             appStore.handleUserOnline(userId);
