@@ -268,11 +268,25 @@ public class FriendController(
             .Select(u => new { u.Id, u.Username })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var friendA = new FriendDtos.FriendListItemDto { UserId = toUserInfo!.Id, Username = toUserInfo.Username, Online = false };
-        var friendB = new FriendDtos.FriendListItemDto { UserId = fromUserInfo!.Id, Username = fromUserInfo.Username, Online = false };
+        // For requester (fromUser) -> send accepter (toUser)
+        var friendForRequester = new FriendDtos.FriendListItemDto
+        {
+            UserId = toUserInfo!.Id,
+            Username = toUserInfo.Username,
+            Online = false
+        };
+        // For accepter (toUser) -> send requester (fromUser)
+        var friendForAccepter = new FriendDtos.FriendListItemDto
+        {
+            UserId = fromUserInfo!.Id,
+            Username = fromUserInfo.Username,
+            Online = false
+        };
 
-        await hubContext.Clients.User(fromUserInfo.Id.ToString()).SendAsync("FriendRequestAccepted", friendB, cancellationToken);
-        await hubContext.Clients.User(toUserInfo.Id.ToString()).SendAsync("FriendAdded", friendA, cancellationToken);
+        await hubContext.Clients.User(fromUserInfo.Id.ToString())
+            .SendAsync("FriendRequestAccepted", friendForRequester, cancellationToken);
+        await hubContext.Clients.User(toUserInfo.Id.ToString())
+            .SendAsync("FriendAdded", friendForAccepter, cancellationToken);
 
         // Ensure DM request is marked accepted to allow immediate messaging
         var dmReq = await dbContext.DmRequests.FirstOrDefaultAsync(r =>
