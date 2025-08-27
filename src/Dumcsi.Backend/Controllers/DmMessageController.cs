@@ -9,15 +9,109 @@ using Microsoft.EntityFrameworkCore;
 using NodaTime;
 using Microsoft.AspNetCore.SignalR;
 using Dumcsi.Backend.Hubs;
+using Dumcsi.Backend.Services.Data;
 
 namespace Dumcsi.Backend.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/dm/{targetUserId}/messages")]
-public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IHubContext<ChatHub> hubContext)
+public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IHubContext<ChatHub> hubContext, IFileStorageService fileStorageService)
     : BaseApiController(dbContextFactory)
 {
+    [HttpPost("~/api/dm/{targetUserId}/attachments")]
+    public async Task<IActionResult> UploadDmAttachment(long targetUserId, IFormFile? file)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+
+        var targetUser = await dbContext.Users.FindAsync(targetUserId);
+        var currentUser = await dbContext.Users.FindAsync(CurrentUserId);
+        if (targetUser == null || currentUser == null)
+        {
+            return NotFound(ApiResponse.Fail("DM_USER_NOT_FOUND", "User not found"));
+        }
+
+        // Block check
+        var isBlocked = await dbContext.Set<BlockedUser>().AnyAsync(b =>
+            (b.BlockerId == CurrentUserId && b.BlockedId == targetUserId) ||
+            (b.BlockerId == targetUserId && b.BlockedId == CurrentUserId));
+        if (isBlocked)
+        {
+            return StatusCode(403, ApiResponse.Fail("DM_BLOCKED", "Cannot upload attachment for blocked conversation"));
+        }
+
+        // Enforce recipient's DM filter settings (same as SendMessage)
+        var areFriends = await dbContext.Friendships.AnyAsync(f =>
+            (f.User1Id == CurrentUserId && f.User2Id == targetUserId) ||
+            (f.User2Id == CurrentUserId && f.User1Id == targetUserId));
+
+        var hasAcceptedRequest = await dbContext.DmRequests.AnyAsync(r =>
+            ((r.FromUserId == CurrentUserId && r.ToUserId == targetUserId) ||
+             (r.FromUserId == targetUserId && r.ToUserId == CurrentUserId)) &&
+            r.Status == DmRequestStatus.Accepted);
+
+        var recipientFilter = await dbContext.DmSettings
+            .Where(s => s.UserId == targetUserId)
+            .Select(s => s.FilterOption)
+            .FirstOrDefaultAsync();
+
+        switch (recipientFilter)
+        {
+            case DmFilterOption.AllowAll:
+                break;
+            case DmFilterOption.FriendsOnly:
+                if (!areFriends && !hasAcceptedRequest)
+                {
+                    return StatusCode(403, ApiResponse.Fail("DM_NOT_FRIENDS", "Recipient accepts DMs from friends only"));
+                }
+                break;
+            case DmFilterOption.AllRequests:
+            default:
+                return StatusCode(403, ApiResponse.Fail("DM_DISABLED", "Recipient does not accept DMs"));
+        }
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(ApiResponse.Fail("ATTACHMENT_FILE_MISSING", "No file was uploaded."));
+        }
+
+        if (file.Length > 50 * 1024 * 1024)
+        {
+            return BadRequest(ApiResponse.Fail("ATTACHMENT_FILE_TOO_LARGE", "File size cannot exceed 50MB."));
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var fileUrl = await fileStorageService.UploadFileAsync(stream, file.FileName, file.ContentType);
+
+            var attachment = new Attachment
+            {
+                FileName = file.FileName,
+                FileUrl = fileUrl,
+                FileSize = (int)file.Length,
+                ContentType = file.ContentType
+            };
+
+            dbContext.Attachments.Add(attachment);
+            await dbContext.SaveChangesAsync();
+
+            var attachmentDto = new MessageDtos.AttachmentDto
+            {
+                Id = attachment.Id,
+                FileName = attachment.FileName,
+                FileUrl = attachment.FileUrl,
+                FileSize = attachment.FileSize,
+                ContentType = attachment.ContentType
+            };
+
+            return OkResponse(attachmentDto);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ApiResponse.Fail("ATTACHMENT_UPLOAD_ERROR", $"An error occurred during file upload: {ex.Message}"));
+        }
+    }
     [HttpPost]
     public async Task<IActionResult> SendMessage(long targetUserId, [FromBody] DmMessageDtos.SendDmMessageRequest request,
         CancellationToken cancellationToken)
@@ -45,12 +139,6 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
              (r.FromUserId == targetUserId && r.ToUserId == CurrentUserId)) &&
             r.Status == DmRequestStatus.Accepted, cancellationToken);
 
-        // Also allow right after a friend request is accepted, even if friendship cache/UI hasn't caught up yet
-        var hasAcceptedFriendRequest = await dbContext.FriendRequests.AnyAsync(fr =>
-            ((fr.FromUserId == CurrentUserId && fr.ToUserId == targetUserId) ||
-             (fr.FromUserId == targetUserId && fr.ToUserId == CurrentUserId)) &&
-            fr.Status == FriendRequestStatus.Accepted, cancellationToken);
-
         // Block check
         var isBlocked = await dbContext.Set<BlockedUser>().AnyAsync(b =>
             (b.BlockerId == CurrentUserId && b.BlockedId == targetUserId) ||
@@ -61,9 +149,27 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
             return StatusCode(403, ApiResponse.Fail("DM_BLOCKED", "Cannot message blocked user"));
         }
 
-        if (!areFriends && !hasAcceptedRequest && !hasAcceptedFriendRequest)
+        // Enforce recipient's DM filter settings in all cases (even if friends)
+        var recipientFilter = await dbContext.DmSettings
+            .Where(s => s.UserId == targetUserId)
+            .Select(s => s.FilterOption)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        switch (recipientFilter)
         {
-            return StatusCode(403, ApiResponse.Fail("DM_NOT_FRIENDS", "No permission to message this user"));
+            case DmFilterOption.AllowAll:
+                // Allowed: continue
+                break;
+            case DmFilterOption.FriendsOnly:
+                if (!areFriends && !hasAcceptedRequest)
+                {
+                    return StatusCode(403, ApiResponse.Fail("DM_NOT_FRIENDS", "Recipient accepts DMs from friends only"));
+                }
+                break;
+            case DmFilterOption.AllRequests:
+            default:
+                // Treat as "No one" (block all DMs regardless of friendship)
+                return StatusCode(403, ApiResponse.Fail("DM_DISABLED", "Recipient does not accept DMs"));
         }
 
         var message = new DmMessage

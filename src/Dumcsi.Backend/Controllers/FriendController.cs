@@ -432,6 +432,20 @@ public class FriendController(
             }
         }
 
+        // Also decline any existing DM requests in either direction to prevent bypassing DM settings after block
+        var dmRequests = await dbContext.DmRequests
+            .Where(r => (r.FromUserId == CurrentUserId && r.ToUserId == userId) ||
+                        (r.FromUserId == userId && r.ToUserId == CurrentUserId))
+            .ToListAsync(cancellationToken);
+        foreach (var dr in dmRequests)
+        {
+            if (dr.Status != DmRequestStatus.Declined)
+            {
+                dr.Status = DmRequestStatus.Declined;
+                dr.RespondedAt = SystemClock.Instance.GetCurrentInstant();
+            }
+        }
+
         var blocker = await dbContext.Users.FindAsync(new object?[] { CurrentUserId }, cancellationToken);
         if (blocker == null)
         {
