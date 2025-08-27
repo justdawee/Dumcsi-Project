@@ -16,15 +16,21 @@ export const useDmStore = defineStore('dm', () => {
     const conversations = ref<ConversationListItemDto[]>([]);
     const messages = ref<Map<EntityId, DmMessageDto[]>>(new Map());
     const unreadMessages = ref<Set<EntityId>>(new Set());
+    // Persisted list of hidden/closed DM conversation userIds
+    const closedConversations = ref<EntityId[]>([]);
     const loadingConversations = ref(false);
     const loadingMessages = ref<Map<EntityId, boolean>>(new Map());
     const typingUsers = ref<Map<EntityId, boolean>>(new Map());
 
     const { addToast } = useToast();
 
+    // Initialize closed DMs from storage on store creation
+    // (called below after helpers are defined)
+
     // Computed
     const sortedConversations = computed(() => {
-        return [...conversations.value].sort((a, b) => {
+        // Sort by last activity, then filter out closed
+        const sorted = [...conversations.value].sort((a, b) => {
             // Sort by last message timestamp (most recent first)
             if (!a.lastTimestamp && !b.lastTimestamp) return 0;
             if (!a.lastTimestamp) return 1;
@@ -32,9 +38,27 @@ export const useDmStore = defineStore('dm', () => {
 
             return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime();
         });
+        return sorted.filter(c => !closedConversations.value.includes(c.userId));
     });
 
     // Actions
+    // Helpers for persisting closed conversations
+    const loadClosedConversations = () => {
+        try {
+            const raw = localStorage.getItem('dumcsi-closed-dms');
+            if (raw) {
+                const parsed = JSON.parse(raw) as EntityId[];
+                if (Array.isArray(parsed)) closedConversations.value = parsed;
+            }
+        } catch {}
+    };
+
+    const saveClosedConversations = () => {
+        try {
+            localStorage.setItem('dumcsi-closed-dms', JSON.stringify(closedConversations.value));
+        } catch {}
+    };
+
     const fetchConversations = async () => {
         loadingConversations.value = true;
         try {
@@ -85,6 +109,13 @@ export const useDmStore = defineStore('dm', () => {
 
             // Don't add to local messages here - let SignalR handle it for consistency
             // This prevents duplicates for the sender
+
+            // Re-open conversation if it was previously closed
+            const idx = closedConversations.value.indexOf(userId);
+            if (idx !== -1) {
+                closedConversations.value.splice(idx, 1);
+                saveClosedConversations();
+            }
             
             return message;
         } catch (error: any) {
@@ -115,16 +146,7 @@ export const useDmStore = defineStore('dm', () => {
     const updateMessage = async (userId: EntityId, messageId: EntityId, payload: UpdateDmMessageRequest) => {
         try {
             await dmMessageService.updateMessage(userId, messageId, payload);
-
-            // Update local message
-            const userMessages = messages.value.get(userId);
-            if (userMessages) {
-                const index = userMessages.findIndex(m => m.id === messageId);
-                if (index >= 0) {
-                    userMessages[index].content = payload.content;
-                    userMessages[index].editedTimestamp = new Date().toISOString();
-                }
-            }
+            // Don't update local message here - let SignalR handle it for consistency
         } catch (error: any) {
             addToast({
                 type: 'danger',
@@ -137,15 +159,7 @@ export const useDmStore = defineStore('dm', () => {
     const deleteMessage = async (userId: EntityId, messageId: EntityId) => {
         try {
             await dmMessageService.deleteMessage(userId, messageId);
-
-            // Remove from local messages
-            const userMessages = messages.value.get(userId);
-            if (userMessages) {
-                const index = userMessages.findIndex(m => m.id === messageId);
-                if (index >= 0) {
-                    userMessages.splice(index, 1);
-                }
-            }
+            // Don't remove from local messages here - let SignalR handle it for consistency
         } catch (error: any) {
             addToast({
                 type: 'danger',
@@ -163,9 +177,12 @@ export const useDmStore = defineStore('dm', () => {
         unreadMessages.value.delete(userId);
     };
 
-    const removeConversation = (userId: EntityId) => {
-        conversations.value = conversations.value.filter(c => c.userId !== userId);
-        messages.value.delete(userId);
+    const closeConversation = (userId: EntityId) => {
+        if (!closedConversations.value.includes(userId)) {
+            closedConversations.value.push(userId);
+            saveClosedConversations();
+        }
+        // Also clear unread badge for this user when closing
         unreadMessages.value.delete(userId);
     };
 
@@ -188,6 +205,13 @@ export const useDmStore = defineStore('dm', () => {
                 lastMessage: message.content,
                 lastTimestamp: message.timestamp
             });
+        }
+
+        // If conversation was previously closed, re-open it on new incoming message
+        const idx = closedConversations.value.indexOf(otherUserId);
+        if (idx !== -1) {
+            closedConversations.value.splice(idx, 1);
+            saveClosedConversations();
         }
 
         // Mark as unread if not in that conversation
@@ -262,6 +286,13 @@ export const useDmStore = defineStore('dm', () => {
             });
         }
 
+        // If conversation was previously closed, re-open it on any incoming or echoed message
+        const idx = closedConversations.value.indexOf(otherUserId);
+        if (idx !== -1) {
+            closedConversations.value.splice(idx, 1);
+            saveClosedConversations();
+        }
+
         // Mark as unread if not currently viewing this conversation
         const currentRoute = window.location.pathname;
         if (!currentRoute.includes(`/dm/${otherUserId}`) && message.senderId !== authStore.user?.id) {
@@ -269,38 +300,47 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
-    const handleMessageUpdated = (payload: { MessageId: EntityId; Content: string; EditedTimestamp?: string }) => {
+    const handleMessageUpdated = (payload: { messageId: EntityId; content: string; editedTimestamp?: string }) => {
         // Find the message across all conversations
         for (const [userId, userMessages] of messages.value.entries()) {
-            const messageIndex = userMessages.findIndex(m => m.id === payload.MessageId);
+            const messageIndex = userMessages.findIndex(m => m.id === payload.messageId);
             if (messageIndex >= 0) {
-                userMessages[messageIndex].content = payload.Content;
-                userMessages[messageIndex].editedTimestamp = payload.EditedTimestamp || new Date().toISOString();
+                // Create a new array with the updated message to trigger reactivity
+                const updatedMessages = [...userMessages];
+                updatedMessages[messageIndex] = {
+                    ...updatedMessages[messageIndex],
+                    content: payload.content,
+                    editedTimestamp: payload.editedTimestamp || new Date().toISOString()
+                };
+                messages.value.set(userId, updatedMessages);
                 
                 // Update conversation if this is the latest message
                 const conv = conversations.value.find(c => c.userId === userId);
-                if (conv && conv.lastTimestamp === userMessages[messageIndex].timestamp) {
-                    conv.lastMessage = payload.Content;
+                if (conv && conv.lastTimestamp === updatedMessages[messageIndex].timestamp) {
+                    conv.lastMessage = payload.content;
                 }
                 break;
             }
         }
     };
 
-    const handleMessageDeleted = (payload: { MessageId: EntityId }) => {
+    const handleMessageDeleted = (payload: { messageId: EntityId }) => {
         // Find and remove the message across all conversations
         for (const [userId, userMessages] of messages.value.entries()) {
-            const messageIndex = userMessages.findIndex(m => m.id === payload.MessageId);
+            const messageIndex = userMessages.findIndex(m => m.id === payload.messageId);
             if (messageIndex >= 0) {
                 const deletedMessage = userMessages[messageIndex];
-                userMessages.splice(messageIndex, 1);
+                
+                // Create a new array without the deleted message to trigger reactivity
+                const updatedMessages = userMessages.filter(m => m.id !== payload.messageId);
+                messages.value.set(userId, updatedMessages);
                 
                 // Update conversation if this was the latest message
                 const conv = conversations.value.find(c => c.userId === userId);
                 if (conv && conv.lastTimestamp === deletedMessage.timestamp) {
                     // Find the new last message
-                    if (userMessages.length > 0) {
-                        const lastMessage = userMessages[userMessages.length - 1];
+                    if (updatedMessages.length > 0) {
+                        const lastMessage = updatedMessages[updatedMessages.length - 1];
                         conv.lastMessage = lastMessage.content;
                         conv.lastTimestamp = lastMessage.timestamp;
                     } else {
@@ -314,10 +354,14 @@ export const useDmStore = defineStore('dm', () => {
         }
     };
 
+    // Now load closed conversations from storage (safe after helpers exist)
+    loadClosedConversations();
+
     return {
         conversations: sortedConversations,
         messages,
         unreadMessages,
+        closedConversations,
         loadingConversations,
         loadingMessages,
         typingUsers,
@@ -328,7 +372,7 @@ export const useDmStore = defineStore('dm', () => {
         deleteMessage,
         markAsUnread,
         markAsRead,
-        removeConversation,
+        closeConversation,
         addReceivedMessage,
         updateMessageFromEvent,
         deleteMessageFromEvent,

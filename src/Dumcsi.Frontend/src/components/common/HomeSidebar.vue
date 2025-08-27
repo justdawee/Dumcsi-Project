@@ -165,7 +165,7 @@ const closeConversation = async (userId: EntityId) => {
   if (currentDmUserId.value === userId) {
     await router.push('/friends');
   }
-  dmStore.removeConversation(userId);
+  dmStore.closeConversation(userId);
 };
 
 
