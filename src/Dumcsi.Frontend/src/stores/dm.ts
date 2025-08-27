@@ -3,7 +3,6 @@ import { ref, computed } from 'vue';
 import dmMessageService from '@/services/dmMessageService';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
-import { useFriendStore } from './friends';
 import type {
     EntityId,
     ConversationListItemDto,
@@ -34,12 +33,6 @@ export const useDmStore = defineStore('dm', () => {
             return new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime();
         });
     });
-
-    // Helper to check if user is still a friend (moved to component level for better reactivity)
-    const isFriend = (userId: EntityId): boolean => {
-        const friendStore = useFriendStore();
-        return friendStore.friends.some(f => f.userId === userId);
-    };
 
     // Actions
     const fetchConversations = async () => {
@@ -88,15 +81,6 @@ export const useDmStore = defineStore('dm', () => {
 
     const sendMessage = async (userId: EntityId, payload: SendDmMessageRequest) => {
         try {
-            // Check if user is still a friend before attempting to send
-            if (!isFriend(userId)) {
-                addToast({
-                    type: 'warning',
-                    message: 'You can only send messages to friends. Please add them back as a friend first.'
-                });
-                throw new Error('Not friends');
-            }
-
             const message = await dmMessageService.sendMessage(userId, payload);
 
             // Add to local messages
@@ -120,10 +104,24 @@ export const useDmStore = defineStore('dm', () => {
 
             return message;
         } catch (error: any) {
-            if (error.message !== 'Not friends') {
+            // Handle different error types from backend
+            const errorCode = error?.response?.data?.error?.code;
+            const errorMessage = error?.response?.data?.error?.message;
+
+            if (errorCode === 'DM_NOT_FRIENDS') {
+                addToast({
+                    type: 'warning',
+                    message: 'You can only send messages to friends. Please add them back as a friend first.'
+                });
+            } else if (errorCode === 'DM_BLOCKED') {
+                addToast({
+                    type: 'warning',
+                    message: 'Cannot send message to blocked user.'
+                });
+            } else {
                 addToast({
                     type: 'danger',
-                    message: 'Failed to send message'
+                    message: errorMessage || 'Failed to send message'
                 });
             }
             throw error;

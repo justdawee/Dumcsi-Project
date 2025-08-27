@@ -157,7 +157,9 @@ const pendingRequestsCount = computed(() => friendStore.requests.length);
 const hasUnread = (userId: EntityId) => dmStore.unreadMessages.has(userId);
 
 // Check if a user is a friend (reactive to friend store changes)
-const isFriend = (userId: EntityId) => friendStore.friends.some(f => f.userId === userId);
+const isFriend = (userId: EntityId) => {
+  return friendStore.friends.some(f => f.userId === userId);
+};
 
 const closeConversation = async (userId: EntityId) => {
   if (currentDmUserId.value === userId) {
