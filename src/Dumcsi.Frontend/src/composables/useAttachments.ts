@@ -14,7 +14,7 @@ export interface Attachment {
     uploadedId?: number;
 }
 
-export function useAttachments(channelId: Ref<EntityId>) {
+export function useAttachments(channelId: Ref<EntityId> | null, dmUserId?: Ref<EntityId> | null, isDm?: Ref<boolean>) {
     const attachments = ref<Attachment[]>([]);
     const isUploading = ref(false);
     const {addToast} = useToast();
@@ -64,11 +64,17 @@ export function useAttachments(channelId: Ref<EntityId>) {
             if (attachment.error) return; // Hibás fájlok kihagyása
             attachment.uploading = true;
             try {
-                const response: UploadResponse = await uploadService.uploadAttachment(channelId.value, attachment.file, {
+                const response: UploadResponse = await (isDm?.value && dmUserId?.value
+                    ? uploadService.uploadDmAttachment(dmUserId.value, attachment.file, {
+                        onProgress: (progress) => {
+                            attachment.progress = progress;
+                        },
+                    })
+                    : uploadService.uploadAttachment(channelId?.value as EntityId, attachment.file, {
                     onProgress: (progress) => {
                         attachment.progress = progress;
                     },
-                });
+                }));
                 // A backend válaszából kinyerjük a feltöltött fájl ID-ját
                 uploadedIds.push(response.id);
             } catch (error: any) {

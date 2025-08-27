@@ -123,7 +123,12 @@ export const useDmStore = defineStore('dm', () => {
             const errorCode = error?.response?.data?.error?.code;
             const errorMessage = error?.response?.data?.error?.message;
 
-            if (errorCode === 'DM_NOT_FRIENDS') {
+            if (errorCode === 'DM_DISABLED') {
+                addToast({
+                    type: 'warning',
+                    message: 'This user does not accept direct messages.'
+                });
+            } else if (errorCode === 'DM_NOT_FRIENDS') {
                 addToast({
                     type: 'warning',
                     message: 'You can only send messages to friends. Please add them back as a friend first.'

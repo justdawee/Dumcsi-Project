@@ -232,6 +232,7 @@ const { getDisplayName } = useUserDisplay();
 const channelIdRef = computed(() => props.channelId || 0);
 const dmUserIdRef = computed(() => props.dmUserId || 0);
 
+const isDmRef = computed(() => !!props.isDm);
 const {
   attachments,
   isUploading,
@@ -239,7 +240,7 @@ const {
   removeAttachment,
   uploadAttachments,
   clearAttachments
-} = useAttachments(channelIdRef);
+} = useAttachments(props.isDm ? null : channelIdRef, dmUserIdRef, isDmRef);
 
 const {
   showMentionSuggestions,

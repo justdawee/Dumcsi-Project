@@ -163,6 +163,17 @@ class UploadService {
     }
 
     /**
+     * Feltölt egy DM üzenet mellékletet.
+     */
+    async uploadDmAttachment(userId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
+        if (file.size > this.MAX_ATTACHMENT_SIZE) {
+            throw new UploadError('FILE_TOO_LARGE', 'File size must be less than 50MB');
+        }
+
+        return this.upload<UploadResponse>(`/dm/${userId}/attachments`, file, undefined, options);
+    }
+
+    /**
      * Törli a felhasználó avatar képét.
      */
     async deleteAvatar(): Promise<void> {

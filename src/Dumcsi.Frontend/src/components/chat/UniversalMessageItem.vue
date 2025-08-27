@@ -204,7 +204,27 @@ const mentionRoleIds = computed(() => {
 });
 
 // Create a compatible message object for MessageAttachments component
-const messageForAttachments = computed(() => props.message as MessageDto);
+// Normalize DM messages to look like MessageDto so downstream components can rely on author/timestamp
+const messageForAttachments = computed(() => {
+  if (isServerMessage.value) {
+    return props.message as MessageDto;
+  } else {
+    const dm = props.message as DmMessageDto;
+    return {
+      id: dm.id,
+      channelId: 0 as any,
+      author: dm.sender,
+      content: dm.content,
+      timestamp: dm.timestamp,
+      editedTimestamp: dm.editedTimestamp,
+      tts: dm.tts,
+      mentions: dm.mentions,
+      mentionRoleIds: [],
+      attachments: dm.attachments,
+      reactions: [],
+    } as MessageDto;
+  }
+});
 
 const showHeader = computed(() => {
   if (!props.previousMessage) return true;
