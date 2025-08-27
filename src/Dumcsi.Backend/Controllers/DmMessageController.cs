@@ -247,8 +247,12 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        // Send real-time update notifications to both users
-        var updatePayload = new { MessageId = messageId, Content = message.Content, EditedTimestamp = message.EditedTimestamp };
+        // Send real-time update notifications to both users  
+        var updatePayload = new { 
+            messageId = messageId, 
+            content = message.Content, 
+            editedTimestamp = message.EditedTimestamp?.ToString() 
+        };
         await hubContext.Clients.User(CurrentUserId.ToString()).SendAsync("DmMessageUpdated", updatePayload, cancellationToken);
         await hubContext.Clients.User(targetUserId.ToString()).SendAsync("DmMessageUpdated", updatePayload, cancellationToken);
 
@@ -281,7 +285,7 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Send real-time deletion notifications to both users
-        var deletePayload = new { MessageId = messageId };
+        var deletePayload = new { messageId = messageId };
         await hubContext.Clients.User(CurrentUserId.ToString()).SendAsync("DmMessageDeleted", deletePayload, cancellationToken);
         await hubContext.Clients.User(targetUserId.ToString()).SendAsync("DmMessageDeleted", deletePayload, cancellationToken);
 
