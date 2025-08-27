@@ -52,7 +52,7 @@
           class="preview-media"
           :data-media-url="media.url"
           @loadedmetadata="handleMediaLoad"
-          @play="onHtml5VideoPlay(media, $event)"
+          @play="onHtml5VideoPlay(media)"
         >
           Your browser does not support the video tag.
         </video>
@@ -329,7 +329,7 @@ const playYouTubeVideo = (media: EmbeddableMedia) => {
   } catch {}
 };
 
-const onHtml5VideoPlay = (media: EmbeddableMedia, event: Event) => {
+const onHtml5VideoPlay = (media: EmbeddableMedia) => {
   // Pause any other videos in this component
   pauseAllHtml5(media.url);
   // Notify others to stop
