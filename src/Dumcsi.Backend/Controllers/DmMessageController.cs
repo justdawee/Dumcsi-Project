@@ -7,13 +7,15 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
+using Microsoft.AspNetCore.SignalR;
+using Dumcsi.Backend.Hubs;
 
 namespace Dumcsi.Backend.Controllers;
 
 [Authorize]
 [ApiController]
 [Route("api/dm/{targetUserId}/messages")]
-public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFactory)
+public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IHubContext<ChatHub> hubContext)
     : BaseApiController(dbContextFactory)
 {
     [HttpPost]
@@ -137,6 +139,10 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
             }).ToList()
         };
 
+        // Send real-time notifications to both users
+        await hubContext.Clients.User(CurrentUserId.ToString()).SendAsync("DmMessageReceived", dto, cancellationToken);
+        await hubContext.Clients.User(targetUserId.ToString()).SendAsync("DmMessageReceived", dto, cancellationToken);
+
         return OkResponse(dto, "Message sent");
     }
 
@@ -241,6 +247,11 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        // Send real-time update notifications to both users
+        var updatePayload = new { MessageId = messageId, Content = message.Content, EditedTimestamp = message.EditedTimestamp };
+        await hubContext.Clients.User(CurrentUserId.ToString()).SendAsync("DmMessageUpdated", updatePayload, cancellationToken);
+        await hubContext.Clients.User(targetUserId.ToString()).SendAsync("DmMessageUpdated", updatePayload, cancellationToken);
+
         return OkResponse<object?>(null, "Message updated successfully.");
     }
 
@@ -268,6 +279,11 @@ public class DmMessageController(IDbContextFactory<DumcsiDbContext> dbContextFac
 
         dbContext.DmMessages.Remove(message);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Send real-time deletion notifications to both users
+        var deletePayload = new { MessageId = messageId };
+        await hubContext.Clients.User(CurrentUserId.ToString()).SendAsync("DmMessageDeleted", deletePayload, cancellationToken);
+        await hubContext.Clients.User(targetUserId.ToString()).SendAsync("DmMessageDeleted", deletePayload, cancellationToken);
 
         return OkResponse<object?>(null, "Message deleted successfully.");
     }
