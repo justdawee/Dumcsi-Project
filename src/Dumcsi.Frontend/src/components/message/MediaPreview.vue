@@ -1,5 +1,5 @@
 <template>
-  <div v-if="embeddableMedia.length > 0" class="media-previews space-y-2" v-bind="$attrs">
+  <div v-if="embeddableMedia.length > 0" class="media-previews space-y-2" v-bind="$attrs" ref="rootEl">
     <div
       v-for="(media, index) in embeddableMedia"
       :key="`${media.url}-${index}`"
@@ -50,7 +50,9 @@
           controls
           preload="metadata"
           class="preview-media"
+          :data-media-url="media.url"
           @loadedmetadata="handleMediaLoad"
+          @play="onHtml5VideoPlay(media, $event)"
         >
           Your browser does not support the video tag.
         </video>
@@ -87,7 +89,12 @@
       <!-- YouTube Embed -->
       <div
         v-else-if="media.type === 'youtube'"
-        class="youtube-embed preview-media rounded-lg overflow-hidden border border-border-default/50 relative inline-block"
+        :class="[
+          'youtube-embed',
+          'preview-media',
+          'rounded-lg overflow-hidden border border-border-default/50 relative inline-block',
+          (isYouTubeShorts(media.url) && playingVideos.has(media.url)) ? 'shorts-playing' : ''
+        ]"
       >
         <div class="label-badge">{{ getLabel(media) }}</div>
         <div
@@ -122,7 +129,7 @@
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
           class="w-full"
-          :style="{ width: '100%', maxWidth: '480px', height: '270px' }"
+          :style="getYouTubeEmbedStyle(media)"
           @load="handleMediaLoad"
         ></iframe>
       </div>
@@ -186,7 +193,7 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import { Play, Volume2, Youtube, ExternalLink } from 'lucide-vue-next';
-import { extractEmbeddableMedia, type EmbeddableMedia } from '@/utils/mediaDetection';
+import { extractEmbeddableMedia, type EmbeddableMedia, isYouTubeShorts } from '@/utils/mediaDetection';
 import { filterContentForDisplay } from '@/utils/contentFiltering';
 import AttachmentPreviewModal from './AttachmentPreviewModal.vue';
 import type { AttachmentDto } from '@/services/types';
@@ -208,6 +215,7 @@ const emit = defineEmits<{
 
 // State
 const playingVideos = ref<Set<string>>(new Set());
+const rootEl = ref<HTMLElement | null>(null);
 const showPreview = ref(false);
 const selectedAttachment = ref<AttachmentDto | null>(null);
 
@@ -312,7 +320,34 @@ const onClosePreview = (val: boolean) => {
 };
 
 const playYouTubeVideo = (media: EmbeddableMedia) => {
+  // Ensure only this video's iframe is active in this component
+  playingVideos.value.clear();
   playingVideos.value.add(media.url);
+  // Notify all components to stop other media
+  try {
+    window.dispatchEvent(new CustomEvent('globalMediaPlay', { detail: { kind: 'youtube', id: media.url } }));
+  } catch {}
+};
+
+const onHtml5VideoPlay = (media: EmbeddableMedia, event: Event) => {
+  // Pause any other videos in this component
+  pauseAllHtml5(media.url);
+  // Notify others to stop
+  try {
+    window.dispatchEvent(new CustomEvent('globalMediaPlay', { detail: { kind: 'html5', id: media.url } }));
+  } catch {}
+};
+
+const pauseAllHtml5 = (exceptId?: string) => {
+  const root = rootEl.value;
+  if (!root) return;
+  const videos = root.querySelectorAll('video[data-media-url]');
+  videos.forEach(v => {
+    const el = v as HTMLVideoElement & { dataset: { mediaUrl?: string } };
+    if (!exceptId || el.dataset.mediaUrl !== exceptId) {
+      try { el.pause(); } catch {}
+    }
+  });
 };
 
 const getLabel = (media: EmbeddableMedia): string => {
@@ -321,9 +356,29 @@ const getLabel = (media: EmbeddableMedia): string => {
     case 'image': return 'Image';
     case 'video': return 'Video';
     case 'audio': return 'Audio';
-    case 'youtube': return 'YouTube';
+    case 'youtube': return isYouTubeShorts(media.url) ? 'YouTube Shorts' : 'YouTube';
     case 'twitter': return 'Twitter';
     default: return 'Link';
+  }
+};
+
+const getYouTubeEmbedStyle = (media: EmbeddableMedia) => {
+  if (isYouTubeShorts(media.url)) {
+    // YouTube Shorts - vertical aspect ratio (9:16)
+    return { 
+      width: '100%', 
+      maxWidth: '315px',
+      height: '560px',
+      aspectRatio: '9 / 16'
+    };
+  } else {
+    // Regular YouTube video - horizontal aspect ratio (16:9)
+    return { 
+      width: '100%', 
+      maxWidth: '480px', 
+      height: '270px',
+      aspectRatio: '16 / 9'
+    };
   }
 };
 
@@ -342,12 +397,34 @@ import { onMounted, onUnmounted } from 'vue';
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown);
+  // Listen for global media play events to stop local media when others start
+  window.addEventListener('globalMediaPlay' as any, handleGlobalMediaPlay as any);
 });
 
 onUnmounted(() => {
   cleanup();
   document.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('globalMediaPlay' as any, handleGlobalMediaPlay as any);
 });
+
+type GlobalMediaDetail = { kind: 'youtube' | 'html5'; id: string };
+const handleGlobalMediaPlay = (e: Event) => {
+  const ce = e as CustomEvent<GlobalMediaDetail>;
+  const detail = ce.detail;
+  if (!detail) return;
+  if (detail.kind === 'youtube') {
+    // If a different YouTube embed started, stop ours
+    if (!playingVideos.value.has(detail.id)) {
+      playingVideos.value.clear();
+    }
+    // Always pause any HTML5 videos here
+    pauseAllHtml5();
+  } else {
+    // HTML5 video started elsewhere: stop any YouTube iframes and pause local HTML5 videos
+    playingVideos.value.clear();
+    pauseAllHtml5(detail.id);
+  }
+};
 </script>
 
 <style scoped>
@@ -359,12 +436,10 @@ onUnmounted(() => {
 
 .youtube-embed {
   @apply relative w-full;
-  max-width: 480px;
 }
 
 .youtube-embed iframe {
   @apply block w-full;
-  aspect-ratio: 16 / 9;
   height: auto;
 }
 
@@ -373,6 +448,11 @@ onUnmounted(() => {
   width: 100%;
   max-width: 480px;
   max-height: 270px;
+}
+
+/* Override preview-media sizing when playing Shorts to prevent clipping */
+.youtube-embed.shorts-playing {
+  max-height: none;
 }
 
 /* Ensure videos and images don't overflow */

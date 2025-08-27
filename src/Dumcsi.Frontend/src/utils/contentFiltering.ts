@@ -33,6 +33,11 @@ export const filterContentForDisplay = (content: string, embeddableUrls: string[
   embeddableUrls.forEach(url => {
     if (!isUserAttachmentUrl(url, attachments)) {
       // Remove the URL from content since we're showing a preview
+      // 1) Try base URL + optional suffix first, so we don't leave stray query parts
+      const baseUrlPattern = escapeRegex(url) + '(?:[?#&][^\\s<>"\']*)?';
+      filteredContent = filteredContent.replace(new RegExp(baseUrlPattern, 'gi'), '');
+
+      // 2) Fallback: remove any remaining exact base URL occurrences
       filteredContent = filteredContent.replace(new RegExp(escapeRegex(url), 'gi'), '');
     }
   });

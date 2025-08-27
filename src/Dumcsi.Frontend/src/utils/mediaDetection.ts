@@ -23,8 +23,8 @@ export const extractEmbeddableMedia = (content: string, attachments: any[] = [])
   
   // URL patterns to match
   const patterns = {
-    // YouTube URLs
-    youtube: /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/gi,
+    // YouTube URLs (including Shorts)
+    youtube: /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|shorts\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/gi,
     
     // Image URLs (including GIFs)
     image: /https?:\/\/[^\s<>"']+\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s<>"']*)?/gi,
@@ -141,10 +141,11 @@ export const extractEmbeddableMedia = (content: string, attachments: any[] = [])
  */
 export const extractYouTubeId = (url: string): string | null => {
   const patterns = [
-    /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|shorts\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
     /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
     /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
   ];
 
   for (const pattern of patterns) {
@@ -162,8 +163,8 @@ export const extractYouTubeId = (url: string): string | null => {
  */
 export const isEmbeddableUrl = (url: string): boolean => {
   const patterns = [
-    // YouTube
-    /(?:youtube\.com|youtu\.be)/i,
+    // YouTube (including Shorts)
+    /(?:youtube\.com\/(?:watch|embed|shorts)|youtu\.be)/i,
     
     // Images and GIFs
     /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i,
@@ -185,11 +186,23 @@ export const isEmbeddableUrl = (url: string): boolean => {
 };
 
 /**
+ * Check if a YouTube URL is a Shorts video
+ */
+export const isYouTubeShorts = (url: string): boolean => {
+  return /youtube\.com\/shorts\//i.test(url);
+};
+
+/**
  * Get appropriate dimensions for different media types
  */
-export const getMediaDimensions = (type: EmbeddableMedia['type']): { width: number; height: number } => {
+export const getMediaDimensions = (type: EmbeddableMedia['type'], url?: string): { width: number; height: number } => {
   switch (type) {
     case 'youtube':
+      // YouTube Shorts are vertical (9:16 aspect ratio)
+      if (url && isYouTubeShorts(url)) {
+        return { width: 315, height: 560 };
+      }
+      // Regular YouTube videos are horizontal (16:9 aspect ratio)
       return { width: 560, height: 315 };
     case 'image':
     case 'gif':
