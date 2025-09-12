@@ -32,6 +32,9 @@ public class ChatHub(IPresenceService presenceService) : Hub
     // Map channelId -> serverId to enable server-wide broadcasts for channel-scoped events
     private static readonly ConcurrentDictionary<string, string> ChannelToServer = new();
 
+    // Simple in-memory status map: userId -> status string ("online", "idle", "busy", "invisible")
+    private static readonly ConcurrentDictionary<string, string> UserStatuses = new();
+
     // --- Online/Offline status management ---
     public override async Task OnConnectedAsync()
     {
@@ -46,6 +49,21 @@ public class ChatHub(IPresenceService presenceService) : Hub
 
             // Send the list of online users to the newly connected client
             await Clients.Caller.SendAsync("Connected", onlineUserIds);
+
+            // Send initial statuses snapshot (best-effort)
+            try
+            {
+                var snapshot = new Dictionary<long, string>();
+                foreach (var kv in UserStatuses)
+                {
+                    if (long.TryParse(kv.Key, out var uid)) snapshot[uid] = kv.Value;
+                }
+                if (snapshot.Count > 0)
+                {
+                    await Clients.Caller.SendAsync("UserStatusSnapshot", snapshot);
+                }
+            }
+            catch { /* ignore snapshot errors */ }
 
             // Only send notification if this was the user's first active connection
             if (isFirstConnection)
@@ -111,6 +129,9 @@ public class ChatHub(IPresenceService presenceService) : Hub
             if (wentOffline)
             {
                 await Clients.Others.SendAsync("UserOffline", long.Parse(userId));
+
+                // Clear stored custom status on full disconnect (optional)
+                UserStatuses.TryRemove(userId, out _);
                 
                 // Handle temporary member kick logic
                 if (long.TryParse(userId, out var userIdLong))
@@ -301,6 +322,29 @@ public class ChatHub(IPresenceService presenceService) : Hub
             await Clients.Group(serverId)
                 .SendAsync("UserJoinedVoiceChannel", channelId, long.Parse(userId), connectionId);
         }
+    }
+
+    // --- Explicit user status updates ---
+    public Task SetUserStatus(string status)
+    {
+        // Accept: "online", "idle", "busy", "invisible"
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized != "online" && normalized != "idle" && normalized != "busy" && normalized != "invisible")
+        {
+            normalized = "online";
+        }
+
+        var userId = Context.UserIdentifier;
+        if (userId != null)
+        {
+            UserStatuses[userId] = normalized;
+            if (long.TryParse(userId, out var uid))
+            {
+                // Broadcast to everyone for simplicity
+                return Clients.All.SendAsync("UserStatusChanged", uid, normalized);
+            }
+        }
+        return Task.CompletedTask;
     }
 
     // --- Direct Message Typing Methods ---

@@ -109,6 +109,21 @@ public class MessageController(
             .Group(channelId.ToString())
             .SendAsync("ReceiveMessage", messageDto, cancellationToken);
 
+        // Also broadcast a lightweight notification to the entire server group
+        // so users in other channels of the same server can show a toast.
+        await chatHubContext.Clients
+            .Group(channel.ServerId.ToString())
+            .SendAsync("ChannelMessageCreated", new
+            {
+                ChannelId = channel.Id,
+                ServerId = channel.ServerId,
+                MessageId = message.Id,
+                AuthorId = author.Id,
+                AuthorUsername = author.Username,
+                Content = message.Content,
+                Timestamp = message.Timestamp.ToDateTimeUtc()
+            }, cancellationToken);
+
         return CreatedAtAction(nameof(GetMessages), new { channelId }, ApiResponse<MessageDtos.MessageDto>.Success(messageDto, "Message sent successfully."));
     }
 
