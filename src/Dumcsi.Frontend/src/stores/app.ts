@@ -203,15 +203,19 @@ export const useAppStore = defineStore('app', () => {
         );
 
         if (result) {
-            members.value = result;
-
-            // Update member objects with current online status
-            members.value.forEach(member => {
-                member.isOnline = onlineUsers.value.has(member.userId);
-                member.status = member.isOnline ? UserStatus.Online : UserStatus.Offline;
+            // Preserve previous per-user status where possible
+            const previous = new Map(members.value.map(m => [m.userId, { status: m.status, wasOnline: m.isOnline }]));
+            members.value = result.map(m => {
+                const prev = previous.get(m.userId);
+                const isOnline = onlineUsers.value.has(m.userId);
+                return {
+                    ...m,
+                    isOnline,
+                    status: prev?.status ?? (isOnline ? UserStatus.Online : UserStatus.Offline)
+                } as any;
             });
 
-            // Ensure self is marked as online
+            // Ensure self is marked online without overriding chosen status
             const authStore = useAuthStore();
             const currentUserId = authStore.user?.id;
             if (currentUserId) {
@@ -219,7 +223,8 @@ export const useAppStore = defineStore('app', () => {
                 const selfMember = members.value.find(m => m.userId === currentUserId);
                 if (selfMember) {
                     selfMember.isOnline = true;
-                    selfMember.status = UserStatus.Online;
+                    // keep existing status if set; else default Online
+                    selfMember.status = (selfMember.status ?? UserStatus.Online) as UserStatus;
                 }
             }
         }
@@ -656,7 +661,7 @@ export const useAppStore = defineStore('app', () => {
         const member = members.value.find(m => m.userId === userId);
         if (member) {
             member.isOnline = true;
-            member.status = UserStatus.Online;
+            // do not override explicit status; it will arrive via UserStatusChanged
         }
     };
 

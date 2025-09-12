@@ -36,6 +36,7 @@ export class SignalRService {
     private readonly idleMs = 15 * 60 * 1000; // 15 minutes
     private preferredStatus: UserStatus | null = null; // null => auto
     private statusRevertTimer: number | null = null;
+    private readonly statusStorageKey = 'dumcsi:userStatusPref';
 
     constructor() {
         // Handle page unload to properly cleanup
@@ -61,6 +62,21 @@ export class SignalRService {
             });
             // Initialize timer
             setTimeout(() => this.handleActivity(), 0);
+
+            // On page load, hydrate preferred status from storage if present
+            try {
+                const raw = localStorage.getItem(this.statusStorageKey);
+                if (raw) {
+                    const data = JSON.parse(raw || '{}') as { status?: UserStatus; expiresAt?: number | null };
+                    const now = Date.now();
+                    if (data.status && (data.expiresAt == null || data.expiresAt > now)) {
+                        // Defer applying until connection is up via Connected handler
+                        this.preferredStatus = data.status as UserStatus;
+                    } else {
+                        localStorage.removeItem(this.statusStorageKey);
+                    }
+                }
+            } catch {}
         }
     }
 
@@ -472,20 +488,21 @@ export class SignalRService {
             // Set all online users
             appStore.onlineUsers = new Set(onlineUserIds);
 
-            // Update member objects if we have them
+            // Update member objects if we have them, but do not override custom status
             appStore.members.forEach(member => {
                 member.isOnline = appStore.onlineUsers.has(member.userId);
-                member.status = member.isOnline ? UserStatus.Online : UserStatus.Offline;
+                if (!member.isOnline) member.status = UserStatus.Offline;
+                // If online, keep existing status; a UserStatusSnapshot will refine shortly
             });
 
-            // Set own status to online
+            // Ensure own online flag; keep chosen status
             const authStore = useAuthStore();
             if (authStore.user?.id) {
                 appStore.onlineUsers.add(authStore.user.id);
                 const selfMember = appStore.members.find(m => m.userId === authStore.user?.id);
                 if (selfMember) {
                     selfMember.isOnline = true;
-                    selfMember.status = UserStatus.Online;
+                    selfMember.status = (selfMember.status ?? UserStatus.Online) as UserStatus;
                 }
             }
 
@@ -497,6 +514,30 @@ export class SignalRService {
                 (appStore.servers || []).forEach(s => {
                     try { this.joinServer(s.id); } catch {}
                 });
+            } catch {}
+
+            // Re-apply stored preferred status after connection (survives refresh)
+            try {
+                const raw = localStorage.getItem(this.statusStorageKey);
+                if (raw) {
+                    const data = JSON.parse(raw || '{}') as { status?: UserStatus; expiresAt?: number | null };
+                    if (data.status) {
+                        const now = Date.now();
+                        if (data.expiresAt && data.expiresAt <= now) {
+                            // expired -> clear and revert to online
+                            localStorage.removeItem(this.statusStorageKey);
+                            this.preferredStatus = null;
+                            await this.setUserStatus(UserStatus.Online);
+                            this.handleActivity();
+                        } else if (data.expiresAt && data.expiresAt > now) {
+                            const remaining = data.expiresAt - now;
+                            this.setPreferredStatusTimed(data.status as UserStatus, remaining);
+                        } else {
+                            // Forever
+                            this.setPreferredStatus(data.status as UserStatus);
+                        }
+                    }
+                }
             } catch {}
         });
 
@@ -766,8 +807,11 @@ export class SignalRService {
         if (this.statusRevertTimer) { clearTimeout(this.statusRevertTimer); this.statusRevertTimer = null; }
         if (status) {
             this.setUserStatus(status).catch(() => {});
+            // Persist locally as forever
+            try { localStorage.setItem(this.statusStorageKey, JSON.stringify({ status, expiresAt: null })); } catch {}
         } else {
             this.handleActivity();
+            try { localStorage.removeItem(this.statusStorageKey); } catch {}
         }
     }
 
@@ -783,8 +827,15 @@ export class SignalRService {
     }
 
     setPreferredStatusTimed(status: UserStatus, durationMs: number) {
-        // Set explicit status and schedule revert to auto/online
-        this.setPreferredStatus(status);
+        // Persist timed status to backend and also schedule client-side fallback revert
+        this.preferredStatus = status;
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try { this.connection.invoke('SetUserStatusTimed', status, durationMs).catch(() => {}); } catch {}
+        } else {
+            // If not connected, at least reflect locally and try to connect-set later
+            this.setUserStatus(status).catch(() => {});
+        }
+
         if (this.statusRevertTimer) { clearTimeout(this.statusRevertTimer); this.statusRevertTimer = null; }
         if (durationMs > 0) {
             this.statusRevertTimer = setTimeout(() => {
@@ -793,7 +844,14 @@ export class SignalRService {
                 this.preferredStatus = null;
                 this.setUserStatus(UserStatus.Online).catch(() => {});
                 this.handleActivity();
+                try { localStorage.removeItem(this.statusStorageKey); } catch {}
             }, durationMs) as unknown as number;
+            // Save with expiry
+            try { localStorage.setItem(this.statusStorageKey, JSON.stringify({ status, expiresAt: Date.now() + durationMs })); } catch {}
+        }
+        else {
+            // Forever
+            try { localStorage.setItem(this.statusStorageKey, JSON.stringify({ status, expiresAt: null })); } catch {}
         }
     }
 

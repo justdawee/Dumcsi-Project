@@ -49,6 +49,7 @@ import {ref, computed} from 'vue';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import { useStatusColor } from '@/composables/useStatusColor';
 import {useAppStore} from '@/stores/app';
+import {useAuthStore} from '@/stores/auth';
 import { UserStatus } from '@/services/types';
 import type { UserProfileDto, ServerMemberDto } from '@/services/types';
 
@@ -74,6 +75,7 @@ const props = withDefaults(defineProps<{
 const {getUserColor, getInitials} = useUserDisplay();
 const { getStatusColor } = useStatusColor();
 const appStore = useAppStore();
+const authStore = useAuthStore();
 
 // State
 const imageError = ref(false);
@@ -91,9 +93,19 @@ const userId = computed(() =>
 );
 
 const userStatus = computed<UserStatus>(() => {
+  // If full user object with a status is provided
   if (props.user && 'status' in props.user && (props.user as any).status) {
     return (props.user as any).status as UserStatus;
   }
+  // Otherwise try to resolve from store by userId
+  const uid = userId.value;
+  if (uid) {
+    const member = appStore.members.find(m => m.userId === uid);
+    if (member && member.status) return member.status as UserStatus;
+    // If this is the current user, fall back to store's selfStatus
+    if (authStore.user?.id === uid) return appStore.selfStatus as UserStatus;
+  }
+  // Fallback based on online flag
   return isOnline.value ? UserStatus.Online : UserStatus.Offline;
 });
 
