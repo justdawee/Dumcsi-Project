@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import dmMessageService from '@/services/dmMessageService';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
+import router from '@/router';
 import type {
     EntityId,
     ConversationListItemDto,
@@ -219,10 +220,27 @@ export const useDmStore = defineStore('dm', () => {
             saveClosedConversations();
         }
 
-        // Mark as unread if not in that conversation
+        // Mark as unread and toast if not viewing that conversation and message is not from self
+        const authStore = useAuthStore();
         const currentRoute = window.location.pathname;
-        if (!currentRoute.includes(`/dm/${otherUserId}`)) {
+        const notViewing = !currentRoute.includes(`/dm/${otherUserId}`);
+        const fromOther = message.senderId !== authStore.user?.id;
+        if (notViewing && fromOther) {
             markAsUnread(otherUserId);
+            try {
+                addToast({
+                    type: 'info',
+                    title: `New DM from ${message.sender.username}`,
+                    message: message.content.length > 140 ? message.content.slice(0, 140) + '…' : message.content,
+                    actions: [
+                        {
+                            label: 'Open',
+                            variant: 'primary',
+                            action: async () => { await router.push(`/dm/${otherUserId}`); }
+                        }
+                    ]
+                });
+            } catch {}
         }
     };
 

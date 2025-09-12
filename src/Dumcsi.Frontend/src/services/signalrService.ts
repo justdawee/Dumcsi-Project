@@ -7,6 +7,7 @@ import { useDmStore } from '@/stores/dm';
 import {webrtcService} from './webrtcService.ts';
 import {livekitService} from '@/services/livekitService';
 import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
+import router from '@/router';
 import type {
     MessageDto,
     UserProfileDto,
@@ -28,6 +29,11 @@ export class SignalRService {
     private maxReconnectAttempts = 5;
     private reconnectDelay = 2000;
     private connectingWaiters: Array<(v: void) => void> = [];
+    // Idle tracking and preferred status
+    private idleTimer: number | null = null;
+    private readonly idleMs = 15 * 60 * 1000; // 15 minutes
+    private preferredStatus: UserStatus | null = null; // null => auto
+    private statusRevertTimer: number | null = null;
 
     constructor() {
         // Handle page unload to properly cleanup
@@ -42,7 +48,41 @@ export class SignalRService {
                 } catch {}
                 await this.cleanup();
             });
+
+            // Activity listeners for idle/active status
+            const onActivity = () => this.handleActivity();
+            ['mousemove', 'keydown', 'click', 'touchstart', 'focus'].forEach(evt => {
+                window.addEventListener(evt, onActivity as any, { passive: true } as any);
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) this.handleActivity();
+            });
+            // Initialize timer
+            setTimeout(() => this.handleActivity(), 0);
         }
+    }
+
+    private scheduleIdleTimer() {
+        if (this.idleTimer) {
+            clearTimeout(this.idleTimer);
+            this.idleTimer = null;
+        }
+        this.idleTimer = setTimeout(() => {
+            // Auto set idle only if not busy/invisible
+            if (this.preferredStatus !== UserStatus.Busy && this.preferredStatus !== UserStatus.Invisible) {
+                this.setUserStatus(UserStatus.Idle).catch(() => {});
+            }
+        }, this.idleMs) as unknown as number;
+    }
+
+    private handleActivity() {
+        // If user manually set Busy/Invisible, do not flip to Online automatically
+        if (this.preferredStatus === UserStatus.Busy || this.preferredStatus === UserStatus.Invisible) {
+            this.scheduleIdleTimer();
+            return;
+        }
+        this.setUserStatus(UserStatus.Online).catch(() => {});
+        this.scheduleIdleTimer();
     }
 
     private async ensureScreenShareStoppedIfRejoining(serverId: EntityId, channelId: EntityId): Promise<void> {
@@ -148,6 +188,40 @@ export class SignalRService {
         this.connection.on('ReceiveMessage', (message: MessageDto) => {
             
             appStore.handleReceiveMessage(message);
+        });
+
+        // Lightweight server-wide channel notification
+        this.connection.on('ChannelMessageCreated', (payload: any) => {
+            try {
+                const { addToast } = useToast();
+                const channelId = payload.channelId || payload.ChannelId;
+                const serverId = payload.serverId || payload.ServerId;
+                const author = payload.authorUsername || payload.AuthorUsername || 'Someone';
+                const authorId = payload.authorId || payload.AuthorId;
+                const content = (payload.content || payload.Content || '').toString();
+
+                // Only toast if not currently viewing that channel
+                const authStore = useAuthStore();
+                const isSelf = authStore.user?.id && authorId === authStore.user.id;
+                if (!isSelf && appStore.currentChannel?.id !== channelId) {
+                    addToast({
+                        type: 'info',
+                        title: `New message in #${appStore.currentServer?.channels?.find(c => c.id === channelId)?.name || 'channel'}`,
+                        message: `${author}: ${content.length > 140 ? content.slice(0, 140) + '…' : content}`,
+                        actions: [
+                            {
+                                label: 'Open',
+                                variant: 'primary',
+                                action: async () => {
+                                    if (serverId && channelId) {
+                                        await router.push(`/servers/${serverId}/channels/${channelId}`);
+                                    }
+                                }
+                            }
+                        ]
+                    });
+                }
+            } catch {}
         });
 
         this.connection.on('MessageUpdated', (message: MessageDto) => {
@@ -373,6 +447,22 @@ export class SignalRService {
                     selfMember.status = UserStatus.Online;
                 }
             }
+        });
+
+        // Presence mode updates
+        this.connection.on('UserStatusSnapshot', (snapshot: Record<string | number, string>) => {
+            try {
+                Object.entries(snapshot || {}).forEach(([uid, st]) => {
+                    const id = typeof uid === 'string' ? parseInt(uid, 10) : (uid as number);
+                    appStore.handleUserStatusChanged(id, st as any);
+                });
+            } catch {}
+        });
+        this.connection.on('UserStatusChanged', (userId: EntityId | string, status: string) => {
+            try {
+                const uid = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+                appStore.handleUserStatusChanged(uid, status as any);
+            } catch {}
         });
 
         // Typing indicator
@@ -613,6 +703,44 @@ export class SignalRService {
             } catch (error) {
                 console.error('Error stopping SignalR connection:', error);
             }
+        }
+    }
+
+    // Expose setting preferred status manually (Online, Busy, Idle/Away, Invisible)
+    setPreferredStatus(status: UserStatus | null) {
+        // null means auto (Online/Idle)
+        this.preferredStatus = status;
+        if (this.statusRevertTimer) { clearTimeout(this.statusRevertTimer); this.statusRevertTimer = null; }
+        if (status) {
+            this.setUserStatus(status).catch(() => {});
+        } else {
+            this.handleActivity();
+        }
+    }
+
+    async setUserStatus(status: UserStatus): Promise<void> {
+        if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            try {
+                await this.connection.invoke('SetUserStatus', status);
+                try { useAppStore().setSelfStatus(status); } catch {}
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+
+    setPreferredStatusTimed(status: UserStatus, durationMs: number) {
+        // Set explicit status and schedule revert to auto/online
+        this.setPreferredStatus(status);
+        if (this.statusRevertTimer) { clearTimeout(this.statusRevertTimer); this.statusRevertTimer = null; }
+        if (durationMs > 0) {
+            this.statusRevertTimer = setTimeout(() => {
+                this.statusRevertTimer = null;
+                // Return to auto (Online/Idle by activity). Force Online immediately.
+                this.preferredStatus = null;
+                this.setUserStatus(UserStatus.Online).catch(() => {});
+                this.handleActivity();
+            }, durationMs) as unknown as number;
         }
     }
 

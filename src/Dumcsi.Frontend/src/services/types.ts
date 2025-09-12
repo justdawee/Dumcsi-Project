@@ -17,6 +17,7 @@ export enum UserStatus {
     Online = 'online',
     Idle = 'idle',
     Busy = 'busy',
+    Invisible = 'invisible',
     Offline = 'offline',
 }
 

@@ -665,6 +665,48 @@ export const useAppStore = defineStore('app', () => {
         }
     };
 
+    // Presence status updates (online/idle/busy/invisible)
+    const handleUserStatusChanged = (userId: EntityId, status: UserStatus | string) => {
+        const normalized = (typeof status === 'string' ? status : String(status)).toLowerCase();
+        const valid = normalized === 'online' || normalized === 'idle' || normalized === 'busy' || normalized === 'invisible' || normalized === 'offline';
+        const finalStatus = (valid ? normalized : 'online') as UserStatus;
+
+        // Update member object if present
+        const member = members.value.find(m => m.userId === userId);
+        if (member) {
+            member.status = finalStatus as UserStatus;
+            if (finalStatus === UserStatus.Invisible) {
+                member.isOnline = false;
+                // Remove from online set so badges reflect "offline"
+                const updatedSet = new Set(onlineUsers.value);
+                updatedSet.delete(userId);
+                onlineUsers.value = updatedSet;
+            } else if (finalStatus === UserStatus.Offline) {
+                member.isOnline = false;
+                const updatedSet = new Set(onlineUsers.value);
+                updatedSet.delete(userId);
+                onlineUsers.value = updatedSet;
+            } else {
+                member.isOnline = true;
+                const updatedSet = new Set(onlineUsers.value);
+                updatedSet.add(userId);
+                onlineUsers.value = updatedSet;
+            }
+        } else {
+            // Ensure onlineUsers consistency even if not in members list
+            const updatedSet = new Set(onlineUsers.value);
+            if (finalStatus === UserStatus.Invisible || finalStatus === UserStatus.Offline) updatedSet.delete(userId);
+            else updatedSet.add(userId);
+            onlineUsers.value = updatedSet;
+        }
+    };
+
+    const setSelfStatus = (status: UserStatus) => {
+        const uid = currentUserId.value;
+        if (!uid) return;
+        handleUserStatusChanged(uid, status);
+    };
+
     const handleUserTyping = (channelId: EntityId, userId: EntityId) => {
         if (currentChannel.value?.id !== channelId) return;
         if (!typingUsers.value.has(channelId)) {
@@ -1126,6 +1168,8 @@ export const useAppStore = defineStore('app', () => {
         handleUserUpdated,
         handleUserOnline,
         handleUserOffline,
+        handleUserStatusChanged,
+        setSelfStatus,
         handleUserTyping,
         handleUserStoppedTyping,
         setTypingUsers,
