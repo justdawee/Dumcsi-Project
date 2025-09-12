@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import dmMessageService from '@/services/dmMessageService';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
+import { summarizeMessagePreview } from '@/utils/messageSummary';
 import router from '@/router';
 import type {
     EntityId,
@@ -232,13 +233,15 @@ export const useDmStore = defineStore('dm', () => {
                     type: 'info',
                     title: `New DM from ${message.sender.username}`,
                     message: message.content.length > 140 ? message.content.slice(0, 140) + '…' : message.content,
-                    actions: [
-                        {
-                            label: 'Open',
-                            variant: 'primary',
-                            action: async () => { await router.push(`/dm/${otherUserId}`); }
+                    onClick: async () => { await router.push(`/dm/${otherUserId}`); },
+                    quickReply: {
+                        placeholder: 'Quick reply…',
+                        onSend: async (text: string) => {
+                            await sendMessage(otherUserId, { content: text });
                         }
-                    ]
+                    },
+                    duration: 6000,
+                    meta: { dmUserId: Number(otherUserId) }
                 });
             } catch {}
         }
@@ -316,9 +319,30 @@ export const useDmStore = defineStore('dm', () => {
             saveClosedConversations();
         }
 
-        // Mark as unread if not currently viewing this conversation
+        // Mark as unread and show toast if not viewing this conversation and message is not from self
         const currentRoute = window.location.pathname;
-        if (!currentRoute.includes(`/dm/${otherUserId}`) && message.senderId !== authStore.user?.id) {
+        const notViewing = !currentRoute.includes(`/dm/${otherUserId}`);
+        const fromOther = message.senderId !== authStore.user?.id;
+        if (notViewing && fromOther) {
+            markAsUnread(otherUserId);
+            try {
+                const preview = summarizeMessagePreview(message.content, message.attachments as any, 140);
+                addToast({
+                    type: 'info',
+                    title: `New DM from ${message.sender.username}`,
+                    message: preview || 'Sent a message',
+                    onClick: async () => { await router.push(`/dm/${otherUserId}`); },
+                    quickReply: {
+                        placeholder: 'Quick reply…',
+                        onSend: async (text: string) => { await sendMessage(otherUserId, { content: text }); }
+                    },
+                    // Auto-dismiss after a short delay, even with quick-reply
+                    duration: 6000,
+                    meta: { dmUserId: Number(otherUserId) }
+                });
+            } catch {}
+        } else if (notViewing) {
+            // For echoed own messages, still mark as unread when not on view
             markAsUnread(otherUserId);
         }
     };

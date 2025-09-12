@@ -6,7 +6,7 @@
       class="fixed z-[10000] bg-bg-base rounded-lg shadow-lg p-1.5 animate-fade-in border border-border-default/50 inline-block max-h-[80vh] overflow-auto overscroll-contain"
   >
     <ul class="space-y-1">
-      <li v-for="(item, idx) in items" :key="idx">
+      <li v-for="(item, idx) in items" :key="idx" @mouseenter="onItemEnter(item, $event)" @mouseleave="onItemLeave">
         <div v-if="item.type === 'separator'" class="h-px bg-border-default/50 my-1" />
         <div v-else-if="item.type === 'label'" class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary select-none">
           {{ item.label }}
@@ -26,10 +26,44 @@
           <component v-if="item.checked" :is="Check" class="w-4 h-4 text-primary"/>
           <component v-else-if="item.icon" :is="item.icon" class="w-4 h-4"/>
           <span class="flex-1 text-left">{{ item.label }}</span>
-          <span v-if="item.shortcut" class="text-[10px] text-text-tertiary">{{ item.shortcut }}</span>
+          <span v-if="item.children && item.children.length" class="text-[10px] text-text-tertiary">▶</span>
+          <span v-else-if="item.shortcut" class="text-[10px] text-text-tertiary">{{ item.shortcut }}</span>
         </button>
       </li>
     </ul>
+
+    <!-- Submenu -->
+    <div
+      v-if="submenuVisible && submenuItems.length"
+      class="fixed z-[10001] bg-bg-base rounded-lg shadow-lg p-1.5 border border-border-default/50 inline-block max-h-[80vh] overflow-auto overscroll-contain"
+      :style="{ top: `${submenuY}px`, left: `${submenuX}px` }"
+      @mouseenter="onSubmenuEnter"
+      @mouseleave="onSubmenuLeave"
+    >
+      <ul class="space-y-1">
+        <li v-for="(s, i) in submenuItems" :key="i">
+          <div v-if="s.type === 'separator'" class="h-px bg-border-default/50 my-1" />
+          <div v-else-if="s.type === 'label'" class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary select-none">
+            {{ s.label }}
+          </div>
+          <button
+            v-else
+            :disabled="s.disabled"
+            :class="[
+              s.danger ? 'text-danger hover:bg-danger/20 hover:text-red-300' : 'text-text-secondary hover:bg-primary/50 hover:text-text-default',
+              s.disabled ? 'opacity-50 cursor-not-allowed' : ''
+            ]"
+            class="flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors"
+            @click="handleClick(s)"
+          >
+            <component v-if="s.checked" :is="Check" class="w-4 h-4 text-primary"/>
+            <component v-else-if="s.icon" :is="s.icon" class="w-4 h-4"/>
+            <span class="flex-1 text-left">{{ s.label }}</span>
+            <span v-if="s.shortcut" class="text-[10px] text-text-tertiary">{{ s.shortcut }}</span>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -51,6 +85,8 @@ export interface MenuItem {
   disabled?: boolean;
   checked?: boolean;
   shortcut?: string;
+  // Nested submenu
+  children?: MenuItem[];
 }
 
 defineProps<{
@@ -67,6 +103,12 @@ const preferAboveHint = ref<boolean | null>(null);
 const lastOpenX = ref<number | null>(null);
 const lastOpenY = ref<number | null>(null);
 let anchorEl: HTMLElement | null = null;
+// Submenu state
+const submenuVisible = ref(false);
+const submenuItems = ref<MenuItem[]>([]);
+const submenuX = ref(0);
+const submenuY = ref(0);
+let submenuCloseTimer: number | null = null;
 
 // --- Manager ---
 const {openMenu, closeMenu} = useContextMenuManager();
@@ -85,6 +127,7 @@ const open = (event: MouseEvent) => {
   const closeLogic = () => {
     visible.value = false;
     document.removeEventListener('click', handleClickOutside, true);
+    hideSubmenu();
   };
 
   menuId.value = openMenu(closeLogic);
@@ -191,6 +234,7 @@ const close = () => {
   lastOpenX.value = null;
   lastOpenY.value = null;
   anchorEl = null;
+  hideSubmenu();
 };
 
 const handleClick = (item: MenuItem) => {
@@ -208,6 +252,56 @@ const handleClickOutside = (event: MouseEvent) => {
     close();
   }
 };
+
+function onItemEnter(item: MenuItem, ev: MouseEvent) {
+  if (submenuCloseTimer) { clearTimeout(submenuCloseTimer); submenuCloseTimer = null; }
+  if (!item.children || item.children.length === 0) {
+    hideSubmenu();
+    return;
+  }
+  const btn = ev.currentTarget as HTMLElement;
+  const rect = btn.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const GAP = 6;
+  // Default to right side
+  let sx = rect.right + GAP;
+  let sy = rect.top;
+  // Clamp to viewport
+  // Measure an approximate width/height (fallbacks); we'll adjust after render
+  const approxWidth = 220;
+  const approxHeight = Math.min(300, viewportHeight - 20);
+  if (sx + approxWidth > viewportWidth) {
+    // Flip to left side
+    sx = Math.max(10, rect.left - approxWidth - GAP);
+  }
+  if (sy + approxHeight > viewportHeight) {
+    sy = Math.max(10, viewportHeight - approxHeight - GAP);
+  }
+  submenuItems.value = item.children || [];
+  submenuX.value = sx;
+  submenuY.value = sy;
+  submenuVisible.value = true;
+}
+
+function onItemLeave() {
+  // Delay closing to allow moving into submenu
+  if (submenuCloseTimer) clearTimeout(submenuCloseTimer);
+  submenuCloseTimer = setTimeout(() => hideSubmenu(), 200) as unknown as number;
+}
+
+function onSubmenuEnter() {
+  if (submenuCloseTimer) { clearTimeout(submenuCloseTimer); submenuCloseTimer = null; }
+}
+function onSubmenuLeave() {
+  if (submenuCloseTimer) clearTimeout(submenuCloseTimer);
+  submenuCloseTimer = setTimeout(() => hideSubmenu(), 200) as unknown as number;
+}
+
+function hideSubmenu() {
+  submenuVisible.value = false;
+  submenuItems.value = [];
+}
 
 // --- Event Listeners ---
 onUnmounted(() => {

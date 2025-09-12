@@ -177,7 +177,7 @@
     </template>
 
     <template #footer>
-      <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
+  <ContextMenu ref="channelContextMenu" :items="channelMenuItems"/>
       <ContextMenu ref="serverDropdownMenu" :items="serverMenuItems"/>
       <ConfirmModal
           v-model="isConfirmDeleteOpen"
@@ -309,12 +309,13 @@ import { RouteNames } from '@/router';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
 import {checkMicrophonePermission} from '@/utils/permissions';
-import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown, MicOff, VolumeX} from 'lucide-vue-next';
+import {Edit, Hash, Loader2, Plus, PlusCircle, Settings, Trash2, Volume2, ChevronDown, MicOff, VolumeX, BellOff, Bell} from 'lucide-vue-next';
 import EditChannelModal from '@/components/modals/EditChannelModal.vue';
 import BaseModal from '@/components/modals/BaseModal.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
+import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
 import InviteManagementModal from '@/components/modals/InviteManagementModal.vue';
@@ -334,6 +335,7 @@ import {
 } from '@/services/types';
 import {usePermissions} from '@/composables/usePermissions';
 import {useServerMenu} from '@/composables/useServerMenu';
+import {useNotificationPrefs} from '@/stores/notifications';
 import {useContextMenuManager} from '@/composables/useContextMenuManager';
 
 // --- Props & Store ---
@@ -377,14 +379,8 @@ const isEditModalOpen = ref(false);
 const editingChannel = ref<ChannelDetailDto | null>(null);
 const inviteManagementModal = ref();
 
-interface MenuItem {
-  label: string;
-  icon: Component;
-  action: () => void;
-  danger?: boolean;
-}
-
 const channelContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const prefs = useNotificationPrefs();
 const channelMenuItems = ref<MenuItem[]>([]);
 const isConfirmDeleteOpen = ref(false);
 const isDeleting = ref(false);
@@ -392,6 +388,9 @@ const isSavingOrder = ref(false);
 const deletingChannel = ref<ChannelListItem | null>(null);
 const isCreateTopicModalOpen = ref(false);
 const newTopicName = ref('');
+
+// Track last server dropdown trigger rect for potential positioning needs
+const lastServerTriggerRect = ref<DOMRect | null>(null);
 
 // Server dropdown states
 const isServerDropdownOpen = ref(false);
@@ -525,8 +524,8 @@ onBeforeUnmount(() => {
 const canManageChannels = permissions.manageChannels;
 
 // Server dropdown computed
-const serverMenuItems = computed(() => {
-  if (!props.server) return [];
+const baseServerMenuItems = computed(() => {
+  if (!props.server) return [] as MenuItem[];
   const serverListItem: ServerListItem = {
     id: props.server.id,
     name: props.server.name,
@@ -537,7 +536,30 @@ const serverMenuItems = computed(() => {
     public: false, // Not used in context menu  
     createdAt: new Date().toISOString() // Not used in context menu
   };
-  return serverMenu.getServerMenuItems(serverListItem);
+  return serverMenu.getServerMenuItems(serverListItem) as unknown as MenuItem[];
+});
+
+const serverMenuItems = computed<MenuItem[]>(() => {
+  if (!props.server) return [];
+  const items = [...baseServerMenuItems.value];
+  const serverId = props.server.id;
+  const muted = prefs.isServerMuted(serverId);
+  // Divider
+  items.push({ type: 'separator' });
+  if (!muted) {
+    items.push({ label: 'Mute Server…', icon: BellOff as any, children: [
+      { label: 'For 15 minutes', action: () => prefs.muteServer(serverId, prefs.Durations.m15) } as any,
+      { label: 'For 1 hour', action: () => prefs.muteServer(serverId, prefs.Durations.h1) } as any,
+      { label: 'For 3 hours', action: () => prefs.muteServer(serverId, prefs.Durations.h3) } as any,
+      { label: 'For 8 hours', action: () => prefs.muteServer(serverId, prefs.Durations.h8) } as any,
+      { label: 'For 24 hours', action: () => prefs.muteServer(serverId, prefs.Durations.h24) } as any,
+      { type: 'separator' } as any,
+      { label: 'Until I turn back on', action: () => prefs.muteServer(serverId, 'forever') } as any,
+    ] });
+  } else {
+    items.push({ label: 'Unmute Server', icon: Bell as any, action: () => prefs.unmuteServer(serverId) });
+  }
+  return items;
 });
 
 // --- Methods ---
@@ -554,14 +576,36 @@ const openEditModal = async (channel: ChannelListItem) => {
 };
 
 const openChannelMenu = (event: MouseEvent, channel: ChannelListItem) => {
-  if (!canManageChannels.value) return;
+  if (!props.server) return;
+  const serverId = props.server.id;
+  const isMuted = prefs.isChannelMuted(serverId, channel.id);
 
-  channelMenuItems.value = [
-    {label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel)},
-    {label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server!.id)},
-    {label: 'Create Topic', icon: Plus, action: () => openCreateTopicModal()},
-    {label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel)},
-  ];
+  const items: MenuItem[] = [];
+  if (!isMuted) {
+    items.push({ label: 'Mute Channel…', icon: BellOff as any, children: [
+      { label: 'For 15 minutes', action: () => prefs.muteChannel(serverId, channel.id, prefs.Durations.m15) } as any,
+      { label: 'For 1 hour', action: () => prefs.muteChannel(serverId, channel.id, prefs.Durations.h1) } as any,
+      { label: 'For 3 hours', action: () => prefs.muteChannel(serverId, channel.id, prefs.Durations.h3) } as any,
+      { label: 'For 8 hours', action: () => prefs.muteChannel(serverId, channel.id, prefs.Durations.h8) } as any,
+      { label: 'For 24 hours', action: () => prefs.muteChannel(serverId, channel.id, prefs.Durations.h24) } as any,
+      { type: 'separator' } as any,
+      { label: 'Until I turn back on', action: () => prefs.muteChannel(serverId, channel.id, 'forever') } as any,
+    ] });
+  } else {
+    items.push({ label: 'Unmute Channel', icon: Bell as any, action: () => prefs.unmuteChannel(serverId, channel.id) });
+  }
+  // Separator
+  items.push({ type: 'separator' });
+
+  // Admin items (only if allowed)
+  if (canManageChannels.value) {
+    items.push({label: 'Edit Channel', icon: Edit, action: () => openEditModal(channel)});
+    items.push({label: 'Create Channel', icon: PlusCircle, action: () => appStore.openCreateChannelModal(props.server!.id)});
+    items.push({label: 'Create Topic', icon: Plus, action: () => openCreateTopicModal()});
+    items.push({label: 'Delete Channel', icon: Trash2, danger: true, action: () => promptDeleteChannel(channel)});
+  }
+
+  channelMenuItems.value = items as any;
   channelContextMenu.value?.open(event);
 };
 
@@ -736,6 +780,7 @@ const openServerDropdown = () => {
   if (triggerRect && serverDropdownMenu.value) {
     // Show below the button, anchored to its left edge
     isServerDropdownOpen.value = true;
+    lastServerTriggerRect.value = triggerRect;
     serverDropdownMenu.value.openAt(triggerRect.left, triggerRect.bottom, false, 6, triggerEl || undefined);
   }
 };

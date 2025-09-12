@@ -8,8 +8,12 @@
           :title="toast.title"
           :type="toast.type"
           :actions="toast.actions"
+          :on-click="toast.onClick"
+          :quick-reply="toast.quickReply"
+          :duration-ms="toast.durationMs"
           @close="removeToast(toast.id)"
           @action="(a) => { try { a.action(); } finally { removeToast(toast.id); } }"
+          @sent="() => removeToast(toast.id)"
       />
     </TransitionGroup>
   </div>

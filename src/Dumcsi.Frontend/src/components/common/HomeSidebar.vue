@@ -110,12 +110,24 @@
           </div>
         </div>
         <!-- Context Menu -->
-        <div v-if="contextMenu.visible" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" class="fixed z-50 bg-bg-surface border border-border-default rounded-md shadow-lg py-1 w-48">
+        <div v-if="contextMenu.visible" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" class="fixed z-50 bg-bg-surface border border-border-default rounded-md shadow-lg py-1 w-56">
+          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">User</div>
           <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="viewProfile">Profile</button>
           <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="inviteToServer" disabled>Invite to server</button>
           <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="friendNickname" disabled>Friend nickname</button>
           <div class="h-px bg-border-default my-1"></div>
+          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">Conversation</div>
           <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="markAsRead">Mark as read</button>
+          <template v-if="!isMuted(contextMenu.userId)">
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '15m')">Mute 15 minutes</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '1h')">Mute 1 hour</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '3h')">Mute 3 hours</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '8h')">Mute 8 hours</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '24h')">Mute 24 hours</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, 'forever')">Mute until turned back on</button>
+          </template>
+          <button v-else class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="unmuteDm(contextMenu.userId)">Unmute Conversation</button>
+          <div class="h-px bg-border-default my-1"></div>
           <button v-if="!isBlocked(contextMenu.userId)" class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-danger/10" @click="blockUser(contextMenu.userId)">Block</button>
           <button v-else class="w-full text-left px-3 py-2 text-sm text-success hover:bg-success/10" @click="unblockUser(contextMenu.userId)">Unblock</button>
         </div>
@@ -134,11 +146,13 @@ import SidebarContainer from '@/components/common/SidebarContainer.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { getMessagePreview } from '@/utils/messagePreview';
 import type { EntityId } from '@/services/types';
+import { useNotificationPrefs } from '@/stores/notifications';
 
 const route = useRoute();
 const router = useRouter();
 const dmStore = useDmStore();
 const friendStore = useFriendStore();
+const prefs = useNotificationPrefs();
 
 const dmLoading = ref(true);
 const showSearchModal = ref(false);
@@ -213,6 +227,15 @@ const viewProfile = () => {};
 const inviteToServer = () => {};
 const friendNickname = () => {};
 const markAsRead = () => {};
+
+// DM mute helpers
+const isMuted = (userId: number) => prefs.isDmMuted(userId);
+const muteDm = (userId: number, preset: '15m'|'1h'|'3h'|'8h'|'24h'|'forever') => {
+  const d = prefs.Durations;
+  const map: Record<string, number | 'forever'> = { '15m': d.m15, '1h': d.h1, '3h': d.h3, '8h': d.h8, '24h': d.h24, 'forever': 'forever' };
+  prefs.muteDm(userId, map[preset]);
+};
+const unmuteDm = (userId: number) => prefs.unmuteDm(userId);
 </script>
 
 <style scoped>

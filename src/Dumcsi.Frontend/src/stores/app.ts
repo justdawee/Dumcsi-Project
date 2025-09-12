@@ -86,6 +86,14 @@ export const useAppStore = defineStore('app', () => {
         return authStore.user?.id || null;
     });
 
+    // Current user's presence status (used for suppressing notifications in DND)
+    const selfStatus = computed(() => {
+        const uid = currentUserId.value;
+        if (!uid) return UserStatus.Offline;
+        const member = members.value.find(m => m.userId === uid);
+        return member?.status || UserStatus.Online;
+    });
+
     const getUserProfile = (userId: EntityId): UserProfileDto | null => {
         const authStore = useAuthStore();
         
@@ -1170,6 +1178,7 @@ export const useAppStore = defineStore('app', () => {
         handleUserOffline,
         handleUserStatusChanged,
         setSelfStatus,
+        selfStatus,
         handleUserTyping,
         handleUserStoppedTyping,
         setTypingUsers,

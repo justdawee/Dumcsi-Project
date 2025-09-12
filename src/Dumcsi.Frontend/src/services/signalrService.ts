@@ -6,6 +6,7 @@ import { useFriendStore } from '@/stores/friends';
 import { useDmStore } from '@/stores/dm';
 import {webrtcService} from './webrtcService.ts';
 import {livekitService} from '@/services/livekitService';
+import { summarizeMessagePreview } from '@/utils/messageSummary';
 import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
 import router from '@/router';
 import type {
@@ -29,6 +30,7 @@ export class SignalRService {
     private maxReconnectAttempts = 5;
     private reconnectDelay = 2000;
     private connectingWaiters: Array<(v: void) => void> = [];
+    private handlersBound = false;
     // Idle tracking and preferred status
     private idleTimer: number | null = null;
     private readonly idleMs = 15 * 60 * 1000; // 15 minutes
@@ -181,6 +183,7 @@ export class SignalRService {
 
     private setupEventHandlers(): void {
         if (!this.connection) return;
+        if (this.handlersBound) return; // Avoid duplicate bindings
 
         const appStore = useAppStore();
 
@@ -199,16 +202,53 @@ export class SignalRService {
                 const author = payload.authorUsername || payload.AuthorUsername || 'Someone';
                 const authorId = payload.authorId || payload.AuthorId;
                 const content = (payload.content || payload.Content || '').toString();
+                const preview = summarizeMessagePreview(content, null, 140);
 
                 // Only toast if not currently viewing that channel
                 const authStore = useAuthStore();
                 const isSelf = authStore.user?.id && authorId === authStore.user.id;
                 if (!isSelf && appStore.currentChannel?.id !== channelId) {
+                    const channelName = appStore.currentServer?.channels?.find(c => c.id === channelId)?.name || 'channel';
+                    const serverName = appStore.currentServer?.name || 'Server';
                     addToast({
                         type: 'info',
-                        title: `New message in #${appStore.currentServer?.channels?.find(c => c.id === channelId)?.name || 'channel'}`,
-                        message: `${author}: ${content.length > 140 ? content.slice(0, 140) + '…' : content}`,
+                        title: `${serverName} • #${channelName}`,
+                        message: `${author}: ${preview || 'Sent a message'}`,
+                        onClick: async () => {
+                            if (serverId && channelId) {
+                                await router.push(`/servers/${serverId}/channels/${channelId}`);
+                            }
+                        },
+                        // Auto-dismiss after a short delay even with actions
+                        duration: 6000,
                         actions: [
+                            {
+                                label: 'Mute…',
+                                variant: 'secondary',
+                                action: async () => {
+                                    try {
+                                        const { useNotificationPrefs } = await import('@/stores/notifications');
+                                        const prefs = useNotificationPrefs();
+                                        const { addToast } = await import('@/composables/useToast');
+                                        // Show quick duration chooser as a follow-up toast
+                                        addToast({
+                                            type: 'info',
+                                            title: 'Mute Channel',
+                                            message: `Choose duration for #${channelName}`,
+                                            actions: [
+                                                { label: '15m', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.m15) },
+                                                { label: '1h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h1) },
+                                                { label: '3h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h3) },
+                                                { label: '8h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h8) },
+                                                { label: '24h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h24) },
+                                                { label: 'Until on', action: () => prefs.muteChannel(Number(serverId), Number(channelId), 'forever'), variant: 'secondary' },
+                                            ],
+                                            duration: 0,
+                                            meta: { serverId: Number(serverId), channelId: Number(channelId) }
+                                        });
+                                    } catch {}
+                                }
+                            },
                             {
                                 label: 'Open',
                                 variant: 'primary',
@@ -218,7 +258,8 @@ export class SignalRService {
                                     }
                                 }
                             }
-                        ]
+                        ],
+                        meta: { serverId: Number(serverId), channelId: Number(channelId) }
                     });
                 }
             } catch {}
@@ -425,7 +466,7 @@ export class SignalRService {
             appStore.setConnectionState('disconnected');
         });
 
-        this.connection.on('Connected', (onlineUserIds: EntityId[]) => {
+        this.connection.on('Connected', async (onlineUserIds: EntityId[]) => {
             
 
             // Set all online users
@@ -447,6 +488,16 @@ export class SignalRService {
                     selfMember.status = UserStatus.Online;
                 }
             }
+
+            // Join all servers to receive server-wide channel notifications (ChannelMessageCreated)
+            try {
+                if (!appStore.servers || appStore.servers.length === 0) {
+                    await appStore.fetchServers();
+                }
+                (appStore.servers || []).forEach(s => {
+                    try { this.joinServer(s.id); } catch {}
+                });
+            } catch {}
         });
 
         // Presence mode updates
@@ -690,6 +741,7 @@ export class SignalRService {
             appStore.setConnectionState('disconnected');
             this.handleConnectionClosed();
         }
+        this.handlersBound = true;
     }
 
     async stop(): Promise<void> {
@@ -703,6 +755,7 @@ export class SignalRService {
             } catch (error) {
                 console.error('Error stopping SignalR connection:', error);
             }
+            this.handlersBound = false;
         }
     }
 

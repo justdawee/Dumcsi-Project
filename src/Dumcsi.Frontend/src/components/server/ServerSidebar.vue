@@ -178,7 +178,7 @@
 import {ref, computed, onUnmounted} from 'vue';
 import {useRoute} from 'vue-router';
 import {useAppStore} from '@/stores/app';
-import {Home, Plus, Compass} from 'lucide-vue-next';
+import {Home, Plus, Compass, BellOff, Bell} from 'lucide-vue-next';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import ServerAvatar from '@/components/common/ServerAvatar.vue';
 import InviteModal from '@/components/modals/InviteModal.vue';
@@ -191,6 +191,8 @@ import ConfirmModal from '@/components/modals/ConfirmModal.vue';
 import ManageRolesModal from '@/components/modals/ManageRolesModal.vue';
 import type {ServerListItem} from '@/services/types';
 import {useServerMenu} from '@/composables/useServerMenu';
+import {useNotificationPrefs} from '@/stores/notifications';
+import type { MenuItem } from '@/components/ui/ContextMenu.vue';
 
 // --- State ---
 const route = useRoute();
@@ -242,9 +244,28 @@ const currentServerId = computed(() => route.params.serverId ? parseInt(route.pa
 // Current server menu items
 const currentServerMenuItems = ref<any[]>([]);
 
+const prefs = useNotificationPrefs();
+
 const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
-  const menuItems = serverMenu.getServerMenuItems(server);
-  currentServerMenuItems.value = menuItems;
+  const menuItems = serverMenu.getServerMenuItems(server) as unknown as MenuItem[];
+  // Append single Mute Server… item with hover submenu (or Unmute if already muted)
+  const isMuted = prefs.isServerMuted(server.id);
+  const augmented: MenuItem[] = [...menuItems, { type: 'separator' } as any];
+  if (!isMuted) {
+    augmented.push({ label: 'Mute Server…', icon: BellOff as any, children: [
+      { label: 'For 15 minutes', action: () => prefs.muteServer(server.id, prefs.Durations.m15) } as any,
+      { label: 'For 1 hour', action: () => prefs.muteServer(server.id, prefs.Durations.h1) } as any,
+      { label: 'For 3 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h3) } as any,
+      { label: 'For 8 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h8) } as any,
+      { label: 'For 24 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h24) } as any,
+      { type: 'separator' } as any,
+      { label: 'Until I turn back on', action: () => prefs.muteServer(server.id, 'forever') } as any,
+    ] });
+  } else {
+    augmented.push({ label: 'Unmute Server', icon: Bell as any, action: () => prefs.unmuteServer(server.id) });
+  }
+
+  currentServerMenuItems.value = augmented as any;
   if (menuItems.length > 0) {
     serverContextMenu.value?.open(event);
   }

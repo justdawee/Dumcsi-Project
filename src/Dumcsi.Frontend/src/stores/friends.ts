@@ -52,7 +52,6 @@ export const useFriendStore = defineStore('friends', () => {
     const sendRequest = async (username: string) => {
         try {
             await friendService.sendFriendRequest(username);
-            addToast({ type: 'success', message: 'Request sent' });
             fetchRequests();
         } catch (err: any) {
             const code: string | undefined = err?.response?.data?.error?.code;

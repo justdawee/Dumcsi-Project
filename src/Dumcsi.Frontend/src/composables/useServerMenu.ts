@@ -161,6 +161,9 @@ export function useServerMenu() {
         if (canManageRoles) {
             menuItems.push({label: 'Manage Roles', icon: Shield, action: () => handleManageRoles(server)});
         }
+        // Separator
+        // menuItems.push({ label: '', icon: Bell as any, action: () => {}, } as any);
+
         if (!server.isOwner) {
             menuItems.push({
                 label: 'Leave Server',

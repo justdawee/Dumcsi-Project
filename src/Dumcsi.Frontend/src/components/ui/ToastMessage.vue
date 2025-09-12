@@ -1,6 +1,7 @@
 <template>
   <div
-      class="relative flex w-full max-w-sm items-start overflow-hidden rounded-xl border border-border-default/50 bg-bg-surface/50 p-4 shadow-lg backdrop-blur-md"
+      class="relative flex w-full max-w-sm items-start overflow-hidden rounded-xl border border-border-default/50 bg-bg-surface/50 p-4 shadow-lg backdrop-blur-md cursor-pointer"
+      @click="onClick && onClick()"
   >
     <div class="mr-3 flex-shrink-0">
       <div
@@ -14,11 +15,30 @@
     <div class="flex-1">
       <p class="font-bold text-text-default">{{ title || typeClasses.title }}</p>
       <p class="mt-1 text-sm text-text-secondary">{{ message }}</p>
+      <!-- Quick reply (for DMs) -->
+      <div v-if="quickReply" class="mt-3 relative" @click.stop>
+        <input
+          v-model="replyText"
+          type="text"
+          :placeholder="quickReply.placeholder || 'Quick reply…'"
+          class="w-full rounded-md bg-main-800 text-text-default placeholder-text-muted pl-3 pr-10 py-2 text-sm border border-border-default/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          @keydown.enter.prevent="sendQuickReply"
+        />
+        <button
+          class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-text-muted hover:text-text-default hover:bg-main-700 disabled:opacity-50"
+          :disabled="sending || !replyText.trim()"
+          @click.stop="sendQuickReply"
+          aria-label="Send quick reply"
+          title="Send"
+        >
+          <Send class="w-4 h-4" />
+        </button>
+      </div>
       <div v-if="actions && actions.length" class="mt-2 flex gap-2">
         <button
           v-for="(a, idx) in actions"
           :key="idx"
-          @click="$emit('action', a)"
+          @click.stop="$emit('action', a)"
           :class="[
             'px-2 py-1 rounded text-sm transition-colors',
             a.variant === 'danger' ? 'bg-red-600 text-white hover:bg-red-700' :
@@ -33,21 +53,21 @@
 
     <button
         class="ml-3 flex-shrink-0 rounded-full p-1 text-text-muted transition-colors hover:bg-main-700 hover:text-text-default"
-        @click="$emit('close')"
+        @click.stop="$emit('close')"
     >
       <X class="h-5 w-5"/>
     </button>
 
-    <div class="absolute bottom-0 left-0 h-1 w-full">
-      <div :class="typeClasses.accentColor" class="h-full animate-progress"></div>
+    <div v-if="durationMs && durationMs > 0" class="absolute bottom-0 left-0 h-1 w-full">
+      <div :class="typeClasses.accentColor" class="h-full animate-progress" :style="{ animationDuration: `${durationMs}ms` }"></div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import {computed} from 'vue';
+import {computed, ref} from 'vue';
 import type {Component} from 'vue';
-import {CheckCircle2, XCircle, AlertTriangle, Info, X} from 'lucide-vue-next';
+import {CheckCircle2, XCircle, AlertTriangle, Info, X, Send} from 'lucide-vue-next';
 import type {ToastType, ToastAction} from '@/composables/useToast';
 
 const props = defineProps<{
@@ -55,9 +75,31 @@ const props = defineProps<{
   type: ToastType;
   title?: string;
   actions?: ReadonlyArray<Readonly<ToastAction>>;
+  onClick?: () => void | Promise<void>;
+  quickReply?: { placeholder?: string; onSend: (text: string) => void | Promise<void> };
+  durationMs?: number;
 }>();
 
-defineEmits(['close', 'action']);
+const emit = defineEmits(['close', 'action', 'sent']);
+
+const replyText = ref('');
+const sending = ref(false);
+
+const sendQuickReply = async () => {
+  if (!props.quickReply) return;
+  const text = replyText.value.trim();
+  if (!text) return;
+  if (sending.value) return;
+  sending.value = true;
+  try {
+    await props.quickReply.onSend(text);
+    emit('sent');
+  } catch {
+    // keep toast open on failure
+  } finally {
+    sending.value = false;
+  }
+};
 
 const typeClasses = computed(() => {
   switch (props.type) {
