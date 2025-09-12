@@ -13,7 +13,7 @@
         </div>
       </header>
 
-      <!-- Coming Soon Card -->
+      <!-- Coming Soon Card (presence moved to User menu) -->
       <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden">
         <div class="p-8 text-center">
           <Bell class="w-16 h-16 text-text-muted mx-auto mb-4"/>

@@ -1,20 +1,26 @@
 <template>
   <div class="absolute bottom-0 left-0 w-[332px] px-2 py-2 border-r border-t border-main-700 bg-main-950">
     <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-main-800 transition">
-      <UserAvatar
-          :avatar-url="authStore.user?.avatar"
-          :size="32"
-          :user-id="authStore.user?.id"
-          :username="authStore.user?.username || ''"
-      />
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-text-default truncate">
-          {{ getDisplayName(authStore.user) }}
-        </p>
-        <div class="text-xs text-text-muted truncate">
-          @{{ authStore.user?.username }}
+      <!-- Left clickable container: avatar + display name opens quick menu -->
+      <button class="flex items-center gap-2 flex-1 min-w-0 text-left" @click="openQuickMenu = true">
+        <UserAvatar
+            :avatar-url="authStore.user?.avatar"
+            :size="32"
+            :user-id="authStore.user?.id"
+            :username="authStore.user?.username || ''"
+            show-online-indicator
+        />
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-text-default truncate">
+            {{ getDisplayName(authStore.user) }}
+          </p>
+          <div class="text-xs text-text-muted truncate">
+            @{{ authStore.user?.username }}
+          </div>
         </div>
-      </div>
+      </button>
+
+      <!-- Right controls remain -->
       <div class="flex items-center">
         <!-- Mic mute/unmute button -->
         <button
@@ -50,20 +56,26 @@
         </RouterLink>
       </div>
     </div>
+
+    <!-- Quick menu modal -->
+    <UserQuickMenu :open="openQuickMenu" @close="openQuickMenu = false" />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Settings, Mic, MicOff, Volume2, VolumeX } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import UserAvatar from '@/components/common/UserAvatar.vue';
+import UserQuickMenu from '@/components/common/UserQuickMenu.vue';
 
 const authStore = useAuthStore();
 const appStore = useAppStore();
 const { getDisplayName } = useUserDisplay();
+
+const openQuickMenu = ref(false);
 
 const isMuted = computed(() => appStore.selfMuted);
 const isDeafened = computed(() => appStore.selfDeafened);
