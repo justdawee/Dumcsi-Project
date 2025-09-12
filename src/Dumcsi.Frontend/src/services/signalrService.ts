@@ -930,7 +930,6 @@ export class SignalRService {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
             try {
                 await this.connection.invoke('SendDmTypingIndicator', otherUserId.toString());
-                try { useDmStore().setUserTyping(otherUserId, true); } catch {}
             } catch (error) {
                 console.error('Failed to send DM typing indicator:', error);
             }
@@ -941,7 +940,6 @@ export class SignalRService {
         if (this.connection?.state === signalR.HubConnectionState.Connected) {
             try {
                 await this.connection.invoke('StopDmTypingIndicator', otherUserId.toString());
-                try { useDmStore().setUserTyping(otherUserId, false); } catch {}
             } catch (error) {
                 console.error('Failed to send DM stop typing indicator:', error);
             }
