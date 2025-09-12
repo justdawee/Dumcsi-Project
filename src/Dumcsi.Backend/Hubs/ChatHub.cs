@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
 using Dumcsi.Backend.Services.Data;
+using Dumcsi.Backend.Data.Context;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace Dumcsi.Backend.Hubs;
 
 [Authorize]
-public class ChatHub(IPresenceService presenceService) : Hub
+public class ChatHub(IPresenceService presenceService, IDbContextFactory<DumcsiDbContext> dbContextFactory) : Hub
 {
     // Store voice channel users in memory (channel ID -> list of connection IDs)
     // TODO: Use Redis cache for better performance under high load
@@ -41,6 +44,39 @@ public class ChatHub(IPresenceService presenceService) : Hub
         var userId = Context.UserIdentifier; // Logged in user ID from token
         if (userId != null)
         {
+            // Load persisted preferred status for this user and populate in-memory map if still valid
+            try
+            {
+                await using var db = await dbContextFactory.CreateDbContextAsync();
+                if (long.TryParse(userId, out var uidLong))
+                {
+                    var user = await db.Users.FindAsync(uidLong);
+                    if (user != null)
+                    {
+                        var now = SystemClock.Instance.GetCurrentInstant();
+                        var preferred = (user.PreferredStatus ?? string.Empty).Trim().ToLowerInvariant();
+                        var expired = user.PreferredStatusExpiresAt.HasValue && user.PreferredStatusExpiresAt.Value <= now;
+
+                        if (!string.IsNullOrEmpty(preferred) && preferred != "online" && !expired)
+                        {
+                            UserStatuses[userId] = preferred;
+                            // Broadcast current status to ensure others have up-to-date state
+                            await Clients.All.SendAsync("UserStatusChanged", uidLong, preferred);
+                        }
+                        else if (expired)
+                        {
+                            // Clear expired preference
+                            user.PreferredStatus = null;
+                            user.PreferredStatusExpiresAt = null;
+                            await db.SaveChangesAsync();
+                            // Ensure in-memory map does not have a stale entry
+                            UserStatuses.TryRemove(userId, out _);
+                            await Clients.All.SendAsync("UserStatusChanged", uidLong, "online");
+                        }
+                    }
+                }
+            }
+            catch { /* ignore persistence errors */ }
             var isFirstConnection = await presenceService.UserConnected(userId, Context.ConnectionId);
 
             // Get all currently online users
@@ -340,11 +376,63 @@ public class ChatHub(IPresenceService presenceService) : Hub
             UserStatuses[userId] = normalized;
             if (long.TryParse(userId, out var uid))
             {
+                // Persist preferred status (forever if not online; clear if online)
+                _ = PersistPreferredStatus(uid, normalized, null);
                 // Broadcast to everyone for simplicity
                 return Clients.All.SendAsync("UserStatusChanged", uid, normalized);
             }
         }
         return Task.CompletedTask;
+    }
+
+    // Set a preferred status with a timed expiration (ms)
+    public Task SetUserStatusTimed(string status, long durationMs)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized != "online" && normalized != "idle" && normalized != "busy" && normalized != "invisible")
+        {
+            normalized = "online";
+        }
+
+        var userId = Context.UserIdentifier;
+        if (userId != null && long.TryParse(userId, out var uid))
+        {
+            UserStatuses[userId] = normalized;
+            Instant? expiresAt = null;
+            if (durationMs > 0)
+            {
+                expiresAt = SystemClock.Instance.GetCurrentInstant().Plus(Duration.FromMilliseconds(durationMs));
+            }
+            _ = PersistPreferredStatus(uid, normalized, expiresAt);
+            return Clients.All.SendAsync("UserStatusChanged", uid, normalized);
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task PersistPreferredStatus(long userId, string status, Instant? expiresAt)
+    {
+        try
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync();
+            var user = await db.Users.FindAsync(userId);
+            if (user == null) return;
+
+            if (status == "online")
+            {
+                user.PreferredStatus = null;
+                user.PreferredStatusExpiresAt = null;
+            }
+            else
+            {
+                user.PreferredStatus = status;
+                user.PreferredStatusExpiresAt = expiresAt;
+            }
+            await db.SaveChangesAsync();
+        }
+        catch
+        {
+            // ignore DB persistence failures
+        }
     }
 
     // --- Direct Message Typing Methods ---

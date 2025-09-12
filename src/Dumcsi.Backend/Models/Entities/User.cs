@@ -23,4 +23,10 @@ public class User
     public string? Locale { get; set; }
     
     public bool? Verified { get; set; }
+
+    // Preferred presence status ("online", "idle", "busy", "invisible")
+    public string? PreferredStatus { get; set; }
+
+    // If set, preferred status will revert to online after this time
+    public Instant? PreferredStatusExpiresAt { get; set; }
 }
