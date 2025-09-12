@@ -213,26 +213,30 @@ export class SignalRService {
         this.connection.on('ChannelMessageCreated', (payload: any) => {
             try {
                 const { addToast } = useToast();
-                const channelId = payload.channelId || payload.ChannelId;
-                const serverId = payload.serverId || payload.ServerId;
-                const author = payload.authorUsername || payload.AuthorUsername || 'Someone';
-                const authorId = payload.authorId || payload.AuthorId;
-                const content = (payload.content || payload.Content || '').toString();
+                // Use nullish coalescing so valid 0 values are preserved, then normalize to numbers
+                const channelIdRaw = (payload?.channelId ?? payload?.ChannelId);
+                const serverIdRaw = (payload?.serverId ?? payload?.ServerId);
+                const authorIdRaw = (payload?.authorId ?? payload?.AuthorId);
+                const author = payload?.authorUsername ?? payload?.AuthorUsername ?? 'Someone';
+                const content = String(payload?.content ?? payload?.Content ?? '');
+                const channelId = typeof channelIdRaw === 'string' ? parseInt(channelIdRaw, 10) : Number(channelIdRaw);
+                const serverId = typeof serverIdRaw === 'string' ? parseInt(serverIdRaw, 10) : Number(serverIdRaw);
+                const authorId = typeof authorIdRaw === 'string' ? parseInt(authorIdRaw, 10) : Number(authorIdRaw);
                 const preview = summarizeMessagePreview(content, null, 140);
 
                 // Only toast if not currently viewing that channel
                 const authStore = useAuthStore();
-                const isSelf = authStore.user?.id && authorId === authStore.user.id;
-                if (!isSelf && appStore.currentChannel?.id !== channelId) {
-                    const channelName = appStore.currentServer?.channels?.find(c => c.id === channelId)?.name || 'channel';
+                const isSelf = !!authStore.user?.id && Number(authorId) === Number(authStore.user.id);
+                if (!isSelf && Number(appStore.currentChannel?.id) !== Number(channelId)) {
+                    const channelName = appStore.currentServer?.channels?.find(c => Number(c.id) === Number(channelId))?.name || 'channel';
                     const serverName = appStore.currentServer?.name || 'Server';
                     addToast({
                         type: 'info',
                         title: `${serverName} • #${channelName}`,
                         message: `${author}: ${preview || 'Sent a message'}`,
                         onClick: async () => {
-                            if (serverId && channelId) {
-                                await router.push(`/servers/${serverId}/channels/${channelId}`);
+                            if (!Number.isNaN(serverId) && !Number.isNaN(channelId)) {
+                                await router.push(`/servers/${Number(serverId)}/channels/${Number(channelId)}`);
                             }
                         },
                         // Auto-dismiss after a short delay even with actions
