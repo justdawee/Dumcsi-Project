@@ -203,6 +203,7 @@ import UserAvatar from '../common/UserAvatar.vue';
 import MessageContentParser from '../message/MessageContentParser.vue';
 import MarkdownToolbar from '../message/MarkdownToolbar.vue';
 import type { CreateMessageRequest, SendDmMessageRequest, EntityId } from '@/services/types';
+import { useChatSettings } from '@/composables/useChatSettings';
 
 // Props
 const props = defineProps<{
@@ -263,6 +264,7 @@ const {
 // Typing indicators
 const typing = props.isDm ? null : useTypingIndicator(channelIdRef);
 const dmTyping = props.isDm ? useDmTypingIndicator(dmUserIdRef) : null;
+const { chatSettings } = useChatSettings();
 
 // Computed
 const canSend = computed(() => {
@@ -282,7 +284,7 @@ const roleSuggestions = computed(() => {
 
 // Watch for content changes to show/hide toolbar
 watch(messageContent, (newVal) => {
-  showToolbar.value = newVal.length > 0;
+  showToolbar.value = chatSettings.enableFormatting && newVal.length > 0;
 });
 
 // Methods
@@ -309,14 +311,18 @@ const handleInput = () => {
   adjustTextareaHeight();
   checkForMentions();
   if (!props.isDm && props.channelId) {
-    typing?.sendTypingIndicator();
-    if (messageContent.value.length === 0) {
-      typing?.stopTypingIndicator();
+    if (chatSettings.sendTypingIndicators) {
+      typing?.sendTypingIndicator();
+      if (messageContent.value.length === 0) {
+        typing?.stopTypingIndicator();
+      }
     }
   } else if (props.isDm && props.dmUserId) {
-    dmTyping?.sendTypingIndicator();
-    if (messageContent.value.length === 0) {
-      dmTyping?.stopTypingIndicator();
+    if (chatSettings.sendTypingIndicators) {
+      dmTyping?.sendTypingIndicator();
+      if (messageContent.value.length === 0) {
+        dmTyping?.stopTypingIndicator();
+      }
     }
   }
 };
@@ -325,7 +331,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
   if (handleMentionKeyDown(event)) return;
 
   // Markdown shortcuts
-  if (event.ctrlKey || event.metaKey) {
+  if (chatSettings.enableFormatting && (event.ctrlKey || event.metaKey)) {
     switch (event.key) {
       case 'b':
         event.preventDefault();
@@ -491,11 +497,11 @@ const handleSend = async () => {
     showToolbar.value = false;
 
     await nextTick(() => {
-      if (messageInput.value) {
-        messageInput.value.style.height = 'auto';
-        messageInput.value.style.overflowY = 'hidden';
-      }
-    });
+    if (messageInput.value) {
+      messageInput.value.style.height = 'auto';
+      messageInput.value.style.overflowY = 'hidden';
+    }
+  });
   } catch (error) {
     console.error("Failed to send message:", error);
   } finally {

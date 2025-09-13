@@ -6,6 +6,7 @@
     <!-- With Header (new user message or certain time passed) -->
     <div v-if="showHeader" class="flex items-start gap-3">
       <UserAvatar
+          v-if="chatSettings.showAvatars"
           :avatar-url="author.avatar"
           :size="40" 
           :user-id="author.id" 
@@ -16,17 +17,18 @@
       <div>
         <div class="flex items-baseline gap-2">
           <span class="font-semibold text-text-default">{{ getDisplayName(author) }}</span>
-          <span class="text-xs text-text-tertiary">{{ formatTime(timestamp) }}</span>
-          <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
+          <span v-if="chatSettings.showTimestamps" class="text-xs text-text-tertiary">{{ formatTime(timestamp) }}</span>
+          <span v-if="chatSettings.showTimestamps && editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
         </div>
-        <div class="message-content">
+        <div class="message-content" :class="{ 'emoji-only-message': emojiOnly }">
           <MessageContentParser
-              v-if="!isEditing"
+              v-if="!isEditing && chatSettings.enableFormatting"
               :content="displayContent"
               :mentioned-user-ids="mentions.map(user => user.id)"
               :mentioned-role-ids="mentionRoleIds || []"
               class="text-text-secondary"
           />
+          <span v-else-if="!isEditing && !chatSettings.enableFormatting" class="text-text-secondary whitespace-pre-wrap">{{ displayContent }}</span>
           <MessageEdit
               v-else
               :initial-content="extractTextContent(content, attachments)"
@@ -40,7 +42,7 @@
               class="mt-2"
           />
           <MediaPreview
-              v-if="!isEditing"
+              v-if="!isEditing && chatSettings.showMediaPreviews"
               :content="content"
               :attachments="attachments"
               class="mt-2"
@@ -53,19 +55,20 @@
     <!-- Without Header (continuous message) -->
     <div v-else class="flex items-start gap-3 group">
       <div class="w-10 shrink-0 text-right">
-    <span class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
-      {{ formatTimeShort(timestamp) }}
-      <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
-    </span>
+        <span v-if="chatSettings.showTimestamps" class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
+          {{ formatTimeShort(timestamp) }}
+          <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
+        </span>
       </div>
       <div class="flex-1 message-content">
         <div class="flex-1">
           <MessageContentParser
-              v-if="!isEditing"  
+              v-if="!isEditing && chatSettings.enableFormatting"  
               :content="displayContent"
               :mentioned-user-ids="mentions.map(user => user.id)"
               :mentioned-role-ids="mentionRoleIds || []"
           />
+          <span v-else-if="!isEditing && !chatSettings.enableFormatting" class="whitespace-pre-wrap">{{ displayContent }}</span>
           <MessageEdit
               v-else
               :initial-content="extractTextContent(content, attachments)"
@@ -79,7 +82,7 @@
               class="mt-2"
           />
           <MediaPreview
-              v-if="!isEditing"
+              v-if="!isEditing && chatSettings.showMediaPreviews"
               :content="content"
               :attachments="attachments"
               class="mt-2"
@@ -138,6 +141,8 @@ import ConfirmModal from '../modals/ConfirmModal.vue';
 import type {MessageDto, DmMessageDto} from '@/services/types';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import {extractTextContent, reconstructMessageContent} from '@/utils/messageContent';
+import { useChatSettings } from '@/composables/useChatSettings';
+import emojiRegex from 'emoji-regex';
 
 // Define the union type for messages
 type UniversalMessage = MessageDto | DmMessageDto;
@@ -161,6 +166,7 @@ const { t, locale } = useI18n();
 // --- State ---
 const isEditing = ref(false);
 const isDeleteModalOpen = ref(false);
+const { chatSettings } = useChatSettings();
 
 // --- Computed Properties ---
 
@@ -230,7 +236,7 @@ const messageForAttachments = computed(() => {
 
 const showHeader = computed(() => {
   if (!props.previousMessage) return true;
-  
+
   const prevAuthor = isServerMessage.value ? 
     (props.previousMessage as MessageDto).author : 
     (props.previousMessage as DmMessageDto).sender;
@@ -240,8 +246,8 @@ const showHeader = computed(() => {
   const prevTime = new Date(props.previousMessage.timestamp);
   const currTime = new Date(timestamp.value);
   const diffMinutes = (currTime.getTime() - prevTime.getTime()) / (1000 * 60);
-
-  return diffMinutes > 5;
+  const threshold = chatSettings.density === 'compact' ? 1 : 5;
+  return diffMinutes > threshold;
 });
 
 const canEdit = computed(() => author.value.id === props.currentUserId);
@@ -294,10 +300,33 @@ const confirmDelete = () => {
 const onContentFiltered = (filtered: string) => {
   displayContent.value = filtered;
 };
+
+const emojiOnly = computed(() => {
+  if (!chatSettings.bigEmojiOnly) return false;
+  const text = (displayContent.value || '').trim();
+  if (!text) return false;
+  // message should contain only emojis and whitespace
+  try {
+    const rx = emojiRegex();
+    const withoutEmojis = text.replace(rx, '').replace(/\s+/g, '');
+    return withoutEmojis.length === 0;
+  } catch {
+    return false;
+  }
+});
 </script>
 
 <style scoped>
 .message-content {
   @apply whitespace-pre-wrap break-words;
+}
+
+.emoji-only-message {
+  font-size: 1.5rem;
+}
+.emoji-only-message img,
+.emoji-only-message .emoji {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
 }
 </style>
