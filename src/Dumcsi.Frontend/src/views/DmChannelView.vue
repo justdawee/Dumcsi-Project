@@ -45,7 +45,7 @@
         />
         <Transition name="typing-fade">
           <div
-              v-if="isOtherTyping"
+              v-if="chatSettings.showTypingIndicators && isOtherTyping"
               class="typing-indicator text-xs text-text-muted italic absolute left-4 bottom-1"
           >
             <span class="typing-dots"><span></span><span></span><span></span></span>
@@ -70,6 +70,7 @@ import UniversalMessageInput from '@/components/chat/UniversalMessageInput.vue';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import { Loader2 } from 'lucide-vue-next';
 import type { SendDmMessageRequest, UpdateDmMessageRequest, EntityId } from '@/services/types';
+import { useChatSettings } from '@/composables/useChatSettings';
 
 const dmStore = useDmStore();
 import { useI18n } from 'vue-i18n';
@@ -89,6 +90,7 @@ const pendingNewCount = ref(0);
 const lastDistanceFromBottom = ref(0);
 const showJumpToPresent = computed(() => !shouldAutoFollow.value && (pendingNewCount.value > 0 || lastDistanceFromBottom.value > 200));
 const isOtherTyping = computed(() => !!dmStore.typingUsers.get(userId.value));
+const { chatSettings } = useChatSettings();
 
 const scrollToBottom = async (behavior: 'smooth' | 'auto' = 'auto') => {
   await nextTick();
