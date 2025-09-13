@@ -106,8 +106,32 @@
   ,
   "chat": {
     "subtitle": "Customize your chat and messaging experience",
-    "comingSoon": "Coming Soon",
-    "comingSoonDesc": "Chat formatting, emoji settings, message display options, and typing indicators will be available here."
+    "format": {
+      "title": "Chat Formatting",
+      "description": "Control markdown and media previews",
+      "enableMarkdown": "Enable Markdown formatting",
+      "mediaPreviews": "Show link and media previews"
+    },
+    "emoji": {
+      "title": "Emoji Settings",
+      "description": "Adjust how emoji-only messages are displayed",
+      "bigEmojiOnly": "Enlarge emoji-only messages"
+    },
+    "display": {
+      "title": "Message Display",
+      "description": "Message density and visibility options",
+      "density": "Message density",
+      "densityCozy": "Cozy",
+      "densityCompact": "Compact",
+      "showAvatars": "Show avatars",
+      "showTimestamps": "Show timestamps"
+    },
+    "typing": {
+      "title": "Typing Indicators",
+      "description": "Control typing indicator visibility and sending",
+      "showIndicators": "Show typing indicators",
+      "sendIndicators": "Send typing indicators"
+    }
   }
   ,
   "common": {
@@ -120,12 +144,59 @@
   ,
   "privacy": {
     "subtitle": "Manage your data and privacy preferences",
-    "comingSoonDesc": "Data export, privacy controls, and account data management will be available here."
+    "comingSoonDesc": "Data export, privacy controls, and account data management will be available here.",
+    "export": {
+      "title": "Export My Data",
+      "description": "Download a JSON snapshot of your local app settings.",
+      "download": "Download JSON",
+      "preparing": "Preparing...",
+      "hint": "Includes keybinds, audio, notifications, UI sounds, locale, mutes, and more. Excludes access tokens."
+    },
+    "clear": {
+      "title": "Clear Local App Data",
+      "description": "Remove locally stored preferences from this device. Does not log you out.",
+      "button": "Clear Local Data",
+      "confirm": "Clear local app data on this device? This cannot be undone.",
+      "done": "Local data cleared."
+    }
   }
   ,
   "devices": {
     "subtitle": "Manage your connected devices and sessions",
-    "comingSoonDesc": "Device management, active sessions, and two-factor authentication will be available here."
+    "comingSoonDesc": "Device management, active sessions, and two-factor authentication will be available here.",
+    "device": {
+      "title": "Device Management",
+      "description": "Name this device and mark it as trusted (local-only).",
+      "name": "Device name",
+      "namePlaceholder": "e.g. John's Laptop",
+      "trusted": "Trusted device",
+      "trustedHint": "Skip some prompts on this device",
+      "userAgent": "User agent",
+      "platform": "Platform"
+    },
+    "sessions": {
+      "title": "Active Sessions",
+      "description": "These are your login sessions across devices.",
+      "loading": "Loading…",
+      "refresh": "Refresh",
+      "empty": "No active sessions found",
+      "current": "Current",
+      "expires": "Expires",
+      "fingerprint": "Fingerprint",
+      "signOut": "Sign out",
+      "signOutAll": "Sign out of all devices",
+      "signOutOthers": "Sign out of other devices",
+      "revoking": "Revoking...",
+      "revokeFailed": "Failed to revoke sessions",
+      "confirmSignOutAll": "Sign out of all devices? This will revoke all active sessions.",
+      "doneSignOutAll": "All devices have been signed out."
+    },
+    "2fa": {
+      "title": "Two-Factor Authentication",
+      "description": "Protect your account with an additional verification step.",
+      "enable": "Enable 2FA",
+      "comingSoon": "TOTP setup and recovery codes will be available soon."
+    }
   }
   ,
   "account": {
