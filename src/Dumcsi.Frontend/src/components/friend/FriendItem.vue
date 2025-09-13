@@ -10,18 +10,8 @@
     <div class="flex-1 ml-3">
       <div class="flex items-center">
         <span class="font-medium text-text-default">{{ friend.username }}</span>
-        <span
-            v-if="friend.online"
-            class="ml-2 text-xs text-accent"
-        >
-          Online
-        </span>
-        <span
-            v-else
-            class="ml-2 text-xs text-text-tertiary"
-        >
-          Offline
-        </span>
+        <span v-if="friend.online" class="ml-2 text-xs text-accent">{{ t('friends.item.online') }}</span>
+        <span v-else class="ml-2 text-xs text-text-tertiary">{{ t('friends.item.offline') }}</span>
       </div>
     </div>
 
@@ -29,7 +19,7 @@
       <button
           @click="$emit('message', friend.userId)"
           class="p-2 rounded-full hover:bg-main-700 transition-colors"
-          title="Send Message"
+          :title="t('friends.item.sendMessage')"
       >
         <MessageCircle class="w-5 h-5 text-text-muted" />
       </button>
@@ -38,7 +28,7 @@
           @click="openContextMenu"
           ref="menuButton"
           class="p-2 rounded-full hover:bg-main-700 transition-colors"
-          title="More Options"
+          :title="t('friends.item.moreOptions')"
       >
         <MoreVertical class="w-5 h-5 text-text-muted" />
       </button>
@@ -53,6 +43,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { MessageCircle, MoreVertical, UserX } from 'lucide-vue-next';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
@@ -70,9 +61,10 @@ const emit = defineEmits<{
 const contextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const menuButton = ref<HTMLElement | null>(null);
 
+const { t } = useI18n();
 const menuItems = computed(() => [
   {
-    label: 'Remove Friend',
+    label: t('friends.item.remove'),
     icon: UserX,
     action: () => emit('remove', props.friend.userId),
     danger: true

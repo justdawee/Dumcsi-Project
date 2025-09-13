@@ -8,7 +8,7 @@
     <!-- Home/Direct Messages -->
     <div
         class="relative group w-full px-3"
-        @mouseenter="showTooltip($event, 'Home')"
+        @mouseenter="showTooltip($event, t('server.sidebar.tooltip.home'))"
         @mouseleave="hideTooltip"
     >
       <div
@@ -57,7 +57,7 @@
       <!-- Add Server Button -->
       <div
           class="relative group"
-          @mouseenter="showTooltip($event, 'Add a Server')"
+          @mouseenter="showTooltip($event, t('server.sidebar.tooltip.addServer'))"
           @mouseleave="hideTooltip"
       >
         <button
@@ -70,7 +70,7 @@
 
       <!-- Explore Servers Button -->
       <div class="relative group flex-shrink-0"
-           @mouseenter="showTooltip($event, 'Explore Servers')"
+           @mouseenter="showTooltip($event, t('server.sidebar.tooltip.explore'))"
            @mouseleave="hideTooltip"
       >
         <button
@@ -121,14 +121,14 @@
         @close="serverMenu.isManageRolesModalOpen.value = false"
     />
 
-    <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
+    <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" :title="t('topics.createTitle')">
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+          <label class="block text-sm font-medium text-text-default mb-2">{{ t('topics.nameLabel') }}</label>
           <input
               v-model="serverMenu.newTopicName.value"
               class="w-full px-3 py-2 form-input bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="Enter topic name..."
+              :placeholder="t('topics.placeholder')"
               type="text"
               @keydown.enter="serverMenu.createTopic"
           />
@@ -140,14 +140,14 @@
               class="px-4 py-2 btn-secondary text-text-muted hover:text-text-default transition-colors"
               @click="serverMenu.isCreateTopicModalOpen.value = false"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
               :disabled="!serverMenu.newTopicName.value.trim()"
               class="px-4 py-2 btn-primary bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
               @click="serverMenu.createTopic"
           >
-            Create Topic
+            {{ t('topics.create') }}
           </button>
         </div>
       </template>
@@ -156,9 +156,9 @@
     <ConfirmModal
         v-model="serverMenu.isLeaveConfirmOpen.value"
         :is-loading="serverMenu.isLeaving.value"
-        :message="`Are you sure you want to leave ${serverMenu.selectedServer.value?.name}? You won't be able to rejoin this server unless you are re-invited.`"
-        :title="`Leave '${serverMenu.selectedServer.value?.name}'`"
-        confirm-text="Leave Server"
+        :message="t('server.leave.confirmMessage', { name: serverMenu.selectedServer.value?.name ?? '' })"
+        :title="t('server.leave.confirmTitle', { name: serverMenu.selectedServer.value?.name ?? '' })"
+        :confirm-text="t('server.leave.confirmText')"
         intent="danger"
         @confirm="serverMenu.confirmLeaveServer"
     />
@@ -193,11 +193,13 @@ import type {ServerListItem} from '@/services/types';
 import {useServerMenu} from '@/composables/useServerMenu';
 import {useNotificationPrefs} from '@/stores/notifications';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
+import { useI18n } from 'vue-i18n';
 
 // --- State ---
 const route = useRoute();
 const appStore = useAppStore();
 const serverMenu = useServerMenu();
+const { t } = useI18n();
 
 
 const serverContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
@@ -252,17 +254,17 @@ const openServerMenu = (event: MouseEvent, server: ServerListItem) => {
   const isMuted = prefs.isServerMuted(server.id);
   const augmented: MenuItem[] = [...menuItems, { type: 'separator' } as any];
   if (!isMuted) {
-    augmented.push({ label: 'Mute Server…', icon: BellOff as any, children: [
-      { label: 'For 15 minutes', action: () => prefs.muteServer(server.id, prefs.Durations.m15) } as any,
-      { label: 'For 1 hour', action: () => prefs.muteServer(server.id, prefs.Durations.h1) } as any,
-      { label: 'For 3 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h3) } as any,
-      { label: 'For 8 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h8) } as any,
-      { label: 'For 24 hours', action: () => prefs.muteServer(server.id, prefs.Durations.h24) } as any,
+    augmented.push({ label: t('server.menu.muteServer'), icon: BellOff as any, children: [
+      { label: t('server.menu.mute.for15m'), action: () => prefs.muteServer(server.id, prefs.Durations.m15) } as any,
+      { label: t('server.menu.mute.for1h'), action: () => prefs.muteServer(server.id, prefs.Durations.h1) } as any,
+      { label: t('server.menu.mute.for3h'), action: () => prefs.muteServer(server.id, prefs.Durations.h3) } as any,
+      { label: t('server.menu.mute.for8h'), action: () => prefs.muteServer(server.id, prefs.Durations.h8) } as any,
+      { label: t('server.menu.mute.for24h'), action: () => prefs.muteServer(server.id, prefs.Durations.h24) } as any,
       { type: 'separator' } as any,
-      { label: 'Until I turn back on', action: () => prefs.muteServer(server.id, 'forever') } as any,
+      { label: t('server.menu.mute.untilTurnBackOn'), action: () => prefs.muteServer(server.id, 'forever') } as any,
     ] });
   } else {
-    augmented.push({ label: 'Unmute Server', icon: Bell as any, action: () => prefs.unmuteServer(server.id) });
+    augmented.push({ label: t('server.menu.unmuteServer'), icon: Bell as any, action: () => prefs.unmuteServer(server.id) });
   }
 
   currentServerMenuItems.value = augmented as any;

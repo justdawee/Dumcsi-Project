@@ -2,7 +2,7 @@
   <div class="flex flex-col h-screen bg-main-900 overflow-hidden">
     <div class="flex items-center px-4 h-14 border-b border-main-700 flex-shrink-0">
       <UserAvatar :user-id="userId" :username="username" :size="32" class="mr-2" />
-      <h2 class="text-lg font-semibold text-text-default truncate">{{ username || 'Loading...' }}</h2>
+      <h2 class="text-lg font-semibold text-text-default truncate">{{ username || t('dm.header.loading') }}</h2>
     </div>
     <div class="flex-1 flex flex-col overflow-hidden">
       <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800" @scroll="debouncedScrollHandler">
@@ -10,8 +10,8 @@
           <Loader2 class="w-6 h-6 text-text-tertiary animate-spin" />
         </div>
         <div v-else-if="messages.length === 0" class="text-center text-text-muted">
-          <p>No messages yet.</p>
-          <p class="text-sm">Start a conversation!</p>
+          <p>{{ t('dm.empty.noMessages') }}</p>
+          <p class="text-sm">{{ t('dm.empty.start') }}</p>
         </div>
         <div v-else>
           <UniversalMessageItem
@@ -30,15 +30,15 @@
         <button
             v-if="showJumpToPresent"
             class="absolute right-6 -top-10 z-10 bg-primary text-white text-sm font-medium px-3 py-1.5 rounded-full shadow hover:bg-primary/90 transition"
-            title="Jump to latest messages"
+            :title="t('dm.jump.title')"
             @click="jumpToPresent"
         >
-          Jump to present
+          {{ t('dm.jump.button') }}
           <span v-if="pendingNewCount > 0" class="ml-2 bg-white/20 px-1.5 py-0.5 rounded text-xs">{{ pendingNewCount }}</span>
         </button>
         <UniversalMessageInput 
             v-if="username" 
-            :placeholder="`Message ${username}`"
+            :placeholder="t('dm.input.placeholder', { username })"
             :is-dm="true"
             :dm-user-id="userId"
             @send="handleSend" 
@@ -49,7 +49,7 @@
               class="typing-indicator text-xs text-text-muted italic absolute left-4 bottom-1"
           >
             <span class="typing-dots"><span></span><span></span><span></span></span>
-            {{ username }} is typing...
+            {{ t('dm.typing', { username }) }}
           </div>
         </Transition>
       </div>
@@ -72,6 +72,8 @@ import { Loader2 } from 'lucide-vue-next';
 import type { SendDmMessageRequest, UpdateDmMessageRequest, EntityId } from '@/services/types';
 
 const dmStore = useDmStore();
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 const authStore = useAuthStore();
 const route = useRoute();
 const { addToast } = useToast();
@@ -173,7 +175,7 @@ const handleSend = async (payload: SendDmMessageRequest) => {
     await dmStore.sendMessage(userId.value, payload);
     await scrollToBottom('smooth');
   } catch {
-    addToast({ type: 'danger', message: 'Failed to send message.' });
+    addToast({ type: 'danger', message: t('dm.toasts.sendFailed') });
   }
 };
 
@@ -181,7 +183,7 @@ const handleEditMessage = async (payload: { messageId: EntityId; content: Update
   try {
     await dmStore.updateMessage(userId.value, payload.messageId, payload.content);
   } catch {
-    addToast({ type: 'danger', message: 'Failed to edit message.' });
+    addToast({ type: 'danger', message: t('dm.toasts.editFailed') });
   }
 };
 
@@ -189,7 +191,7 @@ const handleDeleteMessage = async (messageId: EntityId) => {
   try {
     await dmStore.deleteMessage(userId.value, messageId);
   } catch {
-    addToast({ type: 'danger', message: 'Failed to delete message.' });
+    addToast({ type: 'danger', message: t('dm.toasts.deleteFailed') });
   }
 };
 </script>

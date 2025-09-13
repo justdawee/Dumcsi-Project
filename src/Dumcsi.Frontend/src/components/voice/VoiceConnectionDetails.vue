@@ -1,7 +1,7 @@
 <template>
   <BaseModal
     :model-value="isOpen"
-    title="Connection Details"
+    :title="t('voice.details.title')"
     @close="$emit('close')"
   >
     <!-- Tab Navigation -->
@@ -43,24 +43,24 @@
             <span class="font-medium text-text-default">{{ connectionStatus }}</span>
           </div>
           <div class="text-xs text-text-muted">
-            Connected for {{ connectedDuration }}
+            {{ t('voice.details.status.connectedFor', { duration: connectedDuration }) }}
           </div>
         </div>
 
         <!-- Connection Info -->
         <div class="space-y-3">
           <div class="flex justify-between">
-            <span class="text-text-muted">Server:</span>
+            <span class="text-text-muted">{{ t('voice.details.info.server') }}</span>
             <span class="text-text-default">{{ serverUrl }}</span>
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Channel:</span>
+            <span class="text-text-muted">{{ t('voice.details.info.channel') }}</span>
             <span class="text-text-default">{{ channelName }}</span>
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Participants:</span>
+            <span class="text-text-muted">{{ t('voice.details.info.participants') }}</span>
             <span class="text-text-default">{{ participantCount }}</span>
           </div>
         </div>
@@ -68,26 +68,26 @@
         <!-- Technical Details -->
         <div class="border-t border-border-default pt-4 space-y-3">
           <div class="flex justify-between">
-            <span class="text-text-muted">Audio Codec:</span>
+            <span class="text-text-muted">{{ t('voice.details.tech.codec') }}</span>
             <span class="text-text-default">Opus</span>
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Outgoing Bitrate:</span>
+            <span class="text-text-muted">{{ t('voice.details.tech.bitrateOut') }}</span>
             <span class="text-text-default">{{ audioBitrateOut }} kbps</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-text-muted">Incoming Bitrate:</span>
+            <span class="text-text-muted">{{ t('voice.details.tech.bitrateIn') }}</span>
             <span class="text-text-default">{{ audioBitrateIn }} kbps</span>
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Latency:</span>
+            <span class="text-text-muted">{{ t('voice.details.tech.latency') }}</span>
             <span class="text-text-default">{{ latency }}ms</span>
           </div>
           
           <div class="flex justify-between">
-            <span class="text-text-muted">Packet Loss:</span>
+            <span class="text-text-muted">{{ t('voice.details.tech.packetLoss') }}</span>
             <span class="text-text-default">{{ packetLoss }}%</span>
           </div>
         </div>
@@ -97,7 +97,7 @@
       <div v-else-if="activeTab === 'screen'" class="space-y-4">
         <div v-if="activeScreenShares.length === 0" class="text-center py-8 text-text-muted">
           <Monitor class="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>No active screen shares</p>
+          <p>{{ t('voice.details.screen.none') }}</p>
         </div>
         
         <div v-else class="space-y-3">
@@ -108,28 +108,28 @@
               </div>
               <div>
                 <div class="font-medium text-text-default">{{ share.username }}</div>
-                <div class="text-xs text-text-muted">Screen sharing</div>
+                <div class="text-xs text-text-muted">{{ t('voice.details.screen.label') }}</div>
               </div>
             </div>
             
             <div class="space-y-2">
               <div class="flex justify-between">
-                <span class="text-text-muted">Resolution:</span>
+                <span class="text-text-muted">{{ t('voice.details.screen.resolution') }}</span>
                 <span class="text-text-default">{{ share.resolution }}</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Frame Rate:</span>
+                <span class="text-text-muted">{{ t('voice.details.screen.frameRate') }}</span>
                 <span class="text-text-default">{{ share.frameRate }} FPS</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Audio:</span>
-                <span class="text-text-default">{{ share.hasAudio ? 'Included' : 'None' }}</span>
+                <span class="text-text-muted">{{ t('voice.details.screen.includesAudio') }}</span>
+                <span class="text-text-default">{{ share.hasAudio ? t('common.yes') : t('common.no') }}</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Bitrate:</span>
+                <span class="text-text-muted">{{ t('voice.details.screen.bitrate') }}</span>
                 <span class="text-text-default">{{ share.bitrate }} kbps</span>
               </div>
             </div>
@@ -141,7 +141,7 @@
       <div v-else-if="activeTab === 'webcam'" class="space-y-4">
         <div v-if="activeCameras.length === 0" class="text-center py-8 text-text-muted">
           <Video class="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>No active webcams</p>
+          <p>{{ t('voice.details.webcam.none') }}</p>
         </div>
         
         <div v-else class="space-y-3">
@@ -152,28 +152,28 @@
               </div>
               <div>
                 <div class="font-medium text-text-default">{{ camera.username }}</div>
-                <div class="text-xs text-text-muted">Camera active</div>
+                <div class="text-xs text-text-muted">{{ t('voice.details.webcam.active') }}</div>
               </div>
             </div>
             
             <div class="space-y-2">
               <div class="flex justify-between">
-                <span class="text-text-muted">Resolution:</span>
+                <span class="text-text-muted">{{ t('voice.details.webcam.resolution') }}</span>
                 <span class="text-text-default">{{ camera.resolution }}</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Frame Rate:</span>
+                <span class="text-text-muted">{{ t('voice.details.webcam.frameRate') }}</span>
                 <span class="text-text-default">{{ camera.frameRate }} FPS</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Device:</span>
+                <span class="text-text-muted">{{ t('voice.details.webcam.device') }}</span>
                 <span class="text-text-default">{{ camera.deviceName }}</span>
               </div>
               
               <div class="flex justify-between">
-                <span class="text-text-muted">Bitrate:</span>
+                <span class="text-text-muted">{{ t('voice.details.webcam.bitrate') }}</span>
                 <span class="text-text-default">{{ camera.bitrate }} kbps</span>
               </div>
             </div>
@@ -192,6 +192,7 @@ import { webrtcService } from '@/services/webrtcService';
 import { useAppStore } from '@/stores/app';
 import { Mic, Monitor, Video } from 'lucide-vue-next';
 import { Track } from 'livekit-client';
+import { useI18n } from 'vue-i18n';
 
 interface Props {
   isOpen: boolean;
@@ -203,6 +204,7 @@ interface Emits {
 
 const props = defineProps<Props>();
 defineEmits<Emits>();
+const { t } = useI18n();
 
 const appStore = useAppStore();
 
@@ -242,10 +244,10 @@ const connectedDuration = computed(() => {
 
 const connectionStatus = computed(() => {
   switch (connectionQuality.value) {
-    case 'excellent': return 'Voice Connected - Excellent';
-    case 'good': return 'Voice Connected - Good';
-    case 'poor': return 'Voice Connected - Poor';
-    default: return 'Voice Connected';
+    case 'excellent': return t('voice.details.status.connectedExcellent');
+    case 'good': return t('voice.details.status.connectedGood');
+    case 'poor': return t('voice.details.status.connectedPoor');
+    default: return t('voice.details.status.connected');
   }
 });
 
@@ -385,21 +387,21 @@ const activeCameras = computed<CameraInfo[]>(() => {
 const tabs = computed(() => [
   {
     id: 'voice' as const,
-    label: 'Voice',
+    label: t('voice.details.tabs.voice'),
     icon: Mic,
     disabled: false,
     count: participantCount.value
   },
   {
     id: 'screen' as const,
-    label: 'Screen Share',
+    label: t('voice.details.tabs.screen'),
     icon: Monitor,
     disabled: activeScreenShares.value.length === 0,
     count: activeScreenShares.value.length
   },
   {
     id: 'webcam' as const,
-    label: 'Webcam',
+    label: t('voice.details.tabs.webcam'),
     icon: Video,
     disabled: activeCameras.value.length === 0,
     count: activeCameras.value.length

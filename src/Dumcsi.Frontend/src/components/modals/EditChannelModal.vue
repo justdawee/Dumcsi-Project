@@ -7,26 +7,26 @@
     >
       <div
           class="w-full max-w-md transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50">
-        <!-- Fejléc -->
+        <!-- Header -->
         <div class="p-6">
-          <h3 class="text-xl font-bold text-text-default">Edit Channel</h3>
-          <p class="text-sm text-text-muted mt-1">Update your channel's settings or delete it.</p>
+          <h3 class="text-xl font-bold text-text-default">{{ t('channels.edit.header.title') }}</h3>
+          <p class="text-sm text-text-muted mt-1">{{ t('channels.edit.header.subtitle') }}</p>
         </div>
 
         <!-- Szerkesztő űrlap -->
         <form @submit.prevent="handleUpdateChannel">
           <div class="p-6 space-y-4 border-y border-border-default">
             <div>
-              <label class="form-label" for="channel-name">Channel Name</label>
+              <label class="form-label" for="channel-name">{{ t('channels.edit.form.name') }}</label>
               <input id="channel-name" v-model="form.name" class="form-input" required type="text"/>
             </div>
             <div>
-              <label class="form-label" for="channel-description">Description (Optional)</label>
+              <label class="form-label" for="channel-description">{{ t('channels.edit.form.description') }}</label>
               <textarea id="channel-description" v-model="form.description" class="form-input resize-none"
                         rows="3"></textarea>
             </div>
             <div>
-              <label class="form-label" for="channel-topic">Topic</label>
+              <label class="form-label" for="channel-topic">{{ t('channels.edit.form.topic') }}</label>
               <select id="channel-topic" v-model="form.topicId" class="form-input">
                 <option v-for="t in topics" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
@@ -35,25 +35,25 @@
             <p v-if="error" class="form-error">{{ error }}</p>
           </div>
 
-          <!-- Műveleti gombok -->
+          <!-- Actions -->
           <div class="p-6 flex justify-end gap-3">
-            <button class="btn-secondary" type="button" @click="closeModal">Cancel</button>
+            <button class="btn-secondary" type="button" @click="closeModal">{{ t('common.cancel') }}</button>
             <button :disabled="isLoading" class="btn-primary inline-flex items-center" type="submit">
               <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2"/>
-              Save Changes
+              {{ t('common.saveChanges') }}
             </button>
           </div>
         </form>
 
-        <!-- Danger Zone a törléshez -->
+        <!-- Danger Zone for deletion -->
         <div class="p-6 border-t border-border-default bg-bg-base/40 rounded-b-2xl">
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium text-danger">Delete Channel</p>
-              <p class="text-sm text-text-muted">This action cannot be undone.</p>
+              <p class="font-medium text-danger">{{ t('channels.edit.danger.title') }}</p>
+              <p class="text-sm text-text-muted">{{ t('common.confirm.message') }}</p>
             </div>
             <button class="btn-danger flex-shrink-0" @click="isConfirmDeleteOpen = true">
-              Delete
+              {{ t('common.delete') }}
             </button>
           </div>
         </div>
@@ -61,14 +61,14 @@
     </div>
   </Transition>
 
-  <!-- Megerősítő modális ablak a törléshez -->
+  <!-- Confirm deletion -->
   <ConfirmModal
       v-model="isConfirmDeleteOpen"
       :is-loading="isDeleting"
-      :message="`Are you sure you want to delete the channel #${channel?.name}? This is permanent.`"
-      confirm-text="Delete Channel"
+      :message="t('channels.sidebar.confirmDelete.message', { name: channel?.name || '' })"
+      :confirm-text="t('channels.sidebar.confirmDelete.confirmText')"
       intent="danger"
-      title="Delete Channel"
+      :title="t('channels.sidebar.confirmDelete.title')"
       @confirm="handleDeleteChannel"
   />
 </template>
@@ -82,6 +82,8 @@ import {useToast} from '@/composables/useToast';
 import {useAppStore} from '@/stores/app';
 import type {ChannelDetailDto, UpdateChannelRequest} from '@/services/types';
 const {addToast} = useToast();
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -135,14 +137,14 @@ const handleUpdateChannel = async () => {
     
     addToast({
       type: 'success',
-      message: 'Channel updated successfully.',
+      message: t('channels.edit.toast.updated'),
     });
     
     closeModal();
   } catch (err: any) {
     addToast({
       type: 'danger',
-      message: 'Failed to update channel.',
+      message: t('channels.edit.toast.updateFailed'),
     });
   } finally {
     isLoading.value = false;
@@ -158,7 +160,7 @@ const handleDeleteChannel = async () => {
     
     addToast({
       type: 'success',
-      message: 'Channel deleted successfully.',
+      message: t('channels.edit.toast.deleted'),
     });
     
     isConfirmDeleteOpen.value = false;
@@ -166,7 +168,7 @@ const handleDeleteChannel = async () => {
   } catch (err: any) {
     addToast({
       type: 'danger',
-      message: 'Failed to delete channel.',
+      message: t('channels.errors.deleteFailed'),
     });
     isConfirmDeleteOpen.value = false;
   } finally {

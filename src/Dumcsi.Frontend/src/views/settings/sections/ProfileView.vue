@@ -10,8 +10,8 @@
           <UserCircle class="w-7 h-7 text-primary"/>
         </div>
         <div>
-          <h1 class="text-3xl font-bold tracking-tight">Profile</h1>
-          <p class="mt-1 text-sm text-text-muted">Customize how you appear to others</p>
+          <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.profile.title') }}</h1>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.profile.subtitle') }}</p>
         </div>
       </header>
 
@@ -21,8 +21,8 @@
         <form @submit.prevent="handleUpdateProfile">
           <!-- Card Header -->
           <div class="p-6 border-b border-border-default">
-            <h2 class="text-lg font-semibold leading-6">Profile Information</h2>
-            <p class="mt-1 text-sm text-text-muted">This information may be visible to other users.</p>
+            <h2 class="text-lg font-semibold leading-6">{{ t('settings.profile.info.title') }}</h2>
+            <p class="mt-1 text-sm text-text-muted">{{ t('settings.profile.info.subtitle') }}</p>
           </div>
 
           <!-- Card Body -->
@@ -48,7 +48,7 @@
                   >
                     <Camera v-if="!avatarUploading" class="w-10 h-10"/>
                     <Loader2 v-else class="w-10 h-10 animate-spin"/>
-                    <span class="text-xs font-semibold mt-1">Change</span>
+                    <span class="text-xs font-semibold mt-1">{{ t('settings.profile.avatar.change') }}</span>
                   </button>
                 </div>
                 <input
@@ -60,9 +60,9 @@
                 />
               </div>
               <div>
-                <h3 class="text-lg font-semibold">Profile Photo</h3>
-                <p class="text-sm text-text-muted mt-1">Click on the avatar to change it.</p>
-                <p class="text-xs text-text-muted mt-2">PNG, JPG, GIF up to 8MB.</p>
+                <h3 class="text-lg font-semibold">{{ t('settings.profile.avatar.photo') }}</h3>
+                <p class="text-sm text-text-muted mt-1">{{ t('settings.profile.avatar.clickToChange') }}</p>
+                <p class="text-xs text-text-muted mt-2">{{ t('settings.profile.avatar.hint') }}</p>
               </div>
             </div>
 
@@ -71,22 +71,22 @@
               <!-- Username and Email Row -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
                 <div>
-                  <label class="form-label" for="username">Username</label>
+                  <label class="form-label" for="username">{{ t('settings.profile.fields.username') }}</label>
                   <input id="username" :value="profileForm.username" class="form-input-disabled" disabled type="text"/>
                 </div>
                 <div>
-                  <label class="form-label" for="email">Email Address</label>
+                  <label class="form-label" for="email">{{ t('settings.profile.fields.email') }}</label>
                   <input id="email" :value="profileForm.email" class="form-input-disabled" disabled type="email"/>
                 </div>
               </div>
               
               <!-- Display Name - Constrained Width -->
               <div class="max-w-md">
-                <label class="form-label" for="globalNickname">Display Name</label>
+                <label class="form-label" for="globalNickname">{{ t('settings.profile.fields.displayName') }}</label>
                 <input id="globalNickname" v-model="profileForm.globalNickname" class="form-input"
-                       placeholder="How you appear to others"
+                       :placeholder="t('settings.profile.fields.displayNamePlaceholder')"
                        type="text"/>
-                <p class="mt-2 text-sm text-text-muted">This is how you'll appear to other users in servers and direct messages.</p>
+                <p class="mt-2 text-sm text-text-muted">{{ t('settings.profile.fields.displayNameHelp') }}</p>
               </div>
             </div>
           </div>
@@ -94,18 +94,14 @@
           <!-- Card Footer with Actions -->
           <div class="bg-bg-base/40 px-6 py-4 flex items-center justify-end gap-4">
             <transition name="fade">
-              <p v-if="hasChanges" class="text-sm font-medium text-yellow-400 mr-auto">
-                You have unsaved changes.
-              </p>
+              <p v-if="hasChanges" class="text-sm font-medium text-yellow-400 mr-auto">{{ t('settings.profile.unsaved') }}</p>
             </transition>
-            <button :disabled="!hasChanges || loading" class="btn-secondary" type="button" @click="resetProfileForm">
-              Cancel
-            </button>
+            <button :disabled="!hasChanges || loading" class="btn-secondary" type="button" @click="resetProfileForm">{{ t('settings.profile.cancel') }}</button>
             <button :disabled="!hasChanges || loading" class="btn-primary" type="submit">
-              <span v-if="!loading">Save Changes</span>
+              <span v-if="!loading">{{ t('settings.profile.save') }}</span>
               <span v-else class="flex items-center">
                 <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5"/>
-                Saving...
+                {{ t('settings.profile.saving') }}
               </span>
             </button>
           </div>
@@ -122,6 +118,7 @@ import {useToast} from '@/composables/useToast';
 import userService from '@/services/userService';
 import uploadService from '@/services/uploadService';
 import {Camera, Loader2, UserCircle} from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import type {UserProfileDto, UpdateUserProfileDto} from '@/services/types';
 import {getDisplayMessage} from "@/services/errorHandler";
@@ -129,6 +126,7 @@ import {getDisplayMessage} from "@/services/errorHandler";
 // Composables
 const authStore = useAuthStore();
 const {addToast} = useToast();
+const { t } = useI18n();
 
 // State
 const loading = ref(false);
@@ -235,9 +233,9 @@ const handleUpdateProfile = async () => {
     }
     selectedAvatarFile.value = null;
 
-    addToast({type: 'success', message: 'Profile updated successfully'});
+    addToast({type: 'success', message: t('settings.profile.updated')});
   } catch (error: any) {
-    addToast({type: 'danger', message: getDisplayMessage(error) || 'Failed to update profile'});
+    addToast({type: 'danger', message: getDisplayMessage(error) || t('settings.profile.updateFailed')});
   } finally {
     loading.value = false;
     avatarUploading.value = false;

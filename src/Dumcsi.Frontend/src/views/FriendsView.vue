@@ -9,7 +9,7 @@
       <div class="h-14 px-4 border-b border-border-default flex items-center justify-between">
         <div class="flex items-center gap-4">
           <Users class="w-6 h-6 text-text-muted" />
-          <h1 class="font-semibold text-text-default">Friends</h1>
+          <h1 class="font-semibold text-text-default">{{ t('friends.view.title') }}</h1>
           <div class="flex items-center ml-4">
             <button
                 v-for="tab in tabs"
@@ -30,7 +30,7 @@
             @click="showAddFriend = true"
             class="btn-success text-sm"
         >
-          Add Friend
+          {{ t('friends.view.addFriend') }}
         </button>
       </div>
 
@@ -45,7 +45,7 @@
         <div v-else-if="activeTab === 'online'" class="p-4">
           <div v-if="onlineFriends.length === 0" class="text-center py-16">
             <UserX class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
-            <p class="text-text-muted">No friends are currently online</p>
+            <p class="text-text-muted">{{ t('friends.view.empty.online') }}</p>
           </div>
           <div v-else class="space-y-1">
             <FriendItem
@@ -62,7 +62,7 @@
         <div v-else-if="activeTab === 'all'" class="p-4">
           <div v-if="sortedFriends.length === 0" class="text-center py-16">
             <Users class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
-            <p class="text-text-muted">You don't have any friends yet</p>
+            <p class="text-text-muted">{{ t('friends.view.empty.none') }}</p>
             <button @click="showAddFriend = true" class="btn-primary mt-4">
               Add a Friend
             </button>
@@ -82,7 +82,7 @@
         <div v-else-if="activeTab === 'pending'" class="p-4">
           <div v-if="friendStore.requests.length === 0" class="text-center py-16">
             <UserPlus class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
-            <p class="text-text-muted">No pending friend requests</p>
+            <p class="text-text-muted">{{ t('friends.view.empty.pending') }}</p>
           </div>
           <div v-else class="space-y-1">
             <FriendRequestItem
@@ -100,7 +100,7 @@
         <div v-else-if="activeTab === 'blocked'" class="p-4">
           <div v-if="friendStore.blocked.length === 0" class="text-center py-16">
             <UserX class="w-16 h-16 text-text-tertiary mx-auto mb-4" />
-            <p class="text-text-muted">No blocked users</p>
+            <p class="text-text-muted">{{ t('friends.view.empty.blocked') }}</p>
           </div>
           <div v-else class="space-y-1">
             <div
@@ -112,7 +112,7 @@
               <div class="flex-1 ml-3">
                 <span class="font-medium text-text-default">{{ user.username }}</span>
               </div>
-              <button class="btn-secondary text-sm" @click="unblockUser(user.userId)">Unblock</button>
+              <button class="btn-secondary text-sm" @click="unblockUser(user.userId)">{{ t('friends.request.unblock') }}</button>
             </div>
           </div>
         </div>
@@ -120,23 +120,19 @@
         <!-- DM Settings -->
         <div v-else-if="activeTab === 'settings'" class="p-4">
           <div class="max-w-md">
-            <h2 class="text-lg font-semibold text-text-default mb-4">Direct Message Settings</h2>
+            <h2 class="text-lg font-semibold text-text-default mb-4">{{ t('friends.settings.title') }}</h2>
             <div class="bg-main-800 rounded-lg p-4">
-              <label class="block text-sm font-medium text-text-secondary mb-2">
-                Who can send you direct messages?
-              </label>
+              <label class="block text-sm font-medium text-text-secondary mb-2">{{ t('friends.settings.whoCanMessage') }}</label>
               <select
                   v-model.number="friendStore.dmFilter"
                   @change="updateDmSettings"
                   class="form-input w-full"
               >
-                <option :value="0">Everyone</option>
-                <option :value="1">Friends only</option>
-                <option :value="2">No one</option>
+                <option :value="0">{{ t('friends.settings.options.everyone') }}</option>
+                <option :value="1">{{ t('friends.settings.options.friendsOnly') }}</option>
+                <option :value="2">{{ t('friends.settings.options.noOne') }}</option>
               </select>
-              <p class="text-xs text-text-tertiary mt-2">
-                This setting controls who can start new direct message conversations with you.
-              </p>
+              <p class="text-xs text-text-tertiary mt-2">{{ t('friends.settings.hint') }}</p>
             </div>
           </div>
         </div>
@@ -163,12 +159,15 @@ import type { EntityId } from '@/services/types';
 const router = useRouter();
 const friendStore = useFriendStore();
 
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
+
 const tabs = [
-  { label: 'Online', value: 'online' },
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Blocked', value: 'blocked' },
-  { label: 'Settings', value: 'settings' }
+  { label: t('friends.view.tabs.online'), value: 'online' },
+  { label: t('friends.view.tabs.all'), value: 'all' },
+  { label: t('friends.view.tabs.pending'), value: 'pending' },
+  { label: t('friends.view.tabs.blocked'), value: 'blocked' },
+  { label: t('friends.view.tabs.settings'), value: 'settings' }
 ];
 
 const activeTab = ref('online');
@@ -191,7 +190,7 @@ const startDirectMessage = (userId: EntityId) => {
 };
 
 const removeFriend = async (userId: EntityId) => {
-  if (confirm('Are you sure you want to remove this friend?')) {
+  if (confirm(t('friends.view.confirm.remove'))) {
     await friendStore.removeFriend(userId);
   }
 };
@@ -205,7 +204,7 @@ const declineRequest = async (requestId: EntityId) => {
 };
 
 const blockUser = async (userId: EntityId) => {
-  if (confirm('Block this user? They will not be able to send you friend requests.')) {
+  if (confirm(t('friends.view.confirm.block'))) {
     await friendStore.blockUser(userId);
   }
 };

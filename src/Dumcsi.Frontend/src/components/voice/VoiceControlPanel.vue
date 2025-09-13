@@ -10,22 +10,22 @@
           <button
             @click="showConnectionDetails = true"
             class="flex items-center gap-2 hover:bg-main-800 rounded px-2 py-1 transition-colors"
-            title="Voice details"
+            :title="t('voice.panel.voiceDetails')"
           >
             <div class="flex items-center gap-2">
               <div class="relative">
                 <div class="w-2 h-2 bg-green-500 rounded-full"></div>
                 <div class="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-ping opacity-30"></div>
               </div>
-              <span class="text-xs font-medium text-green-400">Voice Connected</span>
-            </div>
+              <span class="text-xs font-medium text-green-400">{{ t('voice.panel.connected') }}</span>
+          </div>
           </button>
           
           <!-- Disconnect Button -->
           <button
             @click="disconnectVoice"
             class="w-8 h-8 rounded flex items-center justify-center hover:bg-red-600 transition-colors text-text-muted hover:text-white"
-            title="Disconnect"
+            :title="t('voice.panel.disconnect')"
           >
             <PhoneOff class="w-4 h-4" />
           </button>
@@ -51,11 +51,11 @@
                 'flex-1 flex items-center justify-center gap-2 px-3 py-2 h-10 whitespace-nowrap rounded-l transition-colors text-sm',
                 isCameraOn ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-main-800 hover:bg-main-700 text-text-secondary'
               ]"
-              :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
+              :title="isCameraOn ? t('voice.panel.camera.tooltipOn') : t('voice.panel.camera.tooltipOff')"
             >
               <Video v-if="isCameraOn" class="w-4 h-4" />
               <VideoOff v-else class="w-4 h-4" />
-              <span class="hidden sm:inline">{{ isCameraOn ? 'Camera On' : 'Camera' }}</span>
+              <span class="hidden sm:inline">{{ isCameraOn ? t('voice.panel.camera.labelOn') : t('voice.panel.camera.labelOff') }}</span>
             </button>
             <!-- Options toggle -->
             <button
@@ -65,7 +65,7 @@
                 'w-8 h-10 flex items-center justify-center rounded-r border-l border-main-700 transition-colors',
                 'bg-main-800 hover:bg-main-700 text-text-secondary'
               ]"
-              title="Camera options"
+              :title="t('voice.panel.camera.options')"
             >
               <ChevronDown class="w-4 h-4" />
             </button>
@@ -84,11 +84,11 @@
                 isScreenSharing ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-main-800 hover:bg-main-700 text-text-secondary',
                 isScreenShareLoading && 'opacity-50 cursor-not-allowed'
               ]"
-              :title="isScreenSharing ? 'Stop screen share' : 'Share your screen'"
+              :title="isScreenSharing ? t('voice.panel.screen.tooltipStop') : t('voice.panel.screen.tooltipStart')"
             >
               <Monitor v-if="isScreenSharing" class="w-4 h-4" />
               <MonitorSpeaker v-else class="w-4 h-4" />
-              <span class="hidden sm:inline">{{ isScreenSharing ? 'Stop Share' : 'Screen' }}</span>
+              <span class="hidden sm:inline">{{ isScreenSharing ? t('voice.panel.screen.labelStop') : t('voice.panel.screen.labelStart') }}</span>
             </button>
             <!-- Options toggle (opens ContextMenu) -->
             <button
@@ -99,7 +99,7 @@
                 'w-8 h-10 flex items-center justify-center rounded-r border-l border-main-700 transition-colors',
                 (!isScreenSharing && !isScreenShareLoading) ? 'bg-main-800 hover:bg-main-700 text-text-secondary' : 'bg-main-900 text-text-tertiary opacity-60'
               ]"
-              title="Screen share options"
+              :title="t('voice.panel.screen.options')"
             >
               <ChevronDown class="w-4 h-4" />
             </button>
@@ -117,7 +117,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <Monitor class="w-4 h-4 text-blue-400" />
-            <span class="text-sm text-blue-400">Sharing Screen</span>
+            <span class="text-sm text-blue-400">{{ t('voice.panel.screen.sharing') }}</span>
           </div>
           <div class="text-xs text-blue-300">
             {{ activeQuality.label }} @ {{ activeQuality.frameRate }} FPS
@@ -160,9 +160,11 @@ import { useCameraSettings } from '@/composables/useCameraSettings';
 import { useWebcamSharing } from '@/composables/useWebcamSharing';
 import ContextMenu from '@/components/ui/ContextMenu.vue';
 import type { MenuItem } from '@/components/ui/ContextMenu.vue';
+import { useI18n } from 'vue-i18n';
 
 const appStore = useAppStore();
 const { addToast } = useToast();
+const { t } = useI18n();
 const { resolutionOptions, fpsOptions, selectedQuality, selectedFPS, includeAudio, getCurrentSettings } = useScreenShareSettings();
 
 // Voice connection state
@@ -191,20 +193,20 @@ const { devices: cameraDevices, selectedDeviceId, selectedQuality: selectedCamQu
 const cameraContextMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const cameraMenuItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [];
-  items.push({ type: 'label', label: 'Camera' });
+  items.push({ type: 'label', label: t('voice.panel.menu.camera') });
 
   // Device list
-  items.push({ type: 'label', label: 'Device' });
+  items.push({ type: 'label', label: t('voice.panel.menu.device') });
   if ((cameraDevices.value || []).length > 0) {
     cameraDevices.value.forEach(d => {
       items.push({
-        label: d.label || 'Camera',
+        label: d.label || t('voice.panel.menu.camera'),
         checked: selectedDeviceId.value === d.deviceId,
         action: () => { selectedDeviceId.value = d.deviceId; }
       });
     });
   } else {
-    items.push({ label: 'No cameras found', disabled: true });
+    items.push({ label: t('voice.panel.menu.noCameras'), disabled: true });
   }
 
   items.push({ type: 'separator' });
@@ -251,16 +253,16 @@ const screenOptionsBtn = ref<HTMLElement | null>(null);
 const screenShareMenuItems = computed<MenuItem[]>(() => {
   if (isScreenSharing.value) {
     return [
-      { type: 'label', label: 'Screen Share' },
-      { label: 'Stop Screen Share', icon: Monitor, action: () => toggleScreenShare() }
+      { type: 'label', label: t('voice.panel.menu.screenShare') },
+      { label: t('voice.panel.menu.stop'), icon: Monitor, action: () => toggleScreenShare() }
     ];
   }
   const items: MenuItem[] = [];
-  items.push({ type: 'label', label: 'Screen Share' });
-  items.push({ label: 'Start Screen Share', icon: MonitorSpeaker, action: () => toggleScreenShare() });
+  items.push({ type: 'label', label: t('voice.panel.menu.screenShare') });
+  items.push({ label: t('voice.panel.menu.start'), icon: MonitorSpeaker, action: () => toggleScreenShare() });
   items.push({ type: 'separator' });
   // Resolution
-  items.push({ type: 'label', label: 'Resolution' });
+  items.push({ type: 'label', label: t('voice.panel.menu.resolution') });
   resolutionOptions.forEach(opt => {
     items.push({
       label: `${opt.label} (${opt.resolution})`,
@@ -270,7 +272,7 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
   });
   items.push({ type: 'separator' });
   // FPS
-  items.push({ type: 'label', label: 'Frame Rate' });
+  items.push({ type: 'label', label: t('voice.panel.menu.frameRate') });
   fpsOptions.forEach(fps => {
     items.push({
       label: `${fps.label} – ${fps.description}`,
@@ -281,7 +283,7 @@ const screenShareMenuItems = computed<MenuItem[]>(() => {
   items.push({ type: 'separator' });
   // Audio
   items.push({
-    label: 'Include Audio',
+    label: t('voice.panel.menu.includeAudio'),
     checked: includeAudio.value,
     action: () => {
       includeAudio.value = !includeAudio.value;
@@ -340,14 +342,14 @@ const toggleScreenShare = async () => {
           throw new Error('No voice channel');
         }
       } catch (_e) {
-        addToast({ message: 'Failed to connect to voice channel for screen sharing', type: 'danger' });
+        addToast({ message: t('voice.panel.errors.connectForShareFailed'), type: 'danger' });
         return;
       }
 
       const currentServer = appStore.currentServer;
       const currentChannelId = appStore.currentVoiceChannelId;
       if (!currentServer || !currentChannelId) {
-        addToast({ message: 'Voice channel information unavailable', type: 'danger' });
+        addToast({ message: t('voice.panel.errors.voiceInfoUnavailable'), type: 'danger' });
         return;
       }
 
@@ -367,18 +369,18 @@ const toggleScreenShare = async () => {
   } catch (error: any) {
     console.error('VoiceControlPanel: Screen share error:', error);
     
-    let errorMessage = 'Failed to toggle screen sharing';
+    let errorMessage = t('voice.panel.errors.toggleFailed');
     
     if (error.message) {
       errorMessage = error.message;
     } else if (error.name === 'NotAllowedError') {
-      errorMessage = 'Screen sharing permission denied';
+      errorMessage = t('voice.panel.errors.permissionDenied');
     } else if (error.name === 'NotFoundError') {
-      errorMessage = 'No screen available for sharing';
+      errorMessage = t('voice.panel.errors.notFound');
     } else if (error.name === 'AbortError') {
-      errorMessage = 'Screen sharing cancelled by user';
+      errorMessage = t('voice.panel.errors.aborted');
     } else if (error.name === 'NotSupportedError') {
-      errorMessage = 'Screen sharing not supported in this browser';
+      errorMessage = t('voice.panel.errors.notSupported');
     }
     
     addToast({ message: errorMessage, type: 'danger' });

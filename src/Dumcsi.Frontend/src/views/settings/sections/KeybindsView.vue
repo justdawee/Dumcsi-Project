@@ -9,8 +9,8 @@
             <Keyboard class="w-7 h-7 text-primary"/>
           </div>
           <div>
-            <h1 class="text-3xl font-bold tracking-tight">Keybinds</h1>
-            <p class="mt-1 text-sm text-text-muted">Customize keyboard shortcuts and hotkeys</p>
+            <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.keybinds.title') }}</h1>
+            <p class="mt-1 text-sm text-text-muted">{{ t('settings.keybinds.subtitle') }}</p>
           </div>
         </div>
         <div class="flex items-center space-x-3">
@@ -19,14 +19,14 @@
             class="flex items-center px-4 py-2 bg-bg-surface border border-border-default rounded-lg font-medium hover:bg-bg-hover transition-colors"
           >
             <HelpCircle class="w-4 h-4 mr-2"/>
-            View All Shortcuts
+            {{ t('settings.keybinds.viewAll') }}
           </button>
           <button
             @click="resetAllKeybinds"
             class="flex items-center px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-500/20 transition-colors"
           >
             <RotateCcw class="w-4 h-4 mr-2"/>
-            Reset All
+            {{ t('settings.keybinds.resetAll') }}
           </button>
         </div>
       </header>
@@ -69,7 +69,7 @@
                       v-if="binding.currentKey"
                       @click="resetKeybind(binding.id)"
                       class="p-1.5 text-text-muted hover:text-red-500 transition-colors"
-                      title="Reset to default"
+                      :title="t('settings.keybinds.resetToDefault')"
                     >
                       <X class="w-4 h-4"/>
                     </button>
@@ -86,7 +86,7 @@
                         : 'bg-bg-base border border-border-default hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed'
                     ]"
                   >
-                    {{ isRecording && recordingBindingId === binding.id ? 'Press a key...' : 'Edit' }}
+                    {{ isRecording && recordingBindingId === binding.id ? t('settings.keybinds.pressKey') : t('common.common.edit') }}
                   </button>
                 </div>
               </div>
@@ -110,6 +110,7 @@ import { ref } from 'vue';
 import { Keyboard, HelpCircle, RotateCcw, X } from 'lucide-vue-next';
 import { useKeyBinds } from '@/composables/useKeyBinds';
 import KeyboardShortcutsModal from '@/components/modals/KeyboardShortcutsModal.vue';
+import { useI18n } from 'vue-i18n';
 
 const { 
   keyBindCategories, 
@@ -121,18 +122,20 @@ const {
   getCurrentKey
 } = useKeyBinds();
 
+const { t } = useI18n();
+
 const showShortcutsModal = ref(false);
 const recordingBindingId = ref<string | null>(null);
 
 // Category descriptions
 const getCategoryDescription = (categoryId: string): string => {
   const descriptions: Record<string, string> = {
-    'general': 'Basic navigation and app-wide shortcuts',
-    'main-functions': 'Core application features and tools', 
-    'message-navigation': 'Navigate and interact with messages',
-    'server-channel': 'Server and voice channel controls',
-    'accessibility': 'Accessibility and interface toggles',
-    'text-formatting': 'Text styling and formatting shortcuts'
+    'general': t('settings.keybinds.categoryDesc.general'),
+    'main-functions': t('settings.keybinds.categoryDesc.mainFunctions'), 
+    'message-navigation': t('settings.keybinds.categoryDesc.messageNavigation'),
+    'server-channel': t('settings.keybinds.categoryDesc.serverChannel'),
+    'accessibility': t('settings.keybinds.categoryDesc.accessibility'),
+    'text-formatting': t('settings.keybinds.categoryDesc.textFormatting')
   };
   return descriptions[categoryId] || '';
 };

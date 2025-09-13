@@ -46,6 +46,7 @@
 
 <script lang="ts" setup>
 import {ref, computed} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import { useStatusColor } from '@/composables/useStatusColor';
 import {useAppStore} from '@/stores/app';
@@ -76,6 +77,7 @@ const {getUserColor, getInitials} = useUserDisplay();
 const { getStatusColor } = useStatusColor();
 const appStore = useAppStore();
 const authStore = useAuthStore();
+const { t } = useI18n();
 
 // State
 const imageError = ref(false);
@@ -85,7 +87,7 @@ const displayName = computed(() => {
   if (props.user) {
     return ('serverNickname' in props.user && props.user.serverNickname) || props.user.username;
   }
-  return props.username || 'Unknown';
+  return props.username || t('user.unknownName', 'Unknown');
 });
 
 const userId = computed(() =>

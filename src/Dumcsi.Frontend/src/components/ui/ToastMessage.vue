@@ -20,7 +20,7 @@
         <input
           v-model="replyText"
           type="text"
-          :placeholder="quickReply.placeholder || 'Quick reply…'"
+          :placeholder="quickReply.placeholder || t('ui.toast.quickReplyPlaceholder')"
           class="w-full rounded-md bg-main-800 text-text-default placeholder-text-muted pl-3 pr-10 py-2 text-sm border border-border-default/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
           @keydown.enter.prevent="sendQuickReply"
         />
@@ -28,8 +28,8 @@
           class="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-text-muted hover:text-text-default hover:bg-main-700 disabled:opacity-50"
           :disabled="sending || !replyText.trim()"
           @click.stop="sendQuickReply"
-          aria-label="Send quick reply"
-          title="Send"
+          :aria-label="t('ui.toast.sendAria')"
+          :title="t('ui.toast.send')"
         >
           <Send class="w-4 h-4" />
         </button>
@@ -69,6 +69,7 @@ import {computed, ref} from 'vue';
 import type {Component} from 'vue';
 import {CheckCircle2, XCircle, AlertTriangle, Info, X, Send} from 'lucide-vue-next';
 import type {ToastType, ToastAction} from '@/composables/useToast';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   message: string;
@@ -84,6 +85,7 @@ const emit = defineEmits(['close', 'action', 'sent']);
 
 const replyText = ref('');
 const sending = ref(false);
+const { t } = useI18n();
 
 const sendQuickReply = async () => {
   if (!props.quickReply) return;
@@ -105,7 +107,7 @@ const typeClasses = computed(() => {
   switch (props.type) {
     case 'success':
       return {
-        title: 'Success',
+        title: t('common.success'),
         icon: CheckCircle2 as Component,
         accentColor: 'bg-green-500',
         iconContainer: 'bg-green-500/10',
@@ -113,7 +115,7 @@ const typeClasses = computed(() => {
       };
     case 'danger':
       return {
-        title: 'Error',
+        title: t('common.error'),
         icon: XCircle as Component,
         accentColor: 'bg-red-500',
         iconContainer: 'bg-red-500/10',
@@ -121,7 +123,7 @@ const typeClasses = computed(() => {
       };
     case 'warning':
       return {
-        title: 'Warning',
+        title: t('common.warning'),
         icon: AlertTriangle as Component,
         accentColor: 'bg-yellow-500',
         iconContainer: 'bg-yellow-500/10',
@@ -130,7 +132,7 @@ const typeClasses = computed(() => {
     case 'info':
     default:
       return {
-        title: 'Information',
+        title: t('common.info'),
         icon: Info as Component,
         accentColor: 'bg-blue-500',
         iconContainer: 'bg-blue-500/10',

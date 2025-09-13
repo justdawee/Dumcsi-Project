@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between px-4 h-14 bg-main-900 border-b border-main-700 flex-shrink-0">
       <div class="flex items-center gap-2 min-w-0 flex-1">
         <Hash class="w-5 h-5 text-text-muted flex-shrink-0"/>
-        <h2 class="text-lg font-semibold text-text-default truncate">{{ currentChannel?.name || 'Loading...' }}</h2>
+        <h2 class="text-lg font-semibold text-text-default truncate">{{ currentChannel?.name || t('channels.sidebar.loading') }}</h2>
         <span v-if="channelDescription" class="text-sm text-text-muted hidden md:inline truncate">{{
             channelDescription
           }}</span>
@@ -12,7 +12,7 @@
       <div class="flex items-center gap-2">
         <button
             class="p-2 text-text-muted hover:text-text-default transition"
-            title="Toggle Member List"
+            :title="t('chat.memberList.toggleTitle')"
             @click="isMemberListOpen = !isMemberListOpen"
         >
           <Users class="w-5 h-5"/>
@@ -24,7 +24,7 @@
               ref="searchInputRef"
               v-model="searchQuery"
               class="bg-bg-surface text-text-default px-3 py-2 pr-8 rounded-lg w-32 focus:w-80 text-sm border border-border-default focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-300 ease-in-out"
-              placeholder="Search..."
+              :placeholder="t('chat.search.placeholder')"
               @keydown.enter.prevent="executeSearch"
               @keydown.tab.prevent="selectAutocomplete"
               @keydown.escape="showAutocomplete = false"
@@ -39,7 +39,7 @@
               v-if="searchQuery.length > 0"
               @click="clearSearch"
               class="p-1 hover:bg-bg-hover rounded text-text-muted hover:text-text-default transition-colors"
-              title="Clear search"
+              :title="t('chat.search.clear')"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -48,7 +48,7 @@
             <button 
               @click="executeSearch"
               class="p-1 hover:bg-bg-hover rounded text-text-muted hover:text-text-default transition-colors"
-              title="Search (Enter)"
+              :title="t('chat.search.searchEnter')"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -87,13 +87,13 @@
         <!-- Search Results Mode -->
         <div v-if="isSearching" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           <div class="flex items-center justify-between mb-2">
-            <div class="text-text-muted text-sm">Search results ({{ searchResults.length }})</div>
-            <button class="text-sm text-text-muted hover:text-text-default" @click="exitSearch">Exit search</button>
+            <div class="text-text-muted text-sm">{{ t('chat.search.resultsCount', { count: searchResults.length }) }}</div>
+            <button class="text-sm text-text-muted hover:text-text-default" @click="exitSearch">{{ t('chat.search.exit') }}</button>
           </div>
           <div v-if="searchLoading" class="flex justify-center p-4">
             <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
           </div>
-          <div v-else-if="searchResults.length === 0" class="text-text-muted">No results</div>
+          <div v-else-if="searchResults.length === 0" class="text-text-muted">{{ t('chat.search.noResults') }}</div>
           <div v-else>
             <div 
               v-for="(message, index) in searchResults"
@@ -112,7 +112,7 @@
                 <span>#{{ getChannelName(message.channelId) }}</span>
                 <span>•</span>
                 <span>{{ formatMessageDate(message.timestamp) }}</span>
-                <span class="text-primary">Click to jump to message</span>
+                <span class="text-primary">{{ t('chat.search.clickToJump') }}</span>
               </div>
             </div>
           </div>
@@ -128,8 +128,8 @@
             <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
           </div>
           <div v-else-if="appStore.messages.length === 0" class="text-center text-text-muted">
-            <p>No messages in this channel yet.</p>
-            <p class="text-sm">Be the first to send a message!</p>
+            <p>{{ t('chat.empty.noMessagesInChannel') }}</p>
+            <p class="text-sm">{{ t('chat.empty.firstMessage') }}</p>
           </div>
           <div v-else>
             <UniversalMessageItem
@@ -149,21 +149,21 @@
           <button
               v-if="showJumpToPresent"
               class="absolute right-6 -top-10 z-10 bg-primary text-white text-sm font-medium px-3 py-1.5 rounded-full shadow hover:bg-primary/90 transition"
-              title="Jump to latest messages"
-              @click="jumpToPresent"
-          >
-            Jump to present
+              :title="t('chat.jump.title')"
+          @click="jumpToPresent"
+         >
+            {{ t('chat.jump.button') }}
             <span v-if="pendingNewCount > 0" class="ml-2 bg-white/20 px-1.5 py-0.5 rounded text-xs">{{ pendingNewCount }}</span>
           </button>
           <UniversalMessageInput
               v-if="currentChannel && permissions.sendMessages"
               ref="messageInputRef"
               :channel-id="currentChannel.id"
-              :placeholder="`Message #${currentChannel.name}`"
+              :placeholder="t('chat.input.messageChannel', { channel: currentChannel.name })"
               @send="handleSendMessage"
           />
           <div v-else-if="!permissions.sendMessages" class="text-center text-text-muted text-sm py-2">
-            You do not have permission to send messages in this channel.
+            {{ t('chat.permissions.cannotSend') }}
           </div>
           <Transition name="typing-fade">
             <div
@@ -196,6 +196,8 @@ import {usePermissions} from '@/composables/usePermissions';
 import {debounce} from '@/utils/helpers';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
 import {Hash, Users, Loader2} from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 import UniversalMessageItem from '@/components/chat/UniversalMessageItem.vue';
 import UniversalMessageInput from '@/components/chat/UniversalMessageInput.vue';
 import MemberList from '@/components/common/MemberList.vue';
@@ -329,7 +331,7 @@ const handleSendMessage = async (payload: CreateMessageRequest) => {
     await appStore.sendMessage(currentChannel.value.id, payload);
     await scrollToBottomWithFocusPreserved('smooth');
   } catch {
-    addToast({type: 'danger', message: 'Failed to send message.'});
+    addToast({type: 'danger', message: t('chat.toasts.sendFailed')});
   }
 };
 
@@ -340,12 +342,12 @@ const jumpToPresent = async () => {
 
 const handleEditMessage = (payload: { messageId: EntityId; content: UpdateMessageRequest }) => {
   appStore.updateMessage(currentChannel.value!.id, payload.messageId, payload.content)
-      .catch(() => addToast({type: 'danger', message: 'Failed to edit message.'}));
+      .catch(() => addToast({type: 'danger', message: t('chat.toasts.editFailed')}));
 };
 
 const handleDeleteMessage = (messageId: EntityId) => {
   appStore.deleteMessage(currentChannel.value!.id, messageId)
-      .catch(() => addToast({type: 'danger', message: 'Failed to delete message.'}));
+      .catch(() => addToast({type: 'danger', message: t('chat.toasts.deleteFailed')}));
 };
 
 
@@ -389,7 +391,7 @@ const handleEditLastMessage = () => {
   } else {
     addToast({
       type: 'warning',
-      message: 'No messages to edit',
+      message: t('chat.toasts.noMessagesToEdit'),
       duration: 3000
     });
   }
@@ -703,7 +705,7 @@ const executeSearch = async () => {
     const results = await messageService.searchMessages(filters);
     searchResults.value = results;
   } catch (e) {
-    addToast({ type: 'danger', message: 'Search failed.' });
+    addToast({ type: 'danger', message: t('chat.toasts.searchFailed') });
     searchResults.value = [];
   } finally {
     searchLoading.value = false;

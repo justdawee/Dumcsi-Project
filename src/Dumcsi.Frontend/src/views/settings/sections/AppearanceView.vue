@@ -8,8 +8,8 @@
           <Palette class="w-7 h-7 text-primary"/>
         </div>
         <div>
-          <h1 class="text-3xl font-bold tracking-tight">Appearance</h1>
-          <p class="mt-1 text-sm text-text-muted">Customize your app's visual appearance</p>
+          <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.appearance.title') }}</h1>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.appearance.subtitle') }}</p>
         </div>
       </header>
 
@@ -17,8 +17,8 @@
       <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden">
         <div class="p-8 text-center">
           <Palette class="w-16 h-16 text-text-muted mx-auto mb-4"/>
-          <h3 class="text-lg font-semibold mb-2">Coming Soon</h3>
-          <p class="text-text-muted">Theme selection, dark/light mode, and UI customization options will be available here.</p>
+          <h3 class="text-lg font-semibold mb-2">{{ t('settings.appearance.comingSoon') }}</h3>
+          <p class="text-text-muted">{{ t('settings.appearance.comingSoonDesc') }}</p>
         </div>
       </div>
     </div>
@@ -27,4 +27,6 @@
 
 <script setup lang="ts">
 import { Palette } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 </script>

@@ -41,7 +41,7 @@
           </p>
           <p class="text-sm text-gray-400 truncate">{{ user.username }}</p>
           <p v-if="mutualServersCount" class="text-xs text-gray-400 mt-1">
-            {{ mutualServersCount }} Mutual Servers
+            {{ t('user.infoCard.mutualServers', { count: mutualServersCount }) }}
           </p>
           <div class="flex items-center space-x-1 mt-2 flex-wrap justify-start">
             <template v-for="role in sortedRoles" :key="role.id">
@@ -62,7 +62,7 @@
                 v-if="canManageRoles"
                 class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
                 @click.stop="openManageRolesModal"
-                title="Manage Roles"
+                :title="t('user.infoCard.manageRoles')"
             >
               <Plus class="w-3 h-3 text-white"/>
             </button>
@@ -71,7 +71,7 @@
               class="mt-4 w-full bg-secondary hover:bg-secondary/50 text-white text-sm font-medium py-1.5 rounded"
               @click="messageUser"
           >
-            Message
+            {{ t('user.infoCard.message') }}
           </button>
         </div>
 
@@ -104,6 +104,7 @@
 
 <script lang="ts" setup>
 import {computed, onMounted, onUnmounted, ref, watch, nextTick} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {Permission, type ServerMember, type Role} from '@/services/types';
 import UserAvatar from './UserAvatar.vue';
 import ManageUserRolesModal from './ManageUserRolesModal.vue';
@@ -138,6 +139,7 @@ const userId = computed(() => {
 
 const appStore = useAppStore();
 const {permissions, canManageMember, permissionDetails} = usePermissions();
+const { t } = useI18n();
 
 const canManageRoles = computed(() =>
     permissions.manageRoles.value && canManageMember(props.user.userId).value
@@ -186,7 +188,7 @@ const permissionNames = computed(() => {
 
   Object.values(Permission).forEach(val => {
     if (typeof val === 'number' && val !== Permission.None && (permissionValue.value & val) !== 0) {
-      const name = permissionDetails[val as Permission]?.name || 'Unknown';
+      const name = permissionDetails[val as Permission]?.name || t('user.infoCard.permissionUnknown');
       names.push(name);
     }
   });

@@ -4,9 +4,9 @@
       <div v-if="visible" class="fixed inset-0 z-[120] flex items-center justify-center pointer-events-none">
         <div class="absolute inset-0 bg-black/75"></div>
         <div class="relative z-10 text-center text-white space-y-2">
-          <p class="text-lg font-semibold">Upload to #{{ channelName }}</p>
-          <p>You can add comments before uploading.</p>
-          <p class="text-sm text-gray-300">Hold shift to upload directly.</p>
+          <p class="text-lg font-semibold">{{ t('ui.fileDrop.uploadTo', { channel: `#${channelName}` }) }}</p>
+          <p>{{ t('ui.fileDrop.addComments') }}</p>
+          <p class="text-sm text-gray-300">{{ t('ui.fileDrop.holdShift') }}</p>
         </div>
       </div>
     </Transition>
@@ -16,9 +16,11 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '@/stores/app';
+import { useI18n } from 'vue-i18n';
 
 const appStore = useAppStore();
 const channelName = computed(() => appStore.currentChannel?.name ?? 'channel');
+const { t } = useI18n();
 
 const visible = ref(false);
 let dragCounter = 0;

@@ -17,7 +17,7 @@
         <div class="flex items-baseline gap-2">
           <span class="font-semibold text-text-default">{{ getDisplayName(author) }}</span>
           <span class="text-xs text-text-tertiary">{{ formatTime(timestamp) }}</span>
-          <span v-if="editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
+          <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
         </div>
         <div class="message-content">
           <MessageContentParser
@@ -55,7 +55,7 @@
       <div class="w-10 shrink-0 text-right">
     <span class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
       {{ formatTimeShort(timestamp) }}
-      <span v-if="editedTimestamp" class="text-xs text-text-tertiary">(edited)</span>
+      <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
     </span>
       </div>
       <div class="flex-1 message-content">
@@ -99,7 +99,7 @@
       <button
           v-if="canEdit"
           class="p-1.5 hover:bg-main-700 rounded-sm transition"
-          title="Edit message"
+          :title="t('chat.item.editTooltip')"
           @click="isEditing = true"
       >
         <Edit3 class="w-4 h-4 text-text-secondary"/>
@@ -107,7 +107,7 @@
       <button
           v-if="canDelete"
           class="p-1.5 hover:bg-main-700 rounded-sm transition"
-          title="Delete message"
+          :title="t('chat.item.deleteTooltip')"
           @click="handleDelete"
       >
         <Trash2 class="w-4 h-4 text-text-secondary"/>
@@ -117,16 +117,17 @@
   <ConfirmModal
       v-model="isDeleteModalOpen"
       :content-details="content"
-      confirm-text="Delete Message"
+      :confirm-text="t('chat.item.confirmText')"
       intent="danger"
-      message="Are you sure you want to delete this message? This action cannot be undone."
-      title="Delete Message"
+      :message="t('chat.item.confirmMessage')"
+      :title="t('chat.item.confirmTitle')"
       @confirm="confirmDelete"
   />
 </template>
 
 <script lang="ts" setup>
 import {ref, computed} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {Edit3, Trash2} from 'lucide-vue-next';
 import MessageEdit from '../message/MessageEdit.vue';
 import MessageContentParser from '../message/MessageContentParser.vue';
@@ -155,6 +156,7 @@ const emit = defineEmits<{
 }>();
 
 const {getDisplayName} = useUserDisplay();
+const { t, locale } = useI18n();
 
 // --- State ---
 const isEditing = ref(false);
@@ -255,21 +257,23 @@ const formatTime = (dateString: string) => {
   const isToday = date.toDateString() === now.toDateString();
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
 
-  const time = date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: false});
+  const currentLocale = String((locale as any).value || 'en-US');
+  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  if (isToday) return t('chat.item.todayAt', { time });
+  if (isYesterday) return t('chat.item.yesterdayAt', { time });
 
-  if (isToday) return `Today at ${time}`;
-  if (isYesterday) return `Yesterday at ${time}`;
-
-  return date.toLocaleDateString('en-US', {
+  const datePart = new Intl.DateTimeFormat(currentLocale, {
     month: 'short',
     day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  }) + ` at ${time}`;
+  }).format(date);
+  return `${datePart} ${t('chat.item.atTime', { time })}`;
 };
 
 const formatTimeShort = (dateString: string) => {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: false});
+  const currentLocale = String((locale as any).value || 'en-US');
+  return new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
 };
 
 const handleSave = (newTextContent: string) => {

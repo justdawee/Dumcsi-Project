@@ -27,14 +27,14 @@
               <template v-if="isImage(attachment)">
                 <button
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                    title="Zoom in"
+                    :title="t('chat.attachments.zoomIn')"
                     @click="zoomIn"
                 >
                   <ZoomIn class="w-5 h-5" />
                 </button>
                 <button
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                    title="Zoom out"
+                    :title="t('chat.attachments.zoomOut')"
                     @click="zoomOut"
                 >
                   <ZoomOut class="w-5 h-5" />
@@ -42,7 +42,7 @@
                 <button
                     v-if="zoomLevel !== 1"
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                    title="Reset zoom"
+                    :title="t('chat.attachments.resetZoom')"
                     @click="resetZoom"
                 >
                   <Minimize2 class="w-5 h-5" />
@@ -51,7 +51,7 @@
 
               <button
                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                  title="Download"
+                  :title="t('chat.attachments.download')"
                   @click="downloadFile"
               >
                 <Download class="w-5 h-5" />
@@ -61,7 +61,7 @@
                   :href="attachment.fileUrl"
                   target="_blank"
                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                  title="Open in browser"
+                  :title="t('chat.attachments.openInBrowser')"
               >
                 <ExternalLink class="w-5 h-5" />
               </a>
@@ -69,7 +69,7 @@
               <div class="relative">
                 <button
                     class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition"
-                    title="More options"
+                    :title="t('chat.attachments.moreOptions')"
                     @click="showMoreMenu = !showMoreMenu"
                 >
                   <MoreVertical class="w-5 h-5" />
@@ -87,14 +87,14 @@
                         @click="copyImage"
                     >
                       <Copy class="w-4 h-4" />
-                      Copy Image
+                      {{ t('chat.attachments.copyImage') }}
                     </button>
                     <button
                         class="w-full px-4 py-2 text-left text-sm text-text-secondary hover:bg-main-700 hover:text-text-default transition flex items-center gap-2"
                         @click="copyLink"
                     >
                       <Link class="w-4 h-4" />
-                      Copy Link
+                      {{ t('chat.attachments.copyLink') }}
                     </button>
                     <div class="h-px bg-border-default my-1"></div>
                     <button
@@ -102,7 +102,7 @@
                         @click="showDetails = true"
                     >
                       <Info class="w-4 h-4" />
-                      View Details
+                      {{ t('chat.attachments.viewDetails') }}
                     </button>
                   </div>
                 </Transition>
@@ -110,7 +110,7 @@
 
               <button
                   class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded transition ml-2"
-                  title="Close"
+                  :title="t('chat.attachments.close')"
                   @click="close"
               >
                 <X class="w-5 h-5" />
@@ -175,26 +175,26 @@
               @click.self="showDetails = false"
           >
             <div class="bg-bg-surface rounded-lg p-6 max-w-sm w-full shadow-xl">
-              <h3 class="text-lg font-semibold text-text-default mb-4">File Details</h3>
+              <h3 class="text-lg font-semibold text-text-default mb-4">{{ t('chat.attachments.detailsTitle') }}</h3>
               <dl class="space-y-3">
                 <div>
-                  <dt class="text-sm text-text-tertiary">Filename</dt>
+                  <dt class="text-sm text-text-tertiary">{{ t('chat.attachments.filename') }}</dt>
                   <dd class="text-sm text-text-secondary break-all">{{ attachment.fileName }}</dd>
                 </div>
                 <div>
-                  <dt class="text-sm text-text-tertiary">Size</dt>
+                  <dt class="text-sm text-text-tertiary">{{ t('chat.attachments.size') }}</dt>
                   <dd class="text-sm text-text-secondary">{{ formatFileSize(attachment.fileSize) }}</dd>
                 </div>
                 <div v-if="attachment.contentType">
-                  <dt class="text-sm text-text-tertiary">Type</dt>
+                  <dt class="text-sm text-text-tertiary">{{ t('chat.attachments.type') }}</dt>
                   <dd class="text-sm text-text-secondary">{{ attachment.contentType }}</dd>
                 </div>
                 <div v-if="isImage(attachment) && (attachment.width || attachment.height)">
-                  <dt class="text-sm text-text-tertiary">Dimensions</dt>
-                  <dd class="text-sm text-text-secondary">{{ attachment.width }} × {{ attachment.height }} pixels</dd>
+                  <dt class="text-sm text-text-tertiary">{{ t('chat.attachments.dimensions') }}</dt>
+                  <dd class="text-sm text-text-secondary">{{ attachment.width }} × {{ attachment.height }} {{ t('chat.attachments.pixels') }}</dd>
                 </div>
                 <div v-if="isVideo(attachment) && attachment.duration">
-                  <dt class="text-sm text-text-tertiary">Duration</dt>
+                  <dt class="text-sm text-text-tertiary">{{ t('chat.attachments.duration') }}</dt>
                   <dd class="text-sm text-text-secondary">{{ formatDuration(attachment.duration) }}</dd>
                 </div>
               </dl>
@@ -202,7 +202,7 @@
                   class="btn-secondary w-full mt-6"
                   @click="showDetails = false"
               >
-                Close
+                {{ t('chat.attachments.close') }}
               </button>
             </div>
           </div>
@@ -214,6 +214,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
   X, Download, ExternalLink, MoreVertical, Copy, Link, Info, File,
   ZoomIn, ZoomOut, Minimize2
@@ -234,6 +235,7 @@ const emit = defineEmits<{
 }>();
 
 const { addToast } = useToast();
+const { t, locale } = useI18n();
 
 // State
 const showMoreMenu = ref(false);
@@ -285,7 +287,7 @@ const copyImage = async () => {
   try {
     // Check if clipboard API is available
     if (!navigator.clipboard || !window.ClipboardItem) {
-      addToast({ type: 'warning', message: 'Clipboard API not supported in your browser' });
+      addToast({ type: 'warning', message: t('chat.attachments.errors.clipboardUnsupported') });
       return;
     }
 
@@ -294,21 +296,21 @@ const copyImage = async () => {
     await navigator.clipboard.write([
       new ClipboardItem({ [blob.type]: blob })
     ]);
-    addToast({ type: 'success', message: 'Image copied to clipboard' });
+    addToast({ type: 'success', message: t('chat.attachments.errors.copyImageSuccess') });
     showMoreMenu.value = false;
   } catch (error) {
     console.error('Failed to copy image:', error);
-    addToast({ type: 'danger', message: 'Failed to copy image. Try right-clicking the image instead.' });
+    addToast({ type: 'danger', message: t('chat.attachments.errors.copyImageFailed') });
   }
 };
 
 const copyLink = async () => {
   try {
     await navigator.clipboard.writeText(props.attachment.fileUrl);
-    addToast({ type: 'success', message: 'Link copied to clipboard' });
+    addToast({ type: 'success', message: t('chat.attachments.errors.copyLinkSuccess') });
     showMoreMenu.value = false;
   } catch (error) {
-    addToast({ type: 'danger', message: 'Failed to copy link' });
+    addToast({ type: 'danger', message: t('chat.attachments.errors.copyLinkFailed') });
   }
 };
 
@@ -404,16 +406,16 @@ const formatMessageTime = (timestamp: string) => {
   const isToday = date.toDateString() === now.toDateString();
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
 
-  const time = date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: false});
-
-  if (isToday) return `Today at ${time}`;
-  if (isYesterday) return `Yesterday at ${time}`;
-
-  return date.toLocaleDateString('en-US', {
+  const currentLocale = String((locale as any).value || 'en-US');
+  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  if (isToday) return t('chat.item.todayAt', { time });
+  if (isYesterday) return t('chat.item.yesterdayAt', { time });
+  const datePart = new Intl.DateTimeFormat(currentLocale, {
     month: 'short',
     day: 'numeric',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-  }) + ` at ${time}`;
+  }).format(date);
+  return `${datePart} ${t('chat.item.atTime', { time })}`;
 };
 
 const formatDuration = (seconds: number) => {

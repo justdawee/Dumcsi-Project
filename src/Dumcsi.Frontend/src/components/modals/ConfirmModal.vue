@@ -13,10 +13,10 @@
             <component :is="intentClasses.icon" :class="['h-6 w-6', intentClasses.iconColor]" aria-hidden="true"/>
           </div>
           <div class="flex-1 overflow-hidden">
-            <h3 id="modal-title" class="text-lg font-semibold leading-6 text-text-default">{{ title }}</h3>
+            <h3 id="modal-title" class="text-lg font-semibold leading-6 text-text-default">{{ titleText }}</h3>
             <div class="mt-2">
               <p class="text-sm text-text-muted whitespace-pre-line">
-                {{ message }}
+                {{ messageText }}
               </p>
 
               <div v-if="$slots.content || contentDetails"
@@ -38,7 +38,7 @@
               @click="$emit('confirm')"
           >
             <Loader2 v-if="isLoading" class="w-5 h-5 animate-spin mr-2"/>
-            {{ confirmText }}
+            {{ confirmTextComputed }}
           </button>
           <button
               :disabled="isLoading"
@@ -46,7 +46,7 @@
               type="button"
               @click="$emit('update:modelValue', false)"
           >
-            {{ cancelText }}
+            {{ cancelTextComputed }}
           </button>
         </div>
       </div>
@@ -58,6 +58,7 @@
 import {computed} from 'vue';
 import type {Component} from 'vue';
 import {AlertTriangle, Loader2, CheckCircle2, Info} from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 
 const props = withDefaults(defineProps<{
   modelValue: boolean;
@@ -69,16 +70,24 @@ const props = withDefaults(defineProps<{
   intent?: 'danger' | 'success' | 'warning' | 'info';
   contentDetails?: string | null;
 }>(), {
-  title: 'Are you sure?',
-  message: 'This action cannot be undone.',
-  confirmText: 'Confirm',
-  cancelText: 'Cancel',
+  title: undefined,
+  message: undefined,
+  confirmText: undefined,
+  cancelText: undefined,
   isLoading: false,
   intent: 'danger',
   contentDetails: null,
 });
 
 defineEmits(['update:modelValue', 'confirm']);
+
+const { t } = useI18n();
+
+// i18n-resolved texts
+const titleText = computed(() => props.title ?? t('common.confirm.title'));
+const messageText = computed(() => props.message ?? t('common.confirm.message'));
+const confirmTextComputed = computed(() => props.confirmText ?? t('common.confirm.confirm'));
+const cancelTextComputed = computed(() => props.cancelText ?? t('common.cancel'));
 
 const intentClasses = computed(() => {
   switch (props.intent) {

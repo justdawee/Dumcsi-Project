@@ -11,8 +11,7 @@
     />
     <div class="flex items-center gap-2 mt-2 text-xs">
       <span class="text-text-muted">
-        Press <kbd class="px-1 py-0.5 bg-main-700 rounded-sm">Enter</kbd> to save,
-        <kbd class="px-1 py-0.5 bg-main-700 rounded-sm">Esc</kbd> to cancel
+        {{ t('chat.edit.hint') }}
       </span>
     </div>
   </div>
@@ -20,6 +19,7 @@
 
 <script setup>
 import {ref, onMounted, nextTick} from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   initialContent: {
@@ -29,6 +29,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['save', 'cancel'])
+const { t } = useI18n()
 
 const content = ref(props.initialContent)
 const textarea = ref(null)

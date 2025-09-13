@@ -1,13 +1,11 @@
 <template>
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="$emit('close')">
     <div class="bg-bg-surface rounded-xl p-6 w-full max-w-md animate-fade-in border border-border-default/50">
-      <h2 class="text-xl font-bold text-text-default mb-4">Create Channel</h2>
+      <h2 class="text-xl font-bold text-text-default mb-4">{{ t('channels.modal.createTitle') }}</h2>
 
       <form class="space-y-4" @submit.prevent="handleCreateChannel">
         <div>
-          <label class="form-label">
-            Channel Type
-          </label>
+          <label class="form-label">{{ t('channels.modal.type') }}</label>
           <div class="flex gap-3">
             <label class="flex-1">
               <input
@@ -18,7 +16,7 @@
               />
               <div :class="{ active: form.type === 0 }" class="channel-type-option">
                 <Hash class="w-5 h-5"/>
-                <span>Text</span>
+                <span>{{ t('channels.modal.typeText') }}</span>
               </div>
             </label>
             <label class="flex-1">
@@ -30,44 +28,38 @@
               />
               <div :class="{ active: form.type === 1 }" class="channel-type-option">
                 <Volume2 class="w-5 h-5"/>
-                <span>Voice</span>
+                <span>{{ t('channels.modal.typeVoice') }}</span>
               </div>
             </label>
           </div>
         </div>
 
         <div>
-          <label class="form-label">
-            Channel Name
-          </label>
+          <label class="form-label">{{ t('channels.modal.name') }}</label>
           <input
               v-model="form.name"
               class="form-input"
               pattern="[a-z0-9-]+"
-              placeholder="new-channel"
+              :placeholder="t('channels.modal.placeholderName')"
               required
               type="text"
               @input="form.name = form.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')"
           />
-          <p class="mt-1 text-xs text-text-muted">
-            Channel names must be lowercase with no spaces
-          </p>
+          <p class="mt-1 text-xs text-text-muted">{{ t('channels.modal.nameHint') }}</p>
         </div>
 
         <div>
-          <label class="form-label">
-            Description (optional)
-          </label>
+          <label class="form-label">{{ t('channels.modal.description') }}</label>
           <input
               v-model="form.description"
               class="form-input"
-              placeholder="What's this channel about?"
+              :placeholder="t('channels.modal.placeholderDesc')"
               type="text"
           />
         </div>
 
         <div>
-          <label class="form-label">Topic</label>
+          <label class="form-label">{{ t('channels.modal.topic') }}</label>
           <select v-model="form.topicId" class="form-input">
             <option v-for="t in topics" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
@@ -79,7 +71,7 @@
               type="button"
               @click="$emit('close')"
           >
-            Cancel
+            {{ t('channels.modal.cancel') }}
           </button>
           <button
               :disabled="loading || !form.name"
@@ -87,7 +79,7 @@
               type="submit"
           >
             <Loader2 v-if="loading" class="w-5 h-5 animate-spin mr-2"/>
-            Create Channel
+            {{ t('channels.modal.submit') }}
           </button>
         </div>
       </form>
@@ -102,6 +94,7 @@
 
 <script lang="ts" setup>
 import {ref, computed} from 'vue'
+import { useI18n } from 'vue-i18n'
 import {useRouter} from 'vue-router'
 import {useAppStore} from '@/stores/app'
 import {useToast} from "@/composables/useToast";
@@ -115,6 +108,7 @@ const emit = defineEmits(['close', 'channel-created'])
 const router = useRouter()
 const appStore = useAppStore()
 const {addToast} = useToast()
+const { t } = useI18n()
 
 const loading = ref(false)
 const error = ref('')
@@ -140,19 +134,13 @@ const handleCreateChannel = async () => {
     emit('channel-created', response)
     emit('close')
 
-    addToast({
-      message: `Channel #${response.name} created successfully.`,
-      type: 'success'
-    })
+    addToast({ message: t('channels.modal.toastCreated', { name: response.name }), type: 'success' })
 
     if (form.value.type === 0) {
       await router.push(`/servers/${props.serverId}/channels/${response.id}`)
     }
   } catch (err) {
-    addToast({
-      message: 'Failed to create channel. Please try again later.',
-      type: 'danger'
-    });
+    addToast({ message: t('channels.modal.toastCreateFailed'), type: 'danger' });
   } finally {
     loading.value = false
   }

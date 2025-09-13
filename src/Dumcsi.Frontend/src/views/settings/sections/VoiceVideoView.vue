@@ -8,8 +8,8 @@
           <MicIcon class="w-7 h-7 text-primary"/>
         </div>
         <div>
-          <h1 class="text-3xl font-bold tracking-tight">Voice & Video</h1>
-          <p class="mt-1 text-sm text-text-muted">Configure your audio and video settings for voice channels</p>
+          <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.voice.title') }}</h1>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.voice.subtitle') }}</p>
         </div>
       </header>
 
@@ -18,16 +18,16 @@
         <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <MicIcon class="w-5 h-5 mr-3 text-primary"/>
-            Input Device
+            {{ t('settings.voice.input.title') }}
           </h2>
-          <p class="mt-1 text-sm text-text-muted">Configure your microphone and input settings</p>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.voice.input.description') }}</p>
         </div>
         <div class="p-6 space-y-6">
           <!-- Input Device Selection -->
           <div class="max-w-md">
-            <label class="form-label">Microphone</label>
+            <label class="form-label">{{ t('settings.voice.microphone.device') }}</label>
             <select v-model="audioSettings.inputDevice" class="form-input">
-              <option value="default">Default - System Default</option>
+              <option value="default">{{ t('settings.voice.defaultDevice') }}</option>
               <option v-for="device in inputDevices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.label || `Microphone ${device.deviceId.slice(0, 8)}` }}
               </option>
@@ -36,7 +36,7 @@
 
           <!-- Input Volume -->
           <div class="max-w-md">
-            <label class="form-label">Input Volume</label>
+            <label class="form-label">{{ t('settings.voice.inputVolume') }}</label>
             <div class="flex items-center space-x-4">
               <Volume2 class="w-4 h-4 text-text-muted"/>
               <input 
@@ -85,10 +85,10 @@
               ]"
             >
               <component :is="isTesting ? Square : Play" class="w-4 h-4 mr-2"/>
-              {{ isTesting ? 'Stop Test' : 'Test Microphone' }}
+              {{ isTesting ? t('settings.voice.microphone.stopTest') : t('settings.voice.microphone.test') }}
             </button>
             <p class="mt-2 text-sm text-text-muted">
-              {{ isTesting ? 'Speak to see your microphone levels and hear yourself' : 'Click to test your microphone input' }}
+              {{ isTesting ? t('settings.voice.microphone.testHintActive') : t('settings.voice.microphone.testHint') }}
             </p>
             <div v-if="isTesting" class="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <div class="flex items-center">
@@ -107,16 +107,16 @@
         <div class="p-6 border-b border-border-default">
           <h2 class="text-lg font-semibold leading-6 flex items-center">
             <Headphones class="w-5 h-5 mr-3 text-primary"/>
-            Output Device
+            {{ t('settings.voice.output.title') }}
           </h2>
-          <p class="mt-1 text-sm text-text-muted">Configure your speakers or headphones</p>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.voice.output.description') }}</p>
         </div>
         <div class="p-6 space-y-6">
           <!-- Output Device Selection -->
           <div class="max-w-md">
-            <label class="form-label">Audio Output</label>
+            <label class="form-label">{{ t('settings.voice.output.device') }}</label>
             <select v-model="audioSettings.outputDevice" class="form-input">
-              <option value="default">Default - System Default</option>
+              <option value="default">{{ t('settings.voice.defaultDevice') }}</option>
               <option v-for="device in outputDevices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.label || `Audio Output ${device.deviceId.slice(0, 8)}` }}
               </option>
@@ -125,7 +125,7 @@
 
           <!-- Output Volume -->
           <div class="max-w-md">
-            <label class="form-label">Output Volume</label>
+            <label class="form-label">{{ t('settings.voice.outputVolume') }}</label>
             <div class="flex items-center space-x-4">
               <VolumeX class="w-4 h-4 text-text-muted"/>
               <input 
@@ -361,9 +361,11 @@ import {
 import { useAudioSettings } from '@/composables/useAudioSettings';
 import { useVoiceSettings } from '@/composables/useVoiceSettings';
 import { webrtcService } from '@/services/webrtcService';
+import { useI18n } from 'vue-i18n';
 
 // Use shared audio settings
 const { audioSettings, inputDevices, outputDevices, getAudioDevices } = useAudioSettings();
+const { t } = useI18n();
 
 // Use voice settings for push-to-talk
 const { 

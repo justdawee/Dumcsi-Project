@@ -11,7 +11,7 @@
             ref="searchInput"
             v-model="searchQuery"
             class="w-full bg-bg-input text-text-default p-2 pl-8 rounded-md border border-main-700  focus:ring-2 focus:ring-primary focus:outline-none"
-            placeholder="Search Tenor"
+            :placeholder="t('chat.gif.searchPlaceholder')"
             type="text"
         />
         <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted"/>
@@ -26,7 +26,7 @@
             class="px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap transition-colors"
             @click="showTrending"
         >
-          Trending
+          {{ t('chat.gif.trending') }}
         </button>
         <button
             v-for="category in categories"
@@ -75,9 +75,7 @@
           </div>
         </div>
       </div>
-      <div v-else class="text-center text-text-muted p-4">
-        No GIFs found. Try another search.
-      </div>
+      <div v-else class="text-center text-text-muted p-4">{{ t('chat.gif.noResults') }}</div>
       <div v-if="loading && gifs.length > 0" class="flex justify-center items-center py-4">
         <Loader2 class="w-6 h-6 animate-spin text-primary"/>
       </div>
@@ -87,6 +85,7 @@
 
 <script lang="ts" setup>
 import {ref, watch, onUnmounted} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {Loader2, Search} from 'lucide-vue-next';
 
 // --- TÍPUSDEFINÍCIÓK ---
@@ -134,6 +133,7 @@ const gifs = ref<Gif[]>([]);
 const categories = ref<TenorCategory[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const { t } = useI18n();
 const debounceTimer = ref<number | null>(null);
 const activeCategory = ref('trending');
 const nextPos = ref<string | null>(null);
@@ -189,7 +189,7 @@ async function loadGifs(mode: 'trending' | 'search', query?: string, loadMore = 
     gifs.value = loadMore ? [...gifs.value, ...newGifs] : newGifs;
     nextPos.value = data.next || null;
   } catch (e: any) {
-    error.value = 'Could not load GIFs.';
+    error.value = t('chat.gif.loadError');
   } finally {
     loading.value = false;
   }

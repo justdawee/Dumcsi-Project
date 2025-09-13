@@ -11,7 +11,7 @@
         <form @submit.prevent="handleUpdateServer">
           <!-- Fejléc -->
           <div class="p-6 border-b border-border-default">
-            <h3 class="text-xl font-bold text-text-default">Server Settings</h3>
+            <h3 class="text-xl font-bold text-text-default">{{ t('server.settings.title') }}</h3>
           </div>
 
           <!-- Törzs (görgethető tartalommal) -->
@@ -23,8 +23,7 @@
               <div class="flex-shrink-0">
                 <label
                     class="block text-sm font-medium text-text-secondary mb-2"
-                >Server Icon</label
-                >
+                >{{ t('server.settings.icon.label') }}</label>
                 <div class="relative group w-32 h-32">
                   <div
                       class="relative rounded-full ring-4 ring-border-default/50"
@@ -32,7 +31,7 @@
                     <img
                         v-if="previewIcon || form.icon"
                         :src="previewIcon || form.icon"
-                        alt="Server Icon"
+                        :alt="t('server.settings.icon.label')"
                         class="w-32 h-32 rounded-full object-cover bg-main-700"
                     />
                     <div
@@ -47,9 +46,7 @@
                   >
                     <div class="text-center">
                       <Camera class="w-8 h-8 text-text-default mx-auto mb-1"/>
-                      <span class="text-xs text-text-default font-medium"
-                      >Change Icon</span
-                      >
+                      <span class="text-xs text-text-default font-medium">{{ t('server.settings.icon.change') }}</span>
                     </div>
                     <input
                         ref="iconFileInput"
@@ -74,7 +71,7 @@
                   >
                     <Loader2 v-if="removingIcon" class="h-4 w-4 animate-spin"/>
                     <Trash2 v-else class="h-4 w-4"/>
-                    <span>Remove Icon</span>
+                    <span>{{ t('server.settings.icon.remove') }}</span>
                   </button>
                 </div>
               </div>
@@ -82,9 +79,7 @@
               <!-- Szerver adatai -->
               <div class="flex-1 space-y-6">
                 <div>
-                  <label class="form-label" for="server-name"
-                  >Server Name</label
-                  >
+                  <label class="form-label" for="server-name">{{ t('server.settings.name') }}</label>
                   <input
                       id="server-name"
                       v-model="form.name"
@@ -94,15 +89,13 @@
                   />
                 </div>
                 <div>
-                  <label class="form-label" for="server-description"
-                  >Description</label
-                  >
+                  <label class="form-label" for="server-description">{{ t('server.settings.description') }}</label>
                   <textarea
                       id="server-description"
                       v-model="form.description"
                       class="form-input min-h-[100px] resize-none"
                       maxlength="500"
-                      placeholder="What's your server about?"
+                      :placeholder="t('server.settings.descriptionPlaceholder')"
                       rows="4"
                   ></textarea>
                 </div>
@@ -114,7 +107,7 @@
                       type="checkbox"
                   />
                   <label class="ml-2 text-sm text-text-secondary" for="public">
-                    Make server public
+                    {{ t('server.settings.publicToggle') }}
                   </label>
                 </div>
               </div>
@@ -134,14 +127,14 @@
                   @click="isDeleteModalOpen = true"
               >
                 <Loader2 v-if="deleting" class="w-4 h-4 animate-spin mr-2"/>
-                Delete Server
+                {{ t('server.settings.actions.delete') }}
               </button>
               <button
                   class="btn-warning"
                   type="button"
                   @click="isTransferModalOpen = true"
               >
-                Transfer Ownership
+                {{ t('server.settings.actions.transferOwnership') }}
               </button>
             </div>
             <div v-else></div>
@@ -149,7 +142,7 @@
 
             <div class="flex gap-3">
               <button class="btn-secondary" type="button" @click="closeModal">
-                Cancel
+                {{ t('common.cancel') }}
               </button>
               <button
                   :disabled="!hasChanges || isLoading"
@@ -157,7 +150,7 @@
                   type="submit"
               >
                 <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2"/>
-                Save Changes
+                {{ t('common.saveChanges') }}
               </button>
             </div>
           </div>
@@ -170,10 +163,10 @@
   <ConfirmModal
       v-model="isDeleteModalOpen"
       :is-loading="deleting"
-      confirm-text="Delete Server"
+      :confirm-text="t('server.settings.deleteConfirm.confirmText')"
       intent="danger"
-      message="Are you sure you want to delete this server? This action cannot be undone. All channels and messages will be permanently deleted."
-      title="Delete Server"
+      :message="t('server.settings.deleteConfirm.message')"
+      :title="t('server.settings.deleteConfirm.title')"
       @confirm="handleDeleteServer"
   />
   <TransferOwnershipModal
@@ -194,6 +187,7 @@ import {Loader2, Trash2, Camera, ImageIcon} from 'lucide-vue-next';
 import ConfirmModal from './ConfirmModal.vue';
 import TransferOwnershipModal from './TransferOwnershipModal.vue';
 import {getDisplayMessage} from '@/services/errorHandler';
+import { useI18n } from 'vue-i18n';
 
 // --- Props & Emits ---
 const props = defineProps<{
@@ -206,6 +200,7 @@ const emit = defineEmits(['close', 'server-updated', 'server-deleted']);
 // --- State ---
 const appStore = useAppStore();
 const {addToast} = useToast();
+const { t } = useI18n();
 
 const form = reactive({name: '', description: '', icon: '', public: false});
 const originalForm = reactive({name: '', description: '', icon: '', public: false});
@@ -265,11 +260,11 @@ const handleIconSelect = (event: Event) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
-    addToast({type: 'danger', message: 'Please select an image file.'});
+    addToast({type: 'danger', message: t('server.settings.errors.selectImage')});
     return;
   }
   if (file.size > 8 * 1024 * 1024) { // 8MB limit
-    addToast({type: 'danger', message: 'Image size cannot exceed 8MB.'});
+    addToast({type: 'danger', message: t('server.settings.errors.imageTooLarge')});
     return;
   }
 
@@ -286,7 +281,7 @@ const removeIcon = async () => {
   try {
     await uploadService.deleteServerIcon(props.server.id);
     form.icon = '';
-    addToast({type: 'success', message: 'Server icon removed.'});
+    addToast({type: 'success', message: t('server.settings.toast.iconRemoved')});
     emit('server-updated');
   } catch (err: any) {
     addToast({type: 'danger', message: getDisplayMessage(err)});
@@ -318,7 +313,7 @@ const handleUpdateServer = async () => {
     };
 
     await serverService.updateServer(props.server.id, payload);
-    addToast({type: 'success', message: 'Server settings updated.'});
+    addToast({type: 'success', message: t('server.settings.toast.updated')});
     emit('server-updated');
     closeModal();
   } catch (err: any) {
@@ -336,7 +331,7 @@ const handleDeleteServer = async () => {
   deleting.value = true;
   try {
     await appStore.deleteServer(props.server.id);
-    addToast({type: 'success', message: `Server '${props.server.name}' has been deleted.`});
+    addToast({type: 'success', message: t('server.settings.toast.deleted', { name: props.server.name })});
     emit('server-deleted');
     closeModal();
   } catch (err: any) {

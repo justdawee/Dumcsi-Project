@@ -6,7 +6,7 @@
           class="w-full px-4 py-3 font-semibold text-text-default hover:bg-main-800/50 transition-colors flex items-center justify-between group cursor-pointer"
           @click="openServerDropdown"
       >
-        <span class="truncate text-left flex-1 mr-2">{{ server?.name || 'Loading...' }}</span>
+        <span class="truncate text-left flex-1 mr-2">{{ server?.name || t('channels.sidebar.loading') }}</span>
         <ChevronDown
             :class="['w-4 h-4 flex-shrink-0 transition-transform group-hover:text-text-secondary', { 'rotate-180': isServerDropdownOpen }]"
         />
@@ -23,11 +23,11 @@
           <!-- Independent Channels (without topic) -->
           <div v-if="independentChannels.length > 0" class="px-2 mb-4">
             <div class="flex items-center justify-between px-2 py-1 text-xs font-semibold text-text-muted uppercase">
-              <span>Channels</span>
+              <span>{{ t('channels.sidebar.sectionTitle') }}</span>
               <button
                   v-if="canManageChannels"
                   class="hover:text-text-secondary transition"
-                  title="Create Channel"
+                  :title="t('channels.sidebar.createChannelTooltip')"
                   @click="appStore.openCreateChannelModal(server!.id)"
               >
                 <Plus class="w-4 h-4"/>
@@ -43,7 +43,7 @@
                   <Volume2 class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
                   <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                          :title="t('channels.sidebar.editChannelTooltip')" @click.prevent.stop="openEditModal(channel)">
                     <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
                   </button>
                 </div>
@@ -74,20 +74,20 @@
                       <!-- Mute icon (leftmost) -->
                       <MicOff 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
-                        class="w-3 h-3 text-red-400" title="Muted" />
+                        class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.muted')" />
                       
                       <!-- Deafen icon (center) -->
                       <VolumeX 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
-                        class="w-3 h-3 text-red-400" title="Deafened" />
+                        class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.deafened')" />
                       
                       <!-- LIVE icon (rightmost) -->
                       <span 
                         v-if="appStore.screenShares.get(channel.id)?.has(user.id)"
                         class="px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded uppercase tracking-wide"
-                        title="Screen Sharing"
+                        :title="t('channels.sidebar.screenSharing')"
                       >
-                        LIVE
+                        {{ t('channels.sidebar.live') }}
                       </span>
                     </div>
                   </li>
@@ -104,7 +104,7 @@
               <button
                   v-if="canManageChannels"
                   class="hover:text-text-secondary transition"
-                  title="Create Channel"
+                  :title="t('channels.sidebar.createChannelTooltip')"
                   @click="appStore.openCreateChannelModal(server!.id)"
               >
                 <Plus class="w-4 h-4"/>
@@ -120,7 +120,7 @@
                   <Volume2 class="w-4 h-4 text-text-muted"/>
                   <span class="truncate">{{ channel.name }}</span>
                   <button v-if="canManageChannels" class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                          title="Edit Channel" @click.prevent.stop="openEditModal(channel)">
+                          :title="t('channels.sidebar.editChannelTooltip')" @click.prevent.stop="openEditModal(channel)">
                     <Settings class="w-4 h-4 text-text-secondary hover:text-text-default"/>
                   </button>
                 </div>
@@ -151,20 +151,20 @@
                       <!-- Mute icon (leftmost) -->
                       <MicOff 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.muted) === true"
-                        class="w-3 h-3 text-red-400" title="Muted" />
+                        class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.muted')" />
                       
                       <!-- Deafen icon (center) -->
                       <VolumeX 
                         v-if="(appStore.voiceStates.get(channel.id)?.get(user.id)?.deafened) === true"
-                        class="w-3 h-3 text-red-400" title="Deafened" />
+                        class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.deafened')" />
                       
                       <!-- LIVE icon (rightmost) -->
                       <span 
                         v-if="appStore.screenShares.get(channel.id)?.has(user.id)"
                         class="px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded uppercase tracking-wide"
-                        title="Screen Sharing"
+                        :title="t('channels.sidebar.screenSharing')"
                       >
-                        LIVE
+                        {{ t('channels.sidebar.live') }}
                       </span>
                     </div>
                   </li>
@@ -182,10 +182,10 @@
       <ConfirmModal
           v-model="isConfirmDeleteOpen"
           :is-loading="isDeleting"
-          :message="`Are you sure you want to delete the channel #${deletingChannel?.name}? This is permanent.`"
-          confirm-text="Delete Channel"
+          :message="t('channels.sidebar.confirmDelete.message', { name: deletingChannel?.name })"
+          :confirm-text="t('channels.sidebar.confirmDelete.confirmText')"
           intent="danger"
-          title="Delete Channel"
+          :title="t('channels.sidebar.confirmDelete.title')"
           @confirm="confirmDeleteChannel"
       />
       <EditChannelModal
@@ -258,14 +258,14 @@
       @close="serverMenu.isManageRolesModalOpen.value = false"
   />
 
-  <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" title="Create Topic">
+  <BaseModal v-model="serverMenu.isCreateTopicModalOpen.value" :title="t('topics.createTitle')">
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-text-default mb-2">Topic Name</label>
+        <label class="block text-sm font-medium text-text-default mb-2">{{ t('topics.nameLabel') }}</label>
         <input
             v-model="serverMenu.newTopicName.value"
             class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            placeholder="Enter topic name..."
+            :placeholder="t('topics.placeholder')"
             type="text"
             @keydown.enter="serverMenu.createTopic"
         />
@@ -277,14 +277,14 @@
             class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
             @click="serverMenu.isCreateTopicModalOpen.value = false"
         >
-          Cancel
+          {{ t('topics.cancel') }}
         </button>
         <button
             :disabled="!serverMenu.newTopicName.value.trim()"
             class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
             @click="serverMenu.createTopic"
         >
-          Create Topic
+          {{ t('topics.create') }}
         </button>
       </div>
     </template>
@@ -293,9 +293,9 @@
   <ConfirmModal
       v-model="serverMenu.isLeaveConfirmOpen.value"
       :is-loading="serverMenu.isLeaving.value"
-      :message="`Are you sure you want to leave ${serverMenu.selectedServer.value?.name}? You won't be able to rejoin this server unless you are re-invited.`"
-      :title="`Leave '${serverMenu.selectedServer.value?.name}'`"
-      confirm-text="Leave Server"
+      :message="t('server.leave.confirmMessage', { name: serverMenu.selectedServer.value?.name })"
+      :title="t('server.leave.confirmTitle', { name: serverMenu.selectedServer.value?.name })"
+      :confirm-text="t('server.leave.confirmText')"
       intent="danger"
       @confirm="serverMenu.confirmLeaveServer"
   />
@@ -304,6 +304,7 @@
 <script lang="ts" setup>
 import type {Component} from 'vue';
 import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {useRoute, useRouter} from 'vue-router';
 import { RouteNames } from '@/router';
 import {useAppStore} from '@/stores/app';
@@ -349,6 +350,7 @@ const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
 const {permissions} = usePermissions();
+const { t } = useI18n();
 
 const insertPointClasses = [
   'absolute',
@@ -621,10 +623,7 @@ const confirmDeleteChannel = async () => {
     await channelService.deleteChannel(deletingChannel.value.id);
     handleChannelDeleted(deletingChannel.value.id);
   } catch (error) {
-    addToast({
-      message: 'Failed to delete channel. Please try again later.',
-      type: 'danger'
-    });
+    addToast({ message: t('channels.errors.deleteFailed'), type: 'danger' });
   } finally {
     isDeleting.value = false;
     isConfirmDeleteOpen.value = false;
@@ -648,11 +647,7 @@ const toggleVoiceChannel = async (channel: ChannelListItem) => {
     
     if (!permissionResult.granted) {
       // Show permission error message
-      addToast({
-        message: permissionResult.error || 'Microphone access is required to join voice channels',
-        type: 'danger',
-        duration: 5000
-      });
+      addToast({ message: permissionResult.error || t('channels.errors.microphoneRequired'), type: 'danger', duration: 5000 });
       return;
     }
     
@@ -756,15 +751,9 @@ const createTopic = async () => {
   try {
     await serverService.createTopic(props.server.id, {name: newTopicName.value.trim()});
     await appStore.fetchServer(props.server.id);
-    addToast({
-      message: 'Topic created successfully!',
-      type: 'success'
-    });
+    addToast({ message: t('topics.toastCreated'), type: 'success' });
   } catch (error: any) {
-    addToast({
-      message: error.message || 'Failed to create topic',
-      type: 'danger'
-    });
+    addToast({ message: error.message || t('channels.errors.topicCreateFailed'), type: 'danger' });
   } finally {
     isCreateTopicModalOpen.value = false;
     newTopicName.value = '';

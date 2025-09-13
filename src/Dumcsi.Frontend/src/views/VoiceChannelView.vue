@@ -11,7 +11,7 @@
     <div v-else-if="isCheckingPermission" class="flex-1 flex items-center justify-center">
       <div class="text-center">
         <Loader2 class="w-8 h-8 mx-auto mb-4 text-text-muted animate-spin"/>
-        <p class="text-text-muted">Checking microphone permissions...</p>
+        <p class="text-text-muted">{{ t('voice.mic.requesting') }}</p>
       </div>
     </div>
 
@@ -35,7 +35,7 @@
             <!-- Voice Settings Button -->
             <button
                 class="w-8 h-8 rounded hover:bg-main-800 flex items-center justify-center transition-colors"
-                title="Voice settings"
+                :title="t('voice.panel.voiceDetails')"
                 @click="showVoiceSettings = true"
             >
               <Settings class="w-4 h-4 text-text-muted"/>
@@ -54,11 +54,11 @@
       >
         <!-- No participants state -->
         <div v-if="participants.length === 0" class="h-full flex items-center justify-center">
-          <div class="text-center">
-            <Volume2 class="w-16 h-16 mx-auto mb-4 text-text-tertiary"/>
-            <h3 class="text-lg font-medium text-text-default mb-2">No one else is here</h3>
-            <p class="text-text-muted">Invite someone to start a conversation</p>
-          </div>
+            <div class="text-center">
+              <Volume2 class="w-16 h-16 mx-auto mb-4 text-text-tertiary"/>
+            <h3 class="text-lg font-medium text-text-default mb-2">{{ t('voice.details.empty.title') }}</h3>
+            <p class="text-text-muted">{{ t('voice.details.empty.description') }}</p>
+            </div>
         </div>
 
         <!-- Fullscreen View -->
@@ -96,7 +96,7 @@
             <div class="absolute bottom-4 left-4 bg-black/70 rounded px-3 py-1">
               <span class="text-white text-sm font-medium">{{ fullscreenParticipant.username }}</span>
               <span class="text-white/70 text-xs ml-1">
-                {{ fullscreenParticipant.type === 'screen' ? 'is sharing their screen' : 'camera' }}
+                {{ fullscreenParticipant.type === 'screen' ? t('voice.panel.screen.sharing') : t('voice.panel.camera.labelOn') }}
               </span>
             </div>
 
@@ -115,7 +115,7 @@
 
             <!-- Exit fullscreen hint -->
             <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-2 py-1">
-              <span class="text-white/70 text-xs">Click to exit fullscreen</span>
+              <span class="text-white/70 text-xs">{{ t('voice.fullscreen.exitHint') }}</span>
             </div>
           </div>
         </div>
@@ -158,8 +158,8 @@
                     <!-- Screen share loading indicator -->
                     <div v-if="participant.isScreenShareLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
                       <Loader2 class="animate-spin h-6 w-6 text-white mb-2" />
-                      <span class="text-white text-xs">Starting screen share...</span>
-                    </div>
+                      <span class="text-white text-xs">{{ t('voice.panel.screen.starting') }}</span>
+            </div>
                   </div>
                 </template>
 
@@ -208,10 +208,10 @@
                     class="flex items-center gap-1"
                   >
                     <!-- Screen sharing icon -->
-                    <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" title="Screen Sharing"/>
+                    <Monitor v-if="participant.isScreenSharing" class="w-3 h-3 text-blue-400" :title="t('voice.details.screen.label')"/>
                     <!-- Audio state icons -->
-                    <VolumeX v-if="participant.isDeafened" class="w-3 h-3 text-red-400" title="Deafened"/>
-                    <MicOff v-else-if="participant.isMuted" class="w-3 h-3 text-red-400" title="Muted"/>
+                    <VolumeX v-if="participant.isDeafened" class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.deafened')"/>
+                    <MicOff v-else-if="participant.isMuted" class="w-3 h-3 text-red-400" :title="t('channels.sidebar.voiceState.muted')"/>
                   </div>
                 </div>
               </div>
@@ -221,8 +221,8 @@
                 v-if="participant.hasScreenShare || participant.videoStream"
                 class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 rounded px-2 py-1"
               >
-                <span class="text-white/70 text-xs">Click for fullscreen</span>
-              </div>
+                <span class="text-white/70 text-xs">{{ t('voice.fullscreen.enterHint') }}</span>
+            </div>
             </div>
           </div>
         </div>
@@ -232,7 +232,7 @@
           v-if="isFullscreen && showFullscreenControls"
           class="absolute top-4 right-4 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white/70 hover:text-white transition-all z-50"
           @click="exitFullscreen"
-          title="Exit fullscreen (Esc)"
+          :title="t('voice.fullscreen.exitEsc')"
         >
           <X class="w-4 h-4" />
         </button>
@@ -248,7 +248,7 @@
                     'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                     appStore.selfMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
                   ]"
-                  :title="appStore.selfMuted ? 'Unmute' : 'Mute'"
+                  :title="appStore.selfMuted ? t('voice.controls.unmute') : t('voice.controls.mute')"
                   @click="toggleMute"
                 >
                   <Mic v-if="!appStore.selfMuted" class="w-5 h-5 text-white"/>
@@ -260,7 +260,7 @@
                     'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                     appStore.selfDeafened ? 'bg-red-600 hover:bg-red-700' : 'bg-main-700 hover:bg-main-600'
                   ]"
-                  :title="appStore.selfDeafened ? 'Undeafen' : 'Deafen'"
+                  :title="appStore.selfDeafened ? t('voice.controls.undeafen') : t('voice.controls.deafen')"
                   @click="toggleDeafen"
                 >
                   <Volume2 v-if="!appStore.selfDeafened" class="w-5 h-5 text-white"/>
@@ -275,7 +275,7 @@
                     'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
                     isCameraOn ? 'bg-green-600 hover:bg-green-700' : 'bg-main-700 hover:bg-main-600'
                   ]"
-                  :title="isCameraOn ? 'Turn off camera' : 'Turn on camera'"
+                  :title="isCameraOn ? t('voice.panel.camera.tooltipOn') : t('voice.panel.camera.tooltipOff')"
                   @click="toggleCamera"
                   @contextmenu="handleCameraRightClick"
                 >
@@ -465,12 +465,14 @@ import MicrophonePermissionRequired from '@/components/voice/MicrophonePermissio
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import VolumeControl from '@/components/voice/VolumeControl.vue';
 import {checkMicrophonePermission} from '@/utils/permissions';
+import { useI18n } from 'vue-i18n';
 
 
 const route = useRoute();
 const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
+const { t } = useI18n();
 const { resolutionOptions, fpsOptions, selectedQuality, selectedFPS, includeAudio, getCurrentSettings } = useScreenShareSettings();
 const { getUserVolume, setUserVolume, applyVolumeToElement } = useScreenShareVolumeControl();
 

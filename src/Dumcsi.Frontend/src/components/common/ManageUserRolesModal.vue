@@ -1,12 +1,12 @@
 <template>
-  <BaseModal v-model="visible" title="Manage Roles" @close="$emit('update:modelValue', false)">
+  <BaseModal v-model="visible" :title="t('roles.manage.title')" @close="$emit('update:modelValue', false)">
     <div class="space-y-4">
       <!-- Search Field -->
       <div class="relative">
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search roles..."
+          :placeholder="t('roles.manage.search')"
           class="w-full px-3 py-2 bg-main-800 border border-main-600 rounded-md text-text-default placeholder-text-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
         />
         <Search class="absolute right-3 top-2.5 w-4 h-4 text-text-muted" />
@@ -17,7 +17,7 @@
         <!-- Loading state -->
         <div v-if="loadingRoles" class="flex justify-center items-center py-8">
           <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-          <span class="ml-2 text-text-muted">Loading roles...</span>
+          <span class="ml-2 text-text-muted">{{ t('roles.manage.loading') }}</span>
         </div>
         
         <!-- Roles -->
@@ -51,14 +51,14 @@
 
           <!-- Role Status -->
           <div class="text-xs text-text-muted">
-            {{ hasRole(role.id) ? 'Assigned' : 'Not assigned' }}
+            {{ hasRole(role.id) ? t('roles.manage.assigned') : t('roles.manage.notAssigned') }}
           </div>
         </div>
 
         <!-- No roles found -->
         <div v-if="!loadingRoles && filteredRoles.length === 0" class="text-center py-8 text-text-muted">
-          <p v-if="!searchQuery.trim()">No roles available on this server</p>
-          <p v-else>No roles found matching "{{ searchQuery }}"</p>
+          <p v-if="!searchQuery.trim()">{{ t('roles.manage.noneAvailable') }}</p>
+          <p v-else>{{ t('roles.manage.noneFound', { query: searchQuery }) }}</p>
         </div>
       </div>
     </div>
@@ -70,14 +70,14 @@
           class="px-4 py-2 text-text-muted hover:text-text-default transition-colors"
           @click="$emit('update:modelValue', false)"
         >
-          Cancel
+          {{ t('roles.manage.cancel') }}
         </button>
         <button
           class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-md transition-colors disabled:opacity-50"
           :disabled="loading"
           @click="saveChanges"
         >
-          {{ loading ? 'Saving...' : 'Save Changes' }}
+          {{ loading ? t('roles.manage.saving') : t('roles.manage.save') }}
         </button>
       </div>
     </template>
@@ -86,6 +86,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Search } from 'lucide-vue-next';
 import BaseModal from '@/components/modals/BaseModal.vue';
 import { useAppStore } from '@/stores/app';
@@ -103,6 +104,7 @@ const emit = defineEmits(['update:modelValue']);
 
 const appStore = useAppStore();
 const { addToast } = useToast();
+const { t } = useI18n();
 
 const visible = computed({
   get: () => props.modelValue,
@@ -129,10 +131,7 @@ watch(() => props.modelValue, async (isOpen) => {
         fetchedRoles.value = roles;
       } catch (error) {
         console.error('Failed to fetch roles:', error);
-        addToast({
-          type: 'danger',
-          message: 'Failed to load server roles'
-        });
+        addToast({ type: 'danger', message: t('roles.manage.toastLoadedFailed') });
       } finally {
         loadingRoles.value = false;
       }
@@ -222,17 +221,11 @@ const saveChanges = async () => {
     const roleIds = Array.from(selectedRoleIds.value);
     await roleService.updateMemberRoles(serverId, props.user.userId, roleIds);
     
-    addToast({
-      type: 'success',
-      message: `Updated roles for ${props.user.username}`
-    });
+    addToast({ type: 'success', message: t('roles.manage.toastUpdated', { username: props.user.username }) });
     
     emit('update:modelValue', false);
   } catch (error: any) {
-    addToast({
-      type: 'danger',
-      message: error.message || 'Failed to update roles'
-    });
+    addToast({ type: 'danger', message: error.message || t('roles.manage.toastUpdateFailed') });
   } finally {
     loading.value = false;
   }

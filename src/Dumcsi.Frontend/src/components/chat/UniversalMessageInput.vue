@@ -38,7 +38,7 @@
     >
       <div class="p-2">
         <div v-if="userSuggestions.length > 0" class="mb-2">
-          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">Users</div>
+          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">{{ t('chat.input.users') }}</div>
           <button
               v-for="(suggestion, index) in userSuggestions"
               :key="`user-${index}`"
@@ -64,7 +64,7 @@
         </div>
 
         <div v-if="roleSuggestions.length > 0">
-          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">Roles</div>
+          <div class="text-xs text-text-tertiary uppercase px-2 mb-1">{{ t('chat.input.roles') }}</div>
           <button
               v-for="(suggestion, index) in roleSuggestions"
               :key="`role-${index}`"
@@ -109,7 +109,7 @@
       <button
           :disabled="isUploading || attachments.length >= 10"
           class="p-2 text-text-muted hover:text-text-default disabled:opacity-50 disabled:cursor-not-allowed transition self-start"
-          title="Attach files (max 10)"
+          :title="t('chat.input.attachTitle')"
           @click="fileInput?.click()"
       >
         <Paperclip class="w-5 h-5" />
@@ -125,7 +125,7 @@
               :mentioned-role-ids="Array.from(mentionedRoleIds)"
           />
           <div v-else class="text-text-muted italic">
-            Nothing to preview
+            {{ t('chat.input.nothingPreview') }}
           </div>
         </div>
 
@@ -152,7 +152,7 @@
       <button
           ref="gifPickerButton"
           class="p-2 text-text-muted hover:text-text-default transition self-start"
-          title="Open GIF picker"
+          :title="t('chat.input.gifTitle')"
           @click="showGifPicker = !showGifPicker"
       >
         <ImageIcon class="w-5 h-5" />
@@ -166,7 +166,7 @@
             : 'text-text-tertiary cursor-not-allowed'
         ]"
           :disabled="!canSend"
-          title="Send Message"
+          :title="t('chat.input.sendTitle')"
           @click="handleSend"
       >
         <Send v-if="!isSending" class="w-5 h-5" />
@@ -183,6 +183,7 @@
 
 <script lang="ts" setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useUserDisplay } from '@/composables/useUserDisplay';
 import { formatFileSize } from '@/utils/helpers';
 import { MarkdownParser } from '@/services/markdownParser';
@@ -214,6 +215,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'send', payload: CreateMessageRequest | SendDmMessageRequest): void;
 }>();
+
+// i18n
+const { t } = useI18n();
 
 // Refs
 const messageContent = ref('');
@@ -333,7 +337,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
         break;
       case 'k':
         event.preventDefault();
-        const url = prompt('Enter URL:');
+        const url = prompt(t('chat.input.promptUrl'));
         if (url) {
           handleFormat('link', '[', `](${url})`);
         }
@@ -543,3 +547,4 @@ defineExpose({
   border-radius: 3px;
 }
 </style>
+const { t, locale } = useI18n();

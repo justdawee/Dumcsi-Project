@@ -37,7 +37,7 @@
         <div class="label-badge">{{ getAttachmentLabel(attachment) }}</div>
         <div class="flex items-center gap-2 mb-2">
           <ExternalLink class="w-4 h-4 text-text-muted" />
-          <span class="text-sm text-text-secondary">Audio File</span>
+          <span class="text-sm text-text-secondary">{{ t('chat.attachments.labels.audioFile') }}</span>
         </div>
         <audio controls class="w-full">
           <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
@@ -85,14 +85,16 @@ const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
 const isVideo = (a: AttachmentDto) => a.contentType?.startsWith('video/');
 const isAudio = (a: AttachmentDto) => a.contentType?.startsWith('audio/');
 
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 const getAttachmentLabel = (a: AttachmentDto) => {
   if (isImage(a)) {
-    if (a.fileName?.toLowerCase().endsWith('.gif') || a.contentType === 'image/gif') return 'GIF';
-    return 'Image';
+    if (a.fileName?.toLowerCase().endsWith('.gif') || a.contentType === 'image/gif') return t('chat.attachments.labels.gif');
+    return t('chat.attachments.labels.image');
   }
-  if (isVideo(a)) return 'Video';
-  if (isAudio(a)) return 'Audio';
-  return 'File';
+  if (isVideo(a)) return t('chat.attachments.labels.video');
+  if (isAudio(a)) return t('chat.attachments.labels.audio');
+  return t('chat.attachments.labels.file');
 };
 
 const showPreview = ref(false);

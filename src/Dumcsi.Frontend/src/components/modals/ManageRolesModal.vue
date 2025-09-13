@@ -1,7 +1,7 @@
 ﻿<template>
   <BaseModal
       :model-value="modelValue"
-      title="Manage Roles"
+      :title="t('roles.admin.title')"
       @close="close"
       @update:modelValue="val => emit('update:modelValue', val)"
   >
@@ -9,34 +9,34 @@
       <div class="space-y-6">
         <!-- Create New Role Section -->
         <div v-if="!isCreatingRole" class="flex justify-between items-center">
-          <h3 class="text-lg font-semibold text-text-default">Server Roles</h3>
+          <h3 class="text-lg font-semibold text-text-default">{{ t('roles.admin.serverRoles') }}</h3>
           <button
               class="btn btn-primary"
               @click="startCreatingRole"
           >
             <Plus class="w-4 h-4 mr-2"/>
-            Create Role
+            {{ t('roles.admin.createRole') }}
           </button>
         </div>
 
         <!-- New Role Creation Form -->
         <div v-if="isCreatingRole" class="bg-bg-surface p-4 rounded-lg space-y-4">
-          <h4 class="font-semibold text-text-default">Create New Role</h4>
+          <h4 class="font-semibold text-text-default">{{ t('roles.admin.createNewTitle') }}</h4>
 
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-text-secondary mb-1">Role Name</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('roles.admin.roleName') }}</label>
               <input
                   v-model="newRole.name"
                   class="input"
-                  placeholder="Enter role name"
+                  :placeholder="t('roles.admin.roleNamePlaceholder')"
                   type="text"
                   @keyup.enter="createRole"
               />
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-text-secondary mb-1">Role Color</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('roles.admin.roleColor') }}</label>
               <div class="flex items-center gap-3">
                 <input
                     v-model="newRole.color"
@@ -59,7 +59,7 @@
                     class="checkbox"
                     type="checkbox"
                 />
-                <span class="text-sm text-text-secondary">Display separately in member list</span>
+                <span class="text-sm text-text-secondary">{{ t('roles.admin.displaySeparately') }}</span>
               </label>
             </div>
 
@@ -70,14 +70,14 @@
                     class="checkbox"
                     type="checkbox"
                 />
-                <span class="text-sm text-text-secondary">Allow anyone to @mention this role</span>
+                <span class="text-sm text-text-secondary">{{ t('roles.admin.allowMention') }}</span>
               </label>
             </div>
           </div>
 
           <div class="flex justify-end gap-3">
-            <button class="btn btn-secondary" @click="cancelCreatingRole">Cancel</button>
-            <button :disabled="!newRole.name" class="btn btn-primary" @click="createRole">Create</button>
+            <button class="btn btn-secondary" @click="cancelCreatingRole">{{ t('common.cancel') }}</button>
+            <button :disabled="!newRole.name" class="btn btn-primary" @click="createRole">{{ t('common.create') }}</button>
           </div>
         </div>
 
@@ -98,7 +98,7 @@
               <span v-if="role.name === '@everyone'" class="text-xs text-text-tertiary">(default)</span>
             </div>
             <div class="flex items-center gap-4">
-              <span class="text-sm text-text-secondary">{{ getMemberCount(role) }} members</span>
+              <span class="text-sm text-text-secondary">{{ getMemberCount(role) }} {{ t(getMemberCount(role) === 1 ? 'roles.admin.member' : 'roles.admin.members') }}</span>
               <ChevronRight class="w-4 h-4 text-text-tertiary"/>
             </div>
           </div>
@@ -112,7 +112,7 @@
         <!-- Edit Role Panel -->
         <div v-if="selectedRole && !isCreatingRole" class="bg-bg-surface p-4 rounded-lg space-y-4">
           <div class="flex items-center justify-between">
-            <h4 class="font-semibold text-text-default">Edit Role: {{ selectedRole.name }}</h4>
+            <h4 class="font-semibold text-text-default">{{ t('roles.admin.editTitle', { name: selectedRole.name }) }}</h4>
             <button class="text-text-tertiary hover:text-text-secondary" @click="selectedRole = null">
               <X class="w-5 h-5"/>
             </button>
@@ -120,7 +120,7 @@
 
           <div class="space-y-3">
             <div>
-              <label class="block text-sm font-medium text-text-secondary mb-1">Role Name</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('roles.admin.roleName') }}</label>
               <input
                   v-model="editingRole!.name"
                   :disabled="selectedRole.name === '@everyone'"
@@ -130,7 +130,7 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-text-secondary mb-1">Role Color</label>
+              <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('roles.admin.roleColor') }}</label>
               <div class="flex items-center gap-3">
                 <input
                     v-model="editingRole!.color"
@@ -152,7 +152,7 @@
                     class="checkbox"
                     type="checkbox"
                 />
-                <span class="text-sm text-text-secondary">Display separately in member list</span>
+                <span class="text-sm text-text-secondary">{{ t('roles.admin.displaySeparately') }}</span>
               </label>
             </div>
 
@@ -163,13 +163,13 @@
                     class="checkbox"
                     type="checkbox"
                 />
-                <span class="text-sm text-text-secondary">Allow anyone to @mention this role</span>
+                <span class="text-sm text-text-secondary">{{ t('roles.admin.allowMention') }}</span>
               </label>
             </div>
 
             <!-- Permissions Section -->
             <div>
-              <h5 class="font-medium text-text-default mb-3">Permissions</h5>
+              <h5 class="font-medium text-text-default mb-3">{{ t('roles.admin.permissionsTitle') }}</h5>
               <div class="space-y-2 max-h-60 overflow-y-auto">
                 <label
                     v-for="perm in availablePermissions"
@@ -197,11 +197,11 @@
                 class="btn btn-danger"
                 @click="deleteRole"
             >
-              Delete Role
+              {{ t('roles.admin.deleteRole') }}
             </button>
             <div class="flex gap-3">
-              <button class="btn btn-secondary" @click="selectedRole = null">Cancel</button>
-              <button class="btn btn-primary" @click="updateRole">Save Changes</button>
+              <button class="btn btn-secondary" @click="selectedRole = null">{{ t('common.cancel') }}</button>
+              <button class="btn btn-primary" @click="updateRole">{{ t('common.saveChanges') }}</button>
             </div>
           </div>
         </div>
@@ -220,6 +220,7 @@ import roleService from '@/services/roleService';
 import type {ServerListItem, Role, Permission as PermissionType} from '@/services/types';
 import {Permission} from '@/services/types';
 import {usePermissions} from "@/composables/usePermissions.ts";
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -234,6 +235,7 @@ const emit = defineEmits<{
 const {addToast} = useToast();
 const appStore = useAppStore();
 const permissions = usePermissions();
+const { t } = useI18n();
 
 // State
 const loading = ref(false);
@@ -286,9 +288,9 @@ const fetchRoles = async () => {
     roles.value = await roleService.getRoles(props.server.id);
   } catch (error: any) {
     addToast({
-      message: error.message || 'Failed to load roles',
+      message: error.message || t('roles.admin.toast.loadFailed'),
       type: 'danger',
-      title: 'Error',
+      title: t('common.error'),
     });
   } finally {
     loading.value = false;
@@ -324,15 +326,15 @@ const createRole = async () => {
     isCreatingRole.value = false;
     resetNewRole();
     addToast({
-      message: 'Role created successfully',
+      message: t('roles.admin.toast.created'),
       type: 'success',
-      title: 'Success',
+      title: t('common.success'),
     });
   } catch (error: any) {
     addToast({
-      message: error.message || 'Failed to create role',
+      message: error.message || t('roles.admin.toast.createFailed'),
       type: 'danger',
-      title: 'Error',
+      title: t('common.error'),
     });
   }
 };
@@ -388,15 +390,15 @@ const updateRole = async () => {
     editingRole.value = null;
 
     addToast({
-      message: 'Role updated successfully',
+      message: t('roles.admin.toast.updated'),
       type: 'success',
-      title: 'Success',
+      title: t('common.success'),
     });
   } catch (error: any) {
     addToast({
-      message: error.message || 'Failed to update role',
+      message: error.message || t('roles.admin.toast.updateFailed'),
       type: 'danger',
-      title: 'Error',
+      title: t('common.error'),
     });
   }
 };
@@ -404,7 +406,7 @@ const updateRole = async () => {
 const deleteRole = async () => {
   if (!props.server || !selectedRole.value) return;
 
-  if (!confirm(`Are you sure you want to delete the role "${selectedRole.value.name}"?`)) return;
+  if (!confirm(t('roles.admin.confirmDelete', { name: selectedRole.value.name }))) return;
 
   try {
     await roleService.deleteRole(props.server.id, selectedRole.value.id);
@@ -413,15 +415,15 @@ const deleteRole = async () => {
     editingRole.value = null;
 
     addToast({
-      message: 'Role deleted successfully',
+      message: t('roles.admin.toast.deleted'),
       type: 'success',
-      title: 'Success',
+      title: t('common.success'),
     });
   } catch (error: any) {
     addToast({
-      message: error.message || 'Failed to delete role',
+      message: error.message || t('roles.admin.toast.deleteFailed'),
       type: 'danger',
-      title: 'Error',
+      title: t('common.error'),
     });
   }
 };

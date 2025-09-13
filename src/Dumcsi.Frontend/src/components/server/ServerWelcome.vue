@@ -5,14 +5,14 @@
         <MessageSquare class="w-16 h-16 text-text-tertiary"/>
       </div>
       <h1 class="text-3xl font-bold text-text-default mb-3">
-        Welcome to {{ server.name }}!
+        {{ t('server.welcome.title', { name: server.name }) }}
       </h1>
       <p class="text-text-muted mb-6">
-        {{ server.description || 'Select a channel from the sidebar to start chatting.' }}
+        {{ server.description || t('server.welcome.selectPrompt') }}
       </p>
 
       <div v-if="server.channels?.length > 0" class="space-y-2">
-        <p class="text-sm text-text-tertiary mb-3">Quick jump to:</p>
+        <p class="text-sm text-text-tertiary mb-3">{{ t('server.welcome.quickJump') }}</p>
         <div class="flex flex-wrap gap-2 justify-center">
           <RouterLink
               v-for="channel in server.channels.filter(c => c.type === ChannelType.Text).slice(0, 5)"
@@ -28,7 +28,7 @@
 
       <div class="mt-8">
         <div
-            :title="!canInvite ? 'You do not have permission to create invites.' : ''"
+            :title="!canInvite ? t('server.welcome.inviteNoPermission') : ''"
             class="relative inline-block"
         >
           <button
@@ -38,7 +38,7 @@
           >
             <UserPlus v-if="!generatingInvite" class="w-5 h-5"/>
             <Loader2 v-else class="w-5 h-5 animate-spin"/>
-            Generate Invite Link
+            {{ t('server.welcome.generateInvite') }}
           </button>
         </div>
       </div>
@@ -66,9 +66,11 @@ import type {ServerDetails} from '@/services/types';
 import { ChannelType } from '@/services/types';
 import {useToast} from '@/composables/useToast';
 import InviteModal from '@/components/modals/InviteModal.vue';
+import { useI18n } from 'vue-i18n';
 
 const {addToast} = useToast();
 const {permissions} = usePermissions();
+const { t } = useI18n();
 
 const props = defineProps<{
   server: ServerDetails | null;
@@ -91,7 +93,7 @@ const handleGenerateInvite = async () => {
   } catch (error) {
     addToast({
       type: 'danger',
-      message: 'Failed to generate invite link.',
+      message: t('server.welcome.toast.inviteFailed'),
     });
   } finally {
     generatingInvite.value = false;

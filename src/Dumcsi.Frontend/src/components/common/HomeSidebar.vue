@@ -6,7 +6,7 @@
             class="w-full px-1.5 py-2 text-sm font-normal text-gray-400 bg-main-900 hover:bg-main-800 rounded-md transition-colors text-center border border-main-700"
             @click="showSearchModal = true"
         >
-          Find or start a conversation
+          {{ t('home.sidebar.findOrStart') }}
         </button>
       </div>
     </template>
@@ -24,7 +24,7 @@
               ]"  
           >
             <Server class="w-5 h-5" />
-            <span class="text-sm font-medium">Servers</span>
+            <span class="text-sm font-medium">{{ t('home.sidebar.nav.servers') }}</span>
           </button>
           <button
               @click="router.push('/friends')"
@@ -34,7 +34,7 @@
               ]"
           >
             <Users class="w-5 h-5" />
-            <span class="text-sm font-medium">Friends</span>
+            <span class="text-sm font-medium">{{ t('home.sidebar.nav.friends') }}</span>
             <span v-if="pendingRequestsCount > 0" class="ml-auto inline-flex items-center justify-center text-[10px] min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white">{{ pendingRequestsCount }}</span>
           </button>
         </div>
@@ -42,7 +42,7 @@
         <!-- Direct Messages Section -->
         <div>
           <div class="flex items-center justify-between px-2 py-1 mb-2">
-            <span class="text-xs font-semibold text-text-tertiary uppercase">Direct Messages</span>
+            <span class="text-xs font-semibold text-text-tertiary uppercase">{{ t('home.sidebar.dm.header') }}</span>
           </div>
 
           <!-- Loading state -->
@@ -53,7 +53,7 @@
           <!-- DM List -->
           <div v-else class="space-y-0.5">
             <div v-if="conversations.length === 0" class="text-center py-4">
-              <p class="text-xs text-text-tertiary">No direct messages yet</p>
+              <p class="text-xs text-text-tertiary">{{ t('home.sidebar.dm.empty') }}</p>
             </div>
 
             <RouterLink
@@ -90,7 +90,7 @@
                   <button
                       @click.prevent.stop="closeConversation(conv.userId)"
                       class="opacity-0 group-hover:opacity-100 transition"
-                      title="Close DM"
+                      :title="t('home.sidebar.dm.closeTitle')"
                   >
                     <X class="w-4 h-4 text-text-muted hover:text-text-default" />
                   </button>
@@ -111,25 +111,25 @@
         </div>
         <!-- Context Menu -->
         <div v-if="contextMenu.visible" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" class="fixed z-50 bg-bg-surface border border-border-default rounded-md shadow-lg py-1 w-56">
-          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">User</div>
-          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="viewProfile">Profile</button>
-          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="inviteToServer" disabled>Invite to server</button>
-          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="friendNickname" disabled>Friend nickname</button>
+          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">{{ t('home.sidebar.context.user') }}</div>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="viewProfile">{{ t('home.sidebar.context.profile') }}</button>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="inviteToServer" disabled>{{ t('home.sidebar.context.invite') }}</button>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="friendNickname" disabled>{{ t('home.sidebar.context.friendNickname') }}</button>
           <div class="h-px bg-border-default my-1"></div>
-          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">Conversation</div>
-          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="markAsRead">Mark as read</button>
+          <div class="px-3 py-1.5 text-[11px] uppercase tracking-wide text-text-tertiary">{{ t('home.sidebar.context.conversation') }}</div>
+          <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="markAsRead">{{ t('home.sidebar.context.markRead') }}</button>
           <template v-if="!isMuted(contextMenu.userId)">
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '15m')">Mute 15 minutes</button>
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '1h')">Mute 1 hour</button>
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '3h')">Mute 3 hours</button>
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '8h')">Mute 8 hours</button>
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '24h')">Mute 24 hours</button>
-            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, 'forever')">Mute until turned back on</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '15m')">{{ t('home.sidebar.context.mute.m15') }}</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '1h')">{{ t('home.sidebar.context.mute.h1') }}</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '3h')">{{ t('home.sidebar.context.mute.h3') }}</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '8h')">{{ t('home.sidebar.context.mute.h8') }}</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, '24h')">{{ t('home.sidebar.context.mute.h24') }}</button>
+            <button class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="muteDm(contextMenu.userId, 'forever')">{{ t('home.sidebar.context.mute.forever') }}</button>
           </template>
-          <button v-else class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="unmuteDm(contextMenu.userId)">Unmute Conversation</button>
+          <button v-else class="w-full text-left px-3 py-2 text-sm text-text-secondary hover:bg-main-700" @click="unmuteDm(contextMenu.userId)">{{ t('home.sidebar.context.unmute') }}</button>
           <div class="h-px bg-border-default my-1"></div>
-          <button v-if="!isBlocked(contextMenu.userId)" class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-danger/10" @click="blockUser(contextMenu.userId)">Block</button>
-          <button v-else class="w-full text-left px-3 py-2 text-sm text-success hover:bg-success/10" @click="unblockUser(contextMenu.userId)">Unblock</button>
+          <button v-if="!isBlocked(contextMenu.userId)" class="w-full text-left px-3 py-2 text-sm text-danger hover:bg-danger/10" @click="blockUser(contextMenu.userId)">{{ t('home.sidebar.context.block') }}</button>
+          <button v-else class="w-full text-left px-3 py-2 text-sm text-success hover:bg-success/10" @click="unblockUser(contextMenu.userId)">{{ t('home.sidebar.context.unblock') }}</button>
         </div>
       </div>
     </template>
@@ -138,6 +138,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useDmStore } from '@/stores/dm';
 import { useFriendStore } from '@/stores/friends';
@@ -153,6 +154,7 @@ const router = useRouter();
 const dmStore = useDmStore();
 const friendStore = useFriendStore();
 const prefs = useNotificationPrefs();
+const { t } = useI18n();
 
 const dmLoading = ref(true);
 const showSearchModal = ref(false);

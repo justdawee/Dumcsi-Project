@@ -8,8 +8,8 @@
           <Smartphone class="w-7 h-7 text-primary"/>
         </div>
         <div>
-          <h1 class="text-3xl font-bold tracking-tight">Devices</h1>
-          <p class="mt-1 text-sm text-text-muted">Manage your connected devices and sessions</p>
+          <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.sections.devices') }}</h1>
+          <p class="mt-1 text-sm text-text-muted">{{ t('settings.devices.subtitle') }}</p>
         </div>
       </header>
 
@@ -17,8 +17,8 @@
       <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden">
         <div class="p-8 text-center">
           <Smartphone class="w-16 h-16 text-text-muted mx-auto mb-4"/>
-          <h3 class="text-lg font-semibold mb-2">Coming Soon</h3>
-          <p class="text-text-muted">Device management, active sessions, and two-factor authentication will be available here.</p>
+          <h3 class="text-lg font-semibold mb-2">{{ t('settings.common.comingSoon') }}</h3>
+          <p class="text-text-muted">{{ t('settings.devices.comingSoonDesc') }}</p>
         </div>
       </div>
     </div>
@@ -27,4 +27,6 @@
 
 <script setup lang="ts">
 import { Smartphone } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 </script>

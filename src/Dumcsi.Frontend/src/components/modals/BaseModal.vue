@@ -24,7 +24,7 @@
           <div class="flex items-center justify-between p-6 pb-4 border-b border-border-default">
             <h2 class="text-xl font-semibold text-text-default">{{ title }}</h2>
             <button
-                :aria-label="closeLabel"
+                :aria-label="ariaCloseLabel"
                 class="p-1 hover:bg-main-700 rounded-lg transition"
                 @click="close"
             >
@@ -64,8 +64,11 @@ const props = withDefaults(defineProps<{
   size: 'md',
   closeOnBackdrop: true,
   closeOnEscape: true,
-  closeLabel: 'Close modal'
+  closeLabel: undefined
 });
+
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
 
 // Emits
 const emit = defineEmits<{
@@ -87,6 +90,9 @@ const sizeClasses = computed(() => {
   };
   return sizes[props.size];
 });
+
+// i18n fallbacks for aria labels
+const ariaCloseLabel = computed(() => props.closeLabel ?? t('common.closeModal'));
 
 // Methods
 const close = () => {

@@ -13,7 +13,7 @@
         <div class="label-badge">{{ getLabel(media) }}</div>
         <img
           :src="media.url"
-          :alt="media.title || 'Image'"
+          :alt="media.title || t('chat.attachments.labels.image')"
           class="preview-media cursor-pointer hover:opacity-90 transition-opacity"
           loading="lazy"
           @click="openPreview(media)"
@@ -30,7 +30,7 @@
         <div class="label-badge">{{ getLabel(media) }}</div>
         <img
           :src="media.url"
-          alt="GIF"
+          :alt="t('chat.attachments.labels.gif')"
           class="preview-media cursor-pointer hover:opacity-90 transition-opacity"
           loading="lazy"
           @click="openPreview(media)"
@@ -59,7 +59,7 @@
         <button
           class="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/80 transition"
           @click.stop="openPreview(media)"
-          title="Open"
+          :title="t('chat.attachments.openInBrowser')"
         >
           <ExternalLink class="w-4 h-4" />
         </button>
@@ -73,7 +73,7 @@
         <div class="label-badge">{{ getLabel(media) }}</div>
         <div class="flex items-center gap-2 mb-2">
           <Volume2 class="w-4 h-4 text-text-muted" />
-          <span class="text-sm text-text-secondary">Audio File</span>
+          <span class="text-sm text-text-secondary">{{ t('chat.attachments.labels.audioFile') }}</span>
         </div>
         <audio
           :src="media.url"
@@ -104,7 +104,7 @@
         >
           <img
             :src="media.thumbnail"
-            :alt="media.title || 'YouTube Video'"
+            :alt="media.title || t('chat.attachments.labels.youtube')"
             class="w-full h-auto group-hover:opacity-90 transition-opacity"
             loading="lazy"
             @error="handleThumbnailError"
@@ -118,7 +118,7 @@
           <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
             <div class="flex items-center gap-2 text-white text-sm">
               <Youtube class="w-4 h-4" />
-              <span>YouTube</span>
+              <span>{{ t('chat.attachments.labels.youtube') }}</span>
             </div>
           </div>
         </div>
@@ -142,7 +142,7 @@
         <div class="label-badge">{{ getLabel(media) }}</div>
         <div class="flex items-center gap-2 mb-2">
           <ExternalLink class="w-4 h-4 text-text-muted" />
-          <span class="text-sm text-text-secondary">Twitter/X Post</span>
+          <span class="text-sm text-text-secondary">{{ t('chat.attachments.labels.twitter') }}</span>
         </div>
         <a
           :href="media.url"
@@ -153,9 +153,7 @@
         >
           {{ media.url }}
         </a>
-        <p class="text-xs text-text-tertiary mt-2">
-          Click to view on Twitter/X
-        </p>
+        <p class="text-xs text-text-tertiary mt-2">{{ t('chat.attachments.hints.clickToViewTwitter') }}</p>
       </div>
 
       <!-- Generic Link Preview -->
@@ -166,7 +164,7 @@
         <div class="label-badge">{{ getLabel(media) }}</div>
         <div class="flex items-center gap-2 mb-2">
           <ExternalLink class="w-4 h-4 text-text-muted" />
-          <span class="text-sm text-text-secondary">Link</span>
+          <span class="text-sm text-text-secondary">{{ t('chat.attachments.labels.link') }}</span>
         </div>
         <a
           :href="media.url"
@@ -192,6 +190,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Play, Volume2, Youtube, ExternalLink } from 'lucide-vue-next';
 import { extractEmbeddableMedia, type EmbeddableMedia, isYouTubeShorts } from '@/utils/mediaDetection';
 import { filterContentForDisplay } from '@/utils/contentFiltering';
@@ -218,6 +217,7 @@ const playingVideos = ref<Set<string>>(new Set());
 const rootEl = ref<HTMLElement | null>(null);
 const showPreview = ref(false);
 const selectedAttachment = ref<AttachmentDto | null>(null);
+const { t } = useI18n();
 
 // Extract embeddable media from content
 const embeddableMedia = computed(() => {
@@ -352,13 +352,13 @@ const pauseAllHtml5 = (exceptId?: string) => {
 
 const getLabel = (media: EmbeddableMedia): string => {
   switch (media.type) {
-    case 'gif': return 'GIF';
-    case 'image': return 'Image';
-    case 'video': return 'Video';
-    case 'audio': return 'Audio';
-    case 'youtube': return isYouTubeShorts(media.url) ? 'YouTube Shorts' : 'YouTube';
-    case 'twitter': return 'Twitter';
-    default: return 'Link';
+    case 'gif': return t('chat.attachments.labels.gif');
+    case 'image': return t('chat.attachments.labels.image');
+    case 'video': return t('chat.attachments.labels.video');
+    case 'audio': return t('chat.attachments.labels.audio');
+    case 'youtube': return isYouTubeShorts(media.url) ? t('chat.attachments.labels.youtubeShorts') : t('chat.attachments.labels.youtube');
+    case 'twitter': return t('chat.attachments.labels.twitter');
+    default: return t('chat.attachments.labels.link');
   }
 };
 

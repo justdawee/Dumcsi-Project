@@ -29,7 +29,7 @@
             'w-8 h-8 rounded flex items-center justify-center transition-colors',
             isMuted ? 'bg-red-500 hover:bg-red-600 text-white' : 'hover:bg-main-700 text-text-muted hover:text-text-secondary'
           ]"
-          :title="isMuted ? 'Unmute' : 'Mute'"
+          :title="isMuted ? t('user.panel.unmute') : t('user.panel.mute')"
         >
           <MicOff v-if="isMuted" class="w-4 h-4" />
           <Mic v-else class="w-4 h-4" />
@@ -42,14 +42,14 @@
             'w-8 h-8 rounded flex items-center justify-center transition-colors',
             isDeafened ? 'bg-red-500 hover:bg-red-600 text-white' : 'hover:bg-main-700 text-text-muted hover:text-text-secondary'
           ]"
-          :title="isDeafened ? 'Undeafen' : 'Deafen'"
+          :title="isDeafened ? t('user.panel.undeafen') : t('user.panel.deafen')"
         >
           <VolumeX v-if="isDeafened" class="w-4 h-4" />
           <Volume2 v-else class="w-4 h-4" />
         </button>
         
         <!-- Settings button -->
-        <RouterLink title="Settings" to="/settings">
+        <RouterLink :title="t('user.panel.settings')" to="/settings">
           <button class="w-8 h-8 rounded flex items-center justify-center hover:bg-main-700 transition-colors">
             <Settings class="w-4 h-4 text-text-muted hover:text-text-secondary cursor-pointer"/>
           </button>
@@ -64,6 +64,7 @@
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Settings, Mic, MicOff, Volume2, VolumeX } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
@@ -76,6 +77,7 @@ const appStore = useAppStore();
 const { getDisplayName } = useUserDisplay();
 
 const openQuickMenu = ref(false);
+const { t } = useI18n();
 
 const isMuted = computed(() => appStore.selfMuted);
 const isDeafened = computed(() => appStore.selfDeafened);

@@ -1,6 +1,6 @@
 <template>
   <div class="w-66 bg-main-900 border-l border-main-700 py-4 animate-slide-in flex flex-col">
-    <h3 class="font-semibold text-text-default mb-4 px-4">Members - {{ members.length }}</h3>
+    <h3 class="font-semibold text-text-default mb-4 px-4">{{ t('members.list.title', { count: members.length }) }}</h3>
     <div v-if="appStore.loading.members" class="flex justify-center items-center h-full px-4">
       <Loader2 class="w-6 h-6 text-text-tertiary animate-spin"/>
     </div>
@@ -29,7 +29,7 @@
           <button
               v-if="permissions.kickMembers"
               class="p-1 text-text-muted hover:text-red-400 transition"
-              title="Kick Member"
+              :title="t('members.list.kickTooltip')"
               @click="kickMember()"
           >
             <UserX class="w-4 h-4"/>
@@ -37,7 +37,7 @@
           <button
               v-if="permissions.banMembers"
               class="p-1 text-text-muted hover:text-red-500 transition"
-              title="Ban Member"
+              :title="t('members.list.banTooltip')"
               @click="banMember()"
           >
             <Ban class="w-4 h-4"/>
@@ -57,6 +57,7 @@
 
 <script lang="ts" setup>
 import {computed, ref, watch, watchEffect} from 'vue';
+import { useI18n } from 'vue-i18n';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
@@ -78,6 +79,7 @@ const appStore = useAppStore();
 const {addToast} = useToast();
 const {getDisplayName} = useUserDisplay();
 const {permissions, canManageMember} = usePermissions();
+const { t } = useI18n();
 
 const infoCardMember = ref<ServerMember | null>(null);
 const infoCardVisible = ref(false);
@@ -134,11 +136,11 @@ const getRoleColor = (member: ServerMember): string => {
 };
 
 const kickMember = async () => {
-  addToast({type: 'info', message: 'Kick member functionality coming soon!'});
+  addToast({ type: 'info', message: t('members.list.toastKickSoon') });
 };
 
 const banMember = async () => {
-  addToast({type: 'info', message: 'Ban member functionality coming soon!'});
+  addToast({ type: 'info', message: t('members.list.toastBanSoon') });
 };
 
 const openMemberInfo = (member: ServerMember, event: MouseEvent) => {

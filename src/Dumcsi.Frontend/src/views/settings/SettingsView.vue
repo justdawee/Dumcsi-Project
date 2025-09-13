@@ -9,12 +9,12 @@
           <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-primary/20 rounded-lg">
             <Settings class="w-5 h-5 text-primary"/>
           </div>
-          <h1 class="text-xl font-bold">Settings</h1>
+          <h1 class="text-xl font-bold">{{ t('settings.title') }}</h1>
         </div>
 
         <!-- User Settings Section -->
         <div class="mb-6">
-          <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3 px-2">User Settings</h2>
+          <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3 px-2">{{ t('settings.nav.user') }}</h2>
           <nav class="space-y-1">
             <router-link
               v-for="item in userSettings"
@@ -35,7 +35,7 @@
 
         <!-- App Settings Section -->
         <div>
-          <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3 px-2">App Settings</h2>
+          <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3 px-2">{{ t('settings.nav.app') }}</h2>
           <nav class="space-y-1">
             <router-link
               v-for="item in appSettings"
@@ -65,7 +65,7 @@
       <div class="absolute top-4 -right-10 z-50">
         <div class="flex flex-col items-center gap-1 text-zinc-400">
           <button
-              title="Close Settings"
+              :title="t('common.common.closeModal')"
               @click="closeSettings"
               class="group grid place-items-center w-12 h-12 rounded-full border-2 border-zinc-500/60
              bg-transparent hover:bg-white/5 transition-colors
@@ -117,10 +117,12 @@ import NotificationsView from './sections/NotificationsView.vue';
 import SoundsView from './sections/SoundsView.vue';
 import KeybindsView from './sections/KeybindsView.vue';
 import LanguageView from './sections/LanguageView.vue';
+import { useI18n } from 'vue-i18n';
 
 const route = useRoute();
 const router = useRouter();
 const { closeSettings } = useCloseSettings();
+const { t } = useI18n();
 
 // ESC to close settings
 const onKeyDown = (e: KeyboardEvent) => {
@@ -139,21 +141,21 @@ onUnmounted(() => {
 });
 
 const userSettings = [
-  { key: 'my-account', label: 'My Account', icon: User, component: MyAccountView },
-  { key: 'profile', label: 'Profile', icon: UserCircle, component: ProfileView },
-  { key: 'content-social', label: 'Content & Social', icon: Shield, component: ContentSocialView },
-  { key: 'data-privacy', label: 'Data & Privacy', icon: Database, component: DataPrivacyView },
-  { key: 'devices', label: 'Devices', icon: Smartphone, component: DevicesView },
+  { key: 'my-account', label: t('settings.sections.myAccount'), icon: User, component: MyAccountView },
+  { key: 'profile', label: t('settings.sections.profile'), icon: UserCircle, component: ProfileView },
+  { key: 'content-social', label: t('settings.sections.contentSocial'), icon: Shield, component: ContentSocialView },
+  { key: 'data-privacy', label: t('settings.sections.dataPrivacy'), icon: Database, component: DataPrivacyView },
+  { key: 'devices', label: t('settings.sections.devices'), icon: Smartphone, component: DevicesView },
 ];
 
 const appSettings = [
-  { key: 'appearance', label: 'Appearance', icon: Palette, component: AppearanceView },
-  { key: 'voice-video', label: 'Voice & Video', icon: Mic, component: VoiceVideoView },
-  { key: 'chat', label: 'Chat', icon: MessageSquare, component: ChatView },
-  { key: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsView },
-  { key: 'sounds', label: 'UI Sounds', icon: Volume2, component: SoundsView },
-  { key: 'keybinds', label: 'Keybinds', icon: Keyboard, component: KeybindsView },
-  { key: 'language', label: 'Language', icon: Globe, component: LanguageView },
+  { key: 'appearance', label: t('settings.sections.appearance'), icon: Palette, component: AppearanceView },
+  { key: 'voice-video', label: t('settings.sections.voiceVideo'), icon: Mic, component: VoiceVideoView },
+  { key: 'chat', label: t('settings.sections.chat'), icon: MessageSquare, component: ChatView },
+  { key: 'notifications', label: t('settings.sections.notifications'), icon: Bell, component: NotificationsView },
+  { key: 'sounds', label: t('settings.sections.sounds'), icon: Volume2, component: SoundsView },
+  { key: 'keybinds', label: t('settings.sections.keybinds'), icon: Keyboard, component: KeybindsView },
+  { key: 'language', label: t('settings.sections.language'), icon: Globe, component: LanguageView },
 ];
 
 const allSettings = [...userSettings, ...appSettings];

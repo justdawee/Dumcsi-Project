@@ -1,7 +1,7 @@
 <template>
   <BaseModal
       :model-value="modelValue"
-      title="Create or Join Server"
+      :title="t('server.create.title')"
       @close="close"
       @update:modelValue="emit('update:modelValue', $event)"
   >
@@ -14,40 +14,36 @@
                    activeTab === 'create' ? 'bg-primary text-text-default' : 'text-text-muted hover:text-text-default']"
             @click="activeTab = 'create'"
         >
-          Create Server
+          {{ t('server.create.tabs.create') }}
         </button>
         <button
             :class="['flex-1 py-2 px-4 rounded-md font-medium transition',
                    activeTab === 'join' ? 'bg-primary text-text-default' : 'text-text-muted hover:text-text-default']"
             @click="activeTab = 'join'"
         >
-          Join Server
+          {{ t('server.create.tabs.join') }}
         </button>
       </div>
 
       <!-- Create Server Tab -->
       <form v-if="activeTab === 'create'" class="space-y-4" @submit.prevent="handleCreateServer">
         <div>
-          <label class="form-label">
-            Server Name
-          </label>
+          <label class="form-label">{{ t('server.create.name') }}</label>
           <input
               v-model="createForm.name"
               class="form-input"
-              placeholder="My Awesome Server"
+              :placeholder="t('server.create.namePlaceholder')"
               required
               type="text"
           />
         </div>
 
         <div>
-          <label class="form-label">
-            Description
-          </label>
+          <label class="form-label">{{ t('server.create.description') }}</label>
           <textarea
               v-model="createForm.description"
               class="form-input resize-none"
-              placeholder="What's your server about?"
+              :placeholder="t('server.create.descriptionPlaceholder')"
               rows="3"
           />
         </div>
@@ -60,7 +56,7 @@
               type="checkbox"
           />
           <label class="ml-2 text-sm text-text-secondary" for="public">
-            Make server public
+            {{ t('server.create.publicToggle') }}
           </label>
         </div>
 
@@ -70,7 +66,7 @@
               type="button"
               @click="close"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
               :disabled="loading"
@@ -78,7 +74,7 @@
               type="submit"
           >
             <Loader2 v-if="loading && activeTab === 'create'" class="w-5 h-5 animate-spin mr-2"/>
-            Create Server
+            {{ t('server.create.actions.create') }}
           </button>
         </div>
       </form>
@@ -86,14 +82,12 @@
       <!-- Join Server Tab -->
       <form v-else class="space-y-4" @submit.prevent="handleJoinServer">
         <div>
-          <label class="form-label">
-            Invite Code
-          </label>
+          <label class="form-label">{{ t('server.create.inviteCode') }}</label>
           <input
               v-model="joinForm.inviteCode"
               class="form-input uppercase font-mono"
               maxlength="8"
-              placeholder="ABCD1234"
+              :placeholder="t('server.create.invitePlaceholder')"
               required
               type="text"
           />
@@ -105,7 +99,7 @@
               type="button"
               @click="close"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
               :disabled="loading"
@@ -113,7 +107,7 @@
               type="submit"
           >
             <Loader2 v-if="loading && activeTab === 'join'" class="w-5 h-5 animate-spin mr-2"/>
-            Join Server
+            {{ t('server.create.actions.join') }}
           </button>
         </div>
       </form>
@@ -134,6 +128,7 @@
       import {Loader2} from 'lucide-vue-next';
       import type {CreateServerRequest} from '@/services/types';
       import BaseModal from "@/components/modals/BaseModal.vue";
+      import { useI18n } from 'vue-i18n';
 
       defineProps<{ modelValue: boolean }>();
       const emit = defineEmits(['update:modelValue', 'close']);
@@ -155,6 +150,7 @@
         description: '',
         public: false
       });
+      const { t } = useI18n();
 
       const handleCreateServer = async () => {
         loading.value = true;
@@ -167,13 +163,13 @@
             router.push({name: 'Server', params: {serverId: response.serverId}});
             addToast({
               type: 'success',
-              message: `Successfully created ${createForm.value.name}.`
+              message: t('server.create.toast.created', { name: createForm.value.name })
             });
           }
         } catch (err: any) {
           addToast({
             type: 'danger',
-            message: 'Failed to create server. Please try again later.'
+            message: t('server.create.toast.createFailed')
           });
         } finally {
           loading.value = false;
@@ -186,7 +182,7 @@
 
       const handleJoinServer = async () => {
         if (!joinForm.value.inviteCode.trim()) {
-          error.value = 'Please enter a valid invite code.';
+          error.value = t('server.create.errors.invalidInvite');
           return;
         }
 
@@ -200,14 +196,14 @@
             await router.push({name: 'Server', params: {serverId: result.serverId}});
             addToast({
               type: 'success',
-              message: 'Successfully joined the server.'
+              message: t('server.create.toast.joined')
             });
           }
         } catch (err: any) {
           addToast({
             type: 'danger',
-            title: 'Invite Code',
-            message: 'The invite code is invalid or has expired.'
+            title: t('server.create.inviteTitle'),
+            message: t('server.create.toast.invalidInvite')
           });
         } finally {
           loading.value = false;

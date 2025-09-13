@@ -36,12 +36,13 @@
       ]"
         @click="$emit('toggle-preview')"
     >
-      {{ showPreview ? 'Edit' : 'Preview' }}
+      {{ showPreview ? t('chat.toolbar.edit') : t('chat.toolbar.preview') }}
     </button>
   </div>
 </template>
 
 <script lang="ts" setup>
+import { useI18n } from 'vue-i18n';
 import {
   Bold,
   Italic,
@@ -62,28 +63,30 @@ const emit = defineEmits<{
   (e: 'insert', text: string): void;
 }>();
 
+const { t } = useI18n();
+
 const formattingActions = [
   {
     name: 'bold',
-    title: 'Bold (Ctrl+B)',
+    title: t('chat.toolbar.bold'),
     icon: Bold,
     handler: () => emit('format', 'bold', '**', '**')
   },
   {
     name: 'italic',
-    title: 'Italic (Ctrl+I)',
+    title: t('chat.toolbar.italic'),
     icon: Italic,
     handler: () => emit('format', 'italic', '*', '*')
   },
   {
     name: 'strikethrough',
-    title: 'Strikethrough',
+    title: t('chat.toolbar.strikethrough'),
     icon: Strikethrough,
     handler: () => emit('format', 'strikethrough', '~~', '~~')
   },
   {
     name: 'code',
-    title: 'Inline Code',
+    title: t('chat.toolbar.code'),
     icon: Code,
     handler: () => emit('format', 'code', '`', '`')
   }
@@ -92,16 +95,16 @@ const formattingActions = [
 const specialActions = [
   {
     name: 'quote',
-    title: 'Quote',
+    title: t('chat.toolbar.quote'),
     icon: Quote,
     handler: () => emit('format', 'quote', '> ')
   },
   {
     name: 'link',
-    title: 'Link',
+    title: t('chat.toolbar.link'),
     icon: Link,
     handler: () => {
-      const url = prompt('Enter URL:');
+      const url = prompt(t('chat.input.promptUrl'));
       if (url) {
         emit('format', 'link', '[', `](${url})`);
       }
@@ -109,7 +112,7 @@ const specialActions = [
   },
   {
     name: 'spoiler',
-    title: 'Spoiler',
+    title: t('chat.toolbar.spoiler'),
     icon: EyeOff,
     handler: () => emit('format', 'spoiler', '||', '||')
   }

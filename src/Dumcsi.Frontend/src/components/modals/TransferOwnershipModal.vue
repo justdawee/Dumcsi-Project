@@ -1,14 +1,14 @@
 ﻿<template>
   <BaseModal
       :model-value="modelValue"
-      title="Transfer Ownership"
+      :title="t('server.transfer.title')"
       @close="close"
       @update:modelValue="val => emit('update:modelValue', val)"
   >
     <template #default>
       <div class="space-y-4">
         <p class="text-sm text-text-secondary">
-          Select a member to transfer ownership of <strong>{{ server?.name }}</strong>.
+          {{ t('server.transfer.instructions', { name: server?.name }) }}
         </p>
         <div v-if="loadingMembers" class="flex justify-center py-4">
           <Loader2 class="w-5 h-5 animate-spin" />
@@ -18,7 +18,7 @@
             v-model.number="selectedUserId"
             class="form-input w-full"
         >
-          <option :value="null" disabled>Select member</option>
+          <option :value="null" disabled>{{ t('server.transfer.selectMember') }}</option>
           <option
               v-for="m in members"
               :key="m.userId"
@@ -32,7 +32,7 @@
     </template>
     <template #footer>
       <div class="flex justify-end gap-3">
-        <button class="btn-secondary" type="button" @click="close">Cancel</button>
+        <button class="btn-secondary" type="button" @click="close">{{ t('common.cancel') }}</button>
         <button
             :disabled="!selectedUserId || loading"
             class="btn-warning"
@@ -40,7 +40,7 @@
             @click="handleTransfer"
         >
           <Loader2 v-if="loading" class="w-4 h-4 animate-spin mr-2" />
-          Transfer
+          {{ t('server.transfer.confirm') }}
         </button>
       </div>
     </template>
@@ -56,11 +56,13 @@ import serverService from '@/services/serverService';
 import {useToast} from '@/composables/useToast';
 import type {ServerListItem, ServerMember} from '@/services/types';
 import {getDisplayMessage} from '@/services/errorHandler';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{ modelValue: boolean; server: ServerListItem | null }>();
 const emit = defineEmits(['update:modelValue', 'transferred']);
 const {addToast} = useToast();
 const authStore = useAuthStore();
+const { t } = useI18n();
 
 const members = ref<ServerMember[]>([]);
 const loadingMembers = ref(false);
@@ -97,7 +99,7 @@ const handleTransfer = async () => {
   error.value = '';
   try {
     await serverService.transferOwnership(props.server.id, { newOwnerId: selectedUserId.value });
-    addToast({ type: 'success', message: 'Ownership transferred.' });
+    addToast({ type: 'success', message: t('server.transfer.toast.transferred') });
     emit('transferred');
     close();
   } catch (err: any) {

@@ -29,8 +29,11 @@ const props = withDefaults(defineProps<{
 
 const imageError = ref(false);
 
+import { useI18n } from 'vue-i18n';
+const { t } = useI18n();
+
 const displayName = computed(() => {
-  return props.name || props.serverName || 'Server';
+  return props.name || props.serverName || t('server.nameDefault', 'Server');
 });
 
 const initials = computed(() => {

@@ -8,8 +8,8 @@
       <div
           class="w-full max-w-4xl h-[80vh] flex flex-col transform rounded-2xl bg-bg-surface text-left align-middle shadow-xl transition-all border border-border-default/50">
         <div class="p-6 border-b border-border-default/50 flex-shrink-0">
-          <h3 class="text-xl font-bold text-text-default">Explore Public Servers</h3>
-          <p class="text-sm text-text-muted mt-1">Find new communities to join.</p>
+          <h3 class="text-xl font-bold text-text-default">{{ t('server.explore.title') }}</h3>
+          <p class="text-sm text-text-muted mt-1">{{ t('server.explore.subtitle') }}</p>
         </div>
 
         <div v-if="loading" class="flex-1 flex items-center justify-center">
@@ -17,8 +17,8 @@
         </div>
         <div v-else-if="error" class="flex-1 flex items-center justify-center text-center">
           <div>
-            <p class="text-danger">Failed to load servers.</p>
-            <button class="btn-secondary mt-2" @click="fetchPublicServers">Try Again</button>
+            <p class="text-danger">{{ t('server.explore.loadFailed') }}</p>
+            <button class="btn-secondary mt-2" @click="fetchPublicServers">{{ t('server.explore.tryAgain') }}</button>
           </div>
         </div>
 
@@ -26,8 +26,8 @@
           <div class="w-24 h-24 mb-6 bg-main-700 rounded-full flex items-center justify-center">
             <Server class="w-12 h-12 text-text-tertiary"/>
           </div>
-          <h2 class="text-xl font-semibold text-text-default mb-2">No Public Servers Found</h2>
-          <p class="text-text-muted">It looks like there are no public servers available at the moment. Why not create your own?</p>
+          <h2 class="text-xl font-semibold text-text-default mb-2">{{ t('server.explore.empty.title') }}</h2>
+          <p class="text-text-muted">{{ t('server.explore.empty.description') }}</p>
         </div>
 
         <div v-else class="flex-1 p-6 overflow-y-auto scrollbar-thin">
@@ -45,12 +45,11 @@
                 </div>
                 <div class="flex-1 min-w-0">
                   <h3 class="font-semibold text-text-default truncate">{{ server.name }}</h3>
-                  <p class="text-sm text-text-muted">{{ server.memberCount }}
-                    {{ server.memberCount === 1 ? 'member' : 'members' }}</p>
+                  <p class="text-sm text-text-muted">{{ server.memberCount }} {{ t(server.memberCount === 1 ? 'server.explore.member' : 'server.explore.members') }}</p>
                 </div>
               </div>
               <p class="text-sm text-text-muted line-clamp-3 flex-grow min-h-[60px]">
-                {{ server.description || 'No description provided.' }}
+                {{ server.description || t('server.explore.noDescription') }}
               </p>
               <button
                   :disabled="isJoining(server.id).value || isMember(server.id).value"
@@ -60,18 +59,18 @@
                         <Loader2 class="w-5 h-5 animate-spin mx-auto"/>
                     </span>
                 <span v-else-if="isMember(server.id).value">
-                        Already a Member
-                    </span>
+                        {{ t('server.explore.alreadyMember') }}
+                </span>
                 <span v-else>
-                        Join Server
-                    </span>
+                        {{ t('server.explore.join') }}
+                </span>
               </button>
             </div>
           </div>
         </div>
 
         <div class="p-4 bg-bg-base/40 border-t border-border-default/50 flex-shrink-0 text-right">
-          <button class="btn-secondary" @click="closeModal">Close</button>
+          <button class="btn-secondary" @click="closeModal">{{ t('common.close') }}</button>
         </div>
       </div>
     </div>
@@ -87,6 +86,7 @@ import serverService from '@/services/serverService';
 import {signalRService} from '@/services/signalrService';
 import type {ServerListItem, ServerListItemDto, EntityId} from '@/services/types';
 import {Loader2} from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 
 // --- Props & Emits ---
 defineProps<{ modelValue: boolean }>();
@@ -96,6 +96,7 @@ const emit = defineEmits(['update:modelValue']);
 const router = useRouter();
 const appStore = useAppStore();
 const {addToast} = useToast();
+const { t } = useI18n();
 const servers = ref<ServerListItem[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -117,10 +118,10 @@ const fetchPublicServers = async () => {
     // A serverService már a helyes, letisztult ServerListItem[]-et adja vissza
     servers.value = await serverService.getPublicServers();
   } catch (err: any) {
-    error.value = 'Failed to load servers.';
+    error.value = t('server.explore.loadFailed');
     addToast({
       type: 'danger',
-      message: 'Failed to fetch public servers.'
+      message: t('server.explore.toast.loadFailed')
     });
   } finally {
     loading.value = false;
@@ -140,7 +141,7 @@ const joinServer = async (server: ServerListItem) => {
     if (result?.serverId) {
       addToast({
         type: 'success',
-        message: `Successfully joined ${server.name}.`
+        message: t('server.explore.toast.joined', { name: server.name })
       });
       await router.push(`/servers/${result.serverId}`);
       closeModal();
@@ -148,7 +149,7 @@ const joinServer = async (server: ServerListItem) => {
   } catch (err) {
     addToast({
       type: 'danger',
-      message: 'Failed to join server.'
+      message: t('server.explore.toast.joinFailed')
     });
   } finally {
     joiningState[server.id] = false;

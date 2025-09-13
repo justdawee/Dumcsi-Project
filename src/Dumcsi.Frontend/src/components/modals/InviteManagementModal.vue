@@ -18,7 +18,7 @@
                   :username="server.name"
               />
               <div>
-                <h3 class="text-xl font-bold text-text-default">Server Invites</h3>
+                <h3 class="text-xl font-bold text-text-default">{{ t('server.invites.manage.title') }}</h3>
                 <p class="text-sm text-text-muted">{{ server?.name }}</p>
               </div>
             </div>
@@ -30,11 +30,11 @@
                 class="btn-secondary flex items-center space-x-2"
               >
                 <Trash2 class="w-4 h-4" />
-                <span>{{ cleaningUp ? 'Cleaning...' : 'Cleanup Expired' }}</span>
+                <span>{{ cleaningUp ? t('server.invites.manage.cleanup.cleaning') : t('server.invites.manage.cleanup.button') }}</span>
               </button>
               <button @click="openCreateInviteModal" class="btn-primary flex items-center space-x-2">
                 <Plus class="w-4 h-4" />
-                <span>Create Invite</span>
+                <span>{{ t('server.invites.manage.create') }}</span>
               </button>
             </div>
           </div>
@@ -50,9 +50,9 @@
           <!-- Empty state -->
           <div v-else-if="invites.length === 0" class="text-center py-12">
             <UserPlus class="w-16 h-16 text-text-muted mx-auto mb-4" />
-            <h4 class="text-lg font-medium text-text-default mb-2">No invites yet</h4>
-            <p class="text-text-muted mb-4">Create your first invite to start inviting people to this server.</p>
-            <button @click="openCreateInviteModal" class="btn-primary">Create Invite</button>
+            <h4 class="text-lg font-medium text-text-default mb-2">{{ t('server.invites.manage.empty.title') }}</h4>
+            <p class="text-text-muted mb-4">{{ t('server.invites.manage.empty.description') }}</p>
+            <button @click="openCreateInviteModal" class="btn-primary">{{ t('server.invites.manage.create') }}</button>
           </div>
 
           <!-- Invites list -->
@@ -73,17 +73,17 @@
                     <!-- Status badges -->
                     <div class="flex items-center space-x-2">
                       <span v-if="invite.isExpired" class="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">
-                        Expired
+                        {{ t('server.invites.manage.list.status.expired') }}
                       </span>
                       <span v-else-if="invite.isMaxUsesReached" class="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
-                        Max uses reached
+                        {{ t('server.invites.manage.list.status.maxUsesReached') }}
                       </span>
                       <span v-else class="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">
-                        Active
+                        {{ t('server.invites.manage.list.status.active') }}
                       </span>
                       
                       <span v-if="invite.isTemporary" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
-                        Temporary
+                        {{ t('server.invites.manage.list.status.temporary') }}
                       </span>
                     </div>
                   </div>
@@ -98,14 +98,14 @@
                     <!-- Channel -->
                     <div class="flex items-center space-x-2">
                       <Hash class="w-4 h-4" />
-                      <span>{{ invite.channelName || 'Any channel' }}</span>
+                      <span>{{ invite.channelName || t('server.invites.manage.list.channelAny') }}</span>
                     </div>
 
                     <!-- Uses -->
                     <div class="flex items-center space-x-2">
                       <Users class="w-4 h-4" />
                       <span>
-                        {{ invite.currentUses }}{{ invite.maxUses > 0 ? `/${invite.maxUses}` : '' }} uses
+                        {{ invite.maxUses > 0 ? t('server.invites.manage.list.usesWithMax', { current: invite.currentUses, max: invite.maxUses }) : t('server.invites.manage.list.uses', { current: invite.currentUses }) }}
                       </span>
                     </div>
 
@@ -113,13 +113,13 @@
                     <div class="flex items-center space-x-2">
                       <Clock class="w-4 h-4" />
                       <span>
-                        {{ invite.expiresAt ? formatExpirationTime(invite.expiresAt) : 'Never expires' }}
+                        {{ invite.expiresAt ? formatExpirationTime(invite.expiresAt) : t('server.invites.manage.list.neverExpires') }}
                       </span>
                     </div>
                   </div>
 
                   <div class="mt-2 text-xs text-text-muted">
-                    Created {{ formatRelativeTime(invite.createdAt) }}
+                    {{ t('server.invites.manage.list.createdAgo', { time: formatRelativeTime(invite.createdAt) }) }}
                   </div>
                 </div>
 
@@ -128,7 +128,7 @@
                   <button 
                     @click="copyInviteCode(invite.code)"
                     class="p-2 text-text-muted hover:text-text-default hover:bg-bg-hover rounded-md transition-colors"
-                    title="Copy invite code"
+                    :title="t('server.invites.manage.actions.copyTooltip')"
                   >
                     <Copy class="w-4 h-4" />
                   </button>
@@ -137,7 +137,7 @@
                     @click="deleteInvite(invite.code)"
                     :disabled="deletingInvites.has(invite.code)"
                     class="p-2 text-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
-                    title="Delete invite"
+                    :title="t('server.invites.manage.actions.deleteTooltip')"
                   >
                     <Trash2 v-if="!deletingInvites.has(invite.code)" class="w-4 h-4" />
                     <Loader2 v-else class="w-4 h-4 animate-spin" />
@@ -151,7 +151,7 @@
         <!-- Footer -->
         <div class="p-6 border-t border-border-default flex justify-end">
           <button @click="closeModal" class="btn-secondary">
-            Close
+            {{ t('common.close') }}
           </button>
         </div>
       </div>
@@ -177,6 +177,7 @@ import type { ServerListItem, InviteDto } from '@/services/types';
 import UserAvatar from '@/components/common/UserAvatar.vue';
 import serverService from '@/services/serverService';
 import { useToast } from '@/composables/useToast';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -191,6 +192,7 @@ const invites = ref<InviteDto[]>([]);
 const loading = ref(false);
 const cleaningUp = ref(false);
 const deletingInvites = ref(new Set<string>());
+const { t } = useI18n();
 
 const closeModal = () => {
   emit('update:modelValue', false);
@@ -214,7 +216,7 @@ const loadInvites = async () => {
     console.error('Failed to load invites:', error);
     addToast({ 
       type: 'danger', 
-      message: error.message || 'Failed to load invites' 
+      message: error.message || t('server.invites.manage.toast.loadFailed') 
     });
   } finally {
     loading.value = false;
@@ -224,10 +226,10 @@ const loadInvites = async () => {
 const copyInviteCode = async (code: string) => {
   try {
     await navigator.clipboard.writeText(code);
-    addToast({ type: 'success', message: 'Invite code copied to clipboard!' });
+    addToast({ type: 'success', message: t('server.invites.manage.toast.copied') });
   } catch (error) {
     console.error('Failed to copy invite code:', error);
-    addToast({ type: 'danger', message: 'Failed to copy invite code' });
+    addToast({ type: 'danger', message: t('server.invites.manage.toast.copyFailed') });
   }
 };
 
@@ -238,12 +240,12 @@ const deleteInvite = async (code: string) => {
   try {
     await serverService.deleteInvite(props.server.id, code);
     invites.value = invites.value.filter(invite => invite.code !== code);
-    addToast({ type: 'success', message: 'Invite deleted successfully' });
+    addToast({ type: 'success', message: t('server.invites.manage.toast.deleted') });
   } catch (error: any) {
     console.error('Failed to delete invite:', error);
     addToast({ 
       type: 'danger', 
-      message: error.message || 'Failed to delete invite' 
+      message: error.message || t('server.invites.manage.toast.deleteFailed') 
     });
   } finally {
     deletingInvites.value.delete(code);
@@ -258,14 +260,14 @@ const cleanupExpiredInvites = async () => {
     const result = await serverService.cleanupExpiredInvites(props.server.id);
     addToast({ 
       type: 'success', 
-      message: `Cleaned up ${result.cleanedUp} expired invites` 
+      message: t('server.invites.manage.toast.cleanedUp', { count: result.cleanedUp }) 
     });
     await loadInvites(); // Reload the list
   } catch (error: any) {
     console.error('Failed to cleanup invites:', error);
     addToast({ 
       type: 'danger', 
-      message: error.message || 'Failed to cleanup expired invites' 
+      message: error.message || t('server.invites.manage.toast.cleanupFailed') 
     });
   } finally {
     cleaningUp.value = false;
@@ -278,7 +280,7 @@ const formatExpirationTime = (expiresAt: string): string => {
   const now = new Date();
   
   if (date < now) {
-    return 'Expired';
+    return t('server.invites.manage.list.status.expired');
   }
   
   const diffMs = date.getTime() - now.getTime();
@@ -286,9 +288,9 @@ const formatExpirationTime = (expiresAt: string): string => {
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   
   if (diffHours < 24) {
-    return `${diffHours}h remaining`;
+    return t('server.invites.manage.list.hRemaining', { hours: diffHours });
   } else {
-    return `${diffDays}d remaining`;
+    return t('server.invites.manage.list.dRemaining', { days: diffDays });
   }
 };
 
@@ -301,11 +303,11 @@ const formatRelativeTime = (createdAt: string): string => {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
   if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
+    return t('server.invites.manage.list.mAgo', { minutes: diffMinutes });
   } else if (diffHours < 24) {
-    return `${diffHours}h ago`;
+    return t('server.invites.manage.list.hAgo', { hours: diffHours });
   } else {
-    return `${diffDays}d ago`;
+    return t('server.invites.manage.list.dAgo', { days: diffDays });
   }
 };
 

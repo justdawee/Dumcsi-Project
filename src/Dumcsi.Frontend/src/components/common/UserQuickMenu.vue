@@ -17,7 +17,7 @@
           <button class="w-full px-3 py-2 rounded-md bg-main-800 hover:bg-main-700 text-sm text-text-default border border-main-700 text-left flex items-center gap-2 justify-start"
                   @click="goEditProfile">
             <Pencil class="w-4 h-4" />
-            <span>Edit profile</span>
+            <span>{{ t('account.menu.editProfile') }}</span>
           </button>
           <div class="relative"
                @mouseenter="openStatusMenu"
@@ -69,12 +69,12 @@
           <button class="w-full px-3 py-2 rounded-md bg-main-800 hover:bg-main-700 text-sm text-text-default border border-main-700 text-left flex items-center gap-2 justify-start"
                   @click="switchAccounts">
             <CircleUser class="w-4 h-4" />
-            <span>Switch accounts</span>
+            <span>{{ t('account.menu.switchAccounts') }}</span>
           </button>
           <button class="w-full px-3 py-2 rounded-md bg-danger/10 hover:bg-danger/20 text-sm text-danger border border-danger/30 text-left flex items-center gap-2 justify-start"
                   @click="signOut">
             <LogOut class="w-4 h-4" />
-            <span>Sign out</span>
+            <span>{{ t('account.menu.signOut') }}</span>
           </button>
         </div>
       </div>
@@ -85,6 +85,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ChevronDown, ChevronRight, Pencil, LogOut, CircleUser } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
@@ -104,6 +105,7 @@ const { getDisplayName } = useUserDisplay();
 
 const open = computed(() => props.open);
 const displayName = computed(() => getDisplayName(auth.user));
+const { t } = useI18n();
 
 const statusMenuOpen = ref(false);
 let statusMenuHideTimer: number | null = null;
@@ -112,19 +114,19 @@ const statusMenuRef = ref<HTMLElement | null>(null);
 const submenuOnLeft = ref(false);
 
 const statusOptions = [
-  { value: UserStatus.Online, label: 'Online', dot: 'bg-[#23a55a]' },
-  { value: UserStatus.Idle, label: 'Idle', dot: 'bg-[#f0b232]' },
-  { value: UserStatus.Busy, label: 'Do Not Disturb', dot: 'bg-[#f23f43]' },
-  { value: UserStatus.Invisible, label: 'Invisible', dot: 'bg-[#80848e]' },
+  { value: UserStatus.Online, label: t('account.menu.statusLabel.online'), dot: 'bg-[#23a55a]' },
+  { value: UserStatus.Idle, label: t('account.menu.statusLabel.idle'), dot: 'bg-[#f0b232]' },
+  { value: UserStatus.Busy, label: t('account.menu.statusLabel.dnd'), dot: 'bg-[#f23f43]' },
+  { value: UserStatus.Invisible, label: t('account.menu.statusLabel.invisible'), dot: 'bg-[#80848e]' },
 ] as const;
 
 const durations = [
-  { label: '15 minutes', ms: 15 * 60 * 1000 },
-  { label: '1 hour', ms: 60 * 60 * 1000 },
-  { label: '8 hours', ms: 8 * 60 * 60 * 1000 },
-  { label: '24 hours', ms: 24 * 60 * 60 * 1000 },
-  { label: '3 days', ms: 3 * 24 * 60 * 60 * 1000 },
-  { label: 'Forever', ms: 0 },
+  { label: t('account.menu.duration.m15'), ms: 15 * 60 * 1000 },
+  { label: t('account.menu.duration.h1'), ms: 60 * 60 * 1000 },
+  { label: t('account.menu.duration.h8'), ms: 8 * 60 * 60 * 1000 },
+  { label: t('account.menu.duration.h24'), ms: 24 * 60 * 60 * 1000 },
+  { label: t('account.menu.duration.d3'), ms: 3 * 24 * 60 * 60 * 1000 },
+  { label: t('account.menu.duration.forever'), ms: 0 },
 ];
 
 const currentStatus = computed<UserStatus>(() => {
@@ -135,7 +137,7 @@ const currentStatus = computed<UserStatus>(() => {
 
 const statusLabel = computed(() => {
   const s = statusOptions.find(s => s.value === currentStatus.value);
-  return s ? s.label : 'Status';
+  return s ? s.label : t('account.menu.status');
 });
 
 const statusDotMap: Record<UserStatus, string> = {

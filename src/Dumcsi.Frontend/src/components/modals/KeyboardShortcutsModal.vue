@@ -8,8 +8,8 @@
             <Keyboard class="w-6 h-6 text-primary"/>
           </div>
           <div>
-            <h2 class="text-xl font-bold">Keyboard Shortcuts</h2>
-            <p class="text-sm text-text-muted">All available keyboard shortcuts and hotkeys</p>
+            <h2 class="text-xl font-bold">{{ t('common.shortcuts.title') }}</h2>
+            <p class="text-sm text-text-muted">{{ t('common.shortcuts.subtitle') }}</p>
           </div>
         </div>
         <button
@@ -27,11 +27,11 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
               <Monitor class="w-5 h-5 text-text-muted"/>
-              <span class="font-medium">Platform:</span>
-              <span class="text-primary font-medium">{{ isMac ? 'macOS' : 'Windows' }}</span>
+              <span class="font-medium">{{ t('common.shortcuts.platform') }}</span>
+              <span class="text-primary font-medium">{{ isMac ? t('common.platform.mac') : t('common.platform.windows') }}</span>
             </div>
             <div class="text-sm text-text-muted">
-              Shortcuts shown for your current platform
+              {{ t('common.shortcuts.platformHint') }}
             </div>
           </div>
         </div>
@@ -75,13 +75,13 @@
             <div class="flex items-center space-x-4">
               <div class="flex items-center space-x-2">
                 <Info class="w-4 h-4"/>
-                <span>Shortcuts can be customized in Settings → Keybinds</span>
+                <span>{{ t('common.shortcuts.customizeHint') }}</span>
               </div>
             </div>
             <div class="flex items-center space-x-2">
-              <span>Press</span>
+              <span>{{ t('common.shortcuts.press') }}</span>
               <kbd class="keybind-badge text-xs">{{ isMac ? '⌘+/' : 'Ctrl+/' }}</kbd>
-              <span>to open this menu</span>
+              <span>{{ t('common.shortcuts.toOpen') }}</span>
             </div>
           </div>
         </div>
@@ -105,6 +105,7 @@ import {
 } from 'lucide-vue-next';
 import type { KeyBindCategory } from '@/types/keybinds';
 import { useKeyBinds } from '@/composables/useKeyBinds';
+import { useI18n } from 'vue-i18n';
 
 defineProps<{
   categories: KeyBindCategory[];
@@ -115,6 +116,7 @@ defineEmits<{
 }>();
 
 const { getCurrentKey, isMac } = useKeyBinds();
+const { t } = useI18n();
 
 // Get icon for category
 const getCategoryIcon = (categoryId: string) => {

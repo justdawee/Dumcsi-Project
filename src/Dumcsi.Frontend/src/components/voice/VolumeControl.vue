@@ -58,6 +58,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { Volume1, Volume2, VolumeX } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 
 interface Props {
   volume: number; // 0.0 to 1.0 (0% to 100%)
@@ -75,6 +76,7 @@ const emit = defineEmits<Emits>();
 const sliderVisible = ref(false);
 const isDragging = ref(false);
 const lastNonZeroVolume = ref(1.0);
+const { t } = useI18n();
 
 // Keep track of last non-zero volume for mute toggle
 if (props.volume > 0) {
@@ -168,9 +170,9 @@ const startDragging = (event: MouseEvent) => {
 const getVolumeTooltip = () => {
   const percentage = Math.round(props.volume * 100);
   if (percentage === 0) {
-    return `${props.username}'s screen share (Muted)`;
+    return t('voice.volume.tooltipMuted', { username: props.username });
   }
-  return `${props.username}'s screen share (${percentage}%)`;
+  return t('voice.volume.tooltipPercent', { username: props.username, percent: percentage });
 };
 </script>
 
