@@ -1,16 +1,18 @@
 import type {UserProfileDto, UserProfile, ServerMemberDto, ServerMember} from '@/services/types';
+import { useI18n } from 'vue-i18n';
 
 /**
  * Composable for handling user display logic
  * Prioritizes GlobalNickname over Username
  */
 export function useUserDisplay() {
+    const { t } = useI18n();
     /**
      * Get display name for a user
      * Prioritizes: GlobalNickname > Username
      */
     const getDisplayName = (user: UserProfileDto | UserProfile | ServerMemberDto | ServerMember | null | undefined): string => {
-        if (!user) return 'Unknown User';
+        if (!user) return t('user.unknownUser');
 
         // For UserSearchResult and UserProfile
         if ('globalNickname' in user && user.globalNickname) {
@@ -18,7 +20,7 @@ export function useUserDisplay() {
         }
 
         // For all user types
-        return user.username || 'Unknown User';
+        return user.username || t('user.unknownUser');
     };
 
     /**

@@ -8,6 +8,7 @@ import { useDmStore } from '@/stores/dm';
 import {webrtcService} from './webrtcService.ts';
 import {livekitService} from '@/services/livekitService';
 import { summarizeMessagePreview } from '@/utils/messageSummary';
+import { i18n } from '@/i18n';
 import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
 import router from '@/router';
 import { playChime } from '@/utils/sounds';
@@ -241,7 +242,7 @@ export class SignalRService {
                 const channelIdRaw = (payload?.channelId ?? payload?.ChannelId);
                 const serverIdRaw = (payload?.serverId ?? payload?.ServerId);
                 const authorIdRaw = (payload?.authorId ?? payload?.AuthorId);
-                const author = payload?.authorUsername ?? payload?.AuthorUsername ?? 'Someone';
+                const author = payload?.authorUsername ?? payload?.AuthorUsername ?? i18n.global.t('common.misc.someone');
                 const content = String(payload?.content ?? payload?.Content ?? '');
                 const channelId = typeof channelIdRaw === 'string' ? parseInt(channelIdRaw, 10) : Number(channelIdRaw);
                 const serverId = typeof serverIdRaw === 'string' ? parseInt(serverIdRaw, 10) : Number(serverIdRaw);
@@ -257,12 +258,12 @@ export class SignalRService {
                 const onSettings = !!route && (String(route.name || '').toLowerCase().includes('settings') || String(route.path || '').includes('/settings'));
                 const isActiveChannel = Number(appStore.currentServer?.id) === Number(serverId) && Number(appStore.currentChannel?.id) === Number(channelId);
                 if (!isSelf && !onSettings && !isActiveChannel) {
-                    const channelName = appStore.currentServer?.channels?.find(c => Number(c.id) === Number(channelId))?.name || 'channel';
-                    const serverName = (appStore.servers.find(s => Number(s.id) === Number(serverId))?.name) || appStore.currentServer?.name || 'Server';
+                    const channelName = appStore.currentServer?.channels?.find(c => Number(c.id) === Number(channelId))?.name || i18n.global.t('channels.nameDefault');
+                    const serverName = (appStore.servers.find(s => Number(s.id) === Number(serverId))?.name) || appStore.currentServer?.name || i18n.global.t('server.nameDefault');
                     addToast({
                         type: 'info',
                         title: `${serverName} • #${channelName}`,
-                        message: `${author}: ${preview || 'Sent a message'}`,
+                        message: `${author}: ${preview || i18n.global.t('common.notifications.sentMessage')}`,
                         notificationCategory: 'server',
                         onClick: async () => {
                             if (!Number.isNaN(serverId) && !Number.isNaN(channelId)) {
@@ -273,7 +274,7 @@ export class SignalRService {
                         duration: 6000,
                         actions: [
                             {
-                                label: 'Mute…',
+                                label: i18n.global.t('common.actions.mute'),
                                 variant: 'secondary',
                                 action: async () => {
                                     try {
@@ -283,15 +284,15 @@ export class SignalRService {
                                         // Show quick duration chooser as a follow-up toast
                                         addToast({
                                             type: 'info',
-                                            title: 'Mute Channel',
-                                            message: `Choose duration for #${channelName}`,
+                                            title: i18n.global.t('common.notifications.muteChannelTitle'),
+                                            message: i18n.global.t('common.notifications.chooseDurationFor', { name: channelName }),
                                             actions: [
-                                                { label: '15m', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.m15) },
-                                                { label: '1h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h1) },
-                                                { label: '3h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h3) },
-                                                { label: '8h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h8) },
-                                                { label: '24h', action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h24) },
-                                                { label: 'Until on', action: () => prefs.muteChannel(Number(serverId), Number(channelId), 'forever'), variant: 'secondary' },
+                                                { label: i18n.global.t('common.durationShort.m15'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.m15) },
+                                                { label: i18n.global.t('common.durationShort.h1'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h1) },
+                                                { label: i18n.global.t('common.durationShort.h3'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h3) },
+                                                { label: i18n.global.t('common.durationShort.h8'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h8) },
+                                                { label: i18n.global.t('common.durationShort.h24'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), prefs.Durations.h24) },
+                                                { label: i18n.global.t('common.durationShort.untilOn'), action: () => prefs.muteChannel(Number(serverId), Number(channelId), 'forever'), variant: 'secondary' },
                                             ],
                                             duration: 0,
                                             meta: { serverId: Number(serverId), channelId: Number(channelId) }
@@ -300,7 +301,7 @@ export class SignalRService {
                                 }
                             },
                             {
-                                label: 'Open',
+                                label: i18n.global.t('common.actions.open'),
                                 variant: 'primary',
                                 action: async () => {
                                     if (serverId && channelId) {
@@ -337,8 +338,8 @@ export class SignalRService {
                     const { notify } = useNotify();
                     notify({
                         category: 'toast',
-                        title: 'New Reaction',
-                        message: `Your message received a reaction`,
+                        title: i18n.global.t('chat.notifications.reaction.title'),
+                        message: i18n.global.t('chat.notifications.reaction.message'),
                         showToast: true,
                         playSound: true,
                         showBrowser: false,

@@ -1,4 +1,5 @@
 import { ref, readonly } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 export interface CameraQualityOption {
   value: string;
@@ -22,32 +23,34 @@ const cameraDevices = ref<CameraDeviceInfo[]>([]);
 const selectedCameraDeviceId = ref<string | null>(null);
 const selectedCameraQuality = ref<CameraQualityOption>(cameraQualityOptions[1]); // default 1080p
 
-async function refreshCameraDevices(): Promise<void> {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
-    cameraDevices.value = [];
-    return;
-  }
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cams = devices
-      .filter(d => d.kind === 'videoinput')
-      .map(d => ({ deviceId: d.deviceId, label: d.label || 'Camera' }));
-    cameraDevices.value = cams;
-    if (!selectedCameraDeviceId.value && cams.length > 0) {
-      selectedCameraDeviceId.value = cams[0].deviceId;
-    }
-  } catch {
-    // ignore
-  }
-}
-
-async function ensureCameraDevicesLoaded(): Promise<void> {
-  if (cameraDevices.value.length === 0) {
-    await refreshCameraDevices();
-  }
-}
-
 export function useCameraSettings() {
+  const { t } = useI18n();
+
+  const refreshCameraDevices = async (): Promise<void> => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      cameraDevices.value = [];
+      return;
+    }
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices
+        .filter(d => d.kind === 'videoinput')
+        .map(d => ({ deviceId: d.deviceId, label: d.label || t('voice.panel.menu.camera') }));
+      cameraDevices.value = cams;
+      if (!selectedCameraDeviceId.value && cams.length > 0) {
+        selectedCameraDeviceId.value = cams[0].deviceId;
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const ensureCameraDevicesLoaded = async (): Promise<void> => {
+    if (cameraDevices.value.length === 0) {
+      await refreshCameraDevices();
+    }
+  };
+
   return {
     qualityOptions: readonly(cameraQualityOptions),
     devices: cameraDevices,
@@ -64,4 +67,3 @@ export function useCameraSettings() {
     })
   };
 }
-

@@ -6,6 +6,7 @@ import router from './router';
 import {useAuthStore} from './stores/auth';
 import {signalRService} from './services/signalrService';
 import './style.css';
+import { i18n } from './i18n';
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -14,6 +15,7 @@ app.directive('backdrop-close', closeOnBackdrop);
 
 app.use(pinia);
 app.use(router);
+app.use(i18n);
 
 const authStore = useAuthStore();
 

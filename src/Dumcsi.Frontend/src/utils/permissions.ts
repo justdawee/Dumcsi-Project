@@ -1,6 +1,7 @@
 /**
  * Utility functions for handling browser permissions
  */
+import { i18n } from '@/i18n';
 
 export interface PermissionResult {
   granted: boolean;
@@ -11,6 +12,10 @@ export interface PermissionResult {
  * Check if microphone permission is granted
  */
 export async function checkMicrophonePermission(): Promise<PermissionResult> {
+  const t = (key: string, params?: Record<string, any>) => {
+    // @ts-expect-error runtime key lookup
+    return i18n.global.t(key, params) as unknown as string;
+  };
   try {
     // First, check if the Permissions API is available
     if ('permissions' in navigator) {
@@ -19,7 +24,7 @@ export async function checkMicrophonePermission(): Promise<PermissionResult> {
       if (permissionStatus.state === 'granted') {
         return { granted: true };
       } else if (permissionStatus.state === 'denied') {
-        return { granted: false, error: 'Microphone permission was denied' };
+        return { granted: false, error: t('voice.permissions.micro.deniedShort') };
       }
       // If state is 'prompt', we need to try to access the microphone to trigger the permission prompt
     }
@@ -40,19 +45,19 @@ export async function checkMicrophonePermission(): Promise<PermissionResult> {
     } catch (error: any) {
       // Permission was denied or device not available
       const errorMessage = error.name === 'NotAllowedError' 
-        ? 'Microphone permission was denied. Please enable microphone access in your browser settings to join voice channels.'
+        ? t('voice.permissions.micro.deniedDetailed')
         : error.name === 'NotFoundError'
-        ? 'No microphone device found. Please connect a microphone to join voice channels.'
+        ? t('voice.permissions.micro.notFound')
         : error.name === 'NotReadableError'
-        ? 'Microphone is already in use by another application.'
-        : `Failed to access microphone: ${error.message || 'Unknown error'}`;
+        ? t('voice.permissions.micro.inUse')
+        : t('voice.permissions.micro.accessFailed', { error: error.message || 'Unknown error' });
       
       return { granted: false, error: errorMessage };
     }
   } catch (error: any) {
     return { 
       granted: false, 
-      error: `Failed to check microphone permission: ${error.message || 'Unknown error'}` 
+      error: t('voice.permissions.micro.checkFailed', { error: error.message || 'Unknown error' }) 
     };
   }
 }
@@ -68,6 +73,10 @@ export async function requestMicrophonePermission(): Promise<PermissionResult> {
  * Check if camera permission is granted
  */
 export async function checkCameraPermission(): Promise<PermissionResult> {
+  const t = (key: string, params?: Record<string, any>) => {
+    // @ts-expect-error runtime key lookup
+    return i18n.global.t(key, params) as unknown as string;
+  };
   try {
     // First, check if the Permissions API is available
     if ('permissions' in navigator) {
@@ -76,7 +85,7 @@ export async function checkCameraPermission(): Promise<PermissionResult> {
       if (permissionStatus.state === 'granted') {
         return { granted: true };
       } else if (permissionStatus.state === 'denied') {
-        return { granted: false, error: 'Camera permission was denied' };
+        return { granted: false, error: t('voice.permissions.camera.deniedShort') };
       }
       // If state is 'prompt', we need to try to access the camera to trigger the permission prompt
     }
@@ -97,19 +106,19 @@ export async function checkCameraPermission(): Promise<PermissionResult> {
     } catch (error: any) {
       // Permission was denied or device not available
       const errorMessage = error.name === 'NotAllowedError' 
-        ? 'Camera permission was denied. Please enable camera access in your browser settings to use video features.'
+        ? t('voice.permissions.camera.deniedDetailed')
         : error.name === 'NotFoundError'
-        ? 'No camera device found. Please connect a camera to use video features.'
+        ? t('voice.permissions.camera.notFound')
         : error.name === 'NotReadableError'
-        ? 'Camera is already in use by another application.'
-        : `Failed to access camera: ${error.message || 'Unknown error'}`;
+        ? t('voice.permissions.camera.inUse')
+        : t('voice.permissions.camera.accessFailed', { error: error.message || 'Unknown error' });
       
       return { granted: false, error: errorMessage };
     }
   } catch (error: any) {
     return { 
       granted: false, 
-      error: `Failed to check camera permission: ${error.message || 'Unknown error'}` 
+      error: t('voice.permissions.camera.checkFailed', { error: error.message || 'Unknown error' }) 
     };
   }
 }

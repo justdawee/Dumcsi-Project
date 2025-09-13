@@ -3,6 +3,7 @@ import uploadService from '@/services/uploadService';
 import type {UploadResponse} from '@/services/types';
 import {useToast} from '@/composables/useToast';
 import type {EntityId} from '@/services/types';
+import { useI18n } from 'vue-i18n';
 
 // Interface for the attachment state within the composable
 export interface Attachment {
@@ -18,6 +19,7 @@ export function useAttachments(channelId: Ref<EntityId> | null, dmUserId?: Ref<E
     const attachments = ref<Attachment[]>([]);
     const isUploading = ref(false);
     const {addToast} = useToast();
+    const { t } = useI18n();
 
     const handleFileSelect = async (files: FileList | null) => {
         if (!files) return;
@@ -26,14 +28,14 @@ export function useAttachments(channelId: Ref<EntityId> | null, dmUserId?: Ref<E
         if (totalAttachments > 10) {
             addToast({
                 type: 'warning',
-                message: 'You can only attach up to 10 files per message.',
+                message: t('chat.attachments.errors.maxFiles'),
             });
             return;
         }
 
         for (const file of Array.from(files)) {
             if (file.size > 50 * 1024 * 1024) { // 50MB limit
-                addToast({type: 'danger', message: `File "${file.name}" is too large (max 50MB).`});
+                addToast({type: 'danger', message: t('chat.attachments.errors.tooLarge', { name: file.name })});
                 continue;
             }
 
@@ -79,7 +81,7 @@ export function useAttachments(channelId: Ref<EntityId> | null, dmUserId?: Ref<E
                 uploadedIds.push(response.id);
             } catch (error: any) {
                 attachment.error = 'Upload failed';
-                addToast({type: 'danger', message: `Failed to upload ${attachment.file.name}`});
+                addToast({type: 'danger', message: t('chat.attachments.errors.uploadFailed', { name: attachment.file.name })});
                 // Nem dobunk hibát, hogy a többi feltöltés folytatódhasson
             } finally {
                 attachment.uploading = false;

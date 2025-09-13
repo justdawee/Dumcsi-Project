@@ -1,4 +1,5 @@
 import { ref, readonly } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 export interface QualityOption {
   value: string;
@@ -15,25 +16,41 @@ export interface FPSOption {
 }
 
 // Shared state for screen share and camera quality settings
-const resolutionOptions: QualityOption[] = [
-  { value: '4k', label: '4K Ultra', resolution: '3840×2160', width: 3840, height: 2160 },
-  { value: '1080p', label: '1080p HD', resolution: '1920×1080', width: 1920, height: 1080 },
-  { value: '720p', label: '720p', resolution: '1280×720', width: 1280, height: 720 },
-  { value: '480p', label: '480p', resolution: '854×480', width: 854, height: 480 },
-];
+// Note: labels are resolved in-function via i18n for localization
+const baseResolutionOptions = [
+  { value: '4k', resolution: '3840×2160', width: 3840, height: 2160 },
+  { value: '1080p', resolution: '1920×1080', width: 1920, height: 1080 },
+  { value: '720p', resolution: '1280×720', width: 1280, height: 720 },
+  { value: '480p', resolution: '854×480', width: 854, height: 480 },
+] as const;
 
-const fpsOptions: FPSOption[] = [
-  { value: 15, label: '15 FPS', description: 'Low motion (saves bandwidth)' },
-  { value: 30, label: '30 FPS', description: 'Standard (recommended)' },
-  { value: 60, label: '60 FPS', description: 'Smooth motion (higher bandwidth)' },
-];
+const baseFpsOptions = [
+  { value: 15 },
+  { value: 30 },
+  { value: 60 },
+] as const;
 
 // Shared reactive state
-const selectedQuality = ref<QualityOption>(resolutionOptions[1]); // Default to 1080p
+const selectedQuality = ref<QualityOption>({ value: '1080p', label: '1080p HD', resolution: '1920×1080', width: 1920, height: 1080 }); // Default to 1080p
 const selectedFPS = ref<number>(30);
 const includeAudio = ref<boolean>(true); // Default to true as requested
 
 export function useScreenShareSettings() {
+  const { t } = useI18n();
+
+  const resolutionOptions: QualityOption[] = baseResolutionOptions.map(o => ({
+    value: o.value,
+    label: t(`voice.quality.res.${o.value}`),
+    resolution: o.resolution,
+    width: o.width,
+    height: o.height,
+  }));
+
+  const fpsOptions: FPSOption[] = baseFpsOptions.map(o => ({
+    value: o.value,
+    label: t(`voice.quality.fps.${o.value}.label`),
+    description: t(`voice.quality.fps.${o.value}.description`),
+  }));
   return {
     // Static options
     resolutionOptions: readonly(resolutionOptions),

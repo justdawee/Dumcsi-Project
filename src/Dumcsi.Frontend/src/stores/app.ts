@@ -32,6 +32,7 @@ import {saveVoiceSession, clearVoiceSession} from '@/services/voiceSession';
 import {webrtcService} from '@/services/webrtcService';
 import router from '@/router';
 import {useToast} from '@/composables/useToast';
+import { i18n } from '@/i18n';
 import {useAuthStore} from './auth';
 
 export const useAppStore = defineStore('app', () => {
@@ -134,11 +135,11 @@ export const useAppStore = defineStore('app', () => {
         try {
             return await apiCall();
         } catch (err: any) {
-            error.value = err.message || 'An error occurred';
+            error.value = err.message || i18n.global.t('common.errors.generic');
             console.error(err);
             addToast({
                 type: 'danger',
-                message: error.value || 'An unknown error occurred',
+                message: error.value || i18n.global.t('common.errors.unknown'),
             });
             return null;
         } finally {
@@ -183,18 +184,18 @@ export const useAppStore = defineStore('app', () => {
                 router.push({ name: 'ServerSelect' });
                 addToast({
                     type: 'warning',
-                    message: 'You no longer have access to this server.',
+                    message: i18n.global.t('server.access.noLonger'),
                     duration: 5000
                 });
                 return;
             }
             
             // Handle other errors with generic error handling
-            error.value = err.message || 'An error occurred';
+            error.value = err.message || i18n.global.t('common.errors.generic');
             console.error(err);
             addToast({
                 type: 'danger',
-                message: error.value || 'An unknown error occurred',
+                message: error.value || i18n.global.t('common.errors.unknown'),
             });
         }
     };
@@ -292,7 +293,7 @@ export const useAppStore = defineStore('app', () => {
                 router.push({ name: 'ServerSelect' });
                 addToast({
                     type: 'warning',
-                    message: 'You no longer have access to this channel.',
+                    message: i18n.global.t('channels.access.noLonger'),
                     duration: 5000
                 });
                 return;
@@ -371,11 +372,11 @@ export const useAppStore = defineStore('app', () => {
             }
             
             // Handle other errors with generic error handling
-            error.value = err.message || 'An error occurred';
+            error.value = err.message || i18n.global.t('common.errors.generic');
             console.error('Error fetching messages:', err);
             addToast({
                 type: 'danger',
-                message: error.value || 'Failed to load messages',
+                message: error.value || i18n.global.t('chat.toasts.loadFailed'),
             });
         }
     };

@@ -5,6 +5,7 @@ import router from '@/router';
 import dmService from '@/services/dmService';
 import { useAppStore } from './app';
 import { useToast } from '@/composables/useToast';
+import { i18n } from '@/i18n';
 import type { EntityId, FriendListItem, FriendRequestItem, BlockedUserItem, DmRequestItem, DmFilterOption } from '@/services/types';
 
 export const useFriendStore = defineStore('friends', () => {
@@ -58,10 +59,10 @@ export const useFriendStore = defineStore('friends', () => {
             if (code === 'FRIEND_REQUEST_EXISTS') {
                 addToast({
                     type: 'info',
-                    title: 'Request Already Sent',
-                    message: 'You already have a pending friend request to this user.',
+                    title: i18n.global.t('friends.toasts.requestAlreadySent.title'),
+                    message: i18n.global.t('friends.toasts.requestAlreadySent.message'),
                     actions: [
-                        { label: 'Open Friends', variant: 'primary', action: () => { void router.push('/friends'); } }
+                        { label: i18n.global.t('friends.actions.openFriends'), variant: 'primary', action: () => { void router.push('/friends'); } }
                     ]
                 });
                 return;
@@ -69,10 +70,10 @@ export const useFriendStore = defineStore('friends', () => {
             if (code === 'FRIEND_REQUEST_PENDING_RESPONSE') {
                 addToast({
                     type: 'info',
-                    title: 'Respond to Request',
-                    message: 'This user has already sent you a request. Please accept or decline it in Friends.',
+                    title: i18n.global.t('friends.toasts.respondToRequest.title'),
+                    message: i18n.global.t('friends.toasts.respondToRequest.message'),
                     actions: [
-                        { label: 'Open Friends', variant: 'primary', action: () => { void router.push('/friends'); } }
+                        { label: i18n.global.t('friends.actions.openFriends'), variant: 'primary', action: () => { void router.push('/friends'); } }
                     ]
                 });
                 // Refresh requests so badge/requests list reflect latest
@@ -80,26 +81,26 @@ export const useFriendStore = defineStore('friends', () => {
                 return;
             }
             if (code === 'FRIEND_ALREADY') {
-                addToast({ type: 'info', title: 'Already Friends', message: 'You are already friends with this user.' });
+                addToast({ type: 'info', title: i18n.global.t('friends.toasts.alreadyFriends.title'), message: i18n.global.t('friends.toasts.alreadyFriends.message') });
                 return;
             }
             if (code === 'FRIEND_BLOCKED_BY_YOU') {
-                addToast({ type: 'warning', title: 'Blocked', message: 'You have blocked this user. Unblock them to send a request.', actions: [ { label: 'Open Friends', variant: 'primary', action: () => { void router.push('/friends'); } } ] });
+                addToast({ type: 'warning', title: i18n.global.t('friends.toasts.blockedByYou.title'), message: i18n.global.t('friends.toasts.blockedByYou.message'), actions: [ { label: i18n.global.t('friends.actions.openFriends'), variant: 'primary', action: () => { void router.push('/friends'); } } ] });
                 return;
             }
             if (code === 'FRIEND_BLOCKED_BY_OTHER') {
-                addToast({ type: 'warning', title: 'Blocked', message: 'This user has blocked you.' });
+                addToast({ type: 'warning', title: i18n.global.t('friends.toasts.blockedByOther.title'), message: i18n.global.t('friends.toasts.blockedByOther.message') });
                 return;
             }
             if (code === 'FRIEND_USER_NOT_FOUND') {
-                addToast({ type: 'warning', title: 'User Not Found', message: 'No user exists with that name.' });
+                addToast({ type: 'warning', title: i18n.global.t('friends.toasts.userNotFound.title'), message: i18n.global.t('friends.toasts.userNotFound.message') });
                 return;
             }
             if (code === 'FRIEND_SELF') {
-                addToast({ type: 'warning', title: 'Invalid', message: 'You cannot add yourself.' });
+                addToast({ type: 'warning', title: i18n.global.t('friends.toasts.invalidSelf.title'), message: i18n.global.t('friends.toasts.invalidSelf.message') });
                 return;
             }
-            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || 'Failed to send request' });
+            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || i18n.global.t('friends.toasts.sendRequestFailed') });
             throw err;
         }
     };
@@ -135,25 +136,25 @@ export const useFriendStore = defineStore('friends', () => {
     const blockUser = async (id: EntityId) => {
         try {
             await friendService.blockUser(id);
-            addToast({ type: 'success', message: 'User blocked' });
+            addToast({ type: 'success', message: i18n.global.t('friends.toasts.userBlocked') });
             await Promise.all([fetchBlocked(), fetchFriends(), fetchRequests()]);
         } catch (err: any) {
             const code: string | undefined = err?.response?.data?.error?.code;
             if (code === 'BLOCK_SELF') {
-                addToast({ type: 'warning', message: 'You cannot block yourself.' });
+                addToast({ type: 'warning', message: i18n.global.t('friends.toasts.cannotBlockSelf') });
                 return;
             }
-            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || 'Failed to block user' });
+            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || i18n.global.t('friends.toasts.blockFailed') });
         }
     };
 
     const unblockUser = async (id: EntityId) => {
         try {
             await friendService.unblockUser(id);
-            addToast({ type: 'success', message: 'User unblocked' });
+            addToast({ type: 'success', message: i18n.global.t('friends.toasts.userUnblocked') });
             await fetchBlocked();
         } catch (err: any) {
-            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || 'Failed to unblock user' });
+            addToast({ type: 'danger', message: err?.response?.data?.message || err.message || i18n.global.t('friends.toasts.unblockFailed') });
         }
     };
 

@@ -3,8 +3,7 @@ import { ref, computed } from 'vue';
 import dmMessageService from '@/services/dmMessageService';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from './auth';
-import { summarizeMessagePreview } from '@/utils/messageSummary';
-import router from '@/router';
+import { i18n } from '@/i18n';
 import type {
     EntityId,
     ConversationListItemDto,
@@ -69,7 +68,7 @@ export const useDmStore = defineStore('dm', () => {
         } catch (error: any) {
             addToast({
                 type: 'danger',
-                message: 'Failed to load conversations'
+                message: i18n.global.t('dm.toasts.loadConversationsFailed')
             });
         } finally {
             loadingConversations.value = false;
@@ -97,7 +96,7 @@ export const useDmStore = defineStore('dm', () => {
         } catch (error: any) {
             addToast({
                 type: 'danger',
-                message: 'Failed to load messages'
+                message: i18n.global.t('dm.toasts.loadMessagesFailed')
             });
             return [];
         } finally {
@@ -128,22 +127,22 @@ export const useDmStore = defineStore('dm', () => {
             if (errorCode === 'DM_DISABLED') {
                 addToast({
                     type: 'warning',
-                    message: 'This user does not accept direct messages.'
+                    message: i18n.global.t('dm.toasts.disabled')
                 });
             } else if (errorCode === 'DM_NOT_FRIENDS') {
                 addToast({
                     type: 'warning',
-                    message: 'You can only send messages to friends. Please add them back as a friend first.'
+                    message: i18n.global.t('dm.toasts.notFriends')
                 });
             } else if (errorCode === 'DM_BLOCKED') {
                 addToast({
                     type: 'warning',
-                    message: 'Cannot send message to blocked user.'
+                    message: i18n.global.t('dm.toasts.blocked')
                 });
             } else {
                 addToast({
                     type: 'danger',
-                    message: errorMessage || 'Failed to send message'
+                    message: errorMessage || i18n.global.t('dm.toasts.sendFailed')
                 });
             }
             throw error;
@@ -157,7 +156,7 @@ export const useDmStore = defineStore('dm', () => {
         } catch (error: any) {
             addToast({
                 type: 'danger',
-                message: 'Failed to update message'
+                message: i18n.global.t('dm.toasts.editFailed')
             });
             throw error;
         }
@@ -170,7 +169,7 @@ export const useDmStore = defineStore('dm', () => {
         } catch (error: any) {
             addToast({
                 type: 'danger',
-                message: 'Failed to delete message'
+                message: i18n.global.t('dm.toasts.deleteFailed')
             });
             throw error;
         }
@@ -286,7 +285,7 @@ export const useDmStore = defineStore('dm', () => {
         } else {
             // Find the sender's username
             const senderUsername = message.senderId === authStore.user?.id 
-                ? authStore.user?.username || 'Unknown'
+                ? (authStore.user?.username || i18n.global.t('user.unknownName'))
                 : message.sender.username;
 
             conversations.value.push({

@@ -1,7 +1,12 @@
 /**
  * Utility function to generate appropriate previews for message content in sidebars and lists
  */
+import { i18n } from '@/i18n';
+
 export const getMessagePreview = (content: string): string => {
+  const t = (key: string) => {
+    return i18n.global.t(key) as unknown as string;
+  };
   if (!content || !content.trim()) {
     return '';
   }
@@ -10,27 +15,27 @@ export const getMessagePreview = (content: string): string => {
   if (content.match(/^https?:\/\/.*\.(gif)(\?.*)?$/i) || 
       content.includes('tenor.com') || 
       content.includes('giphy.com')) {
-    return '🎬 GIF';
+    return t('chat.preview.gif');
   }
 
   // Check for image URLs
   if (content.match(/^https?:\/\/.*\.(png|jpg|jpeg|webp|svg)(\?.*)?$/i)) {
-    return '📷 Photo';
+    return t('chat.preview.image');
   }
 
   // Check for video URLs
   if (content.match(/^https?:\/\/.*\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i)) {
-    return '🎥 Video';
+    return t('chat.preview.video');
   }
 
   // Check for audio URLs
   if (content.match(/^https?:\/\/.*\.(mp3|wav|ogg|aac|flac|m4a)(\?.*)?$/i)) {
-    return '🎵 Audio';
+    return t('chat.preview.audio');
   }
 
   // Check for generic file URLs or if content looks like a file attachment
   if (content.match(/^https?:\/\/.*\/.*\.[a-zA-Z0-9]+(\?.*)?$/i)) {
-    return '📎 Attachment';
+    return t('chat.preview.attachment');
   }
 
   // Check for markdown image syntax: ![alt](url)
@@ -45,27 +50,27 @@ export const getMessagePreview = (content: string): string => {
     
     // Check what type of file the link points to
     if (url.match(/\.(gif)(\?.*)?$/i) || url.includes('tenor.com') || url.includes('giphy.com')) {
-      return '🎬 GIF';
+      return t('chat.preview.gif');
     }
     if (url.match(/\.(png|jpg|jpeg|webp|svg)(\?.*)?$/i)) {
-      return '📷 Photo';
+      return t('chat.preview.image');
     }
     if (url.match(/\.(mp4|webm|mov|avi|mkv)(\?.*)?$/i)) {
-      return '🎥 Video';
+      return t('chat.preview.video');
     }
     if (url.match(/\.(mp3|wav|ogg|aac|flac|m4a)(\?.*)?$/i)) {
-      return '🎵 Audio';
+      return t('chat.preview.audio');
     }
     if (url.match(/\.[a-zA-Z0-9]+(\?.*)?$/)) {
-      return '📎 Attachment';
+      return t('chat.preview.attachment');
     }
     
-    return '🔗 Link';
+    return t('chat.preview.link');
   }
 
   // Check for plain URLs
   if (content.match(/^https?:\/\/\S+$/)) {
-    return '🔗 Link';
+    return t('chat.preview.link');
   }
 
   // For regular text messages, truncate and return as-is

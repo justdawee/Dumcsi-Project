@@ -1,5 +1,6 @@
 // Utilities to produce short, human-friendly previews for message content
 // especially when content is just a media/link or consists of attachments.
+import { i18n } from '@/i18n';
 
 export type BasicAttachment = { contentType: string | null; fileUrl?: string; fileName?: string };
 
@@ -25,13 +26,13 @@ function classifyByUrl(url: string): 'gif' | 'image' | 'video' | 'audio' | 'atta
 }
 
 function titleForKind(kind: 'gif' | 'image' | 'video' | 'audio' | 'attachment'): string {
-  switch (kind) {
-    case 'gif': return 'Sent a GIF';
-    case 'image': return 'Sent an image';
-    case 'video': return 'Sent a video';
-    case 'audio': return 'Sent an audio';
-    default: return 'Sent an attachment';
-  }
+  const key =
+    kind === 'gif' ? 'chat.summary.gif'
+    : kind === 'image' ? 'chat.summary.image'
+    : kind === 'video' ? 'chat.summary.video'
+    : kind === 'audio' ? 'chat.summary.audio'
+    : 'chat.summary.attachment';
+  return i18n.global.t(key) as unknown as string;
 }
 
 export function summarizeMessagePreview(content: string, attachments?: BasicAttachment[] | null, maxLen = 140): string {
@@ -59,4 +60,3 @@ export function summarizeMessagePreview(content: string, attachments?: BasicAtta
   if (!trimmed) return '';
   return trimmed.length > maxLen ? trimmed.slice(0, maxLen) + '…' : trimmed;
 }
-

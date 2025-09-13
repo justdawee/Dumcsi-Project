@@ -2,6 +2,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAppStore } from '@/stores/app';
 import type { KeyBinding, KeyBindCategory, ParsedKey, KeyModifier } from '@/types/keybinds';
+import { useI18n } from 'vue-i18n';
 
 const isRecording = ref(false);
 const recordingCallback = ref<((key: string) => void) | null>(null);
@@ -93,6 +94,7 @@ export function useKeyBinds() {
   const router = useRouter();
   const route = useRoute();
   const appStore = useAppStore();
+  const { t } = useI18n();
 
   // Determine current scope based on route
   const getCurrentScope = (): string => {
@@ -129,22 +131,22 @@ export function useKeyBinds() {
     return [
       {
         id: 'general',
-        name: 'General Navigation',
+        name: t('shortcuts.categories.general'),
         keybinds: [
           {
             id: 'open-settings',
-            name: 'Open User Settings',
+            name: t('shortcuts.bindings.open-settings.name'),
             category: 'general',
-            description: 'Open the user settings panel',
+            description: t('shortcuts.bindings.open-settings.description'),
             defaultKey: { windows: 'Ctrl+,', mac: '⌘+,' },
             currentKey: storedBinds['open-settings'],
             action: () => router.push({ name: 'Settings' })
           },
           {
             id: 'open-shortcuts',
-            name: 'Open Keyboard Shortcuts',
+            name: t('shortcuts.bindings.open-shortcuts.name'),
             category: 'general',
-            description: 'View all keyboard shortcuts',
+            description: t('shortcuts.bindings.open-shortcuts.description'),
             defaultKey: { windows: 'Ctrl+/', mac: '⌘+/' },
             currentKey: storedBinds['open-shortcuts'],
             action: () => {
@@ -154,9 +156,9 @@ export function useKeyBinds() {
           },
           {
             id: 'create-server',
-            name: 'Create or Join Server',
+            name: t('shortcuts.bindings.create-server.name'),
             category: 'general',
-            description: 'Open create/join server dialog',
+            description: t('shortcuts.bindings.create-server.description'),
             defaultKey: { windows: 'Ctrl+Shift+N', mac: '⌘+Shift+N' },
             currentKey: storedBinds['create-server'],
             action: () => {
@@ -165,9 +167,9 @@ export function useKeyBinds() {
           },
           {
             id: 'navigate-back',
-            name: 'Navigate Back',
+            name: t('shortcuts.bindings.navigate-back.name'),
             category: 'general',
-            description: 'Go back to previous page',
+            description: t('shortcuts.bindings.navigate-back.description'),
             defaultKey: { windows: 'Alt+ArrowLeft', mac: 'Alt+ArrowLeft' },
             currentKey: storedBinds['navigate-back'],
             action: () => router.back()
@@ -176,13 +178,13 @@ export function useKeyBinds() {
       },
       {
         id: 'main-functions',
-        name: 'Main Functions',
+        name: t('shortcuts.categories.main-functions'),
         keybinds: [
           {
             id: 'search-channel',
-            name: 'Search in Channel',
+            name: t('shortcuts.bindings.search-channel.name'),
             category: 'main-functions',
-            description: 'Search within the current channel',
+            description: t('shortcuts.bindings.search-channel.description'),
             scope: 'channel',
             defaultKey: { windows: 'Ctrl+F', mac: '⌘+F' },
             currentKey: storedBinds['search-channel'],
@@ -196,9 +198,9 @@ export function useKeyBinds() {
           },
           {
             id: 'search-all',
-            name: 'Search All Channels',
+            name: t('shortcuts.bindings.search-all.name'),
             category: 'main-functions',
-            description: 'Search across all channels',
+            description: t('shortcuts.bindings.search-all.description'),
             defaultKey: { windows: 'Ctrl+Shift+F', mac: '⌘+Shift+F' },
             currentKey: storedBinds['search-all'],
             action: () => {
@@ -207,9 +209,9 @@ export function useKeyBinds() {
           },
           {
             id: 'emoji-picker',
-            name: 'Open Emoji Picker',
+            name: t('shortcuts.bindings.emoji-picker.name'),
             category: 'main-functions',
-            description: 'Open the emoji picker',
+            description: t('shortcuts.bindings.emoji-picker.description'),
             defaultKey: { windows: 'Ctrl+E', mac: '⌘+E' },
             currentKey: storedBinds['emoji-picker'],
             action: () => {
@@ -218,9 +220,9 @@ export function useKeyBinds() {
           },
           {
             id: 'gif-picker',
-            name: 'Open GIF Picker',
+            name: t('shortcuts.bindings.gif-picker.name'),
             category: 'main-functions',
-            description: 'Open the GIF picker',
+            description: t('shortcuts.bindings.gif-picker.description'),
             scope: 'channel',
             defaultKey: { windows: 'Ctrl+G', mac: '⌘+G' },
             currentKey: storedBinds['gif-picker'],
@@ -234,13 +236,13 @@ export function useKeyBinds() {
       },
       {
         id: 'message-navigation',
-        name: 'Message Navigation',
+        name: t('shortcuts.categories.message-navigation'),
         keybinds: [
           {
             id: 'browse-history',
-            name: 'Browse Channel History',
+            name: t('shortcuts.bindings.browse-history.name'),
             category: 'message-navigation',
-            description: 'Navigate through channel message history',
+            description: t('shortcuts.bindings.browse-history.description'),
             defaultKey: { windows: 'Ctrl+ArrowUp/ArrowDown', mac: '⌘+ArrowUp/ArrowDown' },
             currentKey: storedBinds['browse-history'],
             action: () => {
@@ -249,9 +251,9 @@ export function useKeyBinds() {
           },
           {
             id: 'edit-last-message',
-            name: 'Edit Last Message',
+            name: t('shortcuts.bindings.edit-last-message.name'),
             category: 'message-navigation',
-            description: 'Edit your most recent message',
+            description: t('shortcuts.bindings.edit-last-message.description'),
             scope: 'channel',
             defaultKey: { windows: 'ArrowUp', mac: 'ArrowUp' },
             currentKey: storedBinds['edit-last-message'],
@@ -263,9 +265,9 @@ export function useKeyBinds() {
           },
           {
             id: 'cancel-message',
-            name: 'Cancel Message',
+            name: t('shortcuts.bindings.cancel-message.name'),
             category: 'message-navigation',
-            description: 'Cancel current message or mark channel as read',
+            description: t('shortcuts.bindings.cancel-message.description'),
             defaultKey: { windows: 'Escape', mac: 'Escape' },
             currentKey: storedBinds['cancel-message'],
             action: () => {
@@ -274,9 +276,9 @@ export function useKeyBinds() {
           },
           {
             id: 'move-channels',
-            name: 'Move Between Channels',
+            name: t('shortcuts.bindings.move-channels.name'),
             category: 'message-navigation',
-            description: 'Navigate between channels',
+            description: t('shortcuts.bindings.move-channels.description'),
             defaultKey: { windows: 'Alt+ArrowUp/ArrowDown', mac: '⌥+ArrowUp/ArrowDown' },
             currentKey: storedBinds['move-channels'],
             action: () => {
@@ -287,13 +289,13 @@ export function useKeyBinds() {
       },
       {
         id: 'server-channel',
-        name: 'Server & Channel Navigation',
+        name: t('shortcuts.categories.server-channel'),
         keybinds: [
           {
             id: 'quick-switcher',
-            name: 'Quick Switcher',
+            name: t('shortcuts.bindings.quick-switcher.name'),
             category: 'server-channel',
-            description: 'Quick switcher for channels/DMs',
+            description: t('shortcuts.bindings.quick-switcher.description'),
             defaultKey: { windows: 'Ctrl+K', mac: '⌘+K' },
             currentKey: storedBinds['quick-switcher'],
             action: () => {
@@ -302,9 +304,9 @@ export function useKeyBinds() {
           },
           {
             id: 'toggle-mute',
-            name: 'Toggle Microphone',
+            name: t('shortcuts.bindings.toggle-mute.name'),
             category: 'server-channel',
-            description: 'Mute/unmute microphone',
+            description: t('shortcuts.bindings.toggle-mute.description'),
             defaultKey: { windows: 'Ctrl+Shift+M', mac: '⌘+Shift+M' },
             currentKey: storedBinds['toggle-mute'],
             action: () => {
@@ -317,9 +319,9 @@ export function useKeyBinds() {
           },
           {
             id: 'toggle-deafen',
-            name: 'Toggle Deafen',
+            name: t('shortcuts.bindings.toggle-deafen.name'),
             category: 'server-channel',
-            description: 'Deafen/undeafen audio',
+            description: t('shortcuts.bindings.toggle-deafen.description'),
             defaultKey: { windows: 'Ctrl+Shift+D', mac: '⌘+Shift+D' },
             currentKey: storedBinds['toggle-deafen'],
             action: () => {
@@ -332,9 +334,9 @@ export function useKeyBinds() {
           },
           {
             id: 'switch-servers',
-            name: 'Switch Between Servers',
+            name: t('shortcuts.bindings.switch-servers.name'),
             category: 'server-channel',
-            description: 'Navigate between servers',
+            description: t('shortcuts.bindings.switch-servers.description'),
             defaultKey: { windows: 'Ctrl+Alt+ArrowLeft/ArrowRight', mac: '⌘+⌥+ArrowUp/ArrowDown' },
             currentKey: storedBinds['switch-servers'],
             action: () => {
@@ -345,13 +347,13 @@ export function useKeyBinds() {
       },
       {
         id: 'accessibility',
-        name: 'Accessibility Navigation',
+        name: t('shortcuts.categories.accessibility'),
         keybinds: [
           {
             id: 'toggle-pins',
-            name: 'Toggle Pins',
+            name: t('shortcuts.bindings.toggle-pins.name'),
             category: 'accessibility',
-            description: 'Toggle pins popout',
+            description: t('shortcuts.bindings.toggle-pins.description'),
             defaultKey: { windows: 'Ctrl+P', mac: '⌘+P' },
             currentKey: storedBinds['toggle-pins'],
             action: () => {
@@ -360,9 +362,9 @@ export function useKeyBinds() {
           },
           {
             id: 'toggle-mentions',
-            name: 'Toggle Mentions',
+            name: t('shortcuts.bindings.toggle-mentions.name'),
             category: 'accessibility',
-            description: 'Toggle mentions popout',
+            description: t('shortcuts.bindings.toggle-mentions.description'),
             defaultKey: { windows: 'Ctrl+Alt+@', mac: '⌘+⌥+@' },
             currentKey: storedBinds['toggle-mentions'],
             action: () => {
@@ -371,9 +373,9 @@ export function useKeyBinds() {
           },
           {
             id: 'toggle-member-list',
-            name: 'Toggle Member List',
+            name: t('shortcuts.bindings.toggle-member-list.name'),
             category: 'accessibility',
-            description: 'Toggle channel member list',
+            description: t('shortcuts.bindings.toggle-member-list.description'),
             scope: 'channel',
             defaultKey: { windows: 'Ctrl+U', mac: '⌘+U' },
             currentKey: storedBinds['toggle-member-list'],
@@ -385,9 +387,9 @@ export function useKeyBinds() {
           },
           {
             id: 'upload-file',
-            name: 'Upload File',
+            name: t('shortcuts.bindings.upload-file.name'),
             category: 'accessibility',
-            description: 'Upload a file',
+            description: t('shortcuts.bindings.upload-file.description'),
             scope: 'channel',
             defaultKey: { windows: 'Ctrl+Shift+U', mac: '⌘+⇧+U' },
             currentKey: storedBinds['upload-file'],
@@ -399,9 +401,9 @@ export function useKeyBinds() {
           },
           {
             id: 'get-help',
-            name: 'Get Help',
+            name: t('shortcuts.bindings.get-help.name'),
             category: 'accessibility',
-            description: 'Open help documentation',
+            description: t('shortcuts.bindings.get-help.description'),
             defaultKey: { windows: 'Ctrl+Shift+H', mac: '⌘+⇧+H' },
             currentKey: storedBinds['get-help'],
             action: () => {
@@ -412,13 +414,13 @@ export function useKeyBinds() {
       },
       {
         id: 'text-formatting',
-        name: 'Text Formatting',
+        name: t('shortcuts.categories.text-formatting'),
         keybinds: [
           {
             id: 'bold-text',
-            name: 'Bold Text',
+            name: t('shortcuts.bindings.bold-text.name'),
             category: 'text-formatting',
-            description: 'Make selected text bold',
+            description: t('shortcuts.bindings.bold-text.description'),
             defaultKey: { windows: 'Ctrl+B', mac: '⌘+B' },
             currentKey: storedBinds['bold-text'],
             action: () => {
@@ -427,9 +429,9 @@ export function useKeyBinds() {
           },
           {
             id: 'italic-text',
-            name: 'Italic Text',
+            name: t('shortcuts.bindings.italic-text.name'),
             category: 'text-formatting',
-            description: 'Make selected text italic',
+            description: t('shortcuts.bindings.italic-text.description'),
             defaultKey: { windows: 'Ctrl+I', mac: '⌘+I' },
             currentKey: storedBinds['italic-text'],
             action: () => {
@@ -438,9 +440,9 @@ export function useKeyBinds() {
           },
           {
             id: 'underline-text',
-            name: 'Underline Text',
+            name: t('shortcuts.bindings.underline-text.name'),
             category: 'text-formatting',
-            description: 'Underline selected text',
+            description: t('shortcuts.bindings.underline-text.description'),
             defaultKey: { windows: 'Ctrl+U', mac: '⌘+U' },
             currentKey: storedBinds['underline-text'],
             action: () => {

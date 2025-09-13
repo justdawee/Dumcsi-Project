@@ -3,6 +3,7 @@ import {useAppStore} from '@/stores/app';
 import {signalRService} from '@/services/signalrService';
 import {useUserDisplay} from './useUserDisplay';
 import type {EntityId} from '@/services/types';
+import { useI18n } from 'vue-i18n';
 
 export function useTypingIndicator(channelId: Ref<EntityId>) {
     // --- State & Refs ---
@@ -21,12 +22,14 @@ export function useTypingIndicator(channelId: Ref<EntityId>) {
             .filter(Boolean); // Filter out any potential undefined users
     });
 
+    const { t } = useI18n();
+
     const typingIndicatorText = computed(() => {
         const users = typingUsers.value;
         if (users.length === 0) return '';
-        if (users.length === 1) return `${getDisplayName(users[0])} is typing...`;
-        if (users.length === 2) return `${getDisplayName(users[0])} and ${getDisplayName(users[1])} are typing...`;
-        return `${getDisplayName(users[0])} and ${users.length - 1} others are typing...`;
+        if (users.length === 1) return t('chat.typing.one', { name: getDisplayName(users[0]) });
+        if (users.length === 2) return t('chat.typing.two', { name1: getDisplayName(users[0]), name2: getDisplayName(users[1]) });
+        return t('chat.typing.many', { name: getDisplayName(users[0]), count: users.length - 1 });
     });
 
     // --- Methods ---

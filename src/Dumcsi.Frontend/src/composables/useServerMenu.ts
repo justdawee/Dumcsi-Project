@@ -6,6 +6,7 @@ import {useToast} from '@/composables/useToast';
 import {UserPlus, PlusCircle, Edit, LogOut, Shield, Plus, UserRoundCog} from 'lucide-vue-next';
 import serverService from '@/services/serverService';
 import type {ServerListItem} from '@/services/types';
+import { useI18n } from 'vue-i18n';
 
 export interface MenuItem {
     label: string;
@@ -19,6 +20,7 @@ export function useServerMenu() {
     const appStore = useAppStore();
     const {permissions} = usePermissions();
     const {addToast} = useToast();
+    const { t } = useI18n();
 
     // Modal states
     const isInviteModalOpen = ref(false);
@@ -48,7 +50,7 @@ export function useServerMenu() {
             isInviteModalOpen.value = true;
         } catch (error) {
             addToast({
-                message: 'Failed to generate invite code.',
+                message: t('server.invite.errors.generateFailed'),
                 type: 'danger'
             });
         }
@@ -94,12 +96,12 @@ export function useServerMenu() {
             await serverService.createTopic(selectedServer.value.id, {name: newTopicName.value.trim()});
             await appStore.fetchServer(selectedServer.value.id);
             addToast({
-                message: 'Topic created successfully!',
+                message: t('topics.toastCreated'),
                 type: 'success'
             });
         } catch (error: any) {
             addToast({
-                message: error.message || 'Failed to create topic',
+                message: error.message || t('channels.errors.topicCreateFailed'),
                 type: 'danger'
             });
         } finally {
@@ -117,9 +119,9 @@ export function useServerMenu() {
         try {
             await appStore.leaveServer(serverToLeave.id);
             addToast({
-                message: `You have successfully left ${serverToLeave.name}.`,
+                message: t('server.leave.toast.left', { name: serverToLeave.name }),
                 type: 'success',
-                title: 'Server Left'
+                title: t('common.success')
             });
             if (currentServerId.value === serverToLeave.id) {
                 router.push({name: 'ServerSelect'});
@@ -127,9 +129,9 @@ export function useServerMenu() {
             appStore.fetchServers();
         } catch (error: any) {
             addToast({
-                message: 'Server owner cannot leave the server.',
+                message: t('server.leave.toast.ownerCannotLeave'),
                 type: 'danger',
-                title: 'Leave Failed'
+                title: t('common.error')
             });
         } finally {
             isLeaving.value = false;
@@ -148,25 +150,25 @@ export function useServerMenu() {
         const canManageRoles = isCurrentServer ? permissions.manageRoles.value : server.isOwner;
 
         if (canInvite) {
-            menuItems.push({label: 'Invite People', icon: UserPlus, action: () => handleInvite(server)});
-            menuItems.push({label: 'Manage Invites', icon: UserRoundCog, action: () => handleManageInvites(server)});
+            menuItems.push({label: t('server.menuItems.invitePeople'), icon: UserPlus, action: () => handleInvite(server)});
+            menuItems.push({label: t('server.menuItems.manageInvites'), icon: UserRoundCog, action: () => handleManageInvites(server)});
         }
         if (canManageChannels) {
-            menuItems.push({label: 'Create Channel', icon: PlusCircle, action: () => handleCreateChannel(server)});
-            menuItems.push({label: 'Create Topic', icon: Plus, action: () => handleCreateTopic(server)});
+            menuItems.push({label: t('channels.modal.createTitle'), icon: PlusCircle, action: () => handleCreateChannel(server)});
+            menuItems.push({label: t('topics.createTitle'), icon: Plus, action: () => handleCreateTopic(server)});
         }
         if (canManageServer) {
-            menuItems.push({label: 'Modify Server', icon: Edit, action: () => handleEditServer(server)});
+            menuItems.push({label: t('server.settings.title'), icon: Edit, action: () => handleEditServer(server)});
         }
         if (canManageRoles) {
-            menuItems.push({label: 'Manage Roles', icon: Shield, action: () => handleManageRoles(server)});
+            menuItems.push({label: t('roles.manage.title'), icon: Shield, action: () => handleManageRoles(server)});
         }
         // Separator
         // menuItems.push({ label: '', icon: Bell as any, action: () => {}, } as any);
 
         if (!server.isOwner) {
             menuItems.push({
-                label: 'Leave Server',
+                label: t('server.menuItems.leaveServer'),
                 icon: LogOut,
                 danger: true,
                 action: () => handleLeaveServer(server)

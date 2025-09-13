@@ -1,4 +1,5 @@
 import type {ISODateString} from '@/services/types';
+import { i18n } from '@/i18n';
 
 /**
  * Formats a date string or object into a user-friendly, relative format.
@@ -17,14 +18,24 @@ export const formatDate = (dateInput: ISODateString | Date): string => {
     const diffTime = startOfToday.getTime() - startOfDate.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
+    // Resolve current locale from vue-i18n
+    const currentLocale = (() => {
+        try {
+            const l: any = (i18n.global as any).locale;
+            return typeof l === 'string' ? l : l?.value || 'en-US';
+        } catch { return 'en-US'; }
+    })();
+
     if (diffDays === 0) {
-        return 'Today';
+        // Today
+        return i18n.global.t('dates.today') as unknown as string;
     }
     if (diffDays === 1) {
-        return 'Yesterday';
+        // Yesterday
+        return i18n.global.t('dates.yesterday') as unknown as string;
     }
     if (diffDays > 1 && diffDays < 7) {
-        return date.toLocaleDateString('en-US', {weekday: 'long'});
+        return date.toLocaleDateString(currentLocale, {weekday: 'long'});
     }
 
     // Pre-calculate options for toLocaleDateString
@@ -37,7 +48,7 @@ export const formatDate = (dateInput: ISODateString | Date): string => {
         options.year = 'numeric';
     }
 
-    return date.toLocaleDateString('en-US', options);
+    return date.toLocaleDateString(currentLocale, options);
 };
 
 /**
@@ -47,10 +58,16 @@ export const formatDate = (dateInput: ISODateString | Date): string => {
  */
 export const formatTime = (dateInput: ISODateString | Date): string => {
     const date = new Date(dateInput);
-    return date.toLocaleTimeString('en-US', {
+    const currentLocale = (() => {
+        try {
+            const l: any = (i18n.global as any).locale;
+            return typeof l === 'string' ? l : l?.value || 'en-US';
+        } catch { return 'en-US'; }
+    })();
+    return date.toLocaleTimeString(currentLocale, {
         hour: 'numeric',
         minute: '2-digit',
-        hour12: true,
+        // Let locale decide 12/24h
     });
 };
 

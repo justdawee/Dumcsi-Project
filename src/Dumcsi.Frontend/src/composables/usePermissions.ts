@@ -1,6 +1,7 @@
 ﻿import {computed, type ComputedRef} from 'vue';
 import { useAppStore } from '@/stores/app';
 import { Permission, type ServerDetails, type EntityId, type Role, type ServerListItem } from '@/services/types';
+import { useI18n } from 'vue-i18n';
 
 export interface PermissionCheckResult {
     hasPermission: boolean;
@@ -12,6 +13,7 @@ let permissionDetailsInstance: Record<number, { name: string; description: strin
 
 export function usePermissions() {
     const appStore = useAppStore();
+    const { t } = useI18n();
 
     const hasPermission = (permission: Permission, serverId?: EntityId): boolean => {
         const server: ServerDetails | ServerListItem | null = serverId
@@ -112,30 +114,30 @@ export function usePermissions() {
 
     if (!permissionDetailsInstance) {
         permissionDetailsInstance = {
-            [Permission.None]: { name: 'None', description: 'Nothing' },
-            [Permission.ViewChannels]: { name: 'View Channels', description: 'Allows members to view and connect to channels' },
-            [Permission.ManageChannels]: { name: 'Manage Channels', description: 'Allows members to send messages in text channels' },
-            [Permission.ManageRoles]: { name: 'Manage Roles', description: 'Allows members to create, edit, and delete roles' },
-            [Permission.ManageEmojis]: { name: 'Manage Emojis', description: 'Allows members to manage custom emojis' },
-            [Permission.ViewAuditLog]: { name: 'View Audit Log', description: 'Allows members to view the server audit log' },
-            [Permission.ManageServer]: { name: 'Manage Server', description: 'Allows members to manage server settings' },
-            [Permission.CreateInvite]: { name: 'Create Invite', description: 'Allows members to create invites for the server' },
-            [Permission.KickMembers]: { name: 'Kick Members', description: 'Allows members to kick other members from the server' },
-            [Permission.BanMembers]: { name: 'Ban Members', description: 'Allows members to ban other members from the server' },
-            [Permission.SendMessages]: { name: 'Send Messages', description: 'Allows members to send messages in text channels' },
-            [Permission.EmbedLinks]: { name: 'Embed Links', description: 'Allows members to embed links in messages' },
-            [Permission.AttachFiles]: { name: 'Attach Files', description: 'Allows members to attach files in messages' },
-            [Permission.AddReactions]: { name: 'Add Reactions', description: 'Allows members to add reactions to messages' },
-            [Permission.UseExternalEmojis]: { name: 'Use External Emojis', description: 'Allows members to use external emojis in messages' },
-            [Permission.MentionEveryone]: { name: 'Mention @everyone', description: 'Allows members to mention @everyone in messages' },
-            [Permission.ManageMessages]: { name: 'Manage Messages', description: 'Allows members to manage messages in text channels' },
-            [Permission.ReadMessageHistory]: { name: 'Read Message History', description: 'Allows members to read message history in channels' },
-            [Permission.Connect]: { name: 'Connect to Voice', description: 'Allows members to connect to voice channels' },
-            [Permission.Speak]: { name: 'Speak in Voice', description: 'Allows members to speak in voice channels' },
-            [Permission.MuteMembers]: { name: 'Mute Members', description: 'Allows members to mute other members in voice channels' },
-            [Permission.DeafenMembers]: { name: 'Deafen Members', description: 'Allows members to deafen other members in voice channels' },
-            [Permission.MoveMembers]: { name: 'Move Members', description: 'Allows members to move other members between voice channels' },
-            [Permission.Administrator]: { name: 'Administrator', description: 'Grants all permissions and overrides all channel permissions' },
+            [Permission.None]: { name: t('roles.permissions.None.name'), description: t('roles.permissions.None.description') },
+            [Permission.ViewChannels]: { name: t('roles.permissions.ViewChannels.name'), description: t('roles.permissions.ViewChannels.description') },
+            [Permission.ManageChannels]: { name: t('roles.permissions.ManageChannels.name'), description: t('roles.permissions.ManageChannels.description') },
+            [Permission.ManageRoles]: { name: t('roles.permissions.ManageRoles.name'), description: t('roles.permissions.ManageRoles.description') },
+            [Permission.ManageEmojis]: { name: t('roles.permissions.ManageEmojis.name'), description: t('roles.permissions.ManageEmojis.description') },
+            [Permission.ViewAuditLog]: { name: t('roles.permissions.ViewAuditLog.name'), description: t('roles.permissions.ViewAuditLog.description') },
+            [Permission.ManageServer]: { name: t('roles.permissions.ManageServer.name'), description: t('roles.permissions.ManageServer.description') },
+            [Permission.CreateInvite]: { name: t('roles.permissions.CreateInvite.name'), description: t('roles.permissions.CreateInvite.description') },
+            [Permission.KickMembers]: { name: t('roles.permissions.KickMembers.name'), description: t('roles.permissions.KickMembers.description') },
+            [Permission.BanMembers]: { name: t('roles.permissions.BanMembers.name'), description: t('roles.permissions.BanMembers.description') },
+            [Permission.SendMessages]: { name: t('roles.permissions.SendMessages.name'), description: t('roles.permissions.SendMessages.description') },
+            [Permission.EmbedLinks]: { name: t('roles.permissions.EmbedLinks.name'), description: t('roles.permissions.EmbedLinks.description') },
+            [Permission.AttachFiles]: { name: t('roles.permissions.AttachFiles.name'), description: t('roles.permissions.AttachFiles.description') },
+            [Permission.AddReactions]: { name: t('roles.permissions.AddReactions.name'), description: t('roles.permissions.AddReactions.description') },
+            [Permission.UseExternalEmojis]: { name: t('roles.permissions.UseExternalEmojis.name'), description: t('roles.permissions.UseExternalEmojis.description') },
+            [Permission.MentionEveryone]: { name: t('roles.permissions.MentionEveryone.name'), description: t('roles.permissions.MentionEveryone.description') },
+            [Permission.ManageMessages]: { name: t('roles.permissions.ManageMessages.name'), description: t('roles.permissions.ManageMessages.description') },
+            [Permission.ReadMessageHistory]: { name: t('roles.permissions.ReadMessageHistory.name'), description: t('roles.permissions.ReadMessageHistory.description') },
+            [Permission.Connect]: { name: t('roles.permissions.Connect.name'), description: t('roles.permissions.Connect.description') },
+            [Permission.Speak]: { name: t('roles.permissions.Speak.name'), description: t('roles.permissions.Speak.description') },
+            [Permission.MuteMembers]: { name: t('roles.permissions.MuteMembers.name'), description: t('roles.permissions.MuteMembers.description') },
+            [Permission.DeafenMembers]: { name: t('roles.permissions.DeafenMembers.name'), description: t('roles.permissions.DeafenMembers.description') },
+            [Permission.MoveMembers]: { name: t('roles.permissions.MoveMembers.name'), description: t('roles.permissions.MoveMembers.description') },
+            [Permission.Administrator]: { name: t('roles.permissions.Administrator.name'), description: t('roles.permissions.Administrator.description') },
         };
     }
 

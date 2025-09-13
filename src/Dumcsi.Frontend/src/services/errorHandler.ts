@@ -1,4 +1,4 @@
-import {errorMessages} from '@/locales/en';
+import { i18n } from '@/i18n';
 import type {AxiosError} from 'axios';
 import type {ApiResponse} from './api';
 
@@ -24,6 +24,22 @@ type ApiErrorResponseData = ApiResponse<any> | {
  * @returns A user-friendly string.
  */
 export function getDisplayMessage(error: any): string {
+    const tr: any = i18n.global;
+    const codeKey = (code: string) => `errors.codes.${code}`;
+    const tCode = (code: string): string | null => {
+        try {
+            if (tr.te(codeKey(code))) {
+                return tr.t(codeKey(code)) as unknown as string;
+            }
+        } catch {}
+        return null;
+    };
+    const tUnknown = () => {
+        try { return tr.t('errors.unknown') as unknown as string; } catch { return 'An unknown error occurred.'; }
+    };
+    const tNetwork = () => {
+        return tCode('NETWORK_ERROR') || (tr.t ? tr.t('errors.network') : 'Network error occurred');
+    };
     // Handle string errors (thrown from services)
     if (typeof error === 'string') {
         return error;
@@ -33,9 +49,9 @@ export function getDisplayMessage(error: any): string {
     if (error instanceof Error && !('response' in error)) {
         // Check for network errors
         if (error.message && error.message.includes('Network Error')) {
-            return errorMessages['NETWORK_ERROR'];
+            return tNetwork();
         }
-        return error.message || errorMessages['UNKNOWN_ERROR'];
+        return error.message || tUnknown();
     }
 
     // Handle Axios errors with response
@@ -48,16 +64,17 @@ export function getDisplayMessage(error: any): string {
         // Check if it's an ApiResponse with error property
         if ('error' in responseData && responseData.error) {
             const errorCode = responseData.error.code;
-            if (errorCode && errorMessages[errorCode]) {
-                return errorMessages[errorCode];
+            if (errorCode) {
+                const translated = tCode(errorCode);
+                if (translated) return translated;
             }
             // Return the backend error message if no translation found
-            return responseData.error.message || errorMessages['UNKNOWN_ERROR'];
+            return responseData.error.message || tUnknown();
         }
 
         // Check if it's an ApiResponse with just a message (shouldn't happen for errors, but just in case)
         if ('isSuccess' in responseData && !responseData.isSuccess && 'message' in responseData) {
-            return responseData.message || errorMessages['UNKNOWN_ERROR'];
+            return responseData.message || tUnknown();
         }
     }
 
@@ -65,30 +82,30 @@ export function getDisplayMessage(error: any): string {
     if (axiosError.response?.status) {
         switch (axiosError.response.status) {
             case 401:
-                return errorMessages['AUTH_INVALID_CREDENTIALS'];
+                return tCode('AUTH_INVALID_CREDENTIALS') || tUnknown();
             case 403:
-                return errorMessages['FORBIDDEN'];
+                return tCode('FORBIDDEN') || tUnknown();
             case 404:
-                return errorMessages['RESOURCE_NOT_FOUND'];
+                return tCode('RESOURCE_NOT_FOUND') || tUnknown();
             case 400:
-                return errorMessages['INVALID_REQUEST'];
+                return tCode('INVALID_REQUEST') || tUnknown();
             case 500:
             case 502:
             case 503:
-                return errorMessages['UNKNOWN_ERROR'];
+                return tUnknown();
         }
     }
 
     // 3. Check for network errors from Axios
     if (axiosError.message && axiosError.message.includes('Network Error')) {
-        return errorMessages['NETWORK_ERROR'];
+        return tNetwork();
     }
 
     // 4. Log unhandled error for debugging
     console.error('Unhandled API Error:', error);
 
     // 5. Return generic error message
-    return errorMessages['UNKNOWN_ERROR'];
+    return tUnknown();
 }
 
 /**

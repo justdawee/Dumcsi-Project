@@ -6,6 +6,7 @@ import type {
     UploadResponse
 } from './types';
 import type {AxiosError, AxiosProgressEvent} from 'axios';
+import { i18n } from '@/i18n';
 
 /**
  * Egyedi hiba osztály a feltöltési hibák kezelésére.
@@ -57,11 +58,11 @@ class UploadService {
      */
     private validateImage(file: File, maxSize: number): void {
         if (!this.isImage(file)) {
-            throw new UploadError('INVALID_FILE_TYPE', 'Only JPEG, PNG, GIF and WebP images are allowed');
+            throw new UploadError('INVALID_FILE_TYPE', i18n.global.t('common.errors.invalidImageType'));
         }
         if (file.size > maxSize) {
             const maxSizeMB = Math.round(maxSize / 1024 / 1024);
-            throw new UploadError('FILE_TOO_LARGE', `File size must be less than ${maxSizeMB}MB`);
+            throw new UploadError('FILE_TOO_LARGE', i18n.global.t('common.errors.fileTooLargeMB', { mb: maxSizeMB }));
         }
     }
 
@@ -71,7 +72,7 @@ class UploadService {
     private throwUploadError(errorResponse: ApiResponse): never {
         throw new UploadError(
             errorResponse.error?.code || 'UNKNOWN_ERROR',
-            errorResponse.error?.message || errorResponse.message || 'Upload failed'
+            errorResponse.error?.message || errorResponse.message || i18n.global.t('common.errors.uploadFailed')
         );
     }
 
@@ -113,7 +114,7 @@ class UploadService {
                 this.throwUploadError(axiosError.response.data);
             }
 
-            throw new UploadError('NETWORK_ERROR', 'Network error occurred');
+            throw new UploadError('NETWORK_ERROR', i18n.global.t('common.errors.network'));
         }
     }
 
@@ -156,7 +157,7 @@ class UploadService {
      */
     async uploadAttachment(channelId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
         if (file.size > this.MAX_ATTACHMENT_SIZE) {
-            throw new UploadError('FILE_TOO_LARGE', 'File size must be less than 50MB');
+            throw new UploadError('FILE_TOO_LARGE', i18n.global.t('common.errors.fileTooLargeMB', { mb: 50 }));
         }
 
         return this.upload<UploadResponse>(`/channels/${channelId}/attachments`, file, undefined, options);
@@ -167,7 +168,7 @@ class UploadService {
      */
     async uploadDmAttachment(userId: EntityId, file: File, options?: UploadOptions): Promise<UploadResponse> {
         if (file.size > this.MAX_ATTACHMENT_SIZE) {
-            throw new UploadError('FILE_TOO_LARGE', 'File size must be less than 50MB');
+            throw new UploadError('FILE_TOO_LARGE', i18n.global.t('common.errors.fileTooLargeMB', { mb: 50 }));
         }
 
         return this.upload<UploadResponse>(`/dm/${userId}/attachments`, file, undefined, options);

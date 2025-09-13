@@ -7,6 +7,7 @@ import { useLocalCameraState } from '@/composables/useLocalCameraState';
 import { livekitService } from '@/services/livekitService';
 import { checkCameraPermission } from '@/utils/permissions';
 import { Track, createLocalVideoTrack } from 'livekit-client';
+import { useI18n } from 'vue-i18n';
 
 export function useWebcamSharing() {
     const appStore = useAppStore();
@@ -14,6 +15,7 @@ export function useWebcamSharing() {
     const { addToast } = useToast();
     const { selectedDeviceId, selectedQuality: selectedCamQuality, ensureDevicesLoaded } = useCameraSettings();
     const { isLocalCameraOn, isTogglingCamera, ensureCameraStateInitialized } = useLocalCameraState();
+    const { t } = useI18n();
 
     const isCameraOn = computed(() => isLocalCameraOn.value);
 
@@ -24,7 +26,7 @@ export function useWebcamSharing() {
         try {
             const localParticipant = livekitService.getLocalParticipant();
             if (!localParticipant) {
-                throw new Error('Not connected to voice channel');
+                throw new Error(t('voice.panel.errors.notConnected'));
             }
 
             const isEnabled = localParticipant.isCameraEnabled;
@@ -44,7 +46,7 @@ export function useWebcamSharing() {
                 if (!permissionResult.granted) {
                     // Show permission error message
                     addToast({
-                        message: permissionResult.error || 'Camera access is required to enable video',
+                        message: permissionResult.error || t('voice.panel.errors.cameraPermissionRequired'),
                         type: 'danger',
                         duration: 5000
                     });
@@ -58,11 +60,11 @@ export function useWebcamSharing() {
                 if (appStore.currentVoiceChannelId) {
                     await livekitService.ensureConnected(appStore.currentVoiceChannelId, identity);
                 } else {
-                    throw new Error('No voice channel');
+                    throw new Error(t('voice.panel.errors.noVoiceChannel'));
                 }
             } catch (e) {
                 addToast({
-                    message: 'Failed to connect to voice channel for camera',
+                    message: t('voice.panel.errors.connectFailedCamera'),
                     type: 'danger'
                 });
                 return;
@@ -84,7 +86,7 @@ export function useWebcamSharing() {
         } catch (error: any) {
             console.error('Webcam sharing error:', error);
             addToast({
-                message: error?.message || 'Failed to toggle camera',
+                message: error?.message || t('voice.panel.errors.toggleCameraFailed'),
                 type: 'danger'
             });
         } finally {
