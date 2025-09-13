@@ -6,23 +6,23 @@
         :style="positionStyle"
         class="fixed z-50"
     >
-      <div class="w-64 bg-gray-800 rounded-lg shadow-lg border border-gray-700 relative overflow-hidden">
+      <div class="w-64 bg-bg-surface rounded-lg shadow-lg border border-border-default text-text-default relative overflow-hidden">
         <div class="h-20 bg-[#765159]"></div>
 
         <div class="absolute top-2 right-2 flex space-x-2">
           <button
               v-if="canManageRoles"
               ref="shieldRef"
-              class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
+              class="p-1 rounded-full border border-border-default bg-bg-surface hover:bg-bg-hover transition-colors"
               @click.stop.prevent="togglePermissions"
           >
-            <Shield class="w-4 h-4 text-white"/>
+            <Shield class="w-4 h-4 text-text-default"/>
           </button>
           <button
-              class="p-1 bg-gray-700 rounded-full hover:bg-gray-600"
+              class="p-1 rounded-full border border-border-default bg-bg-surface hover:bg-bg-hover transition-colors"
               @click="emit('update:modelValue', false)"
           >
-            <X class="w-4 h-4 text-white"/>
+            <X class="w-4 h-4 text-text-default"/>
           </button>
         </div>
 
@@ -32,15 +32,16 @@
               :size="80"
               :user-id="userId"
               :username="user.username"
-              class="rounded-full ring-4 ring-gray-800"
+              class="rounded-full ring-4"
+              :style="{ '--tw-ring-color': 'var(--color-border-default)' }"
               indicator-bg-color="var(--color-main-800)"
               show-online-indicator
           />
           <p class="mt-3 text-lg font-semibold truncate" :style="{ color: displayNameColor }">
             {{ displayName }}
           </p>
-          <p class="text-sm text-gray-400 truncate">{{ user.username }}</p>
-          <p v-if="mutualServersCount" class="text-xs text-gray-400 mt-1">
+          <p class="text-sm text-text-muted truncate">{{ user.username }}</p>
+          <p v-if="mutualServersCount" class="text-xs text-text-muted mt-1">
             {{ t('user.infoCard.mutualServers', { count: mutualServersCount }) }}
           </p>
           <div class="flex items-center space-x-1 mt-2 flex-wrap justify-start">
@@ -55,16 +56,16 @@
                     <X class="w-2 h-2"/>
                   </button>
                 </div>
-                <span class="text-xs text-gray-300">{{ role.name }}</span>
+                <span class="text-xs text-text-secondary">{{ role.name }}</span>
               </div>
             </template>
             <button
                 v-if="canManageRoles"
-                class="p-1 bg-gray-700 rounded-full hover:bg-gray-600 transition-colors"
+                class="p-1 rounded-full border border-border-default bg-bg-surface hover:bg-bg-hover transition-colors"
                 @click.stop="openManageRolesModal"
                 :title="t('user.infoCard.manageRoles')"
             >
-              <Plus class="w-3 h-3 text-white"/>
+              <Plus class="w-3 h-3 text-text-default"/>
             </button>
           </div>
           <button
@@ -79,13 +80,13 @@
             v-show="showPermissions"
             ref="permPopup"
             :style="permPopupStyle"
-            class="fixed bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-2 z-50"
+            class="fixed bg-bg-surface border border-border-default rounded-lg shadow-lg p-2 z-50"
         >
           <div class="flex flex-wrap gap-1 max-w-[14rem]">
               <span
                   v-for="perm in permissionNames"
                   :key="perm"
-                  class="bg-main-700 text-xs rounded px-2 py-1 text-white"
+                  class="bg-main-700 text-xs rounded px-2 py-1 text-text-default"
               >
                 {{ perm }}
               </span>
@@ -160,20 +161,8 @@ const sortedRoles = computed(() => {
     return roles;
 });
 
-// Compute display name color based on highest role
-const displayNameColor = computed(() => {
-    if (props.user.roles.length === 0) {
-        return 'rgb(185 185 185)';
-    }
-    
-    const highestRoleId = props.user.roles[0].id;
-    const serverRoles = appStore.currentServer?.roles || [];
-    const serverRole = serverRoles.find(r => r.id === highestRoleId);
-    const color = serverRole?.color ?? props.user.roles[0].color ?? 'rgb(185 185 185)';
-    
-    
-    return color;
-});
+// Display name should use themed default text color (not role color)
+const displayNameColor = computed(() => 'var(--color-text-default)');
 
 const showPermissions = ref(false);
 const showManageRolesModal = ref(false);

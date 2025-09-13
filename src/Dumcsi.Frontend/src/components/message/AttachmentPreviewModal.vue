@@ -215,6 +215,7 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings';
 import {
   X, Download, ExternalLink, MoreVertical, Copy, Link, Info, File,
   ZoomIn, ZoomOut, Minimize2
@@ -236,6 +237,7 @@ const emit = defineEmits<{
 
 const { addToast } = useToast();
 const { t, locale } = useI18n();
+const { appearance } = useAppearanceSettings();
 
 // State
 const showMoreMenu = ref(false);
@@ -407,7 +409,7 @@ const formatMessageTime = (timestamp: string) => {
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
 
   const currentLocale = String((locale as any).value || 'en-US');
-  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: appearance.timeFormat === '12h' }).format(date);
   if (isToday) return t('chat.item.todayAt', { time });
   if (isYesterday) return t('chat.item.yesterdayAt', { time });
   const datePart = new Intl.DateTimeFormat(currentLocale, {

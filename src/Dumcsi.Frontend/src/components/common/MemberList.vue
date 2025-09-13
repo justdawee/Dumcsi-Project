@@ -21,7 +21,7 @@
             show-online-indicator
         />
         <div class="flex-1 min-w-0">
-        <span :style="{ color: getRoleColor(member) }" class="font-medium text-sm truncate block">
+        <span :style="getRoleStyle(member)" :class="['font-medium text-sm truncate block', { 'role-badge': shouldBadge(member) }]">
           {{ getDisplayName(member) }}
         </span>
         </div>
@@ -135,6 +135,72 @@ const getRoleColor = (member: ServerMember): string => {
   return memberRoleColorMap.value[member.userId] ?? 'rgb(185 185 185)';
 };
 
+// Helper to detect current effective theme (light when data-theme="light")
+function isLightTheme(): boolean {
+  try { return document.documentElement.getAttribute('data-theme') === 'light'; } catch { return false; }
+}
+
+function parseColorToRgb(color: string): { r: number; g: number; b: number } | null {
+  if (!color) return null;
+  const hex = color.trim().toLowerCase();
+  // #rgb or #rrggbb
+  if (hex.startsWith('#')) {
+    let h = hex.slice(1);
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    if (h.length === 6) {
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return { r, g, b };
+    }
+    return null;
+  }
+  // rgb or rgba
+  const m = color.match(/rgba?\(([^)]+)\)/i);
+  if (m) {
+    const parts = m[1].split(',').map(x => parseFloat(x.trim()));
+    if (parts.length >= 3) {
+      const [r, g, b] = parts;
+      return { r, g, b };
+    }
+  }
+  // Named colors or hsl not supported here
+  return null;
+}
+
+function isTooLight(color: string): boolean {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return false;
+  // Relative luminance approximation
+  const srgb = [rgb.r, rgb.g, rgb.b].map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+  return L > 0.85; // very light
+}
+
+function getContrastText(color: string): string {
+  const rgb = parseColorToRgb(color);
+  if (!rgb) return '#000000';
+  const L = (0.2126 * (rgb.r / 255) + 0.7152 * (rgb.g / 255) + 0.0722 * (rgb.b / 255));
+  return L > 0.5 ? '#000000' : '#ffffff';
+}
+
+const shouldBadge = (member: ServerMember): boolean => {
+  const color = getRoleColor(member);
+  return isLightTheme() && isTooLight(color);
+};
+
+const getRoleStyle = (member: ServerMember): Record<string, string> => {
+  const color = getRoleColor(member);
+  if (shouldBadge(member)) {
+    const fg = getContrastText(color);
+    return { color: fg, backgroundColor: color, border: '1px solid rgba(0,0,0,0.12)' };
+  }
+  return { color };
+};
+
 const kickMember = async () => {
   addToast({ type: 'info', message: t('members.list.toastKickSoon') });
 };
@@ -154,3 +220,11 @@ const openMemberInfo = (member: ServerMember, event: MouseEvent) => {
   infoCardVisible.value = true;
 };
 </script>
+
+<style scoped>
+.role-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+</style>

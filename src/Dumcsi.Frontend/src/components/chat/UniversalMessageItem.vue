@@ -142,6 +142,7 @@ import type {MessageDto, DmMessageDto} from '@/services/types';
 import {useUserDisplay} from '@/composables/useUserDisplay';
 import {extractTextContent, reconstructMessageContent} from '@/utils/messageContent';
 import { useChatSettings } from '@/composables/useChatSettings';
+import { useAppearanceSettings } from '@/composables/useAppearanceSettings';
 import emojiRegex from 'emoji-regex';
 
 // Define the union type for messages
@@ -167,6 +168,7 @@ const { t, locale } = useI18n();
 const isEditing = ref(false);
 const isDeleteModalOpen = ref(false);
 const { chatSettings } = useChatSettings();
+const { appearance } = useAppearanceSettings();
 
 // --- Computed Properties ---
 
@@ -264,7 +266,7 @@ const formatTime = (dateString: string) => {
   const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
 
   const currentLocale = String((locale as any).value || 'en-US');
-  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  const time = new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: appearance.timeFormat === '12h' }).format(date);
   if (isToday) return t('chat.item.todayAt', { time });
   if (isYesterday) return t('chat.item.yesterdayAt', { time });
 
@@ -279,7 +281,7 @@ const formatTime = (dateString: string) => {
 const formatTimeShort = (dateString: string) => {
   const date = new Date(dateString);
   const currentLocale = String((locale as any).value || 'en-US');
-  return new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: false }).format(date);
+  return new Intl.DateTimeFormat(currentLocale, { hour: 'numeric', minute: '2-digit', hour12: appearance.timeFormat === '12h' }).format(date);
 };
 
 const handleSave = (newTextContent: string) => {

@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute bottom-0 left-0 w-[332px] px-2 py-2 border-r border-t border-main-700 bg-main-950">
+  <div class="absolute bottom-0 left-0 w-[332px] px-2 py-2 border-r border-t border-border-default bg-main-950">
     <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-main-800 transition">
       <!-- Left clickable container: avatar + display name opens quick menu -->
       <button class="flex items-center gap-2 flex-1 min-w-0 text-left" @click="openQuickMenu = true">

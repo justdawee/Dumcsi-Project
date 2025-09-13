@@ -10,7 +10,7 @@
         class="w-full h-full object-cover"
         @error="handleImageError"
     />
-    <span v-else class="text-lg">{{ initials }}</span>
+    <span v-else class="text-lg text-white">{{ initials }}</span>
   </div>
 </template>
 
