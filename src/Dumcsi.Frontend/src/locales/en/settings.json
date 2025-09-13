@@ -100,8 +100,29 @@
   "appearance": {
     "title": "Appearance",
     "subtitle": "Customize your app's visual appearance",
-    "comingSoon": "Coming Soon",
-    "comingSoonDesc": "Theme selection, dark/light mode, and UI customization options will be available here."
+    "theme": {
+      "title": "Theme",
+      "description": "Choose between light and dark mode",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "time": {
+      "title": "Time Format",
+      "description": "Choose how times are displayed in chat",
+      "h24": "24-hour",
+      "h12": "12-hour"
+    },
+    "zoom": {
+      "title": "Zoom Level",
+      "description": "Scale the interface to your preference",
+      "reset": "Reset"
+    },
+    "ui": {
+      "title": "UI Customization",
+      "description": "Additional interface preferences",
+      "reduceMotion": "Reduce motion and animations"
+    }
   }
   ,
   "chat": {
