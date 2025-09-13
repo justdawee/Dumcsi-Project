@@ -55,6 +55,34 @@ const userService = {
         }
         return response.data.data;
     },
+
+    async revokeAllSessions(): Promise<void> {
+        const response = await api.post<ApiResponse<void>>('/user/me/revoke-sessions');
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
+
+    async getSessions(): Promise<Array<{ id: number; fingerprint: string; createdAt: string; expiresAt: string }>> {
+        const response = await api.get<ApiResponse<any[]>>('/user/me/sessions');
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+        // Be resilient to naming (camelCase vs PascalCase)
+        return (response.data.data || []).map((s: any) => ({
+            id: s.id ?? s.Id,
+            fingerprint: s.fingerprint ?? s.Fingerprint ?? '',
+            createdAt: s.createdAt ?? s.CreatedAt,
+            expiresAt: s.expiresAt ?? s.ExpiresAt,
+        }));
+    },
+
+    async revokeSession(id: number): Promise<void> {
+        const response = await api.delete<ApiResponse<void>>(`/user/me/sessions/${id}`);
+        if (!response.data.isSuccess) {
+            throw new Error(response.data.message);
+        }
+    },
 };
 
 export default userService;
