@@ -167,7 +167,7 @@
           </div>
           <Transition name="typing-fade">
             <div
-                v-if="typingIndicatorText"
+                v-if="chatSettings.showTypingIndicators && typingIndicatorText"
                 class="typing-indicator text-xs text-text-muted italic absolute left-4 bottom-1"
             >
               <span class="typing-dots"><span></span><span></span><span></span></span>
@@ -197,7 +197,9 @@ import {debounce} from '@/utils/helpers';
 import {useTypingIndicator} from '@/composables/useTypingIndicator';
 import {Hash, Users, Loader2} from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
+import { useChatSettings } from '@/composables/useChatSettings';
 const { t } = useI18n();
+const { chatSettings } = useChatSettings();
 import UniversalMessageItem from '@/components/chat/UniversalMessageItem.vue';
 import UniversalMessageInput from '@/components/chat/UniversalMessageInput.vue';
 import MemberList from '@/components/common/MemberList.vue';
