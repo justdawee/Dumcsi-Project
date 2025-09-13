@@ -20,6 +20,93 @@ namespace Dumcsi.Backend.Controllers;
 public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory, IFileStorageService fileStorageService, IHubContext<ChatHub> chatHubContext) 
     : BaseApiController(dbContextFactory)
 {
+    public class SessionDto
+    {
+        public long Id { get; set; }
+        public string Fingerprint { get; set; } = string.Empty;
+        public NodaTime.Instant CreatedAt { get; set; }
+        public NodaTime.Instant ExpiresAt { get; set; }
+    }
+
+    [HttpGet("me/sessions")]
+    public async Task<IActionResult> GetActiveSessions(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var sessions = await dbContext.UserRefreshTokens
+            .AsNoTracking()
+            .Where(rt => rt.UserId == CurrentUserId)
+            .Select(rt => new { rt.Id, rt.Token, rt.CreatedAt, rt.ExpiresAt })
+            .ToListAsync(cancellationToken);
+
+        static string ComputeFingerprint(string? token)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return string.Empty;
+            try
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(token);
+                var hash = SHA256.HashData(bytes);
+                return Convert.ToHexString(hash).ToLowerInvariant();
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        var dtos = sessions.Select(s => new SessionDto
+        {
+            Id = s.Id,
+            Fingerprint = ComputeFingerprint(s.Token),
+            CreatedAt = s.CreatedAt,
+            ExpiresAt = s.ExpiresAt
+        }).ToList();
+
+        return OkResponse(dtos);
+    }
+
+    [HttpDelete("me/sessions/{id}")]
+    public async Task<IActionResult> RevokeSession(long id, CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var session = await dbContext.UserRefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Id == id && rt.UserId == CurrentUserId, cancellationToken);
+        if (session == null)
+        {
+            return NotFound(ApiResponse.Fail("SESSION_NOT_FOUND", "Session not found"));
+        }
+
+        dbContext.UserRefreshTokens.Remove(session);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return OkResponse("Session revoked");
+    }
+    [HttpPost("me/revoke-sessions")]
+    public async Task<IActionResult> RevokeAllSessions(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var user = await dbContext.Users.FindAsync(new object?[] { CurrentUserId }, cancellationToken);
+        if (user == null)
+        {
+            return NotFound(ApiResponse.Fail("USER_NOT_FOUND", "Authenticated user profile could not be found."));
+        }
+
+        // Invalidate all access tokens by rotating security stamp
+        user.SecurityStamp = Guid.NewGuid().ToString();
+
+        // Remove all refresh tokens for this user
+        var refreshTokens = await dbContext.UserRefreshTokens
+            .Where(rt => rt.UserId == CurrentUserId)
+            .ToListAsync(cancellationToken);
+        if (refreshTokens.Count > 0)
+        {
+            dbContext.UserRefreshTokens.RemoveRange(refreshTokens);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return OkResponse("All sessions revoked.");
+    }
     [HttpGet("me")]
     public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
     {
