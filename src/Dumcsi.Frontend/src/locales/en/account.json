@@ -1,0 +1,23 @@
+{
+  "menu": {
+    "editProfile": "Edit profile",
+    "status": "Status",
+    "statusLabel": {
+      "online": "Online",
+      "idle": "Idle",
+      "dnd": "Do Not Disturb",
+      "invisible": "Invisible"
+    },
+    "duration": {
+      "m15": "15 minutes",
+      "h1": "1 hour",
+      "h8": "8 hours",
+      "h24": "24 hours",
+      "d3": "3 days",
+      "forever": "Forever"
+    },
+    "switchAccounts": "Switch accounts",
+    "signOut": "Sign out"
+  }
+}
+

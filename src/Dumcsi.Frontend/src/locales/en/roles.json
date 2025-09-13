@@ -1,0 +1,72 @@
+{
+  "manage": {
+    "title": "Manage Roles",
+    "search": "Search roles...",
+    "loading": "Loading roles...",
+    "assigned": "Assigned",
+    "notAssigned": "Not assigned",
+    "noneAvailable": "No roles available on this server",
+    "noneFound": "No roles found matching \"{query}\"",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "save": "Save Changes",
+    "toastLoadedFailed": "Failed to load server roles",
+    "toastUpdated": "Updated roles for {username}",
+    "toastUpdateFailed": "Failed to update roles"
+  }
+  ,
+  "admin": {
+    "title": "Manage Roles",
+    "serverRoles": "Server Roles",
+    "createRole": "Create Role",
+    "createNewTitle": "Create New Role",
+    "roleName": "Role Name",
+    "roleNamePlaceholder": "Enter role name",
+    "roleColor": "Role Color",
+    "displaySeparately": "Display separately in member list",
+    "allowMention": "Allow anyone to mention this role",
+    "editTitle": "Edit Role: {name}",
+    "permissionsTitle": "Permissions",
+    "deleteRole": "Delete Role",
+    "member": "member",
+    "members": "members",
+    "membersCount": "{count} members",
+    "confirmDelete": "Are you sure you want to delete the role \"{name}\"?",
+    "toast": {
+      "loadFailed": "Failed to load roles",
+      "created": "Role created successfully",
+      "createFailed": "Failed to create role",
+      "updated": "Role updated successfully",
+      "updateFailed": "Failed to update role",
+      "deleted": "Role deleted successfully",
+      "deleteFailed": "Failed to delete role"
+    }
+  }
+  ,
+  "permissions": {
+    "None": { "name": "None", "description": "Nothing" },
+    "ViewChannels": { "name": "View Channels", "description": "Allows members to view and connect to channels" },
+    "ManageChannels": { "name": "Manage Channels", "description": "Allows members to create, edit and delete channels" },
+    "ManageRoles": { "name": "Manage Roles", "description": "Allows members to create, edit, and delete roles" },
+    "ManageEmojis": { "name": "Manage Emojis", "description": "Allows members to manage custom emojis" },
+    "ViewAuditLog": { "name": "View Audit Log", "description": "Allows members to view the server audit log" },
+    "ManageServer": { "name": "Manage Server", "description": "Allows members to manage server settings" },
+    "CreateInvite": { "name": "Create Invite", "description": "Allows members to create invites for the server" },
+    "KickMembers": { "name": "Kick Members", "description": "Allows members to kick other members from the server" },
+    "BanMembers": { "name": "Ban Members", "description": "Allows members to ban other members from the server" },
+    "SendMessages": { "name": "Send Messages", "description": "Allows members to send messages in text channels" },
+    "EmbedLinks": { "name": "Embed Links", "description": "Allows members to embed links in messages" },
+    "AttachFiles": { "name": "Attach Files", "description": "Allows members to attach files in messages" },
+    "AddReactions": { "name": "Add Reactions", "description": "Allows members to add reactions to messages" },
+    "UseExternalEmojis": { "name": "Use External Emojis", "description": "Allows members to use external emojis in messages" },
+    "MentionEveryone": { "name": "Mention everyone", "description": "Allows members to mention everyone in messages" },
+    "ManageMessages": { "name": "Manage Messages", "description": "Allows members to manage messages in text channels" },
+    "ReadMessageHistory": { "name": "Read Message History", "description": "Allows members to read message history in channels" },
+    "Connect": { "name": "Connect to Voice", "description": "Allows members to connect to voice channels" },
+    "Speak": { "name": "Speak in Voice", "description": "Allows members to speak in voice channels" },
+    "MuteMembers": { "name": "Mute Members", "description": "Allows members to mute other members in voice channels" },
+    "DeafenMembers": { "name": "Deafen Members", "description": "Allows members to deafen other members in voice channels" },
+    "MoveMembers": { "name": "Move Members", "description": "Allows members to move other members between voice channels" },
+    "Administrator": { "name": "Administrator", "description": "Grants all permissions and overrides all channel permissions" }
+  }
+}

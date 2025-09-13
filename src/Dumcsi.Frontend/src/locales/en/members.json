@@ -1,0 +1,10 @@
+{
+  "list": {
+    "title": "Members - {count}",
+    "kickTooltip": "Kick Member",
+    "banTooltip": "Ban Member",
+    "toastKickSoon": "Kick member functionality coming soon!",
+    "toastBanSoon": "Ban member functionality coming soon!"
+  }
+}
+

@@ -1,0 +1,34 @@
+{
+  "sidebar": {
+    "findOrStart": "Find or start a conversation",
+    "nav": {
+      "servers": "Servers",
+      "friends": "Friends"
+    },
+    "dm": {
+      "header": "Direct Messages",
+      "empty": "No direct messages yet",
+      "closeTitle": "Close DM"
+    },
+    "context": {
+      "user": "User",
+      "profile": "Profile",
+      "invite": "Invite to server",
+      "friendNickname": "Friend nickname",
+      "conversation": "Conversation",
+      "markRead": "Mark as read",
+      "mute": {
+        "m15": "Mute 15 minutes",
+        "h1": "Mute 1 hour",
+        "h3": "Mute 3 hours",
+        "h8": "Mute 8 hours",
+        "h24": "Mute 24 hours",
+        "forever": "Mute until turned back on"
+      },
+      "unmute": "Unmute Conversation",
+      "block": "Block",
+      "unblock": "Unblock"
+    }
+  }
+}
+

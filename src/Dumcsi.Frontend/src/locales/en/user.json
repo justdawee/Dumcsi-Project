@@ -1,0 +1,17 @@
+{
+  "infoCard": {
+    "manageRoles": "Manage Roles",
+    "message": "Message",
+    "mutualServers": "{count} Mutual Servers",
+    "permissionUnknown": "Unknown"
+  },
+  "panel": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "deafen": "Deafen",
+    "undeafen": "Undeafen",
+    "settings": "Settings"
+  },
+  "unknownName": "Unknown",
+  "unknownUser": "Unknown User"
+}

@@ -1,0 +1,93 @@
+{
+  "add": {
+    "title": "Add Friend",
+    "username": "Username",
+    "usernamePlaceholder": "Username",
+    "cancel": "Cancel",
+    "send": "Send Request"
+  },
+  "item": {
+    "online": "Online",
+    "offline": "Offline",
+    "sendMessage": "Send Message",
+    "moreOptions": "More Options",
+    "remove": "Remove Friend"
+  },
+  "request": {
+    "sentYou": "sent you a friend request",
+    "accept": "Accept",
+    "decline": "Decline",
+    "block": "Block",
+    "unblock": "Unblock"
+  },
+  "actions": {
+    "openFriends": "Open Friends"
+  },
+  "toasts": {
+    "requestAlreadySent": {
+      "title": "Request Already Sent",
+      "message": "You already have a pending friend request to this user."
+    },
+    "respondToRequest": {
+      "title": "Respond to Request",
+      "message": "This user has already sent you a request. Please accept or decline it in Friends."
+    },
+    "alreadyFriends": {
+      "title": "Already Friends",
+      "message": "You are already friends with this user."
+    },
+    "blockedByYou": {
+      "title": "Blocked",
+      "message": "You have blocked this user. Unblock them to send a request."
+    },
+    "blockedByOther": {
+      "title": "Blocked",
+      "message": "This user has blocked you."
+    },
+    "userNotFound": {
+      "title": "User Not Found",
+      "message": "No user exists with that name."
+    },
+    "invalidSelf": {
+      "title": "Invalid",
+      "message": "You cannot add yourself."
+    },
+    "sendRequestFailed": "Failed to send request",
+    "userBlocked": "User blocked",
+    "cannotBlockSelf": "You cannot block yourself.",
+    "blockFailed": "Failed to block user",
+    "userUnblocked": "User unblocked",
+    "unblockFailed": "Failed to unblock user"
+  },
+  "view": {
+    "title": "Friends",
+    "addFriend": "Add Friend",
+    "tabs": {
+      "online": "Online",
+      "all": "All",
+      "pending": "Pending",
+      "blocked": "Blocked",
+      "settings": "Settings"
+    },
+    "empty": {
+      "online": "No friends are currently online",
+      "none": "You don't have any friends yet",
+      "pending": "No pending friend requests",
+      "blocked": "No blocked users"
+    },
+    "confirm": {
+      "remove": "Are you sure you want to remove this friend?",
+      "block": "Block this user? They will not be able to send you friend requests."
+    }
+  },
+  "settings": {
+    "title": "Direct Message Settings",
+    "whoCanMessage": "Who can send you direct messages?",
+    "options": {
+      "everyone": "Everyone",
+      "friendsOnly": "Friends only",
+      "noOne": "No one"
+    },
+    "hint": "This setting controls who can start new direct message conversations with you."
+  }
+}

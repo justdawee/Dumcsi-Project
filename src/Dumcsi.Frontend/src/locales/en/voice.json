@@ -1,0 +1,159 @@
+{
+  "mic": {
+    "title": "Microphone Access Required",
+    "description": "You need to enable microphone access to join voice channels. Please allow microphone permissions in your browser and try again.",
+    "requesting": "Requesting Permission...",
+    "enable": "Enable Microphone",
+    "back": "Go Back",
+    "howTo": {
+      "title": "How to enable microphone access:",
+      "step1": "• Click the microphone icon in your browser's address bar",
+      "step2": "• Select \"Allow\" for microphone access",
+      "step3": "• Refresh the page if needed"
+    },
+    "toast": {
+      "granted": "Microphone access granted! You can now join voice channels.",
+      "denied": "Microphone permission was denied",
+      "requestFailed": "Failed to request microphone permission: {error}"
+    }
+  },
+  "details": {
+    "title": "Connection Details",
+    "tabs": {
+      "voice": "Voice",
+      "screen": "Screen Share",
+      "webcam": "Webcam"
+    },
+    "status": {
+      "connected": "Voice Connected",
+      "connectedExcellent": "Voice Connected - Excellent",
+      "connectedGood": "Voice Connected - Good",
+      "connectedPoor": "Voice Connected - Poor",
+      "connectedFor": "Connected for {duration}"
+    },
+    "info": {
+      "server": "Server:",
+      "channel": "Channel:",
+      "participants": "Participants:"
+    },
+    "tech": {
+      "codec": "Audio Codec:",
+      "bitrateOut": "Outgoing Bitrate:",
+      "bitrateIn": "Incoming Bitrate:",
+      "latency": "Latency:",
+      "packetLoss": "Packet Loss:"
+    },
+    "screen": {
+      "none": "No active screen shares",
+      "label": "Screen sharing",
+      "resolution": "Resolution:",
+      "frameRate": "Frame Rate:",
+      "includesAudio": "Includes Audio:",
+      "bitrate": "Bitrate:"
+    },
+    "webcam": {
+      "none": "No active webcams",
+      "active": "Camera active",
+      "resolution": "Resolution:",
+      "frameRate": "Frame Rate:",
+      "device": "Device:",
+      "bitrate": "Bitrate:"
+    },
+    "empty": {
+      "title": "No one else is here",
+      "description": "Invite someone to start a conversation"
+    }
+  },
+  "fullscreen": {
+    "enterHint": "Click for fullscreen",
+    "exitHint": "Click to exit fullscreen",
+    "exitEsc": "Exit fullscreen (Esc)"
+  },
+  "controls": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "deafen": "Deafen",
+    "undeafen": "Undeafen"
+  },
+  "panel": {
+    "voiceDetails": "Voice details",
+    "connected": "Voice Connected",
+    "disconnect": "Disconnect",
+    "camera": {
+      "tooltipOn": "Turn off camera",
+      "tooltipOff": "Turn on camera",
+      "labelOn": "Camera On",
+      "labelOff": "Camera",
+      "options": "Camera options"
+    },
+    "screen": {
+      "tooltipStop": "Stop screen share",
+      "tooltipStart": "Share your screen",
+      "labelStop": "Stop Share",
+      "labelStart": "Screen",
+      "options": "Screen share options",
+      "sharing": "Sharing Screen",
+      "starting": "Starting screen share..."
+    },
+    "menu": {
+      "camera": "Camera",
+      "device": "Device",
+      "noCameras": "No cameras found",
+      "screenShare": "Screen Share",
+      "start": "Start Screen Share",
+      "stop": "Stop Screen Share",
+      "resolution": "Resolution",
+      "frameRate": "Frame Rate",
+      "includeAudio": "Include Audio"
+    },
+    "errors": {
+      "connectForShareFailed": "Failed to connect to voice channel for screen sharing",
+      "voiceInfoUnavailable": "Voice channel information unavailable",
+      "toggleFailed": "Failed to toggle screen sharing",
+      "permissionDenied": "Screen sharing permission denied",
+      "notFound": "No screen available for sharing",
+      "aborted": "Screen sharing cancelled by user",
+      "notSupported": "Screen sharing not supported in this browser",
+      "cameraPermissionRequired": "Camera access is required to enable video",
+      "connectFailedCamera": "Failed to connect to voice channel for camera",
+      "toggleCameraFailed": "Failed to toggle camera",
+      "notConnected": "Not connected to voice channel",
+      "noVoiceChannel": "No voice channel"
+    }
+  },
+  "quality": {
+    "res": {
+      "4k": "4K Ultra",
+      "1080p": "1080p HD",
+      "720p": "720p",
+      "480p": "480p"
+    },
+    "fps": {
+      "15": { "label": "15 FPS", "description": "Low motion (saves bandwidth)" },
+      "30": { "label": "30 FPS", "description": "Standard (recommended)" },
+      "60": { "label": "60 FPS", "description": "Smooth motion (higher bandwidth)" }
+    }
+  },
+  "volume": {
+    "tooltipMuted": "{username}'s screen share (Muted)",
+    "tooltipPercent": "{username}'s screen share ({percent}%)"
+  },
+  "permissions": {
+    "micro": {
+      "deniedShort": "Microphone permission was denied",
+      "deniedDetailed": "Microphone permission was denied. Please enable microphone access in your browser settings to join voice channels.",
+      "notFound": "No microphone device found. Please connect a microphone to join voice channels.",
+      "inUse": "Microphone is already in use by another application.",
+      "accessFailed": "Failed to access microphone: {error}",
+      "checkFailed": "Failed to check microphone permission: {error}"
+    },
+    "camera": {
+      "deniedShort": "Camera permission was denied",
+      "deniedDetailed": "Camera permission was denied. Please enable camera access in your browser settings to use video features.",
+      "notFound": "No camera device found. Please connect a camera to use video features.",
+      "inUse": "Camera is already in use by another application.",
+      "accessFailed": "Failed to access camera: {error}",
+      "checkFailed": "Failed to check camera permission: {error}"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "sidebar": {
+    "loading": "Loading...",
+    "sectionTitle": "Channels",
+    "createChannelTooltip": "Create Channel",
+    "editChannelTooltip": "Edit Channel",
+    "screenSharing": "Screen Sharing",
+    "live": "LIVE",
+    "voiceState": {
+      "muted": "Muted",
+      "deafened": "Deafened"
+    },
+    "confirmDelete": {
+      "title": "Delete Channel",
+      "confirmText": "Delete Channel",
+      "message": "Are you sure you want to delete the channel #{name}? This is permanent."
+    }
+  },
+  "modal": {
+    "createTitle": "Create Channel",
+    "type": "Channel Type",
+    "typeText": "Text",
+    "typeVoice": "Voice",
+    "name": "Channel Name",
+    "nameHint": "Channel names must be lowercase with no spaces",
+    "placeholderName": "new-channel",
+    "description": "Description (optional)",
+    "placeholderDesc": "What's this channel about?",
+    "topic": "Topic",
+    "cancel": "Cancel",
+    "submit": "Create Channel",
+    "toastCreated": "Channel #{name} created successfully.",
+    "toastCreateFailed": "Failed to create channel. Please try again later."
+  },
+  "errors": {
+    "deleteFailed": "Failed to delete channel. Please try again later.",
+    "microphoneRequired": "Microphone access is required to join voice channels",
+    "topicCreateFailed": "Failed to create topic"
+  },
+  "edit": {
+    "header": {
+      "title": "Edit Channel",
+      "subtitle": "Update your channel's settings or delete it."
+    },
+    "form": {
+      "name": "Channel Name",
+      "description": "Description (Optional)",
+      "topic": "Topic"
+    },
+    "danger": {
+      "title": "Delete Channel"
+    },
+    "toast": {
+      "updated": "Channel updated successfully.",
+      "updateFailed": "Failed to update channel.",
+      "deleted": "Channel deleted successfully."
+    }
+  },
+  "nameDefault": "channel"
+  ,
+  "access": {
+    "noLonger": "You no longer have access to this channel."
+  }
+}

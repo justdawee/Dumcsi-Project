@@ -1,0 +1,240 @@
+{
+  "title": "Settings",
+  "nav": {
+    "user": "User Settings",
+    "app": "App Settings"
+  },
+  "sections": {
+    "myAccount": "My Account",
+    "profile": "Profile",
+    "contentSocial": "Content & Social",
+    "dataPrivacy": "Data & Privacy",
+    "devices": "Devices",
+    "appearance": "Appearance",
+    "voiceVideo": "Voice & Video",
+    "chat": "Chat",
+    "notifications": "Notifications",
+    "sounds": "UI Sounds",
+    "keybinds": "Keybinds",
+    "language": "Language"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Control when and how you receive notifications",
+    "server": {
+      "title": "Server Notifications",
+      "enable": "Enable",
+      "playSound": "Play Sound",
+      "volume": "Volume",
+      "respectDnd": "Respect Do Not Disturb",
+      "test": "Test Server"
+    },
+    "dm": {
+      "title": "Direct Messages",
+      "enable": "Enable",
+      "playSound": "Play Sound",
+      "volume": "Volume",
+      "respectDnd": "Respect Do Not Disturb",
+      "test": "Test DM"
+    },
+    "toast": {
+      "title": "In-App Toasts",
+      "enable": "Enable",
+      "playSound": "Play Sound",
+      "volume": "Volume",
+      "respectDnd": "Respect Do Not Disturb",
+      "test": "Test Toast"
+    },
+    "testHeader": "Test"
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose your language and region preferences",
+    "selectLabel": "App language",
+    "englishUS": "English (US)",
+    "save": "Save",
+    "saved": "Language updated"
+  }
+  ,
+  "keybinds": {
+    "title": "Keybinds",
+    "subtitle": "Customize keyboard shortcuts and hotkeys",
+    "viewAll": "View All Shortcuts",
+    "resetAll": "Reset All",
+    "resetToDefault": "Reset to default",
+    "pressKey": "Press a key...",
+    "categoryDesc": {
+      "general": "Basic navigation and app-wide shortcuts",
+      "mainFunctions": "Core application features and tools",
+      "messageNavigation": "Navigate and interact with messages",
+      "serverChannel": "Server and voice channel controls",
+      "accessibility": "Accessibility and interface toggles",
+      "textFormatting": "Text styling and formatting shortcuts"
+    }
+  }
+  ,
+  "voice": {
+    "title": "Voice & Video",
+    "subtitle": "Configure your audio and video settings for voice channels",
+    "defaultDevice": "Default - System Default",
+    "input": {
+      "title": "Input Device",
+      "description": "Configure your microphone and input settings"
+    },
+    "microphone": {
+      "device": "Microphone",
+      "test": "Test Microphone",
+      "stopTest": "Stop Test",
+      "testHint": "Click to test your microphone input",
+      "testHintActive": "Speak to see your microphone levels and hear yourself"
+    },
+    "inputVolume": "Input Volume",
+    "output": {
+      "title": "Output Device",
+      "description": "Configure your speakers or headphones",
+      "device": "Audio Output"
+    },
+    "outputVolume": "Output Volume"
+  }
+  ,
+  "appearance": {
+    "title": "Appearance",
+    "subtitle": "Customize your app's visual appearance",
+    "comingSoon": "Coming Soon",
+    "comingSoonDesc": "Theme selection, dark/light mode, and UI customization options will be available here."
+  }
+  ,
+  "chat": {
+    "subtitle": "Customize your chat and messaging experience",
+    "comingSoon": "Coming Soon",
+    "comingSoonDesc": "Chat formatting, emoji settings, message display options, and typing indicators will be available here."
+  }
+  ,
+  "common": {
+    "comingSoon": "Coming Soon"
+  },
+  "content": {
+    "subtitle": "Control your content filtering and social interactions",
+    "comingSoonDesc": "Content filtering and social interaction settings will be available here."
+  }
+  ,
+  "privacy": {
+    "subtitle": "Manage your data and privacy preferences",
+    "comingSoonDesc": "Data export, privacy controls, and account data management will be available here."
+  }
+  ,
+  "devices": {
+    "subtitle": "Manage your connected devices and sessions",
+    "comingSoonDesc": "Device management, active sessions, and two-factor authentication will be available here."
+  }
+  ,
+  "account": {
+    "subtitle": "Manage your account details and security",
+    "info": {
+      "title": "Account Information",
+      "subtitle": "Your basic account details"
+    },
+    "email": "Email",
+    "password": {
+      "title": "Change Password",
+      "hint": "Use a strong password between 6 and 20 characters.",
+      "current": "Current password",
+      "new": "New password",
+      "minLength": "Password must be at least 6 characters.",
+      "mismatch": "Passwords do not match.",
+      "confirmNew": "Confirm new password",
+      "update": "Update Password",
+      "updating": "Updating...",
+      "changed": "Password updated successfully",
+      "changeFailed": "Failed to update password"
+    },
+    "delete": {
+      "title": "Delete Account",
+      "warning": "This will permanently delete your account and all associated data.",
+      "button": "Delete Account",
+      "message": "Are you sure you want to delete your account? This action cannot be undone.",
+      "deleted": "Your account has been deleted",
+      "failed": "Failed to delete account"
+    }
+  }
+  ,
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Update how you appear to others",
+    "info": {
+      "title": "Profile Information",
+      "subtitle": "Manage your display name and avatar"
+    },
+    "avatar": {
+      "change": "Change Avatar",
+      "photo": "Profile Photo",
+      "clickToChange": "Click on the image to change",
+      "hint": "JPG, PNG, GIF or WEBP up to 8MB"
+    },
+    "fields": {
+      "username": "Username",
+      "email": "Email",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "Enter a display name (optional)",
+      "displayNameHelp": "This is how you'll appear to other users in servers and direct messages."
+    },
+    "unsaved": "You have unsaved changes",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving...",
+    "updated": "Profile updated",
+    "updateFailed": "Failed to update profile"
+  }
+  ,
+  "sounds": {
+    "title": "UI Sounds",
+    "subtitle": "Enable and adjust sounds for common actions",
+    "master": {
+      "enable": "Enable UI Sounds"
+    },
+    "common": {
+      "volume": "Volume",
+      "test": "Test"
+    },
+    "friends": {
+      "title": "Friends",
+      "request": "Friend request"
+    },
+    "voice": {
+      "title": "Voice",
+      "joinSelf": "Join (you)",
+      "leaveSelf": "Leave (you)",
+      "joinOther": "Someone joins",
+      "joinVolume": "Join volume",
+      "leaveVolume": "Leave volume",
+      "otherJoinVolume": "Other join volume",
+      "testJoin": "Test Join",
+      "testLeave": "Test Leave",
+      "testOtherJoins": "Test Other Joins"
+    },
+    "screen": {
+      "title": "Screen Share",
+      "start": "Start",
+      "stop": "Stop",
+      "startVolume": "Start volume",
+      "stopVolume": "Stop volume",
+      "testStart": "Test Start",
+      "testStop": "Test Stop"
+    },
+    "mic": {
+      "title": "Microphone & Deafen",
+      "mute": "Mic mute",
+      "unmute": "Mic unmute",
+      "deafenOn": "Deafen on",
+      "deafenOff": "Deafen off",
+      "muteVolume": "Mic mute volume",
+      "unmuteVolume": "Mic unmute volume",
+      "deafenOnVolume": "Deafen on volume",
+      "deafenOffVolume": "Deafen off volume",
+      "testMute": "Test Mic Mute",
+      "testUnmute": "Test Mic Unmute",
+      "testDeafenOn": "Test Deafen On",
+      "testDeafenOff": "Test Deafen Off"
+    }
+  }
+}

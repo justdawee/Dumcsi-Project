@@ -1,0 +1,9 @@
+{
+  "createTitle": "Create Topic",
+  "nameLabel": "Topic Name",
+  "placeholder": "Enter topic name...",
+  "cancel": "Cancel",
+  "create": "Create Topic",
+  "toastCreated": "Topic created successfully!"
+}
+

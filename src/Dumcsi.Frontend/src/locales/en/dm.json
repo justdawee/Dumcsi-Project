@@ -1,0 +1,29 @@
+{
+  "header": {
+    "loading": "Loading..."
+  },
+  "empty": {
+    "noMessages": "No messages yet.",
+    "start": "Start a conversation!"
+  },
+  "jump": {
+    "button": "Jump to present",
+    "title": "Jump to latest messages"
+  },
+  "input": {
+    "placeholder": "Message {username}",
+    "message": "Message",
+    "send": "Send"
+  },
+  "typing": "{username} is typing...",
+  "toasts": {
+    "loadConversationsFailed": "Failed to load conversations.",
+    "loadMessagesFailed": "Failed to load messages.",
+    "sendFailed": "Failed to send message.",
+    "editFailed": "Failed to edit message.",
+    "deleteFailed": "Failed to delete message.",
+    "disabled": "This user does not accept direct messages.",
+    "notFriends": "You can only send messages to friends. Please add them back as a friend first.",
+    "blocked": "Cannot send message to blocked user."
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "leave": {
+    "confirmTitle": "Leave '{name}'",
+    "confirmText": "Leave Server",
+    "confirmMessage": "Are you sure you want to leave {name}? You won't be able to rejoin this server unless you are re-invited.",
+    "toast": {
+      "left": "You have successfully left {name}.",
+      "ownerCannotLeave": "Server owner cannot leave the server."
+    }
+  },
+  "nameDefault": "Server",
+  "settings": {
+    "title": "Server Settings",
+    "icon": {
+      "label": "Server Icon",
+      "change": "Change Icon",
+      "remove": "Remove Icon"
+    },
+    "name": "Server Name",
+    "description": "Description",
+    "descriptionPlaceholder": "What's your server about?",
+    "publicToggle": "Make server public",
+    "actions": {
+      "delete": "Delete Server",
+      "transferOwnership": "Transfer Ownership"
+    },
+    "deleteConfirm": {
+      "title": "Delete Server",
+      "confirmText": "Delete Server",
+      "message": "Are you sure you want to delete this server? This action cannot be undone. All channels and messages will be permanently deleted."
+    },
+    "toast": {
+      "updated": "Server settings updated.",
+      "iconRemoved": "Server icon removed.",
+      "deleted": "Server '{name}' has been deleted."
+    },
+    "errors": {
+      "selectImage": "Please select an image file.",
+      "imageTooLarge": "Image size cannot exceed 8MB."
+    }
+  },
+  "invite": {
+    "header": {
+      "invitingTo": "You are inviting people to"
+    },
+    "settings": {
+      "expiresAfter": "Expires after",
+      "never": "Never",
+      "in1h": "1 hour",
+      "in6h": "6 hours",
+      "in12h": "12 hours",
+      "in1d": "1 day",
+      "in7d": "7 days",
+      "maxUses": "Max number of uses",
+      "unlimited": "Unlimited",
+      "uses1": "1 use",
+      "uses5": "5 uses",
+      "uses10": "10 uses",
+      "uses25": "25 uses",
+      "uses50": "50 uses",
+      "uses100": "100 uses",
+      "temporaryTitle": "Temporary membership",
+      "temporaryHint": "Users will be kicked when they go offline"
+    },
+    "share": {
+      "label": "Share this invite code with others",
+      "copyAria": "Copy invite code",
+      "copied": "✓ Copied to clipboard!"
+    },
+    "actions": {
+      "generateNew": "Generate New Link",
+      "generating": "Generating..."
+    },
+    "toast": {
+      "generated": "New invite link generated!"
+    },
+    "errors": {
+      "generateFailed": "Failed to generate invite link"
+    }
+  },
+  "invites": {
+    "manage": {
+      "title": "Server Invites",
+      "create": "Create Invite",
+      "cleanup": {
+        "button": "Cleanup Expired",
+        "cleaning": "Cleaning..."
+      },
+      "empty": {
+        "title": "No invites yet",
+        "description": "Create your first invite to start inviting people to this server."
+      },
+      "list": {
+        "status": {
+          "expired": "Expired",
+          "maxUsesReached": "Max uses reached",
+          "active": "Active",
+          "temporary": "Temporary"
+        },
+        "channelAny": "Any channel",
+        "uses": "{current} uses",
+        "usesWithMax": "{current}/{max} uses",
+        "neverExpires": "Never expires",
+        "createdAgo": "Created {time}",
+        "hRemaining": "{hours}h remaining",
+        "dRemaining": "{days}d remaining",
+        "mAgo": "{minutes}m ago",
+        "hAgo": "{hours}h ago",
+        "dAgo": "{days}d ago"
+      },
+      "actions": {
+        "copyTooltip": "Copy invite code",
+        "deleteTooltip": "Delete invite"
+      },
+      "toast": {
+        "loadFailed": "Failed to load invites",
+        "copied": "Invite code copied to clipboard!",
+        "copyFailed": "Failed to copy invite code",
+        "deleted": "Invite deleted successfully",
+        "deleteFailed": "Failed to delete invite",
+        "cleanedUp": "Cleaned up {count} expired invites",
+        "cleanupFailed": "Failed to cleanup expired invites"
+      }
+    }
+  },
+  "explore": {
+    "title": "Explore Public Servers",
+    "subtitle": "Find new communities to join.",
+    "loadFailed": "Failed to load servers.",
+    "tryAgain": "Try Again",
+    "empty": {
+      "title": "No Public Servers Found",
+      "description": "It looks like there are no public servers available at the moment. Why not create your own?"
+    },
+    "member": "member",
+    "members": "members",
+    "membersCount": "{count} members",
+    "noDescription": "No description provided.",
+    "alreadyMember": "Already a Member",
+    "join": "Join Server",
+    "toast": {
+      "loadFailed": "Failed to fetch public servers.",
+      "joined": "Successfully joined {name}.",
+      "joinFailed": "Failed to join server."
+    }
+  },
+  "transfer": {
+    "title": "Transfer Ownership",
+    "instructions": "Select a member to transfer ownership of {name}.",
+    "selectMember": "Select member",
+    "confirm": "Transfer",
+    "toast": {
+      "transferred": "Ownership transferred."
+    }
+  },
+  "welcome": {
+    "title": "Welcome to {name}!",
+    "selectPrompt": "Select a channel from the sidebar to start chatting.",
+    "quickJump": "Quick jump to:",
+    "inviteNoPermission": "You do not have permission to create invites.",
+    "generateInvite": "Generate Invite Link",
+    "toast": {
+      "inviteFailed": "Failed to generate invite link."
+    }
+  },
+  "create": {
+    "title": "Create or Join Server",
+    "tabs": {
+      "create": "Create Server",
+      "join": "Join Server"
+    },
+    "name": "Server Name",
+    "namePlaceholder": "My Awesome Server",
+    "description": "Description",
+    "descriptionPlaceholder": "What's your server about?",
+    "publicToggle": "Make server public",
+    "inviteCode": "Invite Code",
+    "invitePlaceholder": "ABCD1234",
+    "inviteTitle": "Invite Code",
+    "actions": {
+      "create": "Create Server",
+      "join": "Join Server"
+    },
+    "errors": {
+      "invalidInvite": "Please enter a valid invite code."
+    },
+    "toast": {
+      "created": "Successfully created {name}.",
+      "createFailed": "Failed to create server. Please try again later.",
+      "joined": "Successfully joined the server.",
+      "invalidInvite": "The invite code is invalid or has expired."
+    }
+  },
+  "sidebar": {
+    "tooltip": {
+      "home": "Home",
+      "addServer": "Add a Server",
+      "explore": "Explore Servers"
+    }
+  },
+  "menuItems": {
+    "invitePeople": "Invite People",
+    "manageInvites": "Manage Invites",
+    "leaveServer": "Leave Server"
+  },
+  "menu": {
+    "muteServer": "Mute Server…",
+    "unmuteServer": "Unmute Server",
+    "mute": {
+      "for15m": "For 15 minutes",
+      "for1h": "For 1 hour",
+      "for3h": "For 3 hours",
+      "for8h": "For 8 hours",
+      "for24h": "For 24 hours",
+      "untilTurnBackOn": "Until I turn back on"
+    }
+  }
+  ,
+  "access": {
+    "noLonger": "You no longer have access to this server."
+  },
+  "select": {
+    "yourServers": "Your Servers",
+    "emptyTitle": "No servers yet",
+    "emptyDescription": "Create or join a server to get started!",
+    "addServer": "Add Server",
+    "owner": "Owner"
+  }
+}
