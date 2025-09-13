@@ -2,6 +2,7 @@ import {readonly, ref} from 'vue';
 import {useAppStore} from '@/stores/app';
 import {UserStatus} from '@/services/types';
 import {useNotificationPrefs} from '@/stores/notifications';
+import { playChime } from '@/utils/sounds';
 
 export type ToastType = 'success' | 'danger' | 'warning' | 'info';
 
@@ -52,6 +53,8 @@ export interface AddToastPayload {
         channelId?: number;
         dmUserId?: number;
     };
+    // Optional: which notification category's preferences to apply for sound/browser
+    notificationCategory?: 'server' | 'dm' | 'toast';
 }
 
 const toasts = ref<ToastMessage[]>([]);
@@ -93,6 +96,37 @@ const addToast = (payload: AddToastPayload) => {
             removeToast(id);
         }, ms);
     }
+
+    // After showing UI toast, also trigger sound per global notification prefs
+    try {
+        // Load global notification prefs (avoid importing store to prevent circular deps)
+        const RAW_KEY = 'dumcsi:notification-prefs:v1';
+        const raw = localStorage.getItem(RAW_KEY);
+        const defaults = {
+            browser: { enabled: false, respectDnd: true },
+            categories: {
+                server: { enabled: true, playSound: true, volume: 0.8, respectDnd: true },
+                dm: { enabled: true, playSound: true, volume: 0.9, respectDnd: true },
+                toast: { enabled: true, playSound: false, volume: 0.5, respectDnd: true },
+            }
+        } as const;
+        const cfg = raw ? { ...defaults, ...(JSON.parse(raw) || {}) } : defaults;
+        const category = payload.notificationCategory || 'toast';
+        const c = (cfg as any).categories?.[category] || (defaults as any).categories.toast;
+
+        // DND handling for this category
+        const isDnd = appStore.selfStatus === UserStatus.Busy;
+        const suppressForDnd = !!c?.respectDnd && isDnd;
+
+        // Play sound if enabled and not suppressed
+        if (!suppressForDnd && c?.enabled && c?.playSound) {
+            try {
+                const tone = (category === 'dm' ? 'dm' : (category === 'server' ? 'server' : 'toast')) as any;
+                // Fire and forget
+                void playChime(tone, Number(c?.volume ?? 0.8));
+            } catch {}
+        }
+    } catch {}
 };
 
 export function useToast() {

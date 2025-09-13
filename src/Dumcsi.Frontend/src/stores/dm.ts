@@ -227,23 +227,8 @@ export const useDmStore = defineStore('dm', () => {
         const notViewing = !currentRoute.includes(`/dm/${otherUserId}`);
         const fromOther = message.senderId !== authStore.user?.id;
         if (notViewing && fromOther) {
+            // Only mark unread; actual toast is emitted centrally from SignalR handler to avoid duplicates
             markAsUnread(otherUserId);
-            try {
-                addToast({
-                    type: 'info',
-                    title: `New DM from ${message.sender.username}`,
-                    message: message.content.length > 140 ? message.content.slice(0, 140) + '…' : message.content,
-                    onClick: async () => { await router.push(`/dm/${otherUserId}`); },
-                    quickReply: {
-                        placeholder: 'Quick reply…',
-                        onSend: async (text: string) => {
-                            await sendMessage(otherUserId, { content: text });
-                        }
-                    },
-                    duration: 6000,
-                    meta: { dmUserId: Number(otherUserId) }
-                });
-            } catch {}
         }
     };
 
@@ -324,23 +309,8 @@ export const useDmStore = defineStore('dm', () => {
         const notViewing = !currentRoute.includes(`/dm/${otherUserId}`);
         const fromOther = message.senderId !== authStore.user?.id;
         if (notViewing && fromOther) {
+            // Only mark unread; actual toast is emitted centrally from SignalR handler
             markAsUnread(otherUserId);
-            try {
-                const preview = summarizeMessagePreview(message.content, message.attachments as any, 140);
-                addToast({
-                    type: 'info',
-                    title: `New DM from ${message.sender.username}`,
-                    message: preview || 'Sent a message',
-                    onClick: async () => { await router.push(`/dm/${otherUserId}`); },
-                    quickReply: {
-                        placeholder: 'Quick reply…',
-                        onSend: async (text: string) => { await sendMessage(otherUserId, { content: text }); }
-                    },
-                    // Auto-dismiss after a short delay, even with quick-reply
-                    duration: 6000,
-                    meta: { dmUserId: Number(otherUserId) }
-                });
-            } catch {}
         } else if (notViewing) {
             // For echoed own messages, still mark as unread when not on view
             markAsUnread(otherUserId);

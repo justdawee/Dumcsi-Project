@@ -160,6 +160,8 @@ router.beforeEach(async (to, _from, next) => {
             }
         }
 
+        // No-op: joining server groups is handled centrally in SignalR Connected/start
+
         // Check server membership for server routes
         if (to.name === RouteNames.SERVER || to.name === RouteNames.CHANNEL || to.name === RouteNames.VOICE_CHANNEL) {
             const serverId = parseInt(to.params.serverId as string);

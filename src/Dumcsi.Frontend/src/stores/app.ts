@@ -149,7 +149,9 @@ export const useAppStore = defineStore('app', () => {
     // Server Actions
     const fetchServers = async () => {
         const result = await handleApiCall('servers', () => serverService.getServers());
-        if (result) servers.value = result;
+        if (result) {
+            servers.value = result;
+        }
     };
 
     const fetchServer = async (serverId: EntityId) => {
@@ -758,6 +760,8 @@ export const useAppStore = defineStore('app', () => {
             public: server.public,
             createdAt: server.createdAt,
         });
+        // Join the new server's SignalR group so notifications work everywhere
+        try { signalRService.joinServer(server.id); } catch {}
     };
 
     const handleServerUpdated = (server: ServerListItemDto) => {
@@ -785,6 +789,8 @@ export const useAppStore = defineStore('app', () => {
             currentServer.value = null;
             router.push('/servers');
         }
+        // Leave the server SignalR group to avoid stale notifications
+        try { signalRService.leaveServer(serverId); } catch {}
     };
 
     const handleUserJoinedServer = async (payload: UserServerPayload) => {

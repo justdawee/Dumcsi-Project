@@ -9,6 +9,7 @@ import {livekitService} from '@/services/livekitService';
 import { summarizeMessagePreview } from '@/utils/messageSummary';
 import {saveVoiceSession, getVoiceSession, isSessionFresh} from '@/services/voiceSession';
 import router from '@/router';
+import { playChime } from '@/utils/sounds';
 import type {
     MessageDto,
     UserProfileDto,
@@ -78,6 +79,17 @@ export class SignalRService {
                 }
             } catch {}
         }
+    }
+
+    private async joinAllServers(): Promise<void> {
+        try {
+            await this.ensureConnected();
+            const appStore = useAppStore();
+            const list = appStore.servers || [];
+            for (const s of list) {
+                try { await this.joinServer(s.id); } catch {}
+            }
+        } catch {}
     }
 
     private scheduleIdleTimer() {
@@ -169,6 +181,17 @@ export class SignalRService {
 
             this.reconnectAttempts = 0;
 
+            // Best-effort: immediately join all known servers (in case Connected handler runs later)
+            try {
+                const appStore = useAppStore();
+                if (appStore.servers && appStore.servers.length > 0) {
+                    appStore.servers.forEach(s => { try { this.joinServer(s.id); } catch {} });
+                }
+            } catch {}
+
+            // Best-effort: immediately join all known servers so server-wide events arrive
+            try { await this.joinAllServers(); } catch {}
+
             // notify any waiters
             this.connectingWaiters.splice(0).forEach(w => { try { w(); } catch {} });
         } catch (error) {
@@ -224,16 +247,22 @@ export class SignalRService {
                 const authorId = typeof authorIdRaw === 'string' ? parseInt(authorIdRaw, 10) : Number(authorIdRaw);
                 const preview = summarizeMessagePreview(content, null, 140);
 
-                // Only toast if not currently viewing that channel
+                // Show toast for server messages everywhere (except Settings view),
+                // but suppress if currently viewing that exact channel
                 const authStore = useAuthStore();
                 const isSelf = !!authStore.user?.id && Number(authorId) === Number(authStore.user.id);
-                if (!isSelf && Number(appStore.currentChannel?.id) !== Number(channelId)) {
+                // Skip toasts while on Settings for cleaner UX
+                const route = router.currentRoute?.value;
+                const onSettings = !!route && (String(route.name || '').toLowerCase().includes('settings') || String(route.path || '').includes('/settings'));
+                const isActiveChannel = Number(appStore.currentServer?.id) === Number(serverId) && Number(appStore.currentChannel?.id) === Number(channelId);
+                if (!isSelf && !onSettings && !isActiveChannel) {
                     const channelName = appStore.currentServer?.channels?.find(c => Number(c.id) === Number(channelId))?.name || 'channel';
-                    const serverName = appStore.currentServer?.name || 'Server';
+                    const serverName = (appStore.servers.find(s => Number(s.id) === Number(serverId))?.name) || appStore.currentServer?.name || 'Server';
                     addToast({
                         type: 'info',
                         title: `${serverName} • #${channelName}`,
                         message: `${author}: ${preview || 'Sent a message'}`,
+                        notificationCategory: 'server',
                         onClick: async () => {
                             if (!Number.isNaN(serverId) && !Number.isNaN(channelId)) {
                                 await router.push(`/servers/${Number(serverId)}/channels/${Number(channelId)}`);
@@ -298,6 +327,24 @@ export class SignalRService {
         this.connection.on('ReactionAdded', (payload: ReactionPayload) => {
             
             appStore.handleReactionAdded(payload);
+            try {
+                // Notify if someone reacted to my message
+                const authId = useAuthStore().user?.id;
+                if (!authId) return;
+                const msg = (useAppStore().messages || []).find(m => m.id === payload.messageId);
+                if (msg && msg.author?.id === authId && payload.userId !== authId) {
+                    const { notify } = useNotify();
+                    notify({
+                        category: 'toast',
+                        title: 'New Reaction',
+                        message: `Your message received a reaction`,
+                        showToast: true,
+                        playSound: true,
+                        showBrowser: false,
+                        toast: { type: 'info' }
+                    });
+                }
+            } catch {}
         });
 
         this.connection.on('ReactionRemoved', (payload: ReactionPayload) => {
@@ -346,7 +393,6 @@ export class SignalRService {
         this.connection.on('FriendRequestReceived', (payload: { RequestId: number; FromUserId: number; FromUsername: string } | any) => {
             try {
                 const friendStore = useFriendStore();
-                const { addToast } = useToast();
                 const req = {
                     requestId: payload.requestId || payload.RequestId,
                     fromUserId: payload.fromUserId || payload.FromUserId,
@@ -354,38 +400,48 @@ export class SignalRService {
                 } as any;
                 friendStore.addIncomingRequest(req);
 
-                addToast({
-                    type: 'info',
-                    title: 'Friend Request',
-                    message: `${req.fromUsername} sent you a friend request`,
-                    actions: [
-                        { label: 'Accept', variant: 'primary', action: () => friendStore.acceptRequest(req.requestId) },
-                        { label: 'Decline', variant: 'secondary', action: () => friendStore.declineRequest(req.requestId) }
-                    ]
-                });
+                // Global notification (toast category) with actions; allow browser + sound
+                try {
+                    const { notify } = useNotify();
+                    notify({
+                        category: 'toast',
+                        title: 'Friend Request',
+                        message: `${req.fromUsername} sent you a friend request`,
+                        showToast: true,
+                        playSound: true,
+                        showBrowser: true,
+                        toast: {
+                            type: 'info',
+                            actions: [
+                                { label: 'Accept', variant: 'primary', action: () => friendStore.acceptRequest(req.requestId) },
+                                { label: 'Decline', variant: 'secondary', action: () => friendStore.declineRequest(req.requestId) }
+                            ]
+                        }
+                    });
+                } catch {}
             } catch (err) { console.warn('FriendRequestReceived handler error', err); }
         });
 
         this.connection.on('FriendRequestSent', (payload: any) => {
             try {
-                const { addToast } = useToast();
-                addToast({ type: 'success', title: 'Request Sent', message: `Friend request sent to ${payload.ToUsername || payload.toUsername}` });
+                const { notify } = useNotify();
+                notify({ category: 'toast', title: 'Request Sent', message: `Friend request sent to ${payload.ToUsername || payload.toUsername}`, showToast: true, playSound: true, showBrowser: false, toast: { type: 'success' } });
             } catch {}
         });
 
         this.connection.on('FriendRequestAccepted', (friend: any) => {
             try {
                 const friendStore = useFriendStore();
-                const { addToast } = useToast();
                 const f = {
                     userId: friend.userId || friend.UserId,
                     username: friend.username || friend.Username,
                     online: false
                 };
                 friendStore.addFriendRealtime(f as any);
-                addToast({ type: 'success', title: 'Friend Added', message: `${f.username} accepted your request` });
-                // Optionally remove request if present
+                // Remove request if present
                 try { friendStore.removeRequestById(friend.requestId || friend.RequestId); } catch {}
+                const { notify } = useNotify();
+                notify({ category: 'toast', title: 'Friend Added', message: `${f.username} accepted your request`, showToast: true, playSound: true, showBrowser: true, toast: { type: 'success' } });
             } catch {}
         });
 
@@ -399,18 +455,18 @@ export class SignalRService {
 
         this.connection.on('FriendRequestDeclined', () => {
             try {
-                const { addToast } = useToast();
-                addToast({ type: 'warning', title: 'Request Declined', message: 'Your friend request was declined.' });
+                const { notify } = useNotify();
+                notify({ category: 'toast', title: 'Request Declined', message: 'Your friend request was declined.', showToast: true, playSound: true, showBrowser: false, toast: { type: 'warning' } });
             } catch {}
         });
 
         this.connection.on('FriendRemoved', (payload: any) => {
             try {
                 const friendStore = useFriendStore();
-                const { addToast } = useToast();
                 const uid = payload.userId || payload.UserId;
                 friendStore.removeFriendRealtime(uid);
-                addToast({ type: 'info', title: 'Friend Removed', message: 'A friendship was removed.' });
+                const { notify } = useNotify();
+                notify({ category: 'toast', title: 'Friend Removed', message: 'A friendship was removed.', showToast: true, playSound: true, showBrowser: false, toast: { type: 'info' } });
             } catch {}
         });
 
@@ -425,6 +481,44 @@ export class SignalRService {
         // DM message events
         this.connection.on('DmMessageReceived', (message: any) => {
             try { useDmStore().handleReceiveMessage(message); } catch {}
+            // Emit a single, centralized DM toast here (only for messages from others)
+            try {
+                const { addToast } = useToast();
+                const auth = useAuthStore();
+                // Normalize sender/receiver fields from possible shapes
+                const senderIdRaw = message?.senderId ?? message?.SenderId ?? message?.sender?.id ?? message?.Sender?.Id;
+                const receiverIdRaw = message?.receiverId ?? message?.ReceiverId ?? message?.receiver?.id ?? message?.Receiver?.Id;
+                const senderId = typeof senderIdRaw === 'string' ? parseInt(senderIdRaw, 10) : Number(senderIdRaw);
+                const receiverId = typeof receiverIdRaw === 'string' ? parseInt(receiverIdRaw, 10) : Number(receiverIdRaw);
+                const selfId = auth.user?.id ? Number(auth.user.id) : null;
+                const fromOther = selfId != null && senderId !== selfId;
+                if (!fromOther) return; // Do not show a DM toast for own messages
+
+                const fromUser = message?.sender?.username || message?.Sender?.Username || 'User';
+                const text = String(message?.content ?? message?.Content ?? '');
+
+                // Other user in this conversation (for navigation/mute)
+                const otherId = senderId; // since fromOther is true, sender is the other participant
+
+                // Suppress if currently viewing this DM conversation
+                const route = router.currentRoute?.value;
+                const onThisDm = !!otherId && !!route?.path && route.path.includes(`/dm/${otherId}`);
+                if (onThisDm) return;
+
+                addToast({
+                    type: 'info',
+                    title: `New DM from ${fromUser}`,
+                    message: text.length > 140 ? text.slice(0, 140) + '…' : text,
+                    onClick: async () => { if (otherId) await router.push(`/dm/${otherId}`); },
+                    quickReply: {
+                        placeholder: 'Quick reply…',
+                        onSend: async (t: string) => { try { await useDmStore().sendMessage(otherId, { content: t }); } catch {} }
+                    },
+                    duration: 6000,
+                    meta: { dmUserId: Number(otherId) },
+                    notificationCategory: 'dm',
+                });
+            } catch {}
         });
         this.connection.on('DmMessageUpdated', (payload: any) => {
             try { useDmStore().handleMessageUpdated(payload); } catch {}
@@ -511,14 +605,7 @@ export class SignalRService {
             }
 
             // Join all servers to receive server-wide channel notifications (ChannelMessageCreated)
-            try {
-                if (!appStore.servers || appStore.servers.length === 0) {
-                    await appStore.fetchServers();
-                }
-                (appStore.servers || []).forEach(s => {
-                    try { this.joinServer(s.id); } catch {}
-                });
-            } catch {}
+            try { await this.joinAllServers(); } catch {}
 
             // Re-apply stored preferred status after connection (survives refresh)
             try {
@@ -614,6 +701,18 @@ export class SignalRService {
             // Only manage WebRTC peers when we are in the same voice channel
             if (appStore.currentVoiceChannelId === cid) {
                 webrtcService.addUser(cid, uid, connectionId);
+                // Subtle UI sound for join (respect toast category prefs + DND)
+                try {
+                    const RAW_KEY = 'dumcsi:notification-prefs:v1';
+                    const raw = localStorage.getItem(RAW_KEY);
+                    const defaults = { categories: { toast: { enabled: true, playSound: false, volume: 0.5, respectDnd: true } } } as const;
+                    const cfg = raw ? { ...defaults, ...(JSON.parse(raw) || {}) } : defaults;
+                    const cat = (cfg as any).categories?.toast || defaults.categories.toast;
+                    const isDnd = appStore.selfStatus === (UserStatus as any).Busy;
+                    if (cat.enabled && cat.playSound && !(cat.respectDnd && isDnd)) {
+                        void playChime('toast', Number(cat.volume ?? 0.5));
+                    }
+                } catch {}
             }
         });
 
@@ -624,6 +723,18 @@ export class SignalRService {
             appStore.handleUserLeftVoiceChannel(cid, uid);
             if (appStore.currentVoiceChannelId === cid) {
                 webrtcService.removeUser(connectionId);
+                // Subtle UI sound for leave (respect toast category prefs + DND)
+                try {
+                    const RAW_KEY = 'dumcsi:notification-prefs:v1';
+                    const raw = localStorage.getItem(RAW_KEY);
+                    const defaults = { categories: { toast: { enabled: true, playSound: false, volume: 0.5, respectDnd: true } } } as const;
+                    const cfg = raw ? { ...defaults, ...(JSON.parse(raw) || {}) } : defaults;
+                    const cat = (cfg as any).categories?.toast || defaults.categories.toast;
+                    const isDnd = appStore.selfStatus === (UserStatus as any).Busy;
+                    if (cat.enabled && cat.playSound && !(cat.respectDnd && isDnd)) {
+                        void playChime('toast', Number(cat.volume ?? 0.5));
+                    }
+                } catch {}
             }
         });
 
@@ -1074,6 +1185,19 @@ export class SignalRService {
         if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
         try {
             await this.connection.invoke('JoinVoiceChannel', serverId.toString(), channelId.toString());
+            // Local UI confirm sound (toast category prefs)
+            try {
+                const appStore = useAppStore();
+                const RAW_KEY = 'dumcsi:notification-prefs:v1';
+                const raw = localStorage.getItem(RAW_KEY);
+                const defaults = { categories: { toast: { enabled: true, playSound: false, volume: 0.5, respectDnd: true } } } as const;
+                const cfg = raw ? { ...defaults, ...(JSON.parse(raw) || {}) } : defaults;
+                const cat = (cfg as any).categories?.toast || defaults.categories.toast;
+                const isDnd = appStore.selfStatus === (UserStatus as any).Busy;
+                if (cat.enabled && cat.playSound && !(cat.respectDnd && isDnd)) {
+                    void playChime('toast', Number(cat.volume ?? 0.5));
+                }
+            } catch {}
         } catch (error) {
             console.error('Failed to join voice channel:', error);
             throw error;
@@ -1097,6 +1221,19 @@ export class SignalRService {
         if (this.connection?.state !== signalR.HubConnectionState.Connected) return;
         try {
             await this.connection.invoke('LeaveVoiceChannel', serverId.toString(), channelId.toString());
+            // Local UI confirm sound (toast category prefs)
+            try {
+                const appStore = useAppStore();
+                const RAW_KEY = 'dumcsi:notification-prefs:v1';
+                const raw = localStorage.getItem(RAW_KEY);
+                const defaults = { categories: { toast: { enabled: true, playSound: false, volume: 0.5, respectDnd: true } } } as const;
+                const cfg = raw ? { ...defaults, ...(JSON.parse(raw) || {}) } : defaults;
+                const cat = (cfg as any).categories?.toast || defaults.categories.toast;
+                const isDnd = appStore.selfStatus === (UserStatus as any).Busy;
+                if (cat.enabled && cat.playSound && !(cat.respectDnd && isDnd)) {
+                    void playChime('toast', Number(cat.volume ?? 0.5));
+                }
+            } catch {}
         } catch (error) {
             console.error('Failed to leave voice channel:', error);
         }
