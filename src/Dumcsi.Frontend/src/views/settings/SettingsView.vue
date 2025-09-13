@@ -98,6 +98,7 @@ import {
   Mic,
   MessageSquare,
   Bell,
+  Volume2,
   Keyboard,
   Globe,
   X
@@ -113,6 +114,7 @@ import AppearanceView from './sections/AppearanceView.vue';
 import VoiceVideoView from './sections/VoiceVideoView.vue';
 import ChatView from './sections/ChatView.vue';
 import NotificationsView from './sections/NotificationsView.vue';
+import SoundsView from './sections/SoundsView.vue';
 import KeybindsView from './sections/KeybindsView.vue';
 import LanguageView from './sections/LanguageView.vue';
 
@@ -149,6 +151,7 @@ const appSettings = [
   { key: 'voice-video', label: 'Voice & Video', icon: Mic, component: VoiceVideoView },
   { key: 'chat', label: 'Chat', icon: MessageSquare, component: ChatView },
   { key: 'notifications', label: 'Notifications', icon: Bell, component: NotificationsView },
+  { key: 'sounds', label: 'UI Sounds', icon: Volume2, component: SoundsView },
   { key: 'keybinds', label: 'Keybinds', icon: Keyboard, component: KeybindsView },
   { key: 'language', label: 'Language', icon: Globe, component: LanguageView },
 ];

@@ -425,6 +425,7 @@ export const useAppStore = defineStore('app', () => {
 
         // 1. Set current voice channel IMMEDIATELY for UI
         currentVoiceChannelId.value = channelId;
+        try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('voiceJoinSelf'); } catch {}
 
         // 2. Initialize WebRTC for voice (start microphone access)
         await webrtcService.joinVoiceChannel();
@@ -462,13 +463,14 @@ export const useAppStore = defineStore('app', () => {
 
     const leaveVoiceChannel = async (channelId: EntityId) => {
         if (!currentServer.value) return;
-        
+
         // 1. Update UI state IMMEDIATELY
         if (currentVoiceChannelId.value === channelId) {
             currentVoiceChannelId.value = null;
             selfMuted.value = false;
             voiceChannelConnections.value.delete(channelId);
         }
+        try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('voiceLeaveSelf'); } catch {}
         
         // 2. If we were screen sharing, stop it and notify peers first
         try {
@@ -504,9 +506,12 @@ export const useAppStore = defineStore('app', () => {
 
     const toggleSelfMute = () => {
         selfMuted.value = !selfMuted.value;
-        
+
         // Update WebRTC for voice (this will also notify SignalR)
         webrtcService.setMuted(selfMuted.value);
+
+        // UI sound
+        try { import('@/stores/uiSounds').then(m => m.useUiSounds().play(selfMuted.value ? 'micMute' : 'micUnmute')); } catch {}
         
         // Update voice state map for current user in current channel
         if (currentVoiceChannelId.value && currentUserId.value) {
@@ -532,6 +537,9 @@ export const useAppStore = defineStore('app', () => {
         // Update WebRTC for voice (this will also notify SignalR)
         webrtcService.setMuted(selfMuted.value);
         webrtcService.setDeafened(selfDeafened.value);
+
+        // UI sound
+        try { import('@/stores/uiSounds').then(m => m.useUiSounds().play(selfDeafened.value ? 'deafenOn' : 'deafenOff')); } catch {}
         
         // Update voice state map for current user in current channel
         if (currentVoiceChannelId.value && currentUserId.value) {
@@ -1070,6 +1078,16 @@ export const useAppStore = defineStore('app', () => {
         voiceChannelUsers.value = updated;
 
         addVoiceChannelConnection(channelId, userId, connectionId);
+
+        // If I am in this voice channel and someone else joined -> play sound
+        try {
+            if (currentVoiceChannelId.value === channelId) {
+                const myId = currentUserId.value;
+                if (myId && userId !== myId) {
+                    import('@/stores/uiSounds').then(m => m.useUiSounds().play('voiceJoinOther'));
+                }
+            }
+        } catch {}
     };
 
     const handleUserLeftVoiceChannel = (channelId: EntityId, userId: EntityId) => {

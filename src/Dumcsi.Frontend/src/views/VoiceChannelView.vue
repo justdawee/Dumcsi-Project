@@ -1260,6 +1260,7 @@ const toggleScreenShare = async () => {
         try { appStore.handleUserStoppedScreenShare(channelId.value, uid); } catch {}
       }
       await signalRService.stopScreenShare(route.params.serverId as string, channelId.value.toString());
+      try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('screenShareStop'); } catch {}
 
 
       // 4. Force update streams to ensure clean state
@@ -1290,6 +1291,7 @@ const toggleScreenShare = async () => {
         try { appStore.handleUserStartedScreenShare(channelId.value, uid); } catch {}
       }
       await signalRService.startScreenShare(route.params.serverId as string, channelId.value.toString());
+      try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('screenShareStart'); } catch {}
 
 
 

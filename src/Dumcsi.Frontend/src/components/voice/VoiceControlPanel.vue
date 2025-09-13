@@ -327,6 +327,7 @@ const toggleScreenShare = async () => {
           appStore.handleUserStoppedScreenShare(appStore.currentVoiceChannelId, appStore.currentUserId);
       } catch {}
       await signalRService.stopScreenShare(appStore.currentServer!.id.toString(), appStore.currentVoiceChannelId!.toString());
+      try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('screenShareStop'); } catch {}
       // no success toast on stop
     } else {
       // Start screen share immediately with current selections
@@ -360,6 +361,7 @@ const toggleScreenShare = async () => {
       // Update local store immediately and notify via SignalR
       try { appStore.handleUserStartedScreenShare(currentChannelId, appStore.currentUserId!); } catch {}
       await signalRService.startScreenShare(currentServer.id.toString(), currentChannelId.toString());
+      try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('screenShareStart'); } catch {}
       // no success toast on start
     }
   } catch (error: any) {

@@ -1,12 +1,35 @@
 // Lightweight chime generator using Web Audio API (no assets needed)
 // Different tones for categories; envelope to avoid clicks.
 
-type ToneKind = 'server' | 'dm' | 'toast';
+type ToneKind =
+  | 'server'
+  | 'dm'
+  | 'toast'
+  | 'friend'
+  | 'voice-join'
+  | 'voice-leave'
+  | 'voice-other-join'
+  | 'screen-start'
+  | 'screen-stop'
+  | 'mic-mute'
+  | 'mic-unmute'
+  | 'deafen-on'
+  | 'deafen-off';
 
 const FREQUENCIES: Record<ToneKind, [number, number]> = {
   server: [880, 660], // high-low
   dm: [660, 880],     // low-high
   toast: [780, 780],  // single tone
+  friend: [820, 1020],
+  'voice-join': [520, 740],
+  'voice-leave': [740, 520],
+  'voice-other-join': [600, 900],
+  'screen-start': [900, 900],
+  'screen-stop': [520, 520],
+  'mic-mute': [480, 360],
+  'mic-unmute': [360, 480],
+  'deafen-on': [300, 300],
+  'deafen-off': [300, 450],
 };
 
 export async function playChime(kind: ToneKind, volume: number = 0.8): Promise<void> {
@@ -61,4 +84,3 @@ export async function playChime(kind: ToneKind, volume: number = 0.8): Promise<v
     // ignore audio failures
   }
 }
-

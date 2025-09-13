@@ -2,6 +2,7 @@ import * as signalR from '@microsoft/signalr';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from '@/stores/app';
 import {useToast} from '@/composables/useToast';
+import { useNotify } from '@/composables/useNotify';
 import { useFriendStore } from '@/stores/friends';
 import { useDmStore } from '@/stores/dm';
 import {webrtcService} from './webrtcService.ts';
@@ -278,7 +279,7 @@ export class SignalRService {
                                     try {
                                         const { useNotificationPrefs } = await import('@/stores/notifications');
                                         const prefs = useNotificationPrefs();
-                                        const { addToast } = await import('@/composables/useToast');
+                                        const { addToast } = useToast();
                                         // Show quick duration chooser as a follow-up toast
                                         addToast({
                                             type: 'info',
@@ -390,7 +391,7 @@ export class SignalRService {
         });
 
         // --- Friend system realtime events ---
-        this.connection.on('FriendRequestReceived', (payload: { RequestId: number; FromUserId: number; FromUsername: string } | any) => {
+        this.connection.on('FriendRequestReceived', async (payload: { RequestId: number; FromUserId: number; FromUsername: string } | any) => {
             try {
                 const friendStore = useFriendStore();
                 const req = {
@@ -408,7 +409,7 @@ export class SignalRService {
                         title: 'Friend Request',
                         message: `${req.fromUsername} sent you a friend request`,
                         showToast: true,
-                        playSound: true,
+                        playSound: false,
                         showBrowser: true,
                         toast: {
                             type: 'info',
@@ -419,13 +420,15 @@ export class SignalRService {
                         }
                     });
                 } catch {}
+                // Play dedicated UI sound (user setting-controlled)
+                try { const { useUiSounds } = await import('@/stores/uiSounds'); useUiSounds().play('friendRequest'); } catch {}
             } catch (err) { console.warn('FriendRequestReceived handler error', err); }
         });
 
         this.connection.on('FriendRequestSent', (payload: any) => {
             try {
                 const { notify } = useNotify();
-                notify({ category: 'toast', title: 'Request Sent', message: `Friend request sent to ${payload.ToUsername || payload.toUsername}`, showToast: true, playSound: true, showBrowser: false, toast: { type: 'success' } });
+                notify({ category: 'toast', title: 'Request Sent', message: `Friend request sent to ${payload.ToUsername || payload.toUsername}`, showToast: true, playSound: false, showBrowser: false, toast: { type: 'success' } });
             } catch {}
         });
 
@@ -441,7 +444,7 @@ export class SignalRService {
                 // Remove request if present
                 try { friendStore.removeRequestById(friend.requestId || friend.RequestId); } catch {}
                 const { notify } = useNotify();
-                notify({ category: 'toast', title: 'Friend Added', message: `${f.username} accepted your request`, showToast: true, playSound: true, showBrowser: true, toast: { type: 'success' } });
+                notify({ category: 'toast', title: 'Friend Added', message: `${f.username} accepted your request`, showToast: true, playSound: false, showBrowser: true, toast: { type: 'success' } });
             } catch {}
         });
 
@@ -456,7 +459,7 @@ export class SignalRService {
         this.connection.on('FriendRequestDeclined', () => {
             try {
                 const { notify } = useNotify();
-                notify({ category: 'toast', title: 'Request Declined', message: 'Your friend request was declined.', showToast: true, playSound: true, showBrowser: false, toast: { type: 'warning' } });
+                notify({ category: 'toast', title: 'Request Declined', message: 'Your friend request was declined.', showToast: true, playSound: false, showBrowser: false, toast: { type: 'warning' } });
             } catch {}
         });
 
@@ -466,7 +469,7 @@ export class SignalRService {
                 const uid = payload.userId || payload.UserId;
                 friendStore.removeFriendRealtime(uid);
                 const { notify } = useNotify();
-                notify({ category: 'toast', title: 'Friend Removed', message: 'A friendship was removed.', showToast: true, playSound: true, showBrowser: false, toast: { type: 'info' } });
+                notify({ category: 'toast', title: 'Friend Removed', message: 'A friendship was removed.', showToast: true, playSound: false, showBrowser: false, toast: { type: 'info' } });
             } catch {}
         });
 
@@ -487,9 +490,7 @@ export class SignalRService {
                 const auth = useAuthStore();
                 // Normalize sender/receiver fields from possible shapes
                 const senderIdRaw = message?.senderId ?? message?.SenderId ?? message?.sender?.id ?? message?.Sender?.Id;
-                const receiverIdRaw = message?.receiverId ?? message?.ReceiverId ?? message?.receiver?.id ?? message?.Receiver?.Id;
                 const senderId = typeof senderIdRaw === 'string' ? parseInt(senderIdRaw, 10) : Number(senderIdRaw);
-                const receiverId = typeof receiverIdRaw === 'string' ? parseInt(receiverIdRaw, 10) : Number(receiverIdRaw);
                 const selfId = auth.user?.id ? Number(auth.user.id) : null;
                 const fromOther = selfId != null && senderId !== selfId;
                 if (!fromOther) return; // Do not show a DM toast for own messages
