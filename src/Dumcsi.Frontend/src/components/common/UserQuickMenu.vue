@@ -32,7 +32,7 @@
 
             <!-- Status menu -->
             <Transition name="menu-fade">
-              <div v-if="statusMenuOpen" ref="statusMenuRef" class="absolute z-10 mt-1 w-56 bg-bg-surface border border-border-default rounded-md shadow-lg"
+              <div v-if="statusMenuOpen" ref="statusMenuRef" class="absolute z-10 mt-1 w-56 bg-bg-surface border border-border-default rounded-md shadow-lg overflow-visible"
                    @mouseenter="openStatusMenu" @mouseleave="scheduleCloseStatusMenu">
                 <div class="py-1">
                   <button v-for="opt in statusOptions" :key="opt.value" class="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-main-700 text-text-default"
@@ -48,11 +48,20 @@
 
                 <!-- Duration submenu (only for Idle, DND, Invisible) -->
                 <Transition name="menu-fade">
-                  <div v-if="hoveredTimed" :class="['absolute top-0 w-44 bg-bg-surface border border-border-default rounded-md shadow-lg', submenuOnLeft ? 'right-full mr-1' : 'left-full ml-1']"
-                       @mouseenter="openStatusMenu" @mouseleave="scheduleCloseStatusMenu">
-                    <div class="py-1">
-                      <button v-for="d in durations" :key="d.label" class="w-full text-left px-3 py-2 text-sm hover:bg-main-700 text-text-default"
-                              @click="selectTimed(hoveredTimed, d.ms)">{{ d.label }}</button>
+                  <div
+                    v-if="hoveredTimed"
+                    :class="['absolute w-56 bg-bg-surface border border-border-default rounded-md shadow-lg', submenuOnLeft ? 'right-full mr-1' : 'left-full ml-1', submenuAbove ? 'bottom-0' : 'top-0']"
+                    @mouseenter="openStatusMenu" @mouseleave="scheduleCloseStatusMenu">
+                    <div class="p-1 grid grid-cols-2 gap-1.5">
+                      <button
+                        v-for="d in durations"
+                        :key="d.label"
+                        :class="['h-9 w-full min-w-0 px-2 text-sm text-text-default bg-main-800/60 border border-main-700 hover:bg-main-700 transition-colors rounded-md flex items-center justify-start gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main-600/60', d.ms === 0 ? 'col-span-2' : '']"
+                        @click="selectTimed(hoveredTimed, d.ms)"
+                      >
+                        <component :is="d.ms === 0 ? InfinityIcon : Clock" class="w-4 h-4 shrink-0" />
+                        <span class="font-medium truncate">{{ d.label }}</span>
+                      </button>
                     </div>
                   </div>
                 </Transition>
@@ -86,7 +95,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ChevronDown, ChevronRight, Pencil, LogOut, CircleUser } from 'lucide-vue-next';
+import { ChevronDown, ChevronRight, Pencil, LogOut, CircleUser, Clock, Infinity as InfinityIcon } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useUserDisplay } from '@/composables/useUserDisplay';
@@ -112,6 +121,7 @@ let statusMenuHideTimer: number | null = null;
 const hoveredTimed = ref<UserStatus | null>(null);
 const statusMenuRef = ref<HTMLElement | null>(null);
 const submenuOnLeft = ref(false);
+const submenuAbove = ref(false);
 
 const statusOptions = [
   { value: UserStatus.Online, label: t('account.menu.statusLabel.online'), dot: 'bg-[#23a55a]' },
@@ -126,6 +136,7 @@ const durations = [
   { label: t('account.menu.duration.h8'), ms: 8 * 60 * 60 * 1000 },
   { label: t('account.menu.duration.h24'), ms: 24 * 60 * 60 * 1000 },
   { label: t('account.menu.duration.d3'), ms: 3 * 24 * 60 * 60 * 1000 },
+  { label: t('account.menu.duration.w1'), ms: 7 * 24 * 60 * 60 * 1000 },
   { label: t('account.menu.duration.forever'), ms: 0 },
 ];
 
@@ -212,8 +223,16 @@ watch([statusMenuOpen, hoveredTimed], async ([openVal, timed]) => {
     await nextTick();
     const rect = statusMenuRef.value?.getBoundingClientRect();
     if (rect) {
-      const submenuWidth = 176 + 8; // w-44 + margin
+      const submenuWidth = 224 + 8; // w-56 + margin
       submenuOnLeft.value = rect.right + submenuWidth > window.innerWidth - 8;
+      // Decide whether to render above based on viewport space
+      const margin = 8;
+      const estimatedRows = Math.ceil(durations.length / 2); // 2 columns
+      const rowHeight = 36; // approx per item + gap
+      const padding = 16; // container padding
+      const estimatedHeight = estimatedRows * rowHeight + padding;
+      const spaceBelow = window.innerHeight - rect.top - margin;
+      submenuAbove.value = spaceBelow < estimatedHeight;
     }
   }
 });
@@ -223,8 +242,15 @@ const onResize = () => {
   if (statusMenuOpen.value && hoveredTimed.value) {
     const rect = statusMenuRef.value?.getBoundingClientRect();
     if (rect) {
-      const submenuWidth = 176 + 8;
+      const submenuWidth = 224 + 8; // w-56 + margin
       submenuOnLeft.value = rect.right + submenuWidth > window.innerWidth - 8;
+      const margin = 8;
+      const estimatedRows = Math.ceil(durations.length / 2);
+      const rowHeight = 36;
+      const padding = 16;
+      const estimatedHeight = estimatedRows * rowHeight + padding;
+      const spaceBelow = window.innerHeight - rect.top - margin;
+      submenuAbove.value = spaceBelow < estimatedHeight;
     }
   }
 };

@@ -14,10 +14,10 @@
       "h8": "8 hours",
       "h24": "24 hours",
       "d3": "3 days",
+      "w1": "1 week",
       "forever": "Forever"
     },
     "switchAccounts": "Switch accounts",
     "signOut": "Sign out"
   }
 }
-
