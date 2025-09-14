@@ -21,6 +21,7 @@
   "notifications": {
     "title": "Notifications",
     "description": "Control when and how you receive notifications",
+    "resetAll": "Reset to defaults",
     "server": {
       "title": "Server Notifications",
       "enable": "Enable",
@@ -51,9 +52,17 @@
     "title": "Language",
     "description": "Choose your language and region preferences",
     "selectLabel": "App language",
+    "selectDescription": "Pick your preferred display language. More languages are on the way.",
     "englishUS": "English (US)",
     "save": "Save",
-    "saved": "Language updated"
+    "saved": "Language updated",
+    "previewTitle": "Preview",
+    "previewDescription": "See how dates and numbers appear with the selected locale.",
+    "preview": {
+      "dateTime": "Date & time",
+      "number": "Number",
+      "currency": "Currency"
+    }
   }
   ,
   "keybinds": {
@@ -100,6 +109,7 @@
   "appearance": {
     "title": "Appearance",
     "subtitle": "Customize your app's visual appearance",
+    "resetAll": "Reset to defaults",
     "theme": {
       "title": "Theme",
       "description": "Choose between light and dark mode",
@@ -122,11 +132,16 @@
       "title": "UI Customization",
       "description": "Additional interface preferences",
       "reduceMotion": "Reduce motion and animations"
+    },
+    "preview": {
+      "title": "Preview",
+      "description": "See a quick sample of text and timestamps with your current settings"
     }
   }
   ,
   "chat": {
     "subtitle": "Customize your chat and messaging experience",
+    "resetAll": "Reset to defaults",
     "format": {
       "title": "Chat Formatting",
       "description": "Control markdown and media previews",
@@ -145,6 +160,7 @@
       "densityCozy": "Cozy",
       "densityCompact": "Compact",
       "showAvatars": "Show avatars",
+      "avatarsDisabledInCompact": "Disabled in Compact",
       "showTimestamps": "Show timestamps"
     },
     "typing": {
@@ -171,15 +187,19 @@
       "description": "Download a JSON snapshot of your local app settings.",
       "download": "Download JSON",
       "preparing": "Preparing...",
-      "hint": "Includes keybinds, audio, notifications, UI sounds, locale, mutes, and more. Excludes access tokens."
+      "hint": "Includes keybinds, audio, notifications, UI sounds, locale, mutes, and more. Excludes access tokens.",
+      "itemsCount": "Includes {count} stored preference entries"
     },
     "clear": {
       "title": "Clear Local App Data",
       "description": "Remove locally stored preferences from this device. Does not log you out.",
       "button": "Clear Local Data",
       "confirm": "Clear local app data on this device? This cannot be undone.",
-      "done": "Local data cleared."
-    }
+      "done": "Local data cleared.",
+      "itemsCount": "Will clear {count} local entries"
+    },
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
   }
   ,
   "devices": {
@@ -195,6 +215,7 @@
       "userAgent": "User agent",
       "platform": "Platform"
     },
+    "copied": "Copied to clipboard",
     "sessions": {
       "title": "Active Sessions",
       "description": "These are your login sessions across devices.",
@@ -281,6 +302,7 @@
   "sounds": {
     "title": "UI Sounds",
     "subtitle": "Enable and adjust sounds for common actions",
+    "resetAll": "Reset to defaults",
     "master": {
       "enable": "Enable UI Sounds"
     },

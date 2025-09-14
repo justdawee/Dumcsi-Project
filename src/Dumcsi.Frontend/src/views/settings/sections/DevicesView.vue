@@ -19,23 +19,30 @@
             <h2 class="text-lg font-semibold">{{ t('settings.devices.device.title') }}</h2>
             <p class="text-xs text-text-tertiary mt-1">{{ t('settings.devices.device.description') }}</p>
           </div>
-          <div class="p-5 space-y-3">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-5 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('settings.devices.device.name') }}</label>
                 <input class="form-input w-full" v-model="deviceName" @change="saveDevicePrefs" :placeholder="t('settings.devices.device.namePlaceholder')"/>
               </div>
               <div>
                 <label class="block text-sm font-medium text-text-secondary mb-1">{{ t('settings.devices.device.trusted') }}</label>
-                <div class="flex items-center gap-2">
-                  <input type="checkbox" v-model="trusted" @change="saveDevicePrefs"/>
+                <div class="flex items-center gap-3">
+                  <input type="checkbox" v-model="trusted" @change="saveDevicePrefs" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110"/>
                   <span class="text-sm text-text-secondary">{{ t('settings.devices.device.trustedHint') }}</span>
                 </div>
               </div>
             </div>
-            <div class="text-xs text-text-tertiary break-all">
-              <div>{{ t('settings.devices.device.userAgent') }}: {{ userAgent }}</div>
-              <div>{{ t('settings.devices.device.platform') }}: {{ platform }}</div>
+
+            <div class="rounded-lg border border-border-default bg-bg-base/60 p-4 space-y-1 text-xs text-text-tertiary">
+              <div>
+                {{ t('settings.devices.device.userAgent') }}:
+                <span class="text-text-default break-all">{{ userAgent }}</span>
+              </div>
+              <div>
+                {{ t('settings.devices.device.platform') }}:
+                <span class="text-text-default break-all">{{ platform }}</span>
+              </div>
             </div>
           </div>
         </section>
@@ -53,21 +60,31 @@
             </div>
           </div>
           <div class="p-5">
-            <div v-if="loading" class="text-center text-text-tertiary py-6">{{ t('settings.devices.sessions.loading') }}</div>
+            <div v-if="loading" class="space-y-2">
+              <div class="h-16 rounded-lg border border-border-default bg-bg-base/60 animate-pulse"></div>
+              <div class="h-16 rounded-lg border border-border-default bg-bg-base/60 animate-pulse"></div>
+            </div>
             <div v-else-if="sessions.length === 0" class="text-center text-text-tertiary py-6">{{ t('settings.devices.sessions.empty') }}</div>
             <div v-else class="space-y-2">
-              <div v-for="s in sessions" :key="s.id" class="flex items-center justify-between px-4 py-3 rounded-lg border border-border-default">
-                <div class="text-sm">
-                  <div class="font-medium text-text-default">
-                    <span class="mr-2">{{ formatDate(s.createdAt) }}</span>
-                    <span v-if="isCurrent(s)" class="text-xs px-2 py-0.5 rounded bg-green-600/20 text-green-300 align-middle">{{ t('settings.devices.sessions.current') }}</span>
+              <div v-for="s in sessions" :key="s.id" class="px-4 py-3 rounded-lg border border-border-default bg-bg-base/60">
+                <div class="flex items-center gap-3">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <div class="font-medium text-text-default truncate">{{ formatDate(s.createdAt) }}</div>
+                      <span v-if="isCurrent(s)" class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-green-600/20 text-green-300">{{ t('settings.devices.sessions.current') }}</span>
+                    </div>
+                    <div class="text-xs text-text-tertiary truncate">
+                      {{ t('settings.devices.sessions.expires') }}: {{ formatDate(s.expiresAt) }}
+                    </div>
+                    <div class="mt-1 text-xs text-text-tertiary flex items-center gap-2">
+                      <span>{{ t('settings.devices.sessions.fingerprint') }}:</span>
+                      <span class="font-mono">{{ shortFp(s.fingerprint) }}</span>
+                      <button class="btn-secondary btn-xs" @click="copy(s.fingerprint)">Copy</button>
+                    </div>
                   </div>
-                  <div class="text-text-tertiary">
-                    {{ t('settings.devices.sessions.expires') }}: {{ formatDate(s.expiresAt) }} · {{ t('settings.devices.sessions.fingerprint') }}: <span class="font-mono">{{ shortFp(s.fingerprint) }}</span>
+                  <div class="flex items-center gap-2">
+                    <button class="btn-secondary btn-sm" @click="revokeOne(s.id)" :disabled="isCurrent(s)">{{ t('settings.devices.sessions.signOut') }}</button>
                   </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button class="btn-secondary btn-sm" @click="revokeOne(s.id)" :disabled="isCurrent(s)">{{ t('settings.devices.sessions.signOut') }}</button>
                 </div>
               </div>
               <div class="pt-2">
@@ -144,6 +161,15 @@ function formatDate(iso: string): string {
 }
 
 function shortFp(fp: string): string { return fp ? fp.substring(0, 10) : ''; }
+
+function copy(text: string) {
+  try {
+    void navigator.clipboard.writeText(text || '');
+    addToast({ type: 'success', message: t('settings.devices.copied') });
+  } catch {
+    addToast({ type: 'danger', message: t('chat.clipboardUnsupported') });
+  }
+}
 
 async function sha256Hex(input: string): Promise<string> {
   const enc = new TextEncoder();

@@ -48,6 +48,9 @@ load();
 watch(settings, save, { deep: true });
 
 export function useChatSettings() {
-  return { chatSettings: settings };
+  function reset() {
+    Object.assign(settings, defaults);
+    save();
+  }
+  return { chatSettings: settings, reset };
 }
-

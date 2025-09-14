@@ -12,12 +12,14 @@ export interface AppearanceSettings {
 
 const STORAGE_KEY = 'dumcsi:appearance-settings:v1';
 
-const settings = reactive<AppearanceSettings>({
+const defaults: AppearanceSettings = {
   theme: 'system',
   timeFormat: '24h',
   zoom: 100,
   reduceMotion: false,
-});
+};
+
+const settings = reactive<AppearanceSettings>({ ...defaults });
 
 function load() {
   try {
@@ -84,5 +86,12 @@ watch(settings, () => {
 }, { deep: true });
 
 export function useAppearanceSettings() {
-  return { appearance: settings };
+  function reset() {
+    Object.assign(settings, defaults);
+    save();
+    applyTheme();
+    applyZoom();
+    applyMotion();
+  }
+  return { appearance: settings, reset };
 }

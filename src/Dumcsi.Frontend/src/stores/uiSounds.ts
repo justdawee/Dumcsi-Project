@@ -91,12 +91,17 @@ export const useUiSounds = defineStore('uiSounds', () => {
     try { await playChime(toneMap[key], vol); } catch {}
   }
 
+  function reset() {
+    prefs.value = defaults();
+    save(prefs.value);
+  }
+
   return {
     prefs,
     setMasterEnabled,
     setEnabled,
     setVolume,
     play,
+    reset,
   };
 });
-

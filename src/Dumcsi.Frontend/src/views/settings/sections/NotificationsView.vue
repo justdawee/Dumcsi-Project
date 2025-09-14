@@ -1,11 +1,9 @@
 <template>
   <div class="h-full w-full bg-bg-base text-text-default">
-    <!-- Content Container -->
     <div class="w-full px-6 py-8 max-w-5xl mx-auto">
-      <!-- Page Header -->
-  <header class="mb-8 flex items-center space-x-4">
+      <header class="mb-8 flex items-center space-x-4">
         <div class="flex-shrink-0 flex items-center justify-center w-12 h-12 bg-primary/20 rounded-xl">
-          <Bell class="w-7 h-7 text-primary"/>
+          <Bell class="w-7 h-7 text-primary" />
         </div>
         <div>
           <h1 class="text-3xl font-bold tracking-tight">{{ t('settings.notifications.title') }}</h1>
@@ -13,99 +11,92 @@
         </div>
       </header>
 
-      <!-- Notification Settings -->
-      <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden">
-        <div class="p-6 space-y-8">
-          
+      <div class="space-y-6">
+        <!-- Actions -->
+        <section class="bg-bg-surface rounded-2xl shadow border border-border-default overflow-hidden">
+          <div class="p-5 flex items-center justify-between">
+            <div class="text-sm text-text-secondary">{{ t('settings.notifications.description') }}</div>
+            <button class="btn-secondary btn-xs" @click="resetAll">{{ t('settings.notifications.resetAll') }}</button>
+          </div>
+        </section>
 
-          <!-- Category: Server -->
-          <section>
-            <h2 class="text-xl font-semibold mb-2">{{ t('settings.notifications.server.title') }}</h2>
-            <div class="flex items-center justify-between py-3">
-              <div class="font-medium">{{ t('settings.notifications.server.enable') }}</div>
-              <input type="checkbox" v-model="server.enabled" />
-            </div>
-            <div class="flex items-center justify-between py-3">
+        <!-- Server -->
+        <section class="bg-bg-surface rounded-2xl shadow border border-border-default overflow-hidden">
+          <div class="p-5 border-b border-border-default flex items-center justify-between">
+            <h2 class="text-lg font-semibold">{{ t('settings.notifications.server.title') }}</h2>
+            <input type="checkbox" v-model="server.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110" />
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.server.playSound') }}</div>
-              <input type="checkbox" v-model="server.playSound" />
+              <input type="checkbox" v-model="server.playSound" :disabled="!server.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-            <div class="py-3">
-              <div class="flex items-center justify-between mb-2">
-                <div class="font-medium">{{ t('settings.notifications.server.volume') }}</div>
-                <div class="text-sm text-text-muted">{{ Math.round(server.volume * 100) }}%</div>
-              </div>
-              <input type="range" min="0" max="1" step="0.01" v-model.number="server.volume" class="w-full" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+              <div class="text-sm text-text-secondary">{{ t('settings.notifications.server.volume') }}</div>
+              <input type="range" min="0" max="1" step="0.01" v-model.number="server.volume" :disabled="!server.enabled || !server.playSound" class="w-full sm:col-span-1" />
+              <div class="text-right text-sm text-text-muted">{{ Math.round(server.volume * 100) }}%</div>
             </div>
-            <div class="flex items-center justify-between py-3">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.server.respectDnd') }}</div>
-              <input type="checkbox" v-model="server.respectDnd" />
+              <input type="checkbox" v-model="server.respectDnd" :disabled="!server.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-          </section>
-
-          <div class="h-px bg-border-default"></div>
-
-          <!-- Category: DM -->
-          <section>
-            <h2 class="text-xl font-semibold mb-2">{{ t('settings.notifications.dm.title') }}</h2>
-            <div class="flex items-center justify-between py-3">
-              <div class="font-medium">{{ t('settings.notifications.dm.enable') }}</div>
-              <input type="checkbox" v-model="dm.enabled" />
+            <div class="pt-2">
+              <button class="btn-primary btn-xs" @click="test('server')" :disabled="!server.enabled">{{ t('settings.notifications.server.test') }}</button>
             </div>
-            <div class="flex items-center justify-between py-3">
+          </div>
+        </section>
+
+        <!-- Direct Messages -->
+        <section class="bg-bg-surface rounded-2xl shadow border border-border-default overflow-hidden">
+          <div class="p-5 border-b border-border-default flex items-center justify-between">
+            <h2 class="text-lg font-semibold">{{ t('settings.notifications.dm.title') }}</h2>
+            <input type="checkbox" v-model="dm.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110" />
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.dm.playSound') }}</div>
-              <input type="checkbox" v-model="dm.playSound" />
+              <input type="checkbox" v-model="dm.playSound" :disabled="!dm.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-            <div class="py-3">
-              <div class="flex items-center justify-between mb-2">
-                <div class="font-medium">{{ t('settings.notifications.dm.volume') }}</div>
-                <div class="text-sm text-text-muted">{{ Math.round(dm.volume * 100) }}%</div>
-              </div>
-              <input type="range" min="0" max="1" step="0.01" v-model.number="dm.volume" class="w-full" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+              <div class="text-sm text-text-secondary">{{ t('settings.notifications.dm.volume') }}</div>
+              <input type="range" min="0" max="1" step="0.01" v-model.number="dm.volume" :disabled="!dm.enabled || !dm.playSound" class="w-full sm:col-span-1" />
+              <div class="text-right text-sm text-text-muted">{{ Math.round(dm.volume * 100) }}%</div>
             </div>
-            <div class="flex items-center justify-between py-3">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.dm.respectDnd') }}</div>
-              <input type="checkbox" v-model="dm.respectDnd" />
+              <input type="checkbox" v-model="dm.respectDnd" :disabled="!dm.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-          </section>
-
-          <div class="h-px bg-border-default"></div>
-
-          <!-- Category: UI Toasts -->
-          <section>
-            <h2 class="text-xl font-semibold mb-2">{{ t('settings.notifications.toast.title') }}</h2>
-            <div class="flex items-center justify-between py-3">
-              <div class="font-medium">{{ t('settings.notifications.toast.enable') }}</div>
-              <input type="checkbox" v-model="toast.enabled" />
+            <div class="pt-2">
+              <button class="btn-primary btn-xs" @click="test('dm')" :disabled="!dm.enabled">{{ t('settings.notifications.dm.test') }}</button>
             </div>
-            <div class="flex items-center justify-between py-3">
+          </div>
+        </section>
+
+        <!-- In-app Toasts -->
+        <section class="bg-bg-surface rounded-2xl shadow border border-border-default overflow-hidden">
+          <div class="p-5 border-b border-border-default flex items-center justify-between">
+            <h2 class="text-lg font-semibold">{{ t('settings.notifications.toast.title') }}</h2>
+            <input type="checkbox" v-model="toast.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110" />
+          </div>
+          <div class="p-5 space-y-4">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.toast.playSound') }}</div>
-              <input type="checkbox" v-model="toast.playSound" />
+              <input type="checkbox" v-model="toast.playSound" :disabled="!toast.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-            <div class="py-3">
-              <div class="flex items-center justify-between mb-2">
-                <div class="font-medium">{{ t('settings.notifications.toast.volume') }}</div>
-                <div class="text-sm text-text-muted">{{ Math.round(toast.volume * 100) }}%</div>
-              </div>
-              <input type="range" min="0" max="1" step="0.01" v-model.number="toast.volume" class="w-full" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+              <div class="text-sm text-text-secondary">{{ t('settings.notifications.toast.volume') }}</div>
+              <input type="range" min="0" max="1" step="0.01" v-model.number="toast.volume" :disabled="!toast.enabled || !toast.playSound" class="w-full sm:col-span-1" />
+              <div class="text-right text-sm text-text-muted">{{ Math.round(toast.volume * 100) }}%</div>
             </div>
-            <div class="flex items-center justify-between py-3">
+            <div class="flex items-center justify-between">
               <div class="font-medium">{{ t('settings.notifications.toast.respectDnd') }}</div>
-              <input type="checkbox" v-model="toast.respectDnd" />
+              <input type="checkbox" v-model="toast.respectDnd" :disabled="!toast.enabled" class="h-5 w-5 rounded border-border-default bg-bg-base text-primary focus:ring-2 focus:ring-primary/50 transition-transform scale-110 disabled:opacity-50" />
             </div>
-          </section>
-
-          <div class="h-px bg-border-default"></div>
-
-          <!-- Test Buttons -->
-          <section class="pb-2">
-            <h2 class="text-xl font-semibold mb-2">{{ t('settings.notifications.testHeader') }}</h2>
-            <div class="flex flex-wrap gap-3">
-              <button class="px-3 py-1.5 rounded-md bg-primary text-white text-sm" @click="test('server')">{{ t('settings.notifications.server.test') }}</button>
-              <button class="px-3 py-1.5 rounded-md bg-primary text-white text-sm" @click="test('dm')">{{ t('settings.notifications.dm.test') }}</button>
-              <button class="px-3 py-1.5 rounded-md bg-primary text-white text-sm" @click="test('toast')">{{ t('settings.notifications.toast.test') }}</button>
+            <div class="pt-2">
+              <button class="btn-primary btn-xs" @click="test('toast')" :disabled="!toast.enabled">{{ t('settings.notifications.toast.test') }}</button>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
@@ -155,5 +146,9 @@ function test(kind: 'server' | 'dm' | 'toast') {
   const title = kind === 'server' ? 'Server • #general' : (kind === 'dm' ? 'Direct Message' : 'Toast');
   const msg = kind === 'server' ? 'Alice: Hello server!' : (kind === 'dm' ? 'Bob: Hey there!' : 'This is a UI toast');
   notify({ category: kind, title, message: msg, showToast: true, playSound: true });
+}
+
+function resetAll() {
+  nc.reset();
 }
 </script>

@@ -146,6 +146,11 @@ export const useNotificationCenter = defineStore('notificationCenter', () => {
 
   }
 
+  function reset() {
+    prefs.value = defaultPrefs();
+    savePrefs(prefs.value);
+  }
+
   return {
     // state
     prefs,
@@ -161,5 +166,6 @@ export const useNotificationCenter = defineStore('notificationCenter', () => {
     setCategoryVolume,
     setBrowserEnabled,
     setBrowserRespectDnd,
+    reset,
   };
 });

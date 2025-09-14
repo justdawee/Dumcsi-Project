@@ -1,12 +1,14 @@
 <template>
   <div
-      :class="showHeader ? 'mt-4' : 'mt-1'"
+      :class="showHeader
+        ? (chatSettings.density === 'compact' ? 'mt-2' : 'mt-4')
+        : (chatSettings.density === 'compact' ? 'mt-0.5' : 'mt-1')"
       class="group hover:bg-main-700/20 px-4 py-0 rounded-md transition-colors relative"
   >
     <!-- With Header (new user message or certain time passed) -->
     <div v-if="showHeader" class="flex items-start gap-3">
       <UserAvatar
-          v-if="chatSettings.showAvatars"
+          v-if="showAvatarsEffective"
           :avatar-url="author.avatar"
           :size="40" 
           :user-id="author.id" 
@@ -53,8 +55,8 @@
       </div>
     </div>
     <!-- Without Header (continuous message) -->
-    <div v-else class="flex items-start gap-3 group">
-      <div class="w-10 shrink-0 text-right">
+    <div v-else :class="['flex items-start group', showAvatarsEffective ? 'gap-3' : 'gap-0']">
+      <div v-if="showAvatarsEffective" class="w-10 shrink-0 text-right">
         <span v-if="chatSettings.showTimestamps" class="text-xs text-text-tertiary opacity-0 group-hover:opacity-100 transition">
           {{ formatTimeShort(timestamp) }}
           <span v-if="editedTimestamp" class="text-xs text-text-tertiary">{{ t('chat.item.edited') }}</span>
@@ -67,8 +69,9 @@
               :content="displayContent"
               :mentioned-user-ids="mentions.map(user => user.id)"
               :mentioned-role-ids="mentionRoleIds || []"
+              class="text-text-secondary"
           />
-          <span v-else-if="!isEditing && !chatSettings.enableFormatting" class="whitespace-pre-wrap">{{ displayContent }}</span>
+          <span v-else-if="!isEditing && !chatSettings.enableFormatting" class="text-text-secondary whitespace-pre-wrap">{{ displayContent }}</span>
           <MessageEdit
               v-else
               :initial-content="extractTextContent(content, attachments)"
@@ -168,6 +171,7 @@ const { t, locale } = useI18n();
 const isEditing = ref(false);
 const isDeleteModalOpen = ref(false);
 const { chatSettings } = useChatSettings();
+const showAvatarsEffective = computed(() => chatSettings.showAvatars && chatSettings.density !== 'compact');
 const { appearance } = useAppearanceSettings();
 
 // --- Computed Properties ---

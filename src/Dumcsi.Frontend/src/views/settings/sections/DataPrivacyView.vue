@@ -19,12 +19,21 @@
             <h2 class="text-lg font-semibold">{{ t('settings.privacy.export.title') }}</h2>
             <p class="text-xs text-text-tertiary mt-1">{{ t('settings.privacy.export.description') }}</p>
           </div>
-          <div class="p-5 flex items-center gap-3">
-            <button class="btn-primary" @click="exportClientData" :disabled="exporting">
-              <span v-if="!exporting">{{ t('settings.privacy.export.download') }}</span>
-              <span v-else>{{ t('settings.privacy.export.preparing') }}</span>
-            </button>
-            <p class="text-xs text-text-tertiary">{{ t('settings.privacy.export.hint') }}</p>
+          <div class="p-5 space-y-3">
+            <div class="flex items-center gap-3">
+              <button class="btn-primary" @click="exportClientData" :disabled="exporting">
+                <span v-if="!exporting">{{ t('settings.privacy.export.download') }}</span>
+                <span v-else>{{ t('settings.privacy.export.preparing') }}</span>
+              </button>
+              <span class="text-xs text-text-tertiary">{{ t('settings.privacy.export.hint') }}</span>
+              <span class="ml-auto text-xs text-text-tertiary">{{ t('settings.privacy.export.itemsCount', { count: presentKeys.length }) }}</span>
+            </div>
+            <details class="rounded-md border border-border-default bg-bg-base/60 p-3 text-xs">
+              <summary class="cursor-pointer text-text-secondary">{{ t('settings.privacy.showDetails') }}</summary>
+              <ul class="mt-2 list-disc pl-5 space-y-1">
+                <li v-for="k in presentKeys" :key="k" class="font-mono break-all">{{ k }}</li>
+              </ul>
+            </details>
           </div>
         </section>
 
@@ -34,8 +43,17 @@
             <h2 class="text-lg font-semibold">{{ t('settings.privacy.clear.title') }}</h2>
             <p class="text-xs text-text-tertiary mt-1">{{ t('settings.privacy.clear.description') }}</p>
           </div>
-          <div class="p-5">
-            <button class="btn-secondary" @click="clearLocalData">{{ t('settings.privacy.clear.button') }}</button>
+          <div class="p-5 space-y-3">
+            <div class="flex items-center gap-3">
+              <button class="btn-danger" @click="clearLocalData">{{ t('settings.privacy.clear.button') }}</button>
+              <span class="ml-auto text-xs text-text-tertiary">{{ t('settings.privacy.clear.itemsCount', { count: presentKeys.length }) }}</span>
+            </div>
+            <details class="rounded-md border border-red-900/40 bg-red-900/10 p-3 text-xs">
+              <summary class="cursor-pointer text-red-300">{{ t('settings.privacy.showDetails') }}</summary>
+              <ul class="mt-2 list-disc pl-5 space-y-1">
+                <li v-for="k in LOCAL_KEYS" :key="k" class="font-mono break-all">{{ k }}</li>
+              </ul>
+            </details>
           </div>
         </section>
 
@@ -48,7 +66,7 @@
 <script setup lang="ts">
 import { Database } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 // Sessions mgmt intentionally excluded from this tab
 
@@ -75,6 +93,8 @@ const LOCAL_KEYS = [
   'dumcsi:userStatusPref',
   'dumcsi-closed-dms',
 ];
+
+const presentKeys = computed(() => LOCAL_KEYS.filter(k => safeGet(k) != null));
 
 async function exportClientData() {
   exporting.value = true;
