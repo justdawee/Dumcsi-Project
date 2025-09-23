@@ -2,6 +2,7 @@ import {createRouter, createWebHistory, type RouteRecordRaw} from 'vue-router';
 import {useAuthStore} from '@/stores/auth';
 import {useAppStore} from "@/stores/app.ts";
 import {signalRService} from "@/services/signalrService.ts";
+import { webrtcService } from '@/services/webrtcService';
 
 export const RouteNames = {
     // Guest routes
@@ -196,3 +197,14 @@ router.beforeEach(async (to, _from, next) => {
 });
 
 export default router;
+
+// Safety valve: ensure microphone is not active when not in a voice channel
+router.afterEach((_to, _from) => {
+    try {
+        const app = useAppStore();
+        if (!app.currentVoiceChannelId) {
+            // Idempotent: stops any lingering local/VAD tracks
+            webrtcService.leaveChannel();
+        }
+    } catch {}
+});

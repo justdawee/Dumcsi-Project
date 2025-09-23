@@ -581,6 +581,8 @@ export class SignalRService {
         this.connection.onclose(() => {
             
             appStore.setConnectionState('disconnected');
+            // Safety: ensure no microphone capture remains if we lost realtime connection
+            try { import('@/services/webrtcService').then(m => m.webrtcService.leaveChannel()).catch(() => {}); } catch {}
         });
 
         this.connection.on('Connected', async (onlineUserIds: EntityId[]) => {

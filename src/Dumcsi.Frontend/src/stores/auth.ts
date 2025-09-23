@@ -144,6 +144,10 @@ export const useAuthStore = defineStore('auth', () => {
     };
 
     const logout = async () => {
+        // Proactively stop any microphone/camera capture regardless of channel state
+        try { (await import('@/services/webrtcService')).webrtcService.leaveChannel(); } catch {}
+        try { (await import('@/services/livekitService')).livekitService.disconnectFromRoom(); } catch {}
+
         await signalRService.stop();
         setTokens(null);
         user.value = null;
