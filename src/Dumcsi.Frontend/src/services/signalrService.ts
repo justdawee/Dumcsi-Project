@@ -108,8 +108,9 @@ export class SignalRService {
     }
 
     private handleActivity() {
-        // If user manually set Busy/Invisible, do not flip to Online automatically
-        if (this.preferredStatus === UserStatus.Busy || this.preferredStatus === UserStatus.Invisible) {
+        // If user manually set a preferred status (Idle/Busy/Invisible), do not override it on activity.
+        // Only auto-manage status (Online/Idle) when in auto mode (preferredStatus === null) or when manually set to Online.
+        if (this.preferredStatus && this.preferredStatus !== UserStatus.Online) {
             this.scheduleIdleTimer();
             return;
         }
