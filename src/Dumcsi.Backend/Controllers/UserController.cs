@@ -156,10 +156,24 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
             return ConflictResponse("PROFILE_UPDATE_CONFLICT", "Username or email is already taken.");
         }
 
+        var usernameChanged = !string.Equals(user.Username, request.Username, StringComparison.Ordinal);
         user.Username = request.Username;
         user.Email = request.Email;
         user.GlobalNickname = request.GlobalNickname;
         user.Avatar = request.Avatar;
+
+        if (usernameChanged)
+        {
+            // Invalidate all existing sessions everywhere by rotating security stamp and removing refresh tokens
+            user.SecurityStamp = Guid.NewGuid().ToString();
+            var refreshTokens = await dbContext.UserRefreshTokens
+                .Where(rt => rt.UserId == CurrentUserId)
+                .ToListAsync(cancellationToken);
+            if (refreshTokens.Count > 0)
+            {
+                dbContext.UserRefreshTokens.RemoveRange(refreshTokens);
+            }
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         
@@ -174,7 +188,8 @@ public class UserController(IDbContextFactory<DumcsiDbContext> dbContextFactory,
         
         await chatHubContext.Clients.All.SendAsync("UserUpdated", updatedUserProfile, cancellationToken);
 
-        return OkResponse("Profile updated successfully.");
+        // Return the updated profile to clients
+        return OkResponse(updatedUserProfile);
     }
 
     [HttpDelete("me")]
