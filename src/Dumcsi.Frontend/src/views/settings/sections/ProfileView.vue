@@ -68,18 +68,6 @@
 
             <!-- Form Fields -->
             <div class="space-y-6">
-              <!-- Username and Email Row -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
-                <div>
-                  <label class="form-label" for="username">{{ t('settings.profile.fields.username') }}</label>
-                  <input id="username" :value="profileForm.username" class="form-input-disabled" disabled type="text"/>
-                </div>
-                <div>
-                  <label class="form-label" for="email">{{ t('settings.profile.fields.email') }}</label>
-                  <input id="email" :value="profileForm.email" class="form-input-disabled" disabled type="email"/>
-                </div>
-              </div>
-              
               <!-- Display Name - Constrained Width -->
               <div class="max-w-md">
                 <label class="form-label" for="globalNickname">{{ t('settings.profile.fields.displayName') }}</label>

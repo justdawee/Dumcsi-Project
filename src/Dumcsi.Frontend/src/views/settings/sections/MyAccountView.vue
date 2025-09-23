@@ -16,22 +16,38 @@
 
       <!-- Account Information -->
       <div class="bg-bg-surface rounded-2xl shadow-lg border border-border-default overflow-hidden mb-8">
-        <div class="p-6 border-b border-border-default">
-          <h2 class="text-lg font-semibold leading-6">{{ t('settings.account.info.title') }}</h2>
-          <p class="mt-1 text-sm text-text-muted">{{ t('settings.account.info.subtitle') }}</p>
-        </div>
-        <div class="p-6 space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
-            <div>
-              <label class="form-label">{{ t('settings.profile.fields.username') }}</label>
-              <div class="form-input-disabled">{{ authStore.user?.username }}</div>
-            </div>
-            <div>
-              <label class="form-label">{{ t('settings.account.email') }}</label>
-              <div class="form-input-disabled">{{ authStore.user?.email }}</div>
+        <form @submit.prevent="handleUpdateAccount">
+          <div class="p-6 border-b border-border-default">
+            <h2 class="text-lg font-semibold leading-6">{{ t('settings.account.info.title') }}</h2>
+            <p class="mt-1 text-sm text-text-muted">{{ t('settings.account.info.subtitle') }}</p>
+          </div>
+          <div class="p-6 space-y-6 max-w-2xl">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label class="form-label" for="acc-username">{{ t('settings.profile.fields.username') }}</label>
+                <input id="acc-username" v-model.trim="accountForm.username" class="form-input" type="text" required />
+                <p class="form-hint text-sm text-text-muted">{{ usernameChangeHint }}</p>
+              </div>
+              <div>
+                <label class="form-label" for="acc-email">{{ t('settings.account.email') }}</label>
+                <input id="acc-email" v-model.trim="accountForm.email" class="form-input" type="email" required />
+              </div>
             </div>
           </div>
-        </div>
+          <div class="bg-bg-base/40 px-6 py-4 flex items-center justify-end gap-4">
+            <transition name="fade">
+              <p v-if="hasAccountChanges" class="text-sm font-medium text-yellow-400 mr-auto">{{ t('settings.profile.unsaved') }}</p>
+            </transition>
+            <button :disabled="!hasAccountChanges || updatingAccount" class="btn-secondary" type="button" @click="resetAccountForm">{{ t('settings.profile.cancel') }}</button>
+            <button :disabled="!canSubmitAccount || updatingAccount" class="btn-primary" type="submit">
+              <span v-if="!updatingAccount">{{ t('settings.profile.save') }}</span>
+              <span v-else class="flex items-center">
+                <Loader2 class="animate-spin -ml-1 mr-2 h-5 w-5"/>
+                {{ t('settings.profile.saving') }}
+              </span>
+            </button>
+          </div>
+        </form>
       </div>
 
       <!-- Password Change Section Card -->
@@ -96,10 +112,19 @@
       :title="t('settings.account.delete.title')"
       @confirm="handleDeleteAccount"
   />
+  <ConfirmModal
+      v-model="showUsernameChangeConfirm"
+      :is-loading="updatingAccount"
+      confirm-text="Confirm"
+      intent="warning"
+      :message="usernameChangeWarning"
+      :title="t('settings.profile.fields.username')"
+      @confirm="confirmUsernameChange"
+  />
 </template>
 
 <script lang="ts" setup>
-import {ref, computed, reactive} from 'vue';
+import {ref, computed, reactive, onMounted} from 'vue';
 import {useAuthStore} from '@/stores/auth';
 import {useToast} from '@/composables/useToast';
 import userService from '@/services/userService';
@@ -118,12 +143,18 @@ const { t } = useI18n();
 const changingPassword = ref(false);
 const deletingAccount = ref(false);
 const showDeleteConfirm = ref(false);
+const updatingAccount = ref(false);
+const showUsernameChangeConfirm = ref(false);
 
 const passwordForm = reactive<ChangePasswordDto & { confirmPassword: '' }>({
   currentPassword: '',
   newPassword: '',
   confirmPassword: ''
 });
+
+// Account form
+const accountForm = reactive({ username: '', email: '' });
+const originalAccount = reactive({ username: '', email: '' });
 
 // Computed
 const passwordError = computed(() => {
@@ -142,6 +173,12 @@ const canChangePassword = computed(() => {
       passwordForm.newPassword.length >= 6 &&
       passwordForm.newPassword === passwordForm.confirmPassword;
 });
+
+const hasAccountChanges = computed(() => accountForm.username !== originalAccount.username || accountForm.email !== originalAccount.email);
+const canSubmitAccount = computed(() => !!accountForm.username && !!accountForm.email && hasAccountChanges.value);
+const usernameChanged = computed(() => accountForm.username !== originalAccount.username);
+const usernameChangeHint = computed(() => usernameChanged.value ? 'Changing your username will log you out on all devices.' : '');
+const usernameChangeWarning = 'If you change your username, you will be logged out everywhere. You will need to sign in again with the new username so your token can be regenerated.';
 
 // Methods
 const handleChangePassword = async () => {
@@ -174,6 +211,64 @@ const handleDeleteAccount = async () => {
   } finally {
     deletingAccount.value = false;
     showDeleteConfirm.value = false;
+  }
+};
+
+const loadAccount = () => {
+  if (authStore.user) {
+    originalAccount.username = authStore.user.username;
+    originalAccount.email = authStore.user.email;
+    accountForm.username = originalAccount.username;
+    accountForm.email = originalAccount.email;
+  }
+};
+
+onMounted(loadAccount);
+
+const resetAccountForm = () => {
+  accountForm.username = originalAccount.username;
+  accountForm.email = originalAccount.email;
+};
+
+const handleUpdateAccount = async () => {
+  if (!canSubmitAccount.value) return;
+  if (usernameChanged.value) {
+    showUsernameChangeConfirm.value = true;
+    return;
+  }
+  await performAccountUpdate();
+};
+
+const confirmUsernameChange = async () => {
+  await performAccountUpdate(true);
+};
+
+const performAccountUpdate = async (logoutAfter = false) => {
+  updatingAccount.value = true;
+  try {
+    const current = authStore.user;
+    await userService.updateProfile({
+      username: accountForm.username,
+      email: accountForm.email,
+      globalNickname: current?.globalNickname ?? null,
+      avatar: current?.avatar ?? null,
+    });
+
+    if (logoutAfter || usernameChanged.value) {
+      // Backend revoked sessions; log out locally to force re-login
+      await authStore.logout();
+      return;
+    }
+
+    await authStore.fetchUserProfile();
+    loadAccount();
+    const msg = t('settings.profile.updated');
+    addToast({ type: 'success', message: typeof msg === 'string' ? msg : 'Account updated.' });
+  } catch (error: any) {
+    addToast({ type: 'danger', message: getDisplayMessage(error) || 'Failed to update account.' });
+  } finally {
+    updatingAccount.value = false;
+    showUsernameChangeConfirm.value = false;
   }
 };
 </script>
