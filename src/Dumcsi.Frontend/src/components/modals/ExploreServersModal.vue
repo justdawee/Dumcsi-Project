@@ -85,7 +85,7 @@ import {useToast} from '@/composables/useToast';
 import serverService from '@/services/serverService';
 import {signalRService} from '@/services/signalrService';
 import type {ServerListItem, ServerListItemDto, EntityId} from '@/services/types';
-import {Loader2} from 'lucide-vue-next';
+import {Loader2, Server} from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 
 // --- Props & Emits ---
