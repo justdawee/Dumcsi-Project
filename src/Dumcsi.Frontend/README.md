@@ -142,16 +142,12 @@ The frontend expects the following API endpoints:
 
 ## Future Enhancements
 
-- [ ] WebSocket integration for real-time updates
-- [ ] File uploads and attachments
-- [ ] Voice channel support
-- [ ] User presence indicators
-- [ ] Direct messaging
-- [ ] Message reactions
-- [ ] User profile customization
-- [ ] Server discovery
-- [ ] Message search
-- [ ] Notification system
+- [ ] Custom Emoji reactions
+- [ ] Screensharing rework
+- [ ] Better Notification system
+- [ ] Bug fixes and performance improvements
+- [ ] More comprehensive tests
+- [ ] Mobile responsiveness improvements
 
 ## Contributing
 
