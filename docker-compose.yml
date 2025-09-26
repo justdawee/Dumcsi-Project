@@ -106,8 +106,8 @@ services:
 
   frontend:
     build:
-      context: src/Dumcsi.Frontend
-      dockerfile: ../../docker/frontend/Dockerfile
+      context: .
+      dockerfile: docker/frontend/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}
         VITE_LIVEKIT_URL: ${VITE_LIVEKIT_URL}

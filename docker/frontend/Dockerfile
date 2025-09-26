@@ -3,11 +3,12 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Context expected at src/Dumcsi.Frontend
-COPY package.json package-lock.json ./
+# Build context is repo root; copy frontend package manifests
+COPY src/Dumcsi.Frontend/package.json src/Dumcsi.Frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-COPY . .
+# Copy full frontend sources
+COPY src/Dumcsi.Frontend/ ./
 
 # Build-time API endpoints
 ARG VITE_API_URL=http://localhost:5000/api
@@ -20,9 +21,9 @@ RUN npm run build
 FROM nginx:1.27-alpine AS final
 WORKDIR /usr/share/nginx/html
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy Nginx config from docker folder (repo root context)
+COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/ .
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
-
