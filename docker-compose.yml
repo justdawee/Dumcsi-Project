@@ -50,26 +50,18 @@ services:
       LIVEKIT_RO_API_KEY: ${LIVEKIT_RO_API_KEY}
       LIVEKIT_RO_API_SECRET: ${LIVEKIT_RO_API_SECRET}
     volumes:
-      - livekit-config:/config
-      - ./docker/livekit/livekit.yaml:/tmpl/livekit.yaml:ro
-    entrypoint: ["/bin/sh","-c"]
-    command: |
-      set -e
-      # Generate RO key/secret if empty
-      if [ -z "${LIVEKIT_RO_API_KEY}" ]; then export LIVEKIT_RO_API_KEY=$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 12); fi
-      if [ -z "${LIVEKIT_RO_API_SECRET}" ]; then export LIVEKIT_RO_API_SECRET=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32); fi
-      mkdir -p /config
-      apk add --no-cache gettext >/dev/null 2>&1
-      envsubst < /tmpl/livekit.yaml > /config/livekit.yaml
-      echo "LiveKit config created at /config/livekit.yaml"
+      - ./docker/livekit/generated:/config
+      - ./docker/livekit:/tmpl:ro
+    entrypoint: ["/bin/sh","/tmpl/render.sh"]
     restart: "no"
 
   livekit:
     image: livekit/livekit-server:latest
     depends_on:
-      - livekit-config
+      livekit-config:
+        condition: service_completed_successfully
     volumes:
-      - livekit-config:/config:ro
+      - ./docker/livekit/generated:/config:ro
     command: ["--config","/config/livekit.yaml"]
     ports:
       - "7880:7880"      # HTTP/WS signaling
@@ -124,4 +116,3 @@ volumes:
   pgdata:
   minio-data:
   minio-config:
-  livekit-config:
