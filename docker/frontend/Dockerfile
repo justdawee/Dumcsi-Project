@@ -10,9 +10,9 @@ RUN npm ci --no-audit --no-fund
 # Copy full frontend sources
 COPY src/Dumcsi.Frontend/ ./
 
-# Build-time API endpoints
-ARG VITE_API_URL=http://localhost:5000/api
-ARG VITE_LIVEKIT_URL=ws://localhost:7880
+# Build-time endpoints. Default API to relative path; leave LiveKit empty to derive at runtime.
+ARG VITE_API_URL=/api
+ARG VITE_LIVEKIT_URL=
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL
 
