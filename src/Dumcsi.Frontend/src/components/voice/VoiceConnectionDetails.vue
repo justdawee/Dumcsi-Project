@@ -252,7 +252,11 @@ const connectionStatus = computed(() => {
 });
 
 const serverUrl = computed(() => {
-  return import.meta.env.VITE_LIVEKIT_URL || 'ws://192.168.0.50:7880';
+  const env = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
+  if (env && env.trim().length > 0) return env;
+  const isHttps = window.location.protocol === 'https:';
+  const wsScheme = isHttps ? 'wss' : 'ws';
+  return `${wsScheme}://${window.location.host}/livekit`;
 });
 
 const channelName = computed(() => {

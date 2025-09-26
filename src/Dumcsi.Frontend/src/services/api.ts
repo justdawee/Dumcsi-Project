@@ -13,7 +13,8 @@ export interface ApiResponse<T = any> {
 }
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5230/api',
+    // Default to same-origin proxy path. Nginx proxies /api to backend in Docker.
+    baseURL: import.meta.env.VITE_API_URL || '/api',
     headers: {
         'Content-Type': 'application/json',
     },

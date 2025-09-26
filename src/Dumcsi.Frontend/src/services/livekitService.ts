@@ -52,16 +52,19 @@ export class LiveKitService {
     private onLocalScreenShareStoppedCallbacks: Array<() => void> = [];
 
     async getServerInfo(): Promise<LiveKitServerInfo> {
-        // Check for environment variable first
-        const envUrl = import.meta.env.VITE_LIVEKIT_URL;
-        
-        // Default to configured server, with localhost fallback for development
-        const defaultUrl = envUrl || 'ws://192.168.0.50:7880';
-        
-        // minimal server info without verbose logging
-        
+        // Use explicit env when provided, otherwise derive from current origin and
+        // proxy through Nginx at /livekit to avoid hardcoding IPs/ports.
+        const envUrl = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
+
+        let url = envUrl && envUrl.trim().length > 0 ? envUrl : '';
+        if (!url && typeof window !== 'undefined') {
+            const isHttps = window.location.protocol === 'https:';
+            const wsScheme = isHttps ? 'wss' : 'ws';
+            url = `${wsScheme}://${window.location.host}/livekit`;
+        }
+
         return {
-            url: defaultUrl,
+            url,
             version: '1.0.0'
         };
     }

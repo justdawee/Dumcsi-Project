@@ -157,7 +157,8 @@ export class SignalRService {
         }
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5230/api'
+            // Default to same-origin /api (proxied by Nginx in Docker)
+            const apiUrl = import.meta.env.VITE_API_URL || '/api'
             const hubBase = apiUrl.replace(/\/api$/, '')
             this.connection = new signalR.HubConnectionBuilder()
                 .withUrl(`${hubBase}/chathub`, {
