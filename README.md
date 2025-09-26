@@ -34,7 +34,7 @@ cp .env.example .env
 
 Key defaults (change if ports are taken):
 
-- Backend: http://localhost:5000
+- Backend: http://localhost:5000 (proxied via frontend at /api)
 - Frontend: http://localhost:5173 (set `FRONTEND_HOST_PORT` to change)
 - MinIO: http://localhost:9000 (S3 API), http://localhost:9001 (Console)
 - LiveKit: ws://localhost:7880
@@ -53,7 +53,8 @@ Compose services:
 ### 3) Open the app
 
 - Frontend: http://localhost:${FRONTEND_HOST_PORT:-5173}
-- API: http://localhost:5000/api
+- API: http://localhost:${FRONTEND_HOST_PORT:-5173}/api (proxied)
+  - Direct backend (optional): http://localhost:5000/api
 - MinIO Console: http://localhost:9001 (use `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`)
 
 ### Useful compose commands
@@ -134,10 +135,10 @@ Default URL: `http://localhost:5000` (CORS is controlled by `Cors:AllowedOrigins
 
 ### 5) Frontend (Vue 3 + Vite)
 
-Create `src/Dumcsi.Frontend/.env.local` with your endpoints:
+Create `src/Dumcsi.Frontend/.env.local` with your endpoints (or rely on defaults):
 
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=/api
 VITE_LIVEKIT_URL=ws://localhost:7880
 ```
 

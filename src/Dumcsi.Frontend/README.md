@@ -72,7 +72,7 @@ src/
 
 ### Environment Variables
 
-- `VITE_API_URL` - Backend API URL (default: http://localhost:5230/api)
+- `VITE_API_URL` - Backend API URL (default: /api via Nginx proxy)
 
 ### Tailwind Configuration
 
