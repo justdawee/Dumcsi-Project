@@ -14,15 +14,32 @@ var builder = WebApplication.CreateBuilder(args);
 const string myAllowSpecificOrigins = "_myAllowSpecificOrigins";
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: myAllowSpecificOrigins,
-        policy  =>
+    options.AddPolicy(name: myAllowSpecificOrigins, policy =>
+    {
+        var configured = builder.Configuration.GetValue<string>("Cors:AllowedOrigins");
+        var origins = (configured ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (origins.Length == 0)
         {
-            // Add your frontend's development URL
-            policy.WithOrigins("http://localhost:5173") 
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials(); // Crucial for SignalR authentication
-        });
+            origins = new[] { "http://localhost:5173" };
+        }
+
+        if (Array.Exists(origins, o => o == "*"))
+        {
+            // Note: AllowAnyOrigin is incompatible with AllowCredentials
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins(origins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // Crucial for SignalR authentication
+        }
+    });
 });
 
 builder.Services.AddControllers()
