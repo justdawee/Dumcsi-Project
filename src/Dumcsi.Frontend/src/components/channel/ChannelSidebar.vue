@@ -302,7 +302,6 @@
 </template>
 
 <script lang="ts" setup>
-import type {Component} from 'vue';
 import {ref, computed, watchEffect, nextTick, onBeforeUnmount, type ComponentPublicInstance} from 'vue';
 import { useI18n } from 'vue-i18n';
 import {useRoute, useRouter} from 'vue-router';
