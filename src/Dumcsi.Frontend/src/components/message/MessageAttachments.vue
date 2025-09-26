@@ -8,7 +8,7 @@
       <div v-if="isImage(attachment)" class="relative border border-border-default/50 rounded-lg overflow-hidden inline-block">
         <div class="label-badge">{{ getAttachmentLabel(attachment) }}</div>
         <img
-            :src="attachment.fileUrl"
+            :src="urlFor(attachment)"
             :alt="attachment.fileName"
             class="preview-media cursor-pointer"
             @load="notifyMediaLoaded"
@@ -23,7 +23,7 @@
               class="preview-media"
               @loadedmetadata="notifyMediaLoaded"
           >
-            <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+            <source :src="urlFor(attachment)" :type="attachment.contentType || undefined" />
           </video>
           <button
               class="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/80 transition"
@@ -40,12 +40,12 @@
           <span class="text-sm text-text-secondary">{{ t('chat.attachments.labels.audioFile') }}</span>
         </div>
         <audio controls class="w-full">
-          <source :src="attachment.fileUrl" :type="attachment.contentType || undefined" />
+          <source :src="urlFor(attachment)" :type="attachment.contentType || undefined" />
         </audio>
       </div>
       <a
           v-else
-          :href="attachment.fileUrl"
+          :href="urlFor(attachment)"
           target="_blank"
           class="flex items-center text-blue-400 hover:underline"
       >
@@ -84,6 +84,24 @@ const notifyMediaLoaded = () => {
 const isImage = (a: AttachmentDto) => a.contentType?.startsWith('image/');
 const isVideo = (a: AttachmentDto) => a.contentType?.startsWith('video/');
 const isAudio = (a: AttachmentDto) => a.contentType?.startsWith('audio/');
+
+// Normalize legacy MinIO URLs that referenced the internal hostname
+const urlFor = (a: AttachmentDto) => {
+  const url = a.fileUrl || '';
+  if (!url) return url;
+  try {
+    const u = new URL(url, window.location.origin);
+    if (u.hostname === 'minio' && (u.port === '9000' || !u.port)) {
+      return `/s3${u.pathname}${u.search}`;
+    }
+  } catch {
+    // Not an absolute URL; handle bare host form
+    if (url.startsWith('minio:9000/')) {
+      return `/s3/${url.substring('minio:9000/'.length)}`;
+    }
+  }
+  return url;
+};
 
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();

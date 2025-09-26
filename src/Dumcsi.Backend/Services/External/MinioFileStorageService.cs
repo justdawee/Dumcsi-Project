@@ -9,6 +9,7 @@ public class MinioFileStorageService : IFileStorageService
 {
     private readonly IMinioClient _minioClient;
     private readonly string _defaultBucketName;
+    private readonly string _publicBasePath;
 
     public MinioFileStorageService(IConfiguration configuration)
     {
@@ -17,6 +18,8 @@ public class MinioFileStorageService : IFileStorageService
         var accessKey = minioConfig["AccessKey"] ?? throw new InvalidOperationException("MinIO AccessKey is not configured.");
         var secretKey = minioConfig["SecretKey"] ?? throw new InvalidOperationException("MinIO SecretKey is not configured.");
         _defaultBucketName = minioConfig["BucketName"] ?? "dumcsi";
+        // Public path exposed via frontend Nginx to reach MinIO from browsers
+        _publicBasePath = minioConfig["PublicBasePath"] ?? "/s3";
 
         _minioClient = new MinioClient()
             .WithEndpoint(endpoint)
@@ -49,8 +52,9 @@ public class MinioFileStorageService : IFileStorageService
         
         await _minioClient.PutObjectAsync(putObjectArgs);
 
-        // Return file access URL
-        return $"{_minioClient.Config.Endpoint}/{bucketName}/{uniqueFileName}";
+        // Return a browser-accessible URL via frontend proxy (relative path)
+        var trimmed = _publicBasePath.TrimEnd('/');
+        return $"{trimmed}/{bucketName}/{uniqueFileName}";
     }
 
     public async Task DeleteFileAsync(string fileName, string bucketName = "dumcsi")

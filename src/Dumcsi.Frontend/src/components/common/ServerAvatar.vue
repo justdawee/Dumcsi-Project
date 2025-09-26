@@ -6,7 +6,7 @@
     <img
         v-if="icon && !imageError"
         :alt="displayName"
-        :src="icon"
+        :src="normalizedIcon"
         class="w-full h-full object-cover"
         @error="handleImageError"
     />
@@ -34,6 +34,20 @@ const { t } = useI18n();
 
 const displayName = computed(() => {
   return props.name || props.serverName || t('server.nameDefault', 'Server');
+});
+
+const normalizedIcon = computed(() => {
+  const url = props.icon || '';
+  if (!url) return url;
+  try {
+    const u = new URL(url, window.location.origin);
+    if (u.hostname === 'minio' && (u.port === '9000' || !u.port)) {
+      return `/s3${u.pathname}${u.search}`;
+    }
+  } catch {
+    if (url.startsWith('minio:9000/')) return `/s3/${url.substring('minio:9000/'.length)}`;
+  }
+  return url;
 });
 
 const initials = computed(() => {

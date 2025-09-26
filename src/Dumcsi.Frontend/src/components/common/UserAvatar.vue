@@ -16,7 +16,7 @@
       <img
           v-if="avatarUrl && !imageError"
           :alt="displayName"
-          :src="avatarUrl"
+          :src="avatarUrlNormalized"
           class="w-full h-full object-cover"
           @error="handleImageError"
       />
@@ -164,3 +164,17 @@ const handleImageError = () => {
   imageError.value = true;
 };
 </script>
+// Normalize potential internal MinIO URLs to same-origin proxy
+const avatarUrlNormalized = computed(() => {
+  const url = (typeof props.avatarUrl === 'string' ? props.avatarUrl : '') || '';
+  if (!url) return url;
+  try {
+    const u = new URL(url, window.location.origin);
+    if (u.hostname === 'minio' && (u.port === '9000' || !u.port)) {
+      return `/s3${u.pathname}${u.search}`;
+    }
+  } catch {
+    if (url.startsWith('minio:9000/')) return `/s3/${url.substring('minio:9000/'.length)}`;
+  }
+  return url;
+});
