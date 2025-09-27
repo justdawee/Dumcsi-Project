@@ -13,8 +13,10 @@ COPY src/Dumcsi.Frontend/ ./
 # Build-time endpoints. Default API to relative path; leave LiveKit empty to derive at runtime.
 ARG VITE_API_URL=/api
 ARG VITE_LIVEKIT_URL=
+ARG VITE_TENOR_API_KEY=
 ENV VITE_API_URL=$VITE_API_URL \
-    VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL
+    VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL \
+    VITE_TENOR_API_KEY=$VITE_TENOR_API_KEY
 
 RUN npm run build
 

@@ -73,6 +73,7 @@ src/
 ### Environment Variables
 
 - `VITE_API_URL` - Backend API URL (default: /api via Nginx proxy)
+- `VITE_TENOR_API_KEY` - Tenor GIF Search API key (optional)
 
 ### Tailwind Configuration
 

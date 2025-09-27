@@ -168,6 +168,7 @@ Key environment variables (see `.env.example` for Docker):
 - `Minio__*`: MinIO endpoint and credentials
 - `LiveKit__*`: LiveKit URL and API credentials
 - `VITE_API_URL`, `VITE_LIVEKIT_URL`: Frontend build/runtime endpoints
+- `VITE_TENOR_API_KEY`: Tenor GIF Search API key (optional)
 
 ---
 
