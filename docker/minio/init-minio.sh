@@ -48,4 +48,12 @@ EOF
 /usr/bin/mc admin policy create local ${MINIO_BUCKET}-rw /tmp/bucket-policy.json || true
 /usr/bin/mc admin policy attach local --user ${MINIO_SVC_USER} ${MINIO_BUCKET}-rw || true
 
+# Optionally set bucket to public read (anonymous GetObject) for serving attachments
+if [ "${MINIO_BUCKET_PUBLIC:-true}" = "true" ]; then
+  echo "[minio-init] Enabling anonymous read (download) on bucket: $MINIO_BUCKET"
+  /usr/bin/mc anonymous set download local/"$MINIO_BUCKET" || true
+else
+  echo "[minio-init] Keeping bucket private (no anonymous access)"
+fi
+
 echo "[minio-init] Done"
