@@ -93,10 +93,13 @@ Example `appsettings.Development.json` (values are illustrative only):
   "LiveKit": {
     "Url": "https://livekit.example.local",
     "ApiKey": "dev",
-    "ApiSecret": "dev"
+    "ApiSecret": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
 }
 ```
+
+Notes:
+- LiveKit ApiSecret must be at least 256 bits (32 bytes). Use a 64-hex-character value or a long random string.
 
 Environment variables can replace any key by using `__` (double underscore) separators, e.g.:
 
