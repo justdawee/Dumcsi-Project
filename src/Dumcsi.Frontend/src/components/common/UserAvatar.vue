@@ -163,7 +163,6 @@ const statusIndicatorStyles = computed(() => {
 const handleImageError = () => {
   imageError.value = true;
 };
-</script>
 // Normalize potential internal MinIO URLs to same-origin proxy
 const avatarUrlNormalized = computed(() => {
   const url = (typeof props.avatarUrl === 'string' ? props.avatarUrl : '') || '';
@@ -178,3 +177,5 @@ const avatarUrlNormalized = computed(() => {
   }
   return url;
 });
+
+</script>
