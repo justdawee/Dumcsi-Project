@@ -2,7 +2,7 @@
 
 # Dumcsi Chat
 
-Realtime chat platform built with ASP.NET Core (.NET 9) and Vue 3 + Vite, featuring SignalR for realtime messaging, MinIO for object storage, and LiveKit for voice/video.
+Realtime chat platform built with ASP.NET Core (.NET 9) and Vue 3 + Vite, featuring SignalR for realtime messaging, MinIO for object storage, and LiveKit for video sharing.
 
 </div>
 
